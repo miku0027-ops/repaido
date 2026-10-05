@@ -44,15 +44,19 @@ steps:
         # Require the existing service so missing production settings cannot
         # silently create a new service with SQLite on ephemeral storage.
         gcloud run services describe '${_SERVICE}' --project='$PROJECT_ID' --region='${_REGION}' --format='value(metadata.name)'
-        gcloud run deploy '${_SERVICE}' \
-          --project='$PROJECT_ID' --region='${_REGION}' \
-          --image='${_IMAGE}:$BUILD_ID' \
-          --update-env-vars='REPAIDO_BUILD_ID=$BUILD_ID' \
-          --no-traffic --tag='build-$BUILD_ID' --quiet --format=json > /workspace/candidate.json
         python3 - <<'PY'
         import json, subprocess, time, urllib.request
+        tag = 'b-' + '$BUILD_ID'.replace('-', '')
+        assert len(tag) + len('${_SERVICE}') <= 46, 'Cloud Run traffic tag exceeds the service limit'
+        with open('/workspace/candidate.json', 'w') as output:
+            subprocess.run(['gcloud', 'run', 'deploy', '${_SERVICE}',
+                            '--project=$PROJECT_ID', '--region=${_REGION}',
+                            '--image=${_IMAGE}:$BUILD_ID',
+                            '--update-env-vars=REPAIDO_BUILD_ID=$BUILD_ID',
+                            '--no-traffic', '--tag=' + tag, '--quiet', '--format=json'],
+                           stdout=output, check=True)
         service = json.load(open('/workspace/candidate.json'))
-        url = next(t['url'] for t in service['status']['traffic'] if t.get('tag') == 'build-$BUILD_ID')
+        url = next(t['url'] for t in service['status']['traffic'] if t.get('tag') == tag)
         token = subprocess.check_output(['gcloud', 'auth', 'print-identity-token'], text=True).strip()
         for attempt in range(12):
             try:

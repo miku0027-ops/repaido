@@ -38,7 +38,8 @@ Inspect the trigger build in Cloud Build History after pushing. Verify the deplo
 commit at `https://repaido.web.app/build-info.json` and the backend build ID at
 `https://repaido.web.app/api/health`. Only matching IDs establish that both components
 are serving the same build. Unique build tags avoid selecting another concurrent
-build's revision, but production trigger runs should be serialized or superseded
+build's revision. Tags use `b-` plus the build UUID without hyphens to stay within
+Cloud Run's combined tag/service-name limit. Production trigger runs should be serialized or superseded
 runs cancelled to avoid an older build finishing after a newer one.
 
 For manual submission from the repository root:
