@@ -206,6 +206,12 @@ def make_job(u,p,v,now):
         from coupons import attach_job
         discount=v['base_paise']*p['coupon']['bps']//10000
         attach_job(j,{**p['coupon'],'discount_paise':discount,'eligible_base_paise':v['base_paise']})
+    offer=p['quote'].get('professional_offer')
+    if offer and not p.get('coupon') and v['period']==p['periods'][0]['index']:
+        discount=v['base_paise']*offer['bps']//10000
+        j['professional_offer']={**offer,'discount_paise':discount,'eligible_base_paise':v['base_paise']}
+        j['vendor_discount_paise']=discount
+        j['total_paise']-=discount
     j['settlement_policy']=copy.deepcopy(p['earnings_policy'])
     event(u,j,'RecurringVisitScheduled','scheduler');u.put('jobs',jid,j);v['job_id']=jid
 
@@ -219,7 +225,7 @@ def invoices(u,p):
             j=u.get('jobs',v.get('job_id',''))
             if j and j['state']=='completed':
                 from parts_payments import advance_total
-                rows.append(dict(job_id=j['id'],date=v['date'],amount_paise=j['total_paise']-advance_total(u,j['id']),base_paise=j['base_price_paise'],gst_paise=j.get('home_gst_paise',0)))
+                rows.append(dict(job_id=j['id'],date=v['date'],amount_paise=j['total_paise']-advance_total(u,j['id']),base_paise=j['base_price_paise'],gst_paise=j.get('home_gst_paise',0),discount_paise=j.get('vendor_discount_paise',0)))
             elif j and j['state'] not in ('cancelled',):unresolved=True
             elif v['status']=='scheduled':unresolved=True
         due=day(period['end'])<iso_today() and not unresolved
@@ -253,7 +259,10 @@ def apply_capture(u,a,payment):
 def install(core):
     r=APIRouter(prefix='/operations',tags=['Repaido Home']);store=core.operations_store
     @r.get('/home/catalog')
-    def catalog():return {'services':[{**s,'requirements':home_briefs.SCHEMAS[s['id']],'requirements_version':home_briefs.VERSION} for s in OFFERINGS],'durations':[{'id':'trial7','label':'7-day starter'},{'id':'month1','label':'1 month'},{'id':'month3','label':'3 months'},{'id':'month6','label':'6 months'}],'cities':core.CITIES,'timezone':'Asia/Kolkata','assurance':'Identity review, agreed hygiene checks, visit records and issue escalation. Availability and scope are confirmed before activation; no absolute safety or work guarantee.'}
+    def catalog(city:str=''):
+        from professional_offers import active_offers
+        offers=store.run(lambda u:active_offers(u,city=city)) if city else []
+        return {'services':[{**s,'offers':[o for o in offers if o['service_id']==s['id']],'requirements':home_briefs.SCHEMAS[s['id']],'requirements_version':home_briefs.VERSION} for s in OFFERINGS],'durations':[{'id':'trial7','label':'7-day starter'},{'id':'month1','label':'1 month'},{'id':'month3','label':'3 months'},{'id':'month6','label':'6 months'}],'cities':core.CITIES,'timezone':'Asia/Kolkata','assurance':'Identity review, agreed hygiene checks, visit records and issue escalation. Availability and scope are confirmed before activation; no absolute safety or work guarantee.'}
     @r.post('/home/plans',status_code=201)
     def request(body:RequestPlan,user=Depends(core.current_user)):
         s=service(body.service_id);start=day(body.start_date);now=time.time()
@@ -331,6 +340,10 @@ def install(core):
             if not w or not candidate(u,p,w):fail('NO_CANDIDATE','This worker cannot cover the entire schedule, service, city or travel radius. Choose another eligible professional.')
             if p['visits'][0]['starts_epoch']<=time.time():fail('START_PASSED','The start date passed. Ask the customer to request a future schedule.')
             p.update(quote=body.model_dump(exclude={'expected_version','worker_id'}),worker_id=w['id'],worker_name=w['name'],quote_version=p['quote_version']+1,offer_expires_at=min(time.time()+48*3600,p['visits'][0]['starts_epoch']-3600),state='offered',version=p['version']+1)
+            from professional_offers import quote_offer
+            first_visits=sum(v['period']==p['periods'][0]['index'] for v in p['visits'])
+            offer=quote_offer(u,w['id'],p['service_id'],body.period_price_paise,first_visits) if not p.get('coupon') else None
+            if offer:p['quote']['professional_offer']=offer
             allocate(p);u.put('home_plans',pid,p);audit(u,'HomeQuoteIssued',admin['id'],plan_id=pid);notify(u,p,p['customer_id'],'Review your home plan','Review the worker, schedule, monthly price, tax and terms before accepting.');notify(u,p,w['id'],'Home plan invitation','Review the full calendar, work and earnings terms. Accept only if you can fulfil the schedule.');return public(u,p,admin['id'],True)
         return store.run(save)
     @r.post('/home/plans/{pid}/decision')
@@ -349,6 +362,8 @@ def install(core):
                         if not user.get('phone_verified'):fail('PHONE_REQUIRED','Use your phone-verified worker account.',403)
                         dummy={'id':p['id']};snapshot_policy(u,dummy,w)
                         if not dummy.get('settlement_policy'):fail('POLICY_REQUIRED','An approved earnings policy must be accepted before a plan can start.')
+                        offer=p['quote'].get('professional_offer')
+                        if offer and offer['bps']>dummy['settlement_policy']['worker_share_bps']:fail('OFFER_EARNINGS_CHANGED','The earnings policy no longer covers this offer. Request a revised quote.')
                         p['earnings_policy']=dummy['settlement_policy'];p['worker_accepted_at']=now
                     else:p['customer_accepted_at']=now
                     if p.get('customer_accepted_at') and p.get('worker_accepted_at'):p['state']='active'

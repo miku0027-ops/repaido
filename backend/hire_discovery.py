@@ -54,6 +54,8 @@ def profile(u,w,jobs):
     p['work_history']=[{'service':text(j['service_name']),'category':j['category'],'completed_at':j.get('completed_at'),'rating':j.get('review',{}).get('rating')} for j in sorted(completed,key=lambda j:j.get('completed_at',0),reverse=True)[:12]]
     p['home_services']=(u.get('home_availability',w['id']) or {}).get('approved_services',[])
     p['contractor_verified']=bool(w.get('contractor_verified'))
+    from professional_offers import active_offers
+    p['offers']=active_offers(u,w['id'])
     p['listed_member']=True
     return p
 

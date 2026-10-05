@@ -17,10 +17,10 @@ const products=[
   {id:'shop-out',name:'Out of stock must be excluded',category:'phone',condition:'refurbished',price_paise:99000,stock:0,shop_id:'actual-shop'}
 ];
 const professionals=[
-  {id:'worker-electrical',name:'Electrical professional',categories:['electrician'],bio:'Electrical work',rating:4.5,review_count:2,completed_tasks:3},
+  {id:'worker-electrical',name:'Electrical professional',categories:['electrician'],home_services:['maid'],skills:['Wiring'],bio:'Electrical work',rating:4.5,review_count:2,completed_tasks:3},
   {id:'worker-cleaning',name:'Cleaning professional',categories:['cleaning'],bio:'Home cleaning',rating:null,review_count:0,completed_tasks:0}
 ];
-const hireCategories=[{id:'electrician',name:'Electrical installation and maintenance'},{id:'cleaning',name:'Home maid and detailed cleaning services'},{id:'carpenter',name:'Carpentry'}];
+const hireCategories=[{id:'electrician',name:'Electrical installation and maintenance'},{id:'cleaning',name:'Home maid and detailed cleaning services'},{id:'carpenter',name:'Carpentry'},{id:'home:maid',name:'Maid & daily home help'}];
 const services=[{id:'electrical-live',name:'Live electrical inspection',category:'electrician',description:'Listed inspection scope',price_paise:19900,duration_minutes:45,included:[],excluded:[]},{id:'cleaning-live',name:'Live home cleaning',category:'cleaning',description:'Listed cleaning scope',price_paise:49900,duration_minutes:60,included:[],excluded:[]}];
 let failProducts=false;
 const errors=[];
@@ -39,10 +39,10 @@ try{
     if(url.pathname==='/api/operations/hiring/leaderboard'){
       const body=route.request().postDataJSON();
       assert.equal(body.city,'Test city');
-      data={professionals:professionals.filter(p=>!body.category||p.categories.includes(body.category)),categories:hireCategories};
+      data={professionals:professionals.filter(p=>!body.category||p.categories.includes(body.category)||(p.home_services||[]).includes(body.category.replace('home:',''))),categories:hireCategories};
     }
     if(url.pathname==='/api/catalog')data={categories:[{id:'electrician',name:'Electrical'},{id:'cleaning',name:'Cleaning'}],services};
-    if(url.pathname==='/api/operations/home/catalog')data={services:[{id:'interior-design',name:'Live interior design',category:'interiors',description:'Listed design scope'},{id:'maid',name:'Live home help',category:'cleaning',description:'Listed help scope'}]};
+    if(url.pathname==='/api/operations/home/catalog')data={services:[{id:'interior-design',name:'Live interior design',category:'interiors',description:'Listed design scope'},{id:'maid',name:'Live home help',category:'cleaning',description:'Listed help scope',recurring:true,requirements:[{label:'Rooms and surfaces'}],offers:[{id:'published-offer',worker_id:'worker-electrical',worker_name:'Electrical professional',service_id:'maid',bps:1500,ends_at:Date.now()/1000+86400,terms:'Professional-funded saving on the first service period. Tax and extras excluded.'}]}]};
     return data?route.fulfill({json:data}):route.continue();
   });
   const open=async id=>{
@@ -115,6 +115,44 @@ try{
   failProducts=false;await page.getByRole('button',{name:'Retry',exact:true}).click();
   await page.getByRole('heading',{name:'Shop refurbished phone'}).waitFor();
   await page.addStyleTag({content:'html { font-size: 24px; }'});await checkLayout();
+  await close();await page.goto(base+'/tests/home-quick-actions-preview.html');
+  await open('hire');await category('Maid & daily home help');
+  await page.getByRole('heading',{name:'Electrical professional',exact:true}).waitFor();
+  assert.equal(await page.locator('.quick-product-card').count(),1,'Home skills must not be dropped by a second trade-only filter');
+  await category('All categories');
+  await page.getByRole('searchbox').fill('Electrical professional');
+  assert.equal(await page.locator('.quick-product-card').count(),1);
+  const cityRequest=page.waitForRequest(r=>r.url().includes('/hiring/leaderboard')&&r.postDataJSON().location===null);
+  await page.getByRole('button',{name:'Across Test city',exact:true}).click();await cityRequest;
+  await page.locator('dialog[open] section[aria-busy="false"]').waitFor();
+  await page.getByRole('searchbox').fill('');await close();
+  await open('home');await category('Home Cleaning');
+  await page.getByRole('button',{name:'Request with Electrical professional'}).click();
+  assert.deepEqual(JSON.parse(await page.getByLabel('Last action').textContent()),{service:'maid',professional:{id:'worker-electrical',name:'Electrical professional'}});
+  await open('home');await category('Home Cleaning');
+  await page.locator('.quick-scope summary').click();await page.locator('.quick-offer summary').click();
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await page.locator('.quick-product-card').first().evaluate(e=>getComputedStyle(e).animationName),'none');
+  await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
+  for(const theme of ['light','dark']){
+    await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
+    const result=await page.evaluate(async()=>window.axe.run(document.querySelector('dialog[open]'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']}}));
+    assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],theme+' dialog accessibility');
+  }
+  await close();
+  for(const panel of ['hire','repair','refurbished','used']){
+    await open(panel);
+    for(const theme of ['light','dark']){
+      await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
+      const result=await page.evaluate(async()=>window.axe.run(document.querySelector('dialog[open]'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']}}));
+      assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],panel+' '+theme+' accessibility');
+    }
+    await close();
+  }
+  await page.evaluate(()=>document.documentElement.removeAttribute('data-theme'));
+  await open('home');await category('Home Cleaning');
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'test-results/home-premium-redesign.png'});
   assert.deepEqual(errors,[]);
   console.log('Location gate, fetch failure/retry, enlarged text and zero runtime errors passed');
 }finally{await browser.close();}

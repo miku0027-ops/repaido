@@ -13,7 +13,7 @@ export interface HomeQuickActionsProps {
   onLocation:()=>void;
   onMarket:(section:'spares'|'preowned',options?:QuickMarket)=>void;
   onHire:()=>void;
-  onHome:(service:string)=>void;
+  onHome:(service:string,professional?:{id:string;name:string})=>void;
   onService:(service:Service)=>void;
   onCatalogue:()=>void;
   onOpenCart?:()=>void;
@@ -45,7 +45,7 @@ export default function HomeQuickActions(props:HomeQuickActionsProps){
       <QuickActionCatalog key={panel} panel={panel} city={props.city} location={props.location}
         onLocation={()=>closeAnd(props.onLocation)}
         onMarket={(section,options)=>closeAnd(()=>props.onMarket(section,options))}
-        onHire={()=>closeAnd(props.onHire)} onHome={id=>closeAnd(()=>props.onHome(id))}
+        onHire={()=>closeAnd(props.onHire)} onHome={(id,professional)=>closeAnd(()=>props.onHome(id,professional))}
         onService={service=>closeAnd(()=>props.onService(service))}
         onCatalogue={()=>closeAnd(props.onCatalogue)}
         onOpenCart={props.onOpenCart?()=>closeAnd(props.onOpenCart!):undefined}/>
