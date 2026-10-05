@@ -45,8 +45,8 @@ type Item={
 const types=['phone','computer','television','appliance','camera','audio','tools','other'];
 const typeLabels:Record<string,string>={all:'All Finds',phone:'Phones & Tablets',computer:'Laptops & PCs',television:'TVs & Screens',appliance:'Appliances',camera:'Cameras',audio:'Audio & Sound',tools:'Workshop Tools',other:'Other'};
 
-export function Marketplace({mode,manage=false,onSignIn,initialCreate=false}:{mode:Mode;manage?:boolean;onSignIn?:()=>void;initialCreate?:boolean}){
- const [mine,setMine]=useState(manage),[rows,setRows]=useState<Item[]>([]),[pin,setPin]=useState<{lat:number;lng:number}|null>({lat:21.4934,lng:86.9135}),[radius,setRadius]=useState(10),[query,setQuery]=useState(''),[selectedType,setSelectedType]=useState('all'),[map,setMap]=useState(false),[form,setForm]=useState(false),[detail,setDetail]=useState<Item|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+export function Marketplace({mode,manage=false,onSignIn,initialCreate=false,initialListingId,initialLocation,initialSearch=''}:{mode:Mode;manage?:boolean;onSignIn?:()=>void;initialCreate?:boolean;initialListingId?:string;initialLocation?:{lat:number;lng:number};initialSearch?:string}){
+ const [mine,setMine]=useState(manage),[rows,setRows]=useState<Item[]>([]),[pin,setPin]=useState<{lat:number;lng:number}|null>(initialLocation||{lat:21.4934,lng:86.9135}),[radius,setRadius]=useState(10),[query,setQuery]=useState(initialSearch),[selectedType,setSelectedType]=useState('all'),[map,setMap]=useState(false),[form,setForm]=useState(false),[detail,setDetail]=useState<Item|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
 
  useEffect(()=>{if(initialCreate){setForm(true);}},[initialCreate]);
 
@@ -84,6 +84,7 @@ export function Marketplace({mode,manage=false,onSignIn,initialCreate=false}:{mo
        mergedMap.set(it.id, it);
      }
      setRows(Array.from(mergedMap.values()));
+     if(initialListingId){const listing=apiItems.find(item=>item.id===initialListingId);if(listing)setDetail(listing);}
      setLoaded(true);
    }catch(e){
      setError((e as Error).message);

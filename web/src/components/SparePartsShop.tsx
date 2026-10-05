@@ -790,7 +790,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       {/* PRE-OWNED TAB CONTAINER */}
       {section === 'preowned' && (
         <section id="panel-preowned" role="tabpanel" aria-labelledby="tab-preowned" className="stores-module-container">
-          <Marketplace key={sellLaunch} mode="second_hand" onSignIn={onSignIn} initialCreate={!!sellLaunch||quickIntent?.sell} />
+          <Marketplace key={`${sellLaunch}-${quickIntent?.listingId||''}`} initialListingId={quickIntent?.listingId} initialLocation={quickIntent?.location} initialSearch={quickIntent?.search} mode="second_hand" onSignIn={onSignIn} initialCreate={!!sellLaunch||quickIntent?.sell} />
         </section>
       )}
 
