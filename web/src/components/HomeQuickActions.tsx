@@ -11,7 +11,7 @@ export interface HomeQuickActionsProps {
   city:string;
   location?:{lat:number;lng:number};
   onLocation:()=>void;
-  onMarket:(section:'spares'|'preowned',options?:QuickMarket)=>void;
+  onMarket:(section:'spares'|'refurbished'|'preowned',options?:QuickMarket)=>void;
   onHire:()=>void;
   onHome:(service:string,professional?:{id:string;name:string})=>void;
   onService:(service:Service)=>void;

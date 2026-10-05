@@ -44,13 +44,16 @@ def install(core):
     @r.get('/products/catalog')
     def products():
         from procurement import live_product
+        from shop_prime import public_prime
         def read(u):
             items=[];shops={}
             for p in u.all('inventory'):
                 if not live_product(u,p,time.time()) or p['stock']<=0:continue
                 shop=u.get('shops',p['shop_id']);shops[shop['id']]={k:shop.get(k) for k in ('id','name','address','city','location')}
-                items.append({k:p.get(k) for k in ('id','shop_id','name','sku','category','compatibility','price_paise','stock','image_url','stock_confirmed_at','gst_bps','condition','warranty','refurbishment_details')})
-            return {'items':items,'shops':list(shops.values())}
+                prime=public_prime(u,shop)
+                shops[shop['id']]['prime']=prime
+                items.append({'prime':prime,**{k:p.get(k) for k in ('id','shop_id','name','sku','category','compatibility','price_paise','stock','image_url','stock_confirmed_at','gst_bps','condition','warranty','refurbishment_details','refurbishment')}})
+            return {'items':sorted(items,key=lambda p:not p['prime']['active']),'shops':sorted(shops.values(),key=lambda s:not s['prime']['active'])}
         return store.run(read)
     @r.post('/shop/photos')
     async def upload_photo(request:Request,user=Depends(core.current_user)):

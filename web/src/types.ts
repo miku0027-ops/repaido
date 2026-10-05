@@ -99,7 +99,17 @@ export type Tab = 'Explore' | 'Services' | 'Bookings' | 'ShopSpares' | 'You';
 
 export type SparePartCategory = 'ac' | 'plumber' | 'electrician' | 'appliance' | 'cleaning' | 'tools' | 'refurbished' | 'gadgets' | 'smartphones' | string;
 
+export interface Refurbishment {
+  grade:'A+'|'A'|'B'; cosmetic_condition:string; tested_functions:string; tested_on:string;
+  repairs:string; known_defects:string; accessories:string; battery_health_percent?:number|null;
+  warranty_days:number; warranty_terms:string; return_days:number; return_terms:string;
+}
+export interface ShopPrimeStatus {active:boolean;paid_placement:boolean;ends_at?:number|null}
 export interface SparePartProduct {
+  refurbishment?:Refurbishment|null;
+  refurbishmentDetails?:string;
+  warranty?:string;
+  prime?:ShopPrimeStatus;
   id: string;
   shopId: string;
   shopName: string;

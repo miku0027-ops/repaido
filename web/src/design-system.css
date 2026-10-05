@@ -642,7 +642,7 @@ html.large-text .uc-services-grid{grid-template-columns:repeat(auto-fit,minmax(m
 
 .stores-segmented-nav {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   background: #e2e8f0;
   padding: 6px;

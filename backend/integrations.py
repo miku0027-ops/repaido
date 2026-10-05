@@ -88,6 +88,9 @@ def apply_payment(u, payment):
         if rental is not None: return rental
     if len(attempts) != 1: fail('ORDER_NOT_FOUND', 'Payment does not belong to a Repaido invoice.', 404)
     a = attempts[0]
+    if a.get('kind')=='shop_prime':
+        from shop_prime import apply_capture
+        return apply_capture(u,a,payment)
     if a.get('kind')=='home_plan':
         from home_plans import apply_capture
         return apply_capture(u,a,payment)

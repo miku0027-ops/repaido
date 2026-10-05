@@ -1115,3 +1115,6 @@ b2b.install(sys.modules[__name__])
 
 import professional_offers
 professional_offers.install(sys.modules[__name__])
+
+import shop_prime
+shop_prime.install(sys.modules[__name__])

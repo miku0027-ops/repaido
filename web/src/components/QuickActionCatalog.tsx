@@ -21,7 +21,7 @@ const label=(id:string)=>labels[id]||serviceCategories.find(c=>c.id===id)?.name|
 
 interface Props{
   panel:QuickPanel;city:string;location?:{lat:number;lng:number};onLocation:()=>void;
-  onMarket:(section:'spares'|'preowned',options?:QuickMarket)=>void;
+  onMarket:(section:'spares'|'refurbished'|'preowned',options?:QuickMarket)=>void;
   onHire:()=>void;onHome:(id:string,professional?:{id:string;name:string})=>void;onService:(s:Service)=>void;onCatalogue:()=>void;onOpenCart?:()=>void;
 }
 
@@ -78,7 +78,7 @@ export default function QuickActionCatalog({panel,city,location,onLocation,onMar
   const choose=(entry:Entry)=>{
     if(panel==='used')onMarket('preowned',{listingId:entry.id,location,search:entry.name});
     else if(panel==='refurbished'&&entry.cart&&onOpenCart){cartService.addItem(entry.cart,1);onOpenCart();}
-    else if(panel==='refurbished')onMarket('spares',{condition:'refurbished',search:entry.name});
+    else if(panel==='refurbished')onMarket('refurbished',{condition:'refurbished',search:entry.name});
     else if(panel==='hire')onHire();
     else if(panel==='home')onHome(entry.id);
     else if(entry.service)onService(entry.service);
@@ -119,6 +119,6 @@ export default function QuickActionCatalog({panel,city,location,onLocation,onMar
         </section>)}</div>
       </>}
     </>}
-    <div className="quick-modal-footer-nav"><button className="quick-secondary-link" onClick={()=>panel==='used'?onMarket('preowned',{location}):panel==='refurbished'?onMarket('spares',{condition:'refurbished'}):panel==='hire'?onHire():panel==='home'?onHome(''):onCatalogue()}>Browse full {panel==='used'?'marketplace':panel==='refurbished'?'shop catalog':panel==='hire'?'professional directory':'service catalog'} <ArrowRight size={14}/></button></div>
+    <div className="quick-modal-footer-nav"><button className="quick-secondary-link" onClick={()=>panel==='used'?onMarket('preowned',{location}):panel==='refurbished'?onMarket('refurbished',{condition:'refurbished'}):panel==='hire'?onHire():panel==='home'?onHome(''):onCatalogue()}>Browse full {panel==='used'?'marketplace':panel==='refurbished'?'shop catalog':panel==='hire'?'professional directory':'service catalog'} <ArrowRight size={14}/></button></div>
   </section>;
 }

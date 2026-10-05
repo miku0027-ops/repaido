@@ -100,7 +100,8 @@ def test_refurbished_requires_details_and_is_in_catalog(api):
  p=setup_shop(api)
  body={**STOCK,'expected_version':p['version'],'condition':'refurbished'}
  assert api.put('/operations/shop/inventory/cap35',headers=auth('shop'),json=body).status_code==422
- body.update(warranty='30-day shop warranty',refurbishment_details='Tested and cleaned, casing replaced.')
+ from test_shop_prime import REFURB
+ body.update(warranty='30-day shop warranty',refurbishment_details='Tested and cleaned, casing replaced.',refurbishment=REFURB)
  assert api.put('/operations/shop/inventory/cap35',headers=auth('shop'),json=body).status_code==200
  row=api.get('/operations/products/catalog').json()['items'][0]
  assert row['condition']=='refurbished' and row['warranty']==body['warranty']

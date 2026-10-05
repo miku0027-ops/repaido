@@ -213,13 +213,14 @@ export default function App() {
     return undefined;
   })());
   const [marketQuick,setMarketQuick]=useState<QuickMarket>({});
-  const [storeSection, setStoreSection] = useState<'spares' | 'rentals' | 'exchange' | 'preowned'>(() => {
+  const [storeSection, setStoreSection] = useState<'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned'>(() => {
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search);
       const sec = sp.get('section')?.toLowerCase();
       if (sec === 'rentals' || sec === 'rental') return 'rentals';
       if (sec === 'exchange' || sec === 'swap' || sec === 'c2c') return 'exchange';
-      if (sec === 'preowned' || sec === 'refurbished' || sec === 'refurb') return 'preowned';
+      if (sec === 'refurbished' || sec === 'refurb') return 'refurbished';
+      if (sec === 'preowned') return 'preowned';
     }
     return 'spares';
   });
@@ -246,7 +247,7 @@ export default function App() {
     recordCustomerBrowse(`tab:${tab}`);
   }, [tab]);
 
-  const openStoreSection = (sec: 'spares' | 'rentals' | 'exchange' | 'preowned') => {
+  const openStoreSection = (sec: 'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned') => {
     setMarketQuick({});
     setStoreSection(sec);
     setTab('ShopSpares');
@@ -720,7 +721,7 @@ export default function App() {
     );
   }
   if (portal === 'shop-admin') {
-    return <ShopAdminPortal onBackToMain={() => navigatePortal('customer')} />;
+    return <OperationsAdmin shop onBack={() => navigatePortal('customer')} />;
   }
   if (portal === 'company-admin') {
     return <OperationsAdmin onBack={() => navigatePortal('customer')} />;
@@ -953,7 +954,7 @@ export default function App() {
                   <div className="desktop-hero-row">
                     {/* 3. Hero Promo Banner Card */}
                     <div className="repaido-hero-banner-container">
-                      <OpportunityCarousel variant="home" slides={[{id:'services',tag:'',title:'',body:'',cta:'Browse services',image:'/images/hero-banner-promo.png',alt:'Trusted help at budget-friendly prices - Local experts. Quality service. Hassle-free booking.',legacy:true},...opportunities]} onOpen={slide=>{if(slide.id==='services'){setActiveCategory('all');setTab('Services');}else if(slide.id==='contracts'){setMarketSubTab('tenders');setTab('ShopSpares');}else if(slide.id==='sell'){openStoreSection('preowned');setMarketQuick({sell:true});}else if(slide.id==='refurbished'){openStoreSection('spares');setMarketQuick({condition:'refurbished'});}else openStoreSection(slide.id as 'rentals'|'exchange');}}/>
+                      <OpportunityCarousel variant="home" slides={[{id:'services',tag:'',title:'',body:'',cta:'Browse services',image:'/images/hero-banner-promo.png',alt:'Trusted help at budget-friendly prices - Local experts. Quality service. Hassle-free booking.',legacy:true},...opportunities]} onOpen={slide=>{if(slide.id==='services'){setActiveCategory('all');setTab('Services');}else if(slide.id==='contracts'){setMarketSubTab('tenders');setTab('ShopSpares');}else if(slide.id==='sell'){openStoreSection('preowned');setMarketQuick({sell:true});}else if(slide.id==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else openStoreSection(slide.id as 'rentals'|'exchange');}}/>
                     </div>
 
                   </div>
@@ -1345,7 +1346,7 @@ export default function App() {
       {homeDetail&&<HomeServiceDetails service={homeDetail} onClose={()=>setHomeDetail(null)} onBook={()=>{setSelectedService(homeDetail);setHomeDetail(null);}}/>}
       {marketProfile&&<Modal title={marketProfile==='exchange'?'Let’s exchange':'My used items'} className="market-manager-modal" onClose={()=>setMarketProfile(null)}><Marketplace mode={marketProfile} manage onSignIn={()=>setSheet('auth')}/></Modal>}
       {homeHub!==null&&<HomeHub preferredWorker={homePreferred} onEvent={hydration.event} city={place.city} initialService={homeHub||undefined} onClose={()=>{setHomeHub(null);setHomePreferred(undefined);}} onSignIn={()=>setSheet('auth')} onPlans={()=>{setHomeHub(null);setHomePreferred(undefined);setHomePlans(true);setTab('Bookings');}}/>}
-      <CouponWelcome onExplore={scope=>{if(scope==='rental')openStoreSection('rentals');else if(scope==='refurbished'){openStoreSection('spares');setMarketQuick({condition:'refurbished'});}else setTab('Services');}}/>
+      <CouponWelcome onExplore={scope=>{if(scope==='rental')openStoreSection('rentals');else if(scope==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else setTab('Services');}}/>
       {selectedService && <LiveBooking service={selectedService} city={place.city} promotionId={selectedPromotion} onRemovePromotion={()=>setSelectedPromotion(undefined)} onPromotion={openPromotion} onClose={() => {setSelectedService(null);setSelectedPromotion(undefined);}} onSignIn={() => setSheet('auth')} onBooked={() => { setSelectedService(null);setSelectedPromotion(undefined); setTab('Bookings'); }} />}
 
       {/* Customer Service Location Selector */}

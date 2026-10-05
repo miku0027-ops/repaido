@@ -42,7 +42,8 @@ import {
 import './refurbished-market.css';
 import type { SparePartProduct, SpareCartItem, SparePartCategory } from '../types';
 import { Modal } from './ui';
-import { getSpareProducts, getSpareShops } from '../services/repaidoService';
+import {PrimeBadge,RefurbishmentDetails} from './ShopPrime';
+import './shop-prime.css';
 import { formatMoney } from '../data';
 
 interface SparePartsShopProps {
@@ -55,7 +56,7 @@ interface SparePartsShopProps {
   onSectionChange?: (sec: StoreSection) => void;
 }
 
-export type StoreSection = 'spares' | 'rentals' | 'exchange' | 'preowned';
+export type StoreSection = 'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned';
 export type SparesConditionFilter = 'all' | 'new' | 'refurbished';
 
 export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBackToExplore, authToken, onSignIn, initialSection, onSectionChange,quickIntent }) => {
@@ -63,6 +64,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
   const [section, setSectionState] = useState<StoreSection>(initialSection || 'spares');
   const setSection = (sec: StoreSection) => {
     setSectionState(sec);
+    setSelectedCategory('all');setRefurbishedGrade('all');
     onSectionChange?.(sec);
     requestAnimationFrame(()=>alignMarketSection(sec));
   };
@@ -91,7 +93,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
     return()=>observer.disconnect();
   },[]);
   useEffect(()=>{alignMarketSection(section);},[section]);
-  const [sparesCondition, setSparesCondition] = useState<SparesConditionFilter>(quickIntent?.condition||'all');
+
   const [detail, setDetail] = useState<SparePartProduct|null>(null);
   const [liveShops,setLiveShops]=useState<{id:string;shopName:string;address:string;city:string;lat:number;lng:number}[]>([]);
   const [catalogError,setCatalogError]=useState(''),[catalogLoading,setCatalogLoading]=useState(true),[catalogAttempt,setCatalogAttempt]=useState(0);
@@ -109,14 +111,14 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
-  const [products, setProducts] = useState<SparePartProduct[]>(() => getSpareProducts());
+  const [products, setProducts] = useState<SparePartProduct[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [refurbishedGrade, setRefurbishedGrade] = useState<'all' | 'A+' | 'A' | 'B'>('all');
   const [searchQuery, setSearchQuery] = useState<string>(quickIntent?.search||'');
   const [maxPrice,setMaxPrice]=useState<number|undefined>(quickIntent?.budget);
   const [sortBy, setSortBy] = useState<'popularity' | 'price_low' | 'price_high' | 'newest' | 'discount'>('popularity');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
-  const activeFilterCount = (maxPrice!==undefined?1:0) + (sparesCondition !== 'all' ? 1 : 0) + (refurbishedGrade !== 'all' ? 1 : 0) + (selectedCategory !== 'all' ? 1 : 0) + (sortBy !== 'popularity' ? 1 : 0);
+  const activeFilterCount = (maxPrice!==undefined?1:0) + (refurbishedGrade !== 'all' ? 1 : 0) + (selectedCategory !== 'all' ? 1 : 0) + (sortBy !== 'popularity' ? 1 : 0);
   const [cart, setCart] = useState<SpareCartItem[]>([]);
   const [showCartDrawer, setShowCartDrawer] = useState<boolean>(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'address' | 'payment' | 'tracking'>('cart');
@@ -131,56 +133,29 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
 
   useEffect(() => {
     let active=true;setCatalogLoading(true);setCatalogError('');
-    void apiFetch('/api/operations/products/catalog',{signal:AbortSignal.timeout(15000)}).then(async r=>{
+    void apiFetch('/api/operations/products/catalog',{signal:AbortSignal.timeout(15000)},{background:true}).then(async r=>{
       if(!r.ok)throw Error('Shop products could not load. Please retry.');
       const d=await r.json();
       if(!active)return;
       setLiveShops(d.shops.map((s:any)=>({id:s.id,shopName:s.name,address:s.address||'',city:s.city||'',lat:s.location?.lat,lng:s.location?.lng})));
-      if (Array.isArray(d.items) && d.items.length > 0) {
-        const fetched = d.items.map((p:any)=>({
-          id:p.id,
-          shopId:p.shop_id,
-          shopName:d.shops?.find((s:any)=>s.id===p.shop_id)?.name||'',
-          name:p.name,
-          partNumber:p.sku,
-          category:p.category,
-          price:p.price_paise/100,
-          mrp:p.mrp_paise ? p.mrp_paise/100 : p.price_paise/100,
-          stock:p.stock,
-          image:p.image_url?apiAssetUrl(p.image_url):'',
-          condition:p.condition||'new',
-          warranty:p.warranty,
-          warrantyMonths:p.warranty_months||0,
-          refurbishmentDetails:p.refurbishment_details,
-          refurbishedGrade:p.refurbishedGrade || p.refurbished_grade,
-          moneyBackDays:p.moneyBackDays || p.money_back_days || (p.condition === 'refurbished' ? 7 : undefined),
-          certifiedDiagnostic:p.certifiedDiagnostic ?? (p.condition === 'refurbished' ? true : false),
-          brand:p.brand||'',
-          compatibility:p.compatibility,
-          gstRate:p.gst_bps == null ? NaN : p.gst_bps/10000,
-          status:'approved',
-          description:p.compatibility,
-          lastRestockedAt:new Date(p.stock_confirmed_at*1000).toISOString()
-        }));
-        const local = getSpareProducts();
-        const existingIds = new Set(fetched.map((f: SparePartProduct) => f.id));
-        const merged = [...fetched, ...local.filter(l => !existingIds.has(l.id))];
-        setProducts(merged);
-      }
-    }).catch(e=>{
-      if(active) {
-        const fallback = getSpareProducts();
-        setProducts(fallback);
-        const shops = getSpareShops();
-        setLiveShops(shops.map(s => ({ id: s.id, shopName: s.shopName, address: s.address || '', city: s.city || '', lat: 0, lng: 0 })));
-      }
+      if (!Array.isArray(d.items)) throw Error('Invalid catalogue response. Please retry.');
+      setProducts(d.items.map((p:any)=>({
+        id:p.id,shopId:p.shop_id,shopName:d.shops?.find((s:any)=>s.id===p.shop_id)?.name||'',
+        name:p.name,partNumber:p.sku,category:p.category,price:p.price_paise/100,
+        mrp:p.mrp_paise ? p.mrp_paise/100 : p.price_paise/100,stock:p.stock,
+        image:p.image_url?apiAssetUrl(p.image_url):'',condition:p.condition||'new',
+        warranty:p.warranty,warrantyMonths:0,refurbishmentDetails:p.refurbishment_details,
+        refurbishment:p.refurbishment,refurbishedGrade:p.refurbishment?.grade,prime:p.prime,
+        brand:p.brand||'',compatibility:p.compatibility||'',gstRate:p.gst_bps==null?NaN:p.gst_bps/10000,
+        status:'approved',description:p.compatibility,lastRestockedAt:new Date(p.stock_confirmed_at*1000).toISOString()
+      })));
+    }).catch(e=>{if(active){setProducts([]);setLiveShops([]);setCatalogError(e.message||'Products could not load. Please retry.');}
     }).finally(()=>{if(active)setCatalogLoading(false);});
     return()=>{active=false;};
   }, [catalogAttempt]);
 
   const standardCategories = [
-    { id: 'all', label: 'All Spares', icon: Layers },
-    { id: 'refurbished', label: 'Refurbished', icon: Repeat2, isRefurbished: true },
+    { id: 'all', label: section==='refurbished'?'All refurbished':'All spares', icon: Layers },
     { id: 'gadgets', label: 'Gadgets', icon: Sparkles },
     { id: 'smartphones', label: 'Smartphones', icon: Smartphone },
     { id: 'laptops', label: 'Laptops & IT', icon: Laptop },
@@ -191,33 +166,18 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
     { id: 'plumber', label: 'Plumbing & Pipes', icon: Droplets }
   ];
 
-  const handleSelectCategory = (catId: string) => {
-    if (catId === 'refurbished') {
-      setSelectedCategory('refurbished');
-      setSparesCondition('refurbished');
-    } else if (catId === 'all') {
-      setSelectedCategory('all');
-      setSparesCondition('all');
-      setRefurbishedGrade('all');
-    } else {
-      setSelectedCategory(catId);
-    }
-  };
+  const handleSelectCategory = (catId:string) => setSelectedCategory(catId);
 
   // Filtering & Sorting
-  const categories=[...standardCategories,...[...new Set(products.map(p=>p.category))].filter(c=>!standardCategories.some(s=>s.id===c)).map(c=>({id:c,label:c,icon:Wrench}))];
+  const categories=[...standardCategories,...[...new Set(products.filter(p=>(p.condition||'new')===(section==='refurbished'?'refurbished':'new')).map(p=>p.category))].filter(c=>c!=='refurbished'&&!standardCategories.some(s=>s.id===c)).map(c=>({id:c,label:c,icon:Wrench}))];
   const filteredProducts = products.filter(p => {
     if(maxPrice!==undefined&&p.price>maxPrice)return false;
     const cond = (p as any).condition || 'new';
-    if (sparesCondition !== 'all') {
-      if (cond !== sparesCondition) return false;
-    }
+    if (cond !== (section==='refurbished'?'refurbished':'new')) return false;
     if (refurbishedGrade !== 'all') {
       if ((p as any).refurbishedGrade !== refurbishedGrade) return false;
     }
-    if (selectedCategory === 'refurbished') {
-      if (cond !== 'refurbished' && p.category !== 'refurbished') return false;
-    } else if (selectedCategory !== 'all') {
+    if (selectedCategory !== 'all') {
       if (p.category !== selectedCategory) return false;
     }
     const matchesQuery =
@@ -238,8 +198,8 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       const discB = b.mrp > 0 ? (b.mrp - b.price) / b.mrp : 0;
       return discB - discA;
     }
-    // popularity default: higher stock & warranty
-    return b.stock - a.stock;
+    // Paid Prime placement only applies to Featured, after category filtering.
+    return Number(!!b.prime?.active)-Number(!!a.prime?.active) || b.stock-a.stock;
   });
 
   const addToCart = (product: SparePartProduct) => {
@@ -299,7 +259,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       <div className="stores-mobile-app-shell">
         {/* 1. MASTER STORES HUB HEADER */}
       <header className="stores-hub-header">
-        <MarketOpportunities onChoose={kind=>{if(kind==='contracts'){onContracts?.();return;}if(kind==='refurbished'){setSection('spares');setSparesCondition('refurbished');return;}if(kind==='sell'){setSection('preowned');setSellLaunch(v=>v+1);return;}setSection(kind);}}/>
+        <MarketOpportunities onChoose={kind=>{if(kind==='contracts'){onContracts?.();return;}if(kind==='refurbished'){setSection('refurbished');return;}if(kind==='sell'){setSection('preowned');setSellLaunch(v=>v+1);return;}setSection(kind);}}/>
 
         <div className="stores-header-actions">
           {totalItemsCount > 0 && (
@@ -323,11 +283,11 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
 
         {/* 2. REPAIDO 4-PILLAR SEGMENTED NAVIGATION */}
         <div className="stores-segmented-nav-wrap">
-          <nav ref={sectionNavRef} className="stores-segmented-nav" role="tablist" aria-label="Market sections">
+          <nav ref={sectionNavRef} className="stores-segmented-nav" role="tablist" aria-label="Market sections" onKeyDown={event=>{const keys=['ArrowLeft','ArrowRight','Home','End'];if(!keys.includes(event.key))return;event.preventDefault();const tabs=Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));const current=tabs.indexOf(document.activeElement as HTMLButtonElement);const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[next].focus();tabs[next].click();}}>
             <button
               type="button"
               role="tab"
-              id="tab-spares"
+              id="tab-spares" tabIndex={section==='spares'?0:-1}
               aria-selected={section === 'spares'}
               aria-controls="panel-spares"
               className={`stores-nav-pill ${section === 'spares' ? 'is-active' : ''}`}
@@ -336,14 +296,19 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               <ShoppingBag size={18} className="stores-pill-icon" aria-hidden="true" />
               <div className="stores-pill-text">
                 <span className="stores-pill-label">Buy Spares</span>
-                <span className="stores-pill-tag">OEM & Certified</span>
+                <span className="stores-pill-tag">New parts</span>
               </div>
+            </button>
+
+            <button type="button" role="tab" id="tab-refurbished" tabIndex={section==='refurbished'?0:-1} aria-selected={section==='refurbished'} aria-controls="panel-refurbished" className={`stores-nav-pill ${section==='refurbished'?'is-active':''}`} onClick={()=>setSection('refurbished')}>
+              <RotateCcw size={18} className="stores-pill-icon" aria-hidden="true"/>
+              <div className="stores-pill-text"><span className="stores-pill-label">Refurbished</span><span className="stores-pill-tag">A Repaido specialty</span></div>
             </button>
 
             <button
               type="button"
               role="tab"
-              id="tab-rentals"
+              id="tab-rentals" tabIndex={section==='rentals'?0:-1}
               aria-selected={section === 'rentals'}
               aria-controls="panel-rentals"
               className={`stores-nav-pill ${section === 'rentals' ? 'is-active' : ''}`}
@@ -359,7 +324,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             <button
               type="button"
               role="tab"
-              id="tab-exchange"
+              id="tab-exchange" tabIndex={section==='exchange'?0:-1}
               aria-selected={section === 'exchange'}
               aria-controls="panel-exchange"
               className={`stores-nav-pill ${section === 'exchange' ? 'is-active' : ''}`}
@@ -375,7 +340,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             <button
               type="button"
               role="tab"
-              id="tab-preowned"
+              id="tab-preowned" tabIndex={section==='preowned'?0:-1}
               aria-selected={section === 'preowned'}
               aria-controls="panel-preowned"
               className={`stores-nav-pill ${section === 'preowned' ? 'is-active' : ''}`}
@@ -391,8 +356,8 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
         </div>
 
       {/* 3. SECTION CONTENT PANELS */}
-      {section === 'spares' && (
-        <section id="panel-spares" role="tabpanel" aria-labelledby="tab-spares" className="stores-module-container">
+      {(section === 'spares'||section==='refurbished') && (
+        <section id={`panel-${section}`} role="tabpanel" aria-labelledby={`tab-${section}`} className="stores-module-container">
           {catalogError && (
             <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between text-xs text-red-700" role="alert">
               <span>{catalogError}</span>
@@ -456,17 +421,6 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             {/* Active Filter Summary Bar - Only shows if filters are applied */}
             {activeFilterCount > 0 && (
               <div className="spare-active-filters-bar" role="region" aria-label="Active filters">{maxPrice!==undefined&&<button className="spare-active-filter-pill" onClick={()=>setMaxPrice(undefined)}>Up to ₹{maxPrice} <X size={13}/></button>}
-                {sparesCondition !== 'all' && (
-                  <button
-                    type="button"
-                    className="spare-active-filter-pill"
-                    onClick={() => setSparesCondition('all')}
-                    title="Remove condition filter"
-                  >
-                    <span>{sparesCondition === 'new' ? 'Brand New' : 'Refurbished'}</span>
-                    <X size={13} aria-hidden="true" />
-                  </button>
-                )}
                 {refurbishedGrade !== 'all' && (
                   <button
                     type="button"
@@ -508,7 +462,6 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                   type="button"
                   className="spare-clear-all-link"
                   onClick={() => {
-                    setSparesCondition('all');
                     setRefurbishedGrade('all');
                     setMaxPrice(undefined);
                     setSelectedCategory('all');
@@ -526,154 +479,47 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
 
           {/* On-Screen Horizontal Category Rail */}
           <div className="spare-category-rail-container">
-            <div className="spare-category-rail" role="tablist" aria-label="Product categories">
+            <div className="spare-category-rail" role="group" aria-label="Product categories">
               {categories.map(cat => {
                 const Icon = cat.icon || Wrench;
                 const isSelected = selectedCategory === cat.id;
-                const isRefurb = cat.id === 'refurbished';
                 return (
                   <button
                     key={cat.id}
                     type="button"
-                    role="tab"
-                    aria-selected={isSelected}
-                    className={`spare-category-rail-btn ${isSelected ? 'is-selected' : ''} ${isRefurb ? 'is-refurbished-btn' : ''}`}
+                    aria-pressed={isSelected}
+                    className={`spare-category-rail-btn ${isSelected ? 'is-selected' : ''}`}
                     onClick={() => handleSelectCategory(cat.id)}
                   >
                     <Icon size={14} aria-hidden="true" />
                     <span>{cat.label}</span>
-                    {isRefurb && <span className="refurbished-badge-tag">FEST</span>}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 3-Month Refurbished Current Season Spotlight with Shining Cards */}
-          {(selectedCategory === 'refurbished' || sparesCondition === 'refurbished') && (
-            <section className="refurb-season-spotlight-section">
-              <div className="refurb-season-cards-grid">
-                {/* Shining Card 1: Mega Refurb Fest */}
-                <div
-                  className="refurb-season-card theme-fest"
-                  onClick={() => setSortBy('discount')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="refurb-card-top-row">
-                    <span className="refurb-card-micro-badge">
-                      <Sparkles size={9} />
-                      Next 3 Months Offer
-                    </span>
-                    <BadgePercent size={14} className="opacity-90" />
-                  </div>
-                  <div>
-                    <div className="refurb-card-title">Mega Refurb Fest</div>
-                    <div className="refurb-card-sub">Up to 70% OFF MRP • Verified Deals</div>
-                  </div>
-                </div>
-
-                {/* Shining Card 2: 7-Day Money Back Guarantee */}
-                <div
-                  className="refurb-season-card theme-moneyback"
-                  onClick={() => {}}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="refurb-card-top-row">
-                    <span className="refurb-card-micro-badge">
-                      <RotateCcw size={9} />
-                      Zero Risk
-                    </span>
-                    <ShieldCheck size={14} className="opacity-90" />
-                  </div>
-                  <div>
-                    <div className="refurb-card-title">7-Day Money Back</div>
-                    <div className="refurb-card-sub">Instant Doorstep Return &amp; 100% Refund</div>
-                  </div>
-                </div>
-
-                {/* Shining Card 3: 40-Point Diagnostic Check */}
-                <div
-                  className="refurb-season-card theme-warranty"
-                  onClick={() => setRefurbishedGrade('A+')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <div className="refurb-card-top-row">
-                    <span className="refurb-card-micro-badge">
-                      <CheckCircle2 size={9} />
-                      Certified Pass
-                    </span>
-                    <Award size={14} className="opacity-90" />
-                  </div>
-                  <div>
-                    <div className="refurb-card-title">40-Point Diagnostic</div>
-                    <div className="refurb-card-sub">Up to 12 Months Repaido Warranty</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Refurbished Condition Grade Filter Chips Bar */}
-              <div className="refurb-grade-filter-bar">
-                <span className="text-[11px] font-bold text-slate-500 mr-1">Condition Grade:</span>
-                {[
-                  { id: 'all', label: 'All Grades' },
-                  { id: 'A+', label: '⭐ Grade A+ Like New' },
-                  { id: 'A', label: '✨ Grade A Superb' },
-                  { id: 'B', label: '👌 Grade B Value' }
-                ].map(grade => (
-                  <button
-                    key={grade.id}
-                    type="button"
-                    className={`refurb-grade-chip ${refurbishedGrade === grade.id ? 'is-active' : ''}`}
-                    onClick={() => setRefurbishedGrade(grade.id as any)}
-                  >
-                    {grade.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Trust Guarantee Micro Strip */}
-              <div className="refurb-trust-guarantee-strip">
-                <span className="refurb-trust-item">
-                  <ShieldCheck size={12} className="text-emerald-700" />
-                  7-Day Return Policy
-                </span>
-                <span>•</span>
-                <span className="refurb-trust-item">
-                  <CheckCircle2 size={12} className="text-emerald-700" />
-                  40-Point Quality Diagnostic
-                </span>
-                <span>•</span>
-                <span className="refurb-trust-item">
-                  <Award size={12} className="text-emerald-700" />
-                  6-12 Months Certified Warranty
-                </span>
-                <span>•</span>
-                <span className="refurb-trust-item">
-                  <Truck size={12} className="text-emerald-700" />
-                  Free Insured Express Delivery
-                </span>
-              </div>
-            </section>
-          )}
+          {section==='refurbished'&&<section className="refurb-introduction" aria-labelledby="refurb-title">
+            <div className="refurb-intro-icon"><RotateCcw size={26} aria-hidden="true"/></div>
+            <div><span className="prime-eyebrow">A Repaido specialty</span><h2 id="refurb-title">A second life. The details first.</h2><p>Compare shop-declared condition, repairs, test results and cover before you choose.</p></div>
+            <div className="refurb-grade-options" role="group" aria-label="Shop-declared grade">{['all','A+','A','B'].map(grade=><button type="button" key={grade} aria-pressed={refurbishedGrade===grade} onClick={()=>setRefurbishedGrade(grade as typeof refurbishedGrade)}>{grade==='all'?'All grades':`Grade ${grade}`}</button>)}</div>
+          </section>}
+          {sortBy==='popularity'&&sortedProducts.some(p=>p.prime?.active)&&<p className="prime-placement-note">Prime shops receive paid priority in these results. Price and newest sorts follow your selection.</p>}
 
       {/* 4. Flipkart-Style Product Grid ("more alligned cards with shadowed back") */}
       <main className="max-w-7xl mx-auto p-2 sm:p-4 pt-1 sm:pt-2">
-        {sortedProducts.length === 0 ? (
+        {catalogLoading?<p role="status" className="prime-placement-note">Loading shop inventory…</p>:catalogError?null:sortedProducts.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-md max-w-lg mx-auto space-y-3">
             <Package className="w-12 h-12 text-slate-300 mx-auto" />
-            <h3 className="text-sm font-bold text-slate-900">No parts match your search</h3>
+            <h3 className="text-sm font-bold text-slate-900">{section==='refurbished'?'No refurbished products available':'No new parts available'}</h3>
             <p className="text-xs text-slate-500">
-              Try adjusting your search query or reset category filter.
+              Only confirmed shop inventory appears here. Try other filters or check back after shops update their stock.
             </p>
             <button
               type="button"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('all');
-                setSparesCondition('all');
                 setRefurbishedGrade('all');
                 setMaxPrice(undefined);
                 setSortBy('popularity');
@@ -705,17 +551,14 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                       <span className={`refurb-grade-pill ${(product as any).refurbishedGrade === 'A+' ? 'refurb-grade-a-plus' : 'refurb-grade-a'}`}>
                         {(product as any).refurbishedGrade ? `Grade ${product.refurbishedGrade}` : 'Refurbished'}
                       </span>
-                      <span className="refurb-moneyback-pill">
-                        <ShieldCheck size={10} className="text-emerald-400" />
-                        {(product as any).moneyBackDays || 7}D Return
-                      </span>
+                      {product.refurbishment&&<span className="refurb-moneyback-pill">{product.refurbishment.return_days>0?`${product.refurbishment.return_days}-day shop returns`:'No shop returns'}</span>}
                     </div>
                   )}
 
                   <div className="spare-card-summary">
                     {product.image?<img className="spare-card-image" src={product.image} alt="" loading="lazy" />:<Wrench className="spare-card-image" aria-label="Product photo not provided"/>}
                     <div className="spare-card-copy">
-                      <h3 title={product.name}>{product.name}</h3>
+                      <h3 title={product.name}>{product.name}</h3><span className="spare-card-seller">{product.shopName}</span><PrimeBadge prime={product.prime}/>
                       <div className="spare-card-price">
                         <strong>{formatMoney(Math.round(product.price*100))}</strong>
                         {discountPercent>0&&<span>{discountPercent}% off</span>}
@@ -723,7 +566,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                       {(product as any).condition === 'refurbished' ? (
                         <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
                           <CheckCircle2 size={11} className="shrink-0" />
-                          <span className="truncate">40-Pt Passed · {(product as any).warranty || '1 Year'}</span>
+                          <span>{product.refurbishment?product.refurbishment.warranty_days>0?`${product.refurbishment.warranty_days}-day shop warranty`:'No shop warranty':'Open condition details'}</span>
                         </div>
                       ) : (
                         <span className="spare-card-stock">{product.stock} listed in stock</span>
@@ -802,31 +645,10 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           className="spare-filter-modal"
         >
           <div className="space-y-5 p-1 text-xs">
-            {/* Condition Group */}
-            <div className="spare-filter-group">
-              <span className="spare-filter-group-title">Condition</span>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'all', label: 'All Parts' },
-                  { id: 'new', label: '✨ Brand New' },
-                  { id: 'refurbished', label: '🔄 Refurbished' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`spare-filter-choice-btn ${sparesCondition === opt.id ? 'is-selected' : ''}`}
-                    onClick={() => setSparesCondition(opt.id as any)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Refurbished Condition Grade Group */}
-            {sparesCondition === 'refurbished' && (
+            {section === 'refurbished' && (
               <div className="spare-filter-group">
-                <span className="spare-filter-group-title">Certified Refurbished Grade</span>
+                <span className="spare-filter-group-title">Shop-declared grade</span>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'all', label: 'All Grades' },
@@ -874,7 +696,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               <span className="spare-filter-group-title">Sort By</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {[
-                  { id: 'popularity', label: 'Recommended' },
+                  { id: 'popularity', label: 'Featured · Prime paid priority' },
                   { id: 'price_low', label: 'Price: Low to High' },
                   { id: 'price_high', label: 'Price: High to Low' },
                   { id: 'newest', label: 'Recently Restocked' },
@@ -899,8 +721,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                 type="button"
                 className="w-1/3 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-xs text-center"
                 onClick={() => {
-                  setSparesCondition('all');
-                  setRefurbishedGrade('all');
+                    setRefurbishedGrade('all');
                   setMaxPrice(undefined);
                   setSelectedCategory('all');
                   setSortBy('popularity');
@@ -929,46 +750,12 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
         </div>
         <p>{detail.description || 'No description provided. Check compatibility with the shop before buying.'}</p>
         
-        {/* Refurbished Ecosystem Policy Box */}
-        {(detail as any).condition === 'refurbished' && (
-          <div className="p-3 my-3 bg-emerald-50/90 border border-emerald-300 rounded-xl space-y-2 text-xs">
-            <div className="flex items-center justify-between font-bold text-emerald-950">
-              <span className="flex items-center gap-1.5 text-xs">
-                <ShieldCheck size={16} className="text-emerald-600" />
-                Repaido Certified Refurbished Guarantee
-              </span>
-              <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                Grade {(detail as any).refurbishedGrade || 'A+'}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px] text-emerald-900">
-              <div className="flex items-center gap-1.5">
-                <RotateCcw size={13} className="text-emerald-600 shrink-0" />
-                <span>{(detail as any).moneyBackDays || 7}-Day Money Back (No Questions Asked)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                <span>40-Point Diagnostic Inspection Passed</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Award size={13} className="text-emerald-600 shrink-0" />
-                <span>{(detail as any).warranty || '12 Months Certified Warranty'}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Truck size={13} className="text-emerald-600 shrink-0" />
-                <span>Free Doorstep Pickup &amp; Instant 100% Refund</span>
-              </div>
-            </div>
-            {(detail as any).refurbishmentDetails && (
-              <div className="pt-1.5 border-t border-emerald-200 text-[11px] text-emerald-800">
-                <strong>Inspection Log: </strong>{(detail as any).refurbishmentDetails}
-              </div>
-            )}
-          </div>
-        )}
+        <PrimeBadge prime={detail.prime}/>
+        {detail.prime?.active&&<p className="prime-placement-note">This reviewed shop has an active paid Prime membership. The badge does not certify individual product testing. Condition and cover below are declared by the shop.</p>}
+        {detail.condition==='refurbished'&&<RefurbishmentDetails details={detail.refurbishment} legacy={detail.refurbishmentDetails}/>}
 
         <dl className="spare-detail-specs">
-          <div><dt>Condition</dt><dd>{(detail as any).condition==='refurbished' ? `Refurbished (Grade ${(detail as any).refurbishedGrade || 'A+'})` : ((detail as any).condition || 'New')}</dd></div>
+          <div><dt>Condition</dt><dd>{(detail as any).condition==='refurbished' ? `Refurbished${detail.refurbishedGrade?` (shop grade ${detail.refurbishedGrade})`:''}` : ((detail as any).condition || 'New')}</dd></div>
           <div><dt>Part number</dt><dd>{detail.partNumber || 'Not listed'}</dd></div>
           <div><dt>Compatibility</dt><dd>{detail.compatibility || 'Confirm with the shop'}</dd></div>
           <div><dt>Warranty</dt><dd>{(detail as any).warranty || (detail.warrantyMonths > 0 ? `${detail.warrantyMonths} months` : 'Not listed')}</dd></div>
@@ -996,7 +783,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               <div className="text-xs font-bold text-white leading-tight">
                 {totalItemsCount} {totalItemsCount === 1 ? 'Part' : 'Parts'} • {formatMoney(subtotalPaise)}
               </div>
-              <div className="text-sm text-blue-200 font-medium">Free Delivery • Direct Partner Stock</div>
+              <div className="text-sm text-blue-200 font-medium">Direct shop inventory</div>
             </div>
           </div>
           <button

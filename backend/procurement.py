@@ -3,11 +3,33 @@ import copy,hashlib,hmac,secrets,time,uuid
 from datetime import datetime,timezone,timedelta
 from typing import Literal
 from fastapi import APIRouter,Depends,Query
-from pydantic import Field
+from pydantic import Field, model_validator
+from datetime import date
 from operations import Input,fail,event,metres,at_site,fresh_position,public_job
 from integrations import audit
 
 POLICY='pickup-return-v1'
+class Refurbishment(Input):
+    model_config={"extra":"forbid","str_strip_whitespace":True}
+    grade:Literal['A+','A','B']
+    cosmetic_condition:str=Field(min_length=5,max_length=500)
+    tested_functions:str=Field(min_length=10,max_length=1500)
+    tested_on:date
+    repairs:str=Field(min_length=4,max_length=1000)
+    known_defects:str=Field(min_length=4,max_length=1000)
+    accessories:str=Field(min_length=4,max_length=500)
+    battery_health_percent:int|None=Field(default=None,ge=0,le=100)
+    warranty_days:int=Field(ge=0,le=1825)
+    warranty_terms:str=Field(min_length=5,max_length=1000)
+    return_days:int=Field(ge=0,le=365)
+    return_terms:str=Field(min_length=5,max_length=1000)
+
+    @model_validator(mode='after')
+    def past_test(self):
+        if self.tested_on>datetime.now(timezone(timedelta(hours=5,minutes=30))).date():
+            raise ValueError('Inspection date cannot be in the future')
+        return self
+
 class Stock(Input):
     model_config={"extra":"forbid","str_strip_whitespace":True}
     expected_version:int=Field(ge=0)
@@ -19,6 +41,7 @@ class Stock(Input):
     condition:Literal['new','refurbished']='new'
     warranty:str=Field(default='',max_length=500)
     refurbishment_details:str=Field(default='',max_length=1500)
+    refurbishment:Refurbishment|None=None
     compatibility:str=Field(min_length=2,max_length=300)
     price_paise:int=Field(gt=0,le=100000000)
     on_hand:int=Field(ge=0,le=100000)
@@ -179,8 +202,9 @@ def install(core):
             reserved=(p or {}).get('reserved',0)
             if body.on_hand<reserved:fail('RESERVED_STOCK','Physical count is below reserved quantity. Reject pending orders or contact support before adjusting.')
             if any(x['id']!=product_id and x['shop_id']==s['id'] and x.get('sku','').casefold()==body.sku.casefold() for x in u.all('inventory')):fail('SKU_EXISTS','Edit the existing SKU instead of adding a duplicate.')
-            if body.condition=='refurbished' and (len(body.refurbishment_details.strip())<10 or len(body.warranty.strip())<3):fail('DETAILS_REQUIRED','Describe refurbishment checks and warranty.',422)
-            item=dict(body.model_dump(exclude={'expected_version','on_hand'}),id=product_id,shop_id=s['id'],stock=body.on_hand-reserved,reserved=reserved,version=body.expected_version+1,stock_confirmed_at=time.time())
+            if body.condition=='refurbished' and not body.refurbishment:fail('DETAILS_REQUIRED','Complete the refurbished condition, inspection, repairs, warranty and return details.',422)
+            if body.condition=='new' and body.refurbishment:fail('INVALID_CONDITION','Refurbishment details belong in the Refurbished inventory section.',422)
+            item=dict(body.model_dump(mode='json',exclude={'expected_version','on_hand'}),id=product_id,shop_id=s['id'],stock=body.on_hand-reserved,reserved=reserved,version=body.expected_version+1,stock_confirmed_at=time.time())
             u.put('inventory',product_id,item);audit(u,'ShopStockAdjusted',user['id'],product_id=product_id,old_available=(p or {}).get('stock',0),available=item['stock'],reserved=reserved);return item
         return store.run(save)
     @r.get('/shop/purchase-orders')
