@@ -116,5 +116,5 @@ substitutions:
 images:
   - '${_IMAGE}:$BUILD_ID'
 options:
-  logging: CLOUD_LOGGING_ONLY
+  logging: NONE
 timeout: 1800s

@@ -25,10 +25,13 @@ to `--only hosting`; Firestore rules and indexes are not deployed.
 
 Use a build service account with Artifact Registry Writer on the image repository,
 Cloud Run Developer and Invoker on the service, Service Account User on the
-runtime identity, Logs Writer, Firebase Hosting Admin and Service Usage Consumer.
+runtime identity, Firebase Hosting Admin and Service Usage Consumer.
 The relevant APIs must be enabled and the image repository must exist. No Firebase
 login token or service-account key should be committed: the Firebase CLI uses the
 Cloud Build service account through Application Default Credentials.
+Build logging is disabled (`options.logging: NONE`) as requested. Step status is
+still reported to GitHub, but detailed build output will not be retained. If logs
+are enabled later, grant the build identity Logs Writer before using Cloud Logging.
 
 Inspect the trigger build in Cloud Build History after pushing. Verify the deployed
 commit at `https://repaido.web.app/build-info.json` and the backend build ID at
