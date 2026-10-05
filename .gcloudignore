@@ -1,0 +1,22 @@
+# Upload only the sources needed by the root Cloud Build pipeline.
+**
+!cloudbuild.yaml
+!firebase.json
+!.firebaserc
+!backend/
+!backend/*.py
+!backend/requirements.txt
+!backend/requirements-dev.txt
+!backend/Dockerfile
+!web/
+!web/**
+web/node_modules/
+web/dist/
+web/dist-cpanel/
+web/test-results/
+web/.pnpm-store/
+web/.env*
+web/**/*.tsbuildinfo
+web/**/service-account*.json
+web/**/*firebase-adminsdk*.json
+web/**/.git/

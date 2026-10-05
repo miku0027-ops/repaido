@@ -1324,7 +1324,7 @@ export default function App() {
             <div>
               <RepaidoBrand size="sm" onClick={() => setTab('Explore')} className="mb-2 cursor-pointer" />
               <p>{tab==='Hire'?'Compare experts, explore their work and choose your service.':tab==='Bookings'?'Manage visits, hiring and your Home plans.':tab==='ShopSpares'?'Explore products, rentals and exchanges.':'Home services in your city.'}</p><ul className="footer-city-list"><li>Balasore</li><li>Bhubaneswar</li><li>Cuttack</li></ul>
-              <p className="mt-1">Need help? Open Help & Support Desk in your profile.</p>
+              <p className="mt-1">Need help with a booking? Open Help & Support Desk in your profile.</p>
             </div>
             <div className="flex flex-wrap items-center gap-5 text-xs text-slate-600">
               <button onClick={() => setTab('Services')} className="hover:text-slate-900 font-medium">Browse services</button>

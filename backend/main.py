@@ -338,7 +338,7 @@ def valid_email(email):
 @app.get('/health')
 def health():
     with db() as c: c.execute('SELECT 1')
-    return {'status': 'ok'}
+    return {'status': 'ok', 'service': 'repaido-api', 'build_id': os.getenv('REPAIDO_BUILD_ID', 'local')}
 
 @app.post('/auth/register', status_code=201)
 def register(body: Registration, request: Request):

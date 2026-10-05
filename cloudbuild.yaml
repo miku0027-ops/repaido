@@ -1,0 +1,120 @@
+# Submit from the repository root; see docs/CLOUD_BUILD.md.
+steps:
+  - id: backend-tests
+    name: python:3.12-slim
+    dir: backend
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        pip install --no-cache-dir -r requirements-dev.txt
+        REPAIDO_STORAGE=sqlite python -m pytest -q
+
+  - id: web-tests-and-build
+    name: node:24-bookworm-slim
+    dir: web
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        npm install --global pnpm@11.19.0
+        pnpm install --frozen-lockfile --ignore-scripts
+        npm test
+        npm run build
+        node -e 'require("fs").writeFileSync("dist/build-info.json", JSON.stringify({build_id: "$BUILD_ID", commit: "$COMMIT_SHA"}) + "\n")'
+
+  - id: build-api
+    name: gcr.io/cloud-builders/docker
+    args: ['build', '--tag', '${_IMAGE}:$BUILD_ID', 'backend']
+
+  - id: push-api
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}:$BUILD_ID']
+
+  - id: deploy-candidate
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        # Require the existing service so missing production settings cannot
+        # silently create a new service with SQLite on ephemeral storage.
+        gcloud run services describe '${_SERVICE}' --project='$PROJECT_ID' --region='${_REGION}' --format='value(metadata.name)'
+        gcloud run deploy '${_SERVICE}' \
+          --project='$PROJECT_ID' --region='${_REGION}' \
+          --image='${_IMAGE}:$BUILD_ID' \
+          --update-env-vars='REPAIDO_BUILD_ID=$BUILD_ID' \
+          --no-traffic --tag='build-$BUILD_ID' --quiet --format=json > /workspace/candidate.json
+        python3 - <<'PY'
+        import json, subprocess, time, urllib.request
+        service = json.load(open('/workspace/candidate.json'))
+        url = next(t['url'] for t in service['status']['traffic'] if t.get('tag') == 'build-$BUILD_ID')
+        token = subprocess.check_output(['gcloud', 'auth', 'print-identity-token'], text=True).strip()
+        for attempt in range(12):
+            try:
+                request = urllib.request.Request(url + '/health', headers={'Authorization': 'Bearer ' + token})
+                with urllib.request.urlopen(request, timeout=20) as response:
+                    health = json.load(response)
+                    assert health['status'] == 'ok' and health['build_id'] == '$BUILD_ID'
+                print('Cloud Run candidate health check passed; production traffic unchanged.')
+                break
+            except Exception:
+                if attempt == 11:
+                    raise
+                time.sleep(5)
+        PY
+
+  - id: deploy-firebase-hosting
+    name: node:24-bookworm-slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        npm install --global firebase-tools@15.32.1
+        firebase deploy --project='$PROJECT_ID' --only hosting --non-interactive
+
+  - id: promote-backend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args:
+      - -c
+      - |
+        import json, subprocess
+        service = json.load(open('/workspace/candidate.json'))
+        revision = service['status']['latestReadyRevisionName']
+        subprocess.run(['gcloud', 'run', 'services', 'update-traffic', '${_SERVICE}',
+                        '--project=$PROJECT_ID', '--region=${_REGION}',
+                        '--to-revisions=' + revision + '=100', '--quiet'], check=True)
+
+  - id: verify-hosting-release
+    name: python:3.12-slim
+    entrypoint: python3
+    args:
+      - -c
+      - |
+        import json, time, urllib.request
+        for attempt in range(12):
+            try:
+                base = 'https://$PROJECT_ID.web.app'
+                with urllib.request.urlopen(base + '/build-info.json?build=$BUILD_ID', timeout=20) as response:
+                    assert json.load(response)['build_id'] == '$BUILD_ID'
+                with urllib.request.urlopen(base + '/api/health?build=$BUILD_ID', timeout=20) as response:
+                    health = json.load(response)
+                    assert health['status'] == 'ok' and health['build_id'] == '$BUILD_ID'
+                print('Firebase Hosting and backend are serving build $BUILD_ID')
+                break
+            except Exception:
+                if attempt == 11:
+                    raise
+                time.sleep(5)
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: repaido-api
+  # Confirm this Artifact Registry repository exists before submission.
+  _IMAGE: us-central1-docker.pkg.dev/repaido/cloud-run-source-deploy/repaido-api
+images:
+  - '${_IMAGE}:$BUILD_ID'
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s
