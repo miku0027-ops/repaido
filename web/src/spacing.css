@@ -1,0 +1,39 @@
+/* One outer gutter per screen; grid gaps own the space between Home sections. */
+:root{--app-gutter:16px;--app-section-gap:12px;--app-card-pad:12px}
+@media(max-width:359px){:root{--app-gutter:12px}}
+@media(min-width:600px){:root{--app-gutter:24px;--app-section-gap:16px}}
+@media(min-width:1200px){:root{--app-gutter:32px;--app-section-gap:24px}}
+.repaido-customer-shell{--ui-page-gutter:var(--app-gutter)}
+.repaido-customer-shell .android-explore-screen{row-gap:var(--app-section-gap)}
+.repaido-customer-shell .android-explore-screen>.home-greeting{margin-bottom:calc(-1 * var(--app-section-gap));padding-inline:var(--app-gutter)}
+.repaido-customer-shell .android-explore-screen>.repaido-search-container{margin:0;padding-inline:var(--app-gutter);padding-bottom:0}
+.repaido-customer-shell .desktop-hero-row{margin-block:0;padding-block:0}
+.repaido-customer-shell .repaido-hero-banner-container{margin:0;padding-block:0}
+.repaido-customer-shell .android-explore-screen>.home-promotion-slot{padding:0 var(--app-gutter);margin:0}
+.repaido-customer-shell .android-explore-screen>.home-quick-rail{margin:0;padding:4px var(--app-gutter) 6px;scroll-padding-inline:var(--app-gutter)}
+.repaido-customer-shell .repaido-services-grid-container{margin:0;padding:0 var(--app-gutter)}
+.repaido-customer-shell .marketplace-sliding-notifier-container{margin-block:0;padding:0 var(--app-gutter)}
+.repaido-customer-shell .android-services-section{margin-block:0;padding-inline:var(--app-gutter)}
+.repaido-customer-shell .android-services-list{gap:12px;align-items:start}
+.repaido-customer-shell .android-services-list>.service-preview-accordion{margin:0}
+.repaido-customer-shell .android-services-list>.home-finder-slot{margin:0}
+.repaido-customer-shell .catalogue-container>.home-entry-premium{margin:8px var(--app-gutter) 12px}
+.repaido-customer-shell .uc-nav-row{padding-inline:var(--app-gutter)}
+.repaido-customer-shell .uc-discovery-main{padding-inline:var(--app-gutter)}
+.repaido-customer-shell .hire-page{padding:12px var(--app-gutter) 20px}
+.repaido-customer-shell .hire-heading{margin-bottom:12px}
+.repaido-customer-shell .customer-bookings-page{padding-inline:var(--app-gutter)}
+.repaido-customer-shell .stores-hub-header{padding:12px var(--app-gutter)}
+.repaido-customer-shell .stores-segmented-nav-wrap{padding:10px var(--app-gutter)}
+.repaido-customer-shell .stores-module-container{padding:12px var(--app-gutter) 20px}
+.repaido-customer-shell .stores-module-container>.operations{margin:0;padding-inline:0}
+.repaido-customer-shell .android-you-screen{padding-inline:var(--app-gutter)}
+/* Shared dialog header, including agent tools. Fullscreen frameless flows keep their layout. */
+.modal .app-modal-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;padding:0}
+.modal .app-modal-heading>h2{margin:0;padding:0;min-width:0;line-height:1.3;overflow-wrap:anywhere}
+.modal .app-modal-heading>button{display:grid;place-items:center;flex:0 0 44px;width:44px;min-width:44px;height:44px;min-height:44px;padding:10px}
+.modal:has(>.app-modal-heading):not(.agent-task-dialog){padding:16px;scroll-padding-block:16px}
+.modal :is(.quick-choice-grid,.finder-selects,.hire-card-grid){min-width:0}
+.modal :is(input,select,textarea){max-width:100%;box-sizing:border-box}
+@media(min-width:600px){.modal:has(>.app-modal-heading):not(.agent-task-dialog){padding:24px}.modal .app-modal-heading{margin-bottom:20px}}
+@media(min-width:1024px){.repaido-customer-shell .desktop-hero-row{padding-inline:var(--app-gutter)}.repaido-customer-shell .desktop-hero-row>.repaido-hero-banner-container{padding-inline:0}}

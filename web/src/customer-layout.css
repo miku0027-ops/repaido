@@ -1,0 +1,131 @@
+/* Customer navigation keeps selection separate from keyboard focus. */
+#root .android-bottom-nav .android-nav-item {border:0;box-shadow:none;background:transparent;color:#fff;}
+#root .android-bottom-nav .android-nav-item.active {background:#fff;color:#17285c;box-shadow:0 2px 6px #0002;}
+#root .android-bottom-nav .android-nav-item svg {color:inherit;}
+#root .android-bottom-nav .android-nav-item:focus-visible {outline:2px solid #f3be52;outline-offset:-3px;}
+.repaido-header-actions {
+  margin-left: auto;
+  gap: 22px !important;
+  flex: none;
+  flex-wrap: nowrap;
+  display: flex;
+  align-items: center;
+}
+#root .repaido-header-actions>button,
+.repaido-header-actions>button,
+.repaido-header-actions .repaido-cart-btn,
+.repaido-header-actions .repaido-bell-btn,
+.repaido-header-actions .repaido-user-avatar-pill,
+.repaido-header-actions .repaido-header-signin-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  min-width: 34px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #142858 !important;
+  box-shadow: none !important;
+  position: relative !important;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+}
+#root .repaido-header-actions>button:hover,
+.repaido-header-actions>button:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(-2px) scale(1.08);
+}
+#root .repaido-header-actions>button:active,
+.repaido-header-actions>button:active {
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(0) scale(0.96);
+}
+#root .repaido-header-actions>button:focus-visible,
+.repaido-header-actions>button:focus-visible {
+  outline: 2px solid #142858;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+#root .repaido-header-actions>button svg,
+.repaido-header-actions>button svg {
+  width: 24px !important;
+  height: 24px !important;
+  color: #142858 !important;
+  stroke: #142858 !important;
+  fill: #142858 !important;
+  display: block;
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+#root .repaido-header-actions>button:hover svg,
+.repaido-header-actions>button:hover svg {
+  filter: drop-shadow(0 2px 6px rgba(20, 40, 88, 0.32));
+}
+.repaido-header-actions .repaido-cart-btn { order: 0; }
+.repaido-header-actions .repaido-bell-btn { order: 1; }
+.repaido-header-actions :is(.repaido-user-avatar-pill,.repaido-header-signin-btn) { order: 2; }
+#root .repaido-header-actions .repaido-cart-badge-pill,
+#root .repaido-header-actions .repaido-bell-badge,
+#root .repaido-header-actions .repaido-header-badge,
+.repaido-header-actions .repaido-cart-badge-pill,
+.repaido-header-actions .repaido-bell-badge,
+.repaido-header-actions .repaido-header-badge {
+  position: absolute;
+  top: -4px;
+  right: -7px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  z-index: 2;
+  font-family: var(--ui-font);
+  animation: badge-pop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes badge-pop {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@media(prefers-reduced-motion:reduce){
+  #root .repaido-header-actions .repaido-cart-badge-pill,
+  #root .repaido-header-actions .repaido-bell-badge,
+  #root .repaido-header-actions .repaido-header-badge {
+    animation: none;
+  }
+}
+#root .service-story {width:96px;min-width:96px;flex:0 0 96px;align-self:stretch;border:0;}
+.service-story .story-label {display:block;width:100%;min-width:0;height:22px;line-height:22px;white-space:nowrap;overflow:hidden;overflow-wrap:normal;text-align:left;}
+.story-label>span {display:block;width:max-content;min-width:100%;text-align:center;}
+.story-label[data-overflow=true]>span {animation:category-name-pan 8s ease-in-out infinite;}
+.service-story:is(:hover,:focus-visible) .story-label>span {animation-play-state:paused;}
+@keyframes category-name-pan {0%,20%,100%{transform:translateX(0)}50%,75%{transform:translateX(var(--label-travel))}}
+#root .customer-bookings-page .customer-home-plans-switch {background:#e2e8f0;border:0;padding:6px;gap:6px;border-radius:18px;}
+#root .customer-bookings-page .customer-home-plans-switch button {background:transparent;color:#475569;border:0;border-radius:14px;min-height:44px;}
+#root .customer-bookings-page .customer-home-plans-switch button[aria-pressed=true] {background:#0f172a;color:#fff;box-shadow:0 4px 14px #0f172a33;}
+@media(max-width:480px){
+  .repaido-header-actions { gap: 16px !important; }
+}
+@media(max-width:360px){
+  .repaido-header-actions { gap: 12px !important; }
+  #root .service-story{width:88px;min-width:88px;flex-basis:88px;}
+}
+@media(prefers-reduced-motion:reduce){.story-label[data-overflow=true]>span{animation:none}.service-story .story-label{overflow-x:auto;scrollbar-width:none}}
+html.reduce-motion .story-label[data-overflow=true]>span {animation:none;}
+html.reduce-motion .service-story .story-label {overflow-x:auto;scrollbar-width:none;}

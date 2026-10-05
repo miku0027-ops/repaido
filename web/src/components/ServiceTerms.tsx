@@ -1,0 +1,15 @@
+import {useEffect,useState} from 'react';
+import {apiFetch} from '../services/api';
+import {operation} from '../services/operations';
+export type TermsRecord={id:string;version:number;text:string};
+export function ServiceTerms({serviceId,onLoaded}:{serviceId:string;onLoaded?:(terms:TermsRecord|null)=>void}){
+ const [terms,setTerms]=useState<TermsRecord|null>(null),[error,setError]=useState(''),[attempt,setAttempt]=useState(0);
+ useEffect(()=>{let active=true;setTerms(null);setError('');onLoaded?.(null);void apiFetch(`/api/operations/service-terms/${encodeURIComponent(serviceId)}`).then(async r=>{if(!r.ok)throw Error('Service terms could not load. Retry before booking.');return r.json();}).then(d=>{if(active){setTerms(d);onLoaded?.(d);}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[serviceId,attempt]);
+ return <section className="service-terms"><h3>Service terms & conditions</h3>{terms?<><p style={{whiteSpace:'pre-wrap'}}>{terms.text}</p>{terms.version>0&&<small>Company terms · version {terms.version}</small>}</>:error?<p role="alert">{error}<button type="button" onClick={()=>setAttempt(n=>n+1)}>Retry terms</button></p>:<p role="status">Loading service terms…</p>}</section>;
+}
+export function ServiceTermsAdmin(){
+ const [services,setServices]=useState<{id:string;name:string}[]>([]),[sid,setSid]=useState(''),[terms,setTerms]=useState<TermsRecord|null>(null),[text,setText]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ useEffect(()=>{void apiFetch('/api/catalog').then(async r=>{if(!r.ok)throw Error('Catalogue unavailable.');setServices((await r.json()).services);}).catch(e=>setError(e.message));},[]);
+ useEffect(()=>{setTerms(null);setMessage('');if(!sid)return;let active=true;setBusy(true);void apiFetch(`/api/operations/service-terms/${encodeURIComponent(sid)}`).then(r=>r.json()).then(d=>{if(active){setTerms(d);setText(d.version?d.text:'');}}).catch(e=>setError(e.message)).finally(()=>{if(active)setBusy(false);});return()=>{active=false;};},[sid]);
+ return <section className="ops-card"><h2>Service terms</h2><p>Published terms appear in service details and booking review. Existing bookings keep their accepted version.</p><label>Service<select value={sid} onChange={e=>setSid(e.target.value)}><option value="">Choose service</option>{services.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Terms, exclusions and customer obligations<textarea rows={12} value={text} onChange={e=>setText(e.target.value)} maxLength={6000}/></label><button disabled={busy||!terms||text.trim().length<10} onClick={async()=>{setBusy(true);setError('');try{const d=await operation<TermsRecord>(`/admin/service-terms/${encodeURIComponent(sid)}`,{method:'PUT',body:JSON.stringify({expected_version:terms!.version,text})});setTerms(d);setMessage(`Published version ${d.version}.`);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Publish terms</button>{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}</section>;
+}

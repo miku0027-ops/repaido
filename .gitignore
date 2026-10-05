@@ -1,21 +1,47 @@
-.gradle
+# OS & Editor
+.DS_Store
+*.swp
+*.swo
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*firebase-adminsdk*.json
+service-account*.json
+.qa-email
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Node & Frontend
+node_modules/
+**/node_modules/
+.pnpm-store/
+web/dist/
+web/dist-cpanel/
+web/test-results/
+
+# Firebase & Cloud
+.firebase/
+tmp/
+dist/
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Android & Gradle
+.gradle/
 **/build/
-!**/src/**/build/
-
-# Ignore Gradle GUI config
-gradle-app.setting
-
-# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
-!gradle-wrapper.jar
-
-# Avoid ignore Gradle wrapper properties
-!gradle-wrapper.properties
-
-# Cache of project
+local.properties
 .gradletasknamecache
 
-# Eclipse Gradle plugin generated files
-# Eclipse Core
-.project
-# JDT-specific (Eclipse Java Development Tools)
-.classpath
+# Releases & Scratch
+deployment/releases/
+.openai/
+*.tsbuildinfo

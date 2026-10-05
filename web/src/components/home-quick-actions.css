@@ -1,0 +1,1003 @@
+/* ==========================================================================
+   Repaido Home Quick Actions & Dedicated Marketplace Panels
+   Matte finish, moving shine theme, reverse white typography, AAA contrast.
+   ========================================================================== */
+
+/* ===== 1. HORIZONTAL RAIL & MATTE FINISH TILES ===== */
+.home-quick-rail {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 8px var(--ui-page-gutter) 16px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.home-quick-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* Base Tile with Premium Matte Finish */
+.home-quick-rail > button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 0 0 220px;
+  min-height: 84px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  text-align: left;
+  scroll-snap-align: start;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
+  cursor: pointer;
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+}
+
+/* Moving Shine Animation */
+.home-quick-rail > button::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -70%;
+  width: 50%;
+  height: 220%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.32),
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  transform: rotate(25deg);
+  pointer-events: none;
+  animation: quick-moving-shine 4s ease-in-out infinite;
+}
+
+@keyframes quick-moving-shine {
+  0% { left: -70%; }
+  35%, 100% { left: 170%; }
+}
+
+/* Distinct Matte Palettes */
+/* 1. Buy / Sell Used: Deep Emerald Teal Matte */
+.home-quick-rail > button[data-action=used] {
+  background: linear-gradient(135deg, #09372e 0%, #0e4c3f 55%, #05261f 100%);
+  border: 1px solid rgba(52, 211, 153, 0.38);
+  box-shadow: 0 8px 18px -4px rgba(9, 55, 46, 0.45);
+}
+.home-quick-rail > button[data-action=used]:hover {
+  border-color: rgba(52, 211, 153, 0.7);
+  box-shadow: 0 12px 24px -4px rgba(9, 55, 46, 0.6);
+}
+
+/* 2. Refurbished: Royal Sapphire Indigo Matte */
+.home-quick-rail > button[data-action=refurbished] {
+  background: linear-gradient(135deg, #0e224e 0%, #16367c 55%, #0a1838 100%);
+  border: 1px solid rgba(96, 165, 250, 0.38);
+  box-shadow: 0 8px 18px -4px rgba(14, 34, 78, 0.45);
+}
+.home-quick-rail > button[data-action=refurbished]:hover {
+  border-color: rgba(96, 165, 250, 0.7);
+  box-shadow: 0 12px 24px -4px rgba(14, 34, 78, 0.6);
+}
+
+/* 3. Quick Hire: Imperial Amethyst Purple Matte */
+.home-quick-rail > button[data-action=hire] {
+  background: linear-gradient(135deg, #2e1445 0%, #461f68 55%, #1e0b2e 100%);
+  border: 1px solid rgba(192, 132, 252, 0.38);
+  box-shadow: 0 8px 18px -4px rgba(46, 20, 69, 0.45);
+}
+.home-quick-rail > button[data-action=hire]:hover {
+  border-color: rgba(192, 132, 252, 0.7);
+  box-shadow: 0 12px 24px -4px rgba(46, 20, 69, 0.6);
+}
+
+/* 4. Quick Repair: Burnt Amber Copper Matte */
+.home-quick-rail > button[data-action=repair] {
+  background: linear-gradient(135deg, #471e0b 0%, #682c0f 55%, #2e1104 100%);
+  border: 1px solid rgba(251, 146, 60, 0.38);
+  box-shadow: 0 8px 18px -4px rgba(71, 30, 11, 0.45);
+}
+.home-quick-rail > button[data-action=repair]:hover {
+  border-color: rgba(251, 146, 60, 0.7);
+  box-shadow: 0 12px 24px -4px rgba(71, 30, 11, 0.6);
+}
+
+/* 5. Home Premium: Midnight Ocean Navy Matte */
+.home-quick-rail > button[data-action=home] {
+  background: linear-gradient(135deg, #0c233c 0%, #13365c 55%, #071524 100%);
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  box-shadow: 0 8px 18px -4px rgba(12, 35, 60, 0.45);
+}
+.home-quick-rail > button[data-action=home]:hover {
+  border-color: rgba(251, 191, 36, 0.7);
+  box-shadow: 0 12px 24px -4px rgba(12, 35, 60, 0.6);
+}
+
+/* Flashing Offers & Current Sale Notations */
+.quick-tile-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.quick-sale-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(4px);
+  animation: badge-pulse 2.2s infinite ease-in-out;
+}
+.quick-badge-flame {
+  color: #fef08a;
+  filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.6));
+}
+
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.03); opacity: 1; border-color: rgba(255, 255, 255, 0.55); }
+}
+
+/* Main Tile Content Row */
+.quick-tile-main {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+}
+
+.quick-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(6px);
+  transform: rotate(-3deg);
+  transition: transform 0.2s ease;
+}
+
+.quick-tile-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.quick-tile-copy strong {
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.15px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quick-tile-note {
+  height: 2.5em;
+  overflow: hidden;
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+.quick-tile-note > span {
+  display: block;
+  animation: quick-note-slide 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.quick-tile-arrow {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.home-quick-rail > button:active {
+  transform: scale(0.97);
+}
+.home-quick-rail > button:focus-visible {
+  outline: 3px solid #f3be52;
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .home-quick-rail > button:hover {
+    transform: translateY(-2px);
+  }
+  .home-quick-rail > button:hover .quick-tile-icon {
+    transform: rotate(0) scale(1.06);
+  }
+  .home-quick-rail > button:hover .quick-tile-arrow {
+    transform: translateX(2px);
+    background: rgba(255, 255, 255, 0.35);
+  }
+}
+
+@keyframes quick-note-slide {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== 2. DEDICATED QUICK DISCOVERY & CHECKOUT PANELS ===== */
+.quick-action-modal {
+  background: #ffffff;
+  color: #142858;
+  max-width: 620px;
+  border-radius: 20px;
+}
+
+.quick-modal-header-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.quick-modal-tagline {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.quick-dedicated-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Segmented Mode Bar (Buy vs Sell) */
+.quick-mode-segmented-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 12px;
+}
+.quick-seg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.quick-seg-btn.active {
+  background: #142858;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(20, 40, 88, 0.25);
+}
+
+/* Category Filter Pills */
+.quick-filter-pills-row,
+.quick-budget-chips-row,
+.quick-category-tab-rail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.quick-filter-pills-row::-webkit-scrollbar,
+.quick-budget-chips-row::-webkit-scrollbar,
+.quick-category-tab-rail::-webkit-scrollbar {
+  display: none;
+}
+.quick-budget-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.quick-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.quick-pill:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+.quick-pill.active {
+  background: #142858;
+  border-color: #142858;
+  color: #ffffff;
+}
+
+/* Trust Banner */
+.quick-trust-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  color: #166534;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* Product Cards Grid */
+.quick-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 2px 2px 8px;
+}
+
+.quick-product-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.quick-product-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(20, 40, 88, 0.08);
+  border-color: #cbd5e1;
+}
+
+.quick-product-thumb-wrap {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  flex: 0 0 74px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.quick-product-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+.quick-condition-badge,
+.quick-grade-badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(20, 40, 88, 0.85);
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: 800;
+  text-align: center;
+  padding: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quick-grade-badge {
+  background: #0284c7;
+}
+
+.quick-product-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+}
+.quick-product-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  margin: 0 0 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.quick-product-seller {
+  font-size: 10.5px;
+  color: #64748b;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quick-product-pricing {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.quick-price {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #142858;
+}
+.quick-mrp {
+  font-size: 11px;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+.quick-discount-chip {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.quick-refurb-specs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  color: #0284c7;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.quick-refurb-specs span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.quick-emi-note {
+  font-size: 10px;
+  color: #64748b;
+  margin: 0 0 6px;
+}
+
+/* High-Impact Direct CTA Button */
+.quick-buy-now-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #142858;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(20, 40, 88, 0.25);
+  transition: all 0.18s ease;
+}
+.quick-buy-now-btn:hover {
+  background: #1c356e;
+  box-shadow: 0 4px 10px rgba(20, 40, 88, 0.35);
+  transform: translateY(-1px);
+}
+.quick-refurb-buy-btn {
+  background: #0284c7;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+}
+.quick-refurb-buy-btn:hover {
+  background: #0369a1;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.4);
+}
+
+/* Refurbished Hero Banner */
+.quick-refurb-hero-banner {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0e224e 0%, #16367c 100%);
+  color: #ffffff;
+}
+.quick-refurb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #67e8f9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.quick-refurb-hero-banner h3 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+.quick-refurb-hero-banner p {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Instant Sell Estimator */
+.quick-sell-estimator-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.quick-sell-estimator-card h3 {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+.quick-sell-estimator-card p {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 0 0 12px;
+}
+.quick-form-group {
+  margin-bottom: 12px;
+}
+.quick-form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+.quick-form-group select {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #ffffff;
+  color: #0f172a;
+}
+.quick-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.quick-tile-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.quick-dev-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.quick-dev-btn.active {
+  background: #142858;
+  color: #ffffff;
+  border-color: #142858;
+}
+
+.quick-valuation-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  margin-top: 14px;
+}
+.quick-valuation-left {
+  display: flex;
+  flex-direction: column;
+}
+.quick-valuation-left small {
+  font-size: 10px;
+  font-weight: 700;
+  color: #047857;
+  text-transform: uppercase;
+}
+.quick-valuation-left strong {
+  font-size: 18px;
+  font-weight: 900;
+  color: #065f46;
+}
+.quick-valuation-left span {
+  font-size: 9.5px;
+  color: #047857;
+}
+.quick-confirm-sell-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #059669;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.quick-confirm-sell-btn:hover {
+  background: #047857;
+}
+
+/* Quick Hire Panel */
+.quick-hire-hero-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+.quick-hire-stat strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 900;
+  color: #142858;
+}
+.quick-hire-stat span {
+  font-size: 9.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.quick-pro-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quick-pro-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+.quick-pro-avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #3730a3;
+  display: grid;
+  place-items: center;
+}
+.quick-pro-details {
+  flex: 1;
+  min-width: 0;
+}
+.quick-pro-details h4 {
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+  color: #0f172a;
+}
+.quick-pro-details p {
+  font-size: 10.5px;
+  color: #64748b;
+  margin: 0 0 2px;
+}
+.quick-pro-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #475569;
+}
+.quick-pro-rating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 700;
+  color: #ca8a04;
+}
+.quick-pro-badge {
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+}
+.quick-pro-book-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #142858;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Quick Repair Triage */
+.quick-repair-triage-header h3 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0 0 2px;
+  color: #0f172a;
+}
+.quick-repair-triage-header p {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 0;
+}
+.quick-symptoms-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+}
+.quick-symptom-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #142858;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  min-height: 85px;
+}
+.quick-symptom-card:hover {
+  border-color: #142858;
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+.quick-symptom-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: #ea580c;
+}
+.quick-eta-badge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #047857;
+  background: #dcfce7;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.quick-symptom-card strong {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.quick-symptom-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+/* Home Living Panel */
+.quick-home-promo-card {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  height: 125px;
+}
+.quick-home-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.quick-home-cover-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(15, 23, 42, 0.9) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  color: #ffffff;
+}
+.quick-home-fest-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #fde047;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.quick-home-cover-overlay h3 {
+  font-size: 13.5px;
+  font-weight: 800;
+  margin: 0 0 2px;
+}
+.quick-home-cover-overlay p {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+
+.quick-home-packages-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.quick-home-pkg-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+.quick-home-pkg-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.quick-home-pkg-left strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.quick-home-pkg-left p {
+  font-size: 10.5px;
+  color: #64748b;
+  margin: 0;
+}
+.quick-home-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #142858;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.quick-modal-footer-nav {
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+.quick-secondary-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 0;
+  color: #142858;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+.quick-secondary-link:hover {
+  text-decoration: underline;
+}
+
+/* Floating Cart Toast */
+.quick-cart-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  z-index: 9999;
+  animation: toast-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toast-slide-up {
+  from { transform: translate(-50%, 20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+/* Focus and Reduced Motion */
+.home-quick-rail button:focus-visible,
+.quick-action-modal button:focus-visible {
+  outline: 3px solid #f3be52;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-quick-rail > button::after,
+  .quick-sale-badge,
+  .quick-tile-note > span,
+  .quick-cart-toast {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+html.reduce-motion .home-quick-rail > button::after,
+html.reduce-motion .quick-sale-badge,
+html.reduce-motion .quick-tile-note > span,
+html.reduce-motion .quick-cart-toast {
+  animation: none !important;
+  transition: none !important;
+}

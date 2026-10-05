@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+let source=fs.readFileSync(new URL('../src/services/operations.ts',import.meta.url),'utf8').replace(/^import .*;$/gm,'');
+source=`const {auth,apiFetch,beginLoading}=globalThis.__operationTest;\n${source}`;
+let resolve, calls=0, visible=0;
+globalThis.__operationTest={auth:{authStateReady:async()=>{},currentUser:{uid:'a',getIdToken:async()=>'token'}},apiFetch:async()=>{calls++;return await new Promise(r=>resolve=r)},beginLoading:()=>{visible++;return()=>visible--}};
+const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {operation}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+const tick=()=>new Promise(r=>setImmediate(r));
+const response=()=>({ok:true,json:async()=>({ok:true})});
+test('concurrent reads share transport; background stays quiet, foreground settles together',async()=>{const a=operation('/jobs',{}, {background:true}),b=operation('/jobs');await tick();assert.equal(calls,1);assert.equal(visible,1);resolve(response());await Promise.all([a,b]);assert.equal(visible,0);const c=operation('/jobs');await tick();assert.equal(calls,2);resolve(response());await c;});
+test('different users never share a pending private read',async()=>{const a=operation('/jobs');await tick();const first=resolve;globalThis.__operationTest.auth.currentUser.uid='b';const b=operation('/jobs');await tick();assert.equal(calls,4);first(response());resolve(response());await Promise.all([a,b]);assert.equal(visible,0);});
+test('failed response clears pending read and loading state for retry',async()=>{const a=operation('/jobs');await tick();resolve({ok:false,status:503,json:async()=>({detail:'Retry'})});await assert.rejects(a,/Retry/);assert.equal(visible,0);const b=operation('/jobs');await tick();resolve(response());await b;assert.equal(visible,0);});

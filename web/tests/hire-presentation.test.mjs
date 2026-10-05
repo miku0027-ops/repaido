@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {orderHireProfiles,spotlightProfiles} from '../src/services/hirePresentation.mjs';
+const rows=[{id:'one',categories:['ac'],rank:1,portrait_url:'one.jpg',bio:'Repair',skills:['ac'],languages:['Odia']},{id:'two',categories:['electrical'],rank:2,portrait_url:'two.jpg',bio:'Repair',skills:['wiring'],languages:['Odia']},{id:'new',categories:['ac'],rank:null,bio:'Repair',skills:['ac'],languages:['Odia']}];
+test('interests only affect consented order and retain true rank',()=>{assert.equal(orderHireProfiles(rows,{electrical:8},true)[0].id,'two');assert.equal(orderHireProfiles(rows,{electrical:8},true)[0].rank,2);assert.equal(orderHireProfiles(rows,{electrical:8},false)[0].id,'one');});
+test('spotlight requires completed public profile and remains stable during session',()=>{const slides=spotlightProfiles(rows,42);assert.equal(slides.length,2);assert.deepEqual(slides,spotlightProfiles(rows,42));assert.equal(rows.length,3);assert.equal(spotlightProfiles(rows,42,{electrical:9},true)[0].id,'two');});

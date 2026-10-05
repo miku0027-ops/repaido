@@ -1,0 +1,167 @@
+#root .rentals{padding:12px 0;font-size:12px;line-height:1.45;min-width:0}.rentals .ops-heading{gap:8px;align-items:center;margin:0 0 10px}.rentals .ops-heading h2{font-size:16px;margin:0}.rentals .ops-heading p{font-size:11px;margin:4px 0;color:#475569}.rentals .ops-heading>button{font-size:11px;min-height:36px;padding:6px 10px;white-space:nowrap;border-radius:10px}.rentals .rental-search{margin:0 0 8px}.rentals .rental-search input{font-size:13px;min-height:40px}.rentals .rental-rail{gap:6px;padding:2px 0 6px;margin:0;scrollbar-width:thin}.rentals .rental-rail button{font-size:11px;line-height:1.3;min-height:36px;padding:7px 10px;border-radius:9px;white-space:nowrap}.rentals .task-market-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}.rentals .task-market-filters label{font-size:10px;margin:0;gap:3px;min-width:0}.rentals .task-market-filters select{font-size:12px;padding:6px 8px;min-height:36px;width:100%;border-radius:9px}.rentals .rental-stock-filter{display:inline-flex;align-items:center;gap:6px;margin:4px 8px 8px 0;font-size:11px}.rentals .rental-stock-filter input{width:16px;height:16px;min-height:16px;accent-color:#17285c}.rentals .rental-reset{padding:4px 8px;min-height:32px;font-size:11px;border:0;background:transparent;color:#17285c}.rental-result-count{font-size:11px;color:#64748b;margin:6px 0}.rentals .rental-market-grid{gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}.rentals .rental-product{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid #dce3ed;border-radius:14px;background:linear-gradient(145deg,#fff,#f7f9fd);box-shadow:0 3px 10px #14285808;min-width:0;transition:transform .18s,box-shadow .18s}.rentals .rental-product:hover{transform:translateY(-2px);box-shadow:0 6px 16px #14285815}.rentals .rental-product>img,.rentals .rental-product-art{width:100%;height:108px;object-fit:contain;border-radius:10px;background:#fff}.rentals .rental-product>div:last-child{display:flex;flex-direction:column;flex:1;min-width:0}.rentals .rental-product h3{font-size:13px;line-height:1.35;margin:0 0 4px;overflow-wrap:anywhere}.rentals .rental-product p{font-size:10px;line-height:1.5;margin:3px 0;color:#475569}.rental-price-tags{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0}.rental-price-tags>span{padding:4px 5px;border-radius:6px;background:#eef2ff;color:#17285c;font-size:11px}.rental-price-tags small{font-size:9px}.rental-meta-tags{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}.rental-meta-tags>span{font-size:9px;padding:3px 5px;border-radius:5px;background:#f0eafd;color:#593383}.rental-meta-tags .rental-in-stock{background:#e5f6ee;color:#155b39}.rental-meta-tags .rental-out-stock{background:#f6ecea;color:#803427}.rentals .rental-product .ops-primary{min-height:36px;padding:7px;font-size:11px;border-radius:9px;margin-top:auto;gap:5px}.rentals .rental-deposit{padding-bottom:8px}.rental-results,.rental-filter-sidebar{min-width:0}.stores-hub-header:has(.market-opportunities){padding:8px 16px;display:block}.market-opportunities{position:relative;padding:14px;border-radius:16px;background:linear-gradient(115deg,#edf3ff,#f7f1e7);border:1px solid #dbe3ef;color:#17285c}.market-opportunity-copy{display:flex;gap:10px;animation:market-reveal .3s ease}.market-opportunity-icon{display:grid;place-items:center;background:white;width:42px;height:42px;border-radius:12px;flex:none}.market-opportunities small{font-size:9px;font-weight:750;letter-spacing:.08em}.market-opportunities h1{font-size:16px;line-height:1.3;margin:4px 0}.market-opportunities p{font-size:11px;line-height:1.45;margin:5px 0;max-width:45ch}.market-opportunities button{display:inline-flex;align-items:center;gap:5px;font-size:11px;min-height:32px;padding:5px 8px;border:0;background:transparent;color:#17285c;font-weight:700}.market-opportunity-controls{display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:10px}.market-opportunity-controls button{min-width:32px}.market-opportunity-copy>div{min-width:0}@keyframes market-reveal{from{opacity:.5;transform:translateY(4px)}to{opacity:1;transform:none}}@media(min-width:900px){.rental-browse-layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:16px}.rental-filter-sidebar{align-self:start;position:sticky;top:100px;padding:12px;background:#f5f7fb;border:1px solid #dce3ed;border-radius:12px}.rentals .rental-rail{flex-direction:column}.rentals .rental-rail button{text-align:left;white-space:normal}.rentals .task-market-filters{grid-template-columns:1fr}.rentals .rental-market-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:360px){.rentals .rental-market-grid{grid-template-columns:1fr}.rentals .rental-product{display:grid;grid-template-columns:78px minmax(0,1fr)}.rentals .rental-product>img{height:90px}}@media(prefers-reduced-motion:reduce){.market-opportunity-copy{animation:none}.rentals .rental-product{transition:none}.rentals .rental-product:hover{transform:none}}.reduce-motion .market-opportunity-copy{animation:none}.reduce-motion .rental-product{transition:none}
+/* Override the legacy global 48px minimum only on these compact controls. */
+html:not(.large-text) #root .rentals :is(.task-market-filters select,.ops-heading>button,.rental-product .ops-primary){min-height:36px!important}
+html:not(.large-text) #root .rentals .rental-rail button{min-height:32px!important;height:32px;border-radius:9999px;padding:0 12px;font-size:12px;font-weight:600}
+html:not(.large-text) #root .rentals .rental-reset{min-height:28px!important}
+html:not(.large-text) #root .market-opportunities button{min-height:32px!important}
+.market-opportunity-controls{position:absolute;right:10px;bottom:10px}.market-opportunity-copy>div>button{padding-right:100px;min-width:0}.market-opportunities{padding-bottom:10px}.rental-meta-tags>span{max-width:100%;overflow-wrap:anywhere}.rentals .task-market-filters label{display:grid;gap:3px}.rentals .task-market-filters select{margin:0}
+.rentals .rental-hierarchical-layout{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px}.rentals .rental-hierarchical-layout .rental-filter-sidebar{padding:8px 6px;background:#f5f7fb;border:1px solid #dce3ed;border-radius:12px;position:sticky;top:100px;align-self:start;max-height:calc(100dvh - 200px);overflow:auto}.rental-filter-sidebar h3{font-size:11px;margin:4px}.rental-category-tree button,.rental-category-tree summary{display:flex;align-items:center;justify-content:space-between;gap:4px;width:100%;font-size:11px!important;line-height:1.4;min-height:40px!important;padding:7px 5px!important;text-align:left;border:0;border-radius:7px;background:transparent;color:#17285c;overflow-wrap:anywhere;cursor:pointer}.rental-category-tree details{margin:3px 0!important;padding:0!important;border:0}.rental-category-tree details>div{padding-left:6px;border-left:2px solid #d7e0f0}.rental-category-tree summary{font-weight:700;list-style:none}.rental-category-tree summary::before{content:'›';flex:none}.rental-category-tree details[open]>summary::before{content:'⌄'}.rental-category-tree [aria-pressed=true],.rental-category-tree details[open]>summary{background:#17285c;color:white}.rental-category-tree small{font-size:9px;opacity:.8}.rental-deep-filters details{border-top:1px solid #dce3ed;margin:8px 0;padding:0}.rental-deep-filters summary{font-size:12px;font-weight:700;padding:10px 0;cursor:pointer}.rental-deep-filters label{display:grid;gap:4px;font-size:11px;margin:8px 0}.rental-deep-filters input:not([type=checkbox]),.rental-deep-filters select{width:100%;min-width:0;min-height:36px!important;border:1px solid #bac7db;border-radius:8px;padding:6px;font-size:12px;background:white;color:#17285c}.rental-deep-filters .rental-stock-filter{display:flex}.rental-discovery-toolbar{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:4px 0 6px}.rental-discovery-toolbar button{display:flex;align-items:center;gap:5px;font-size:11.5px;min-height:32px!important;height:32px;padding:0 10px;border-radius:9999px}.rental-discovery-toolbar label{display:flex;align-items:center;gap:5px;font-size:11px!important;margin:0!important;min-width:0}.rental-discovery-toolbar select{font-size:11px;min-width:0;width:140px;min-height:32px!important;height:32px;padding:4px 8px;border-radius:9999px}.rental-filter-chips{display:flex;gap:5px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}.rental-filter-chips button{display:flex;gap:4px;align-items:center;flex:none;font-size:10.5px;min-height:28px!important;height:28px;padding:0 9px;background:#eef2ff;border:1px solid #cbd6ee;border-radius:9999px}.rental-desktop-filters{display:none}.rental-hierarchical-layout .rental-market-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr))}.rental-filter-drawer{position:fixed!important;inset:0 auto 0 0!important;margin:0!important;width:min(360px,92vw)!important;max-width:92vw!important;height:100dvh!important;max-height:100dvh!important;border-radius:0 20px 20px 0!important;overflow:auto}.rental-filter-drawer footer{position:sticky;bottom:0;background:white;padding:10px 0}.rental-filter-drawer footer button{width:100%;min-height:44px}.rental-filter-drawer .rental-category-tree{margin-bottom:16px}@media(min-width:900px){.rentals .rental-hierarchical-layout{grid-template-columns:200px minmax(0,1fr)}.rental-desktop-filters{display:block}.rentals .rental-hierarchical-layout .rental-filter-sidebar{padding:12px}.rental-category-tree button,.rental-category-tree summary{font-size:12px!important}}@media(max-width:360px){.rentals .rental-hierarchical-layout{grid-template-columns:86px minmax(0,1fr);gap:8px}.rentals .rental-hierarchical-layout .rental-product{display:flex}.rental-discovery-toolbar select{width:125px}.rentals .rental-hierarchical-layout .rental-product>img{height:90px}}
+/* Keep discovery typography compact despite shared operations form defaults. */
+#root .rentals .rental-filter-sidebar h3{font-size:11px!important;line-height:1.4;margin:4px 0 8px;overflow-wrap:normal}
+.rental-filter-drawer .app-modal-heading h2{font-size:16px!important;line-height:1.3;padding-top:4px}
+.rental-filter-drawer .app-modal-heading{margin-bottom:14px;position:sticky;top:-24px;z-index:2;background:white;padding:12px 0}
+#root .rentals .rental-deep-filters :is(select,input:not([type=checkbox])){font-size:12px!important;min-height:36px!important}
+.rental-category-tree summary::-webkit-details-marker{display:none}
+@media(max-width:899px){.rental-category-tree summary{font-size:10px!important;gap:3px;overflow-wrap:normal}.rental-category-tree summary::before{display:none}.rental-category-tree summary small{margin-left:auto}.rental-category-tree details[open]>summary{box-shadow:inset 3px 0 #5f7cca}}
+
+/* Marketplace commerce shell: compact navigation, quiet surfaces, product-first rhythm. */
+.market-experience{background:#f5f6f8;min-width:0}
+#root .market-primary-switch{display:flex;gap:4px;padding:3px;margin:0 12px 4px;background:#fff;border:1px solid #e1e5ed;border-radius:10px}
+#root .market-primary-switch button{flex:1;min-height:32px!important;height:32px;padding:4px 10px;font-size:11.5px;font-weight:650;border:0;border-radius:8px;box-shadow:none;background:transparent;color:#475569;display:flex;align-items:center;justify-content:center}
+#root .market-primary-switch button[aria-pressed=true]{background:#111c32;color:#fff}
+.market-experience .stores-mobile-app-shell{max-width:1100px;background:#fff;box-shadow:none}
+.market-experience .stores-hub-container{background:#f5f6f8;min-height:0}
+#root .market-experience .stores-hub-header{padding:0 12px 4px;border:0;background:transparent}
+.market-experience .market-opportunities{padding:6px 10px;border-radius:10px;background:linear-gradient(115deg,#f1f4fa,#f6f0e8);border:1px solid #e2e6eb}
+.market-experience .market-opportunity-exchange{background:linear-gradient(115deg,#eaf5ef,#f7faf6)}
+.market-experience .market-opportunity-refurbished{background:linear-gradient(115deg,#f2edfa,#faf7fc)}
+.market-experience .market-opportunity-contracts{background:linear-gradient(115deg,#fff5de,#faf6ed)}
+.market-experience .market-opportunity-icon{width:28px;height:28px;border-radius:8px}
+.market-experience .market-opportunity-icon svg{width:16px;height:16px}
+.market-experience .market-opportunity-copy{gap:6px}
+#root .market-experience .market-opportunities h1{font-size:12.5px;line-height:1.25;margin:2px 0;font-weight:750}
+.market-experience .market-opportunities p{font-size:10.5px;margin:2px 0;line-height:1.35}
+.market-experience .market-opportunities small{font-size:8.5px;letter-spacing:.07em}
+.market-experience .market-opportunity-controls{bottom:4px;right:6px}
+#root .market-experience .market-opportunities button{min-height:28px!important;font-size:10.5px}
+#root .market-experience .stores-segmented-nav-wrap{padding:3px 12px;background:#fff;border-top:1px solid #edf0f4;border-bottom:1px solid #e1e5ed}
+#root .market-experience .stores-segmented-nav{gap:4px;padding:3px;border-radius:9999px;background:#f1f5f9;box-shadow:none;scrollbar-width:none}
+#root .market-experience .stores-nav-pill{min-height:32px!important;height:32px;padding:0 10px;gap:6px;border-radius:9999px;border:0;box-shadow:none;display:inline-flex;align-items:center}
+#root .market-experience .stores-pill-label{font-size:11.5px;line-height:1;font-weight:650;white-space:nowrap}
+#root .market-experience .stores-pill-tag{font-size:9.5px;line-height:1;opacity:.8;display:none}
+@media(min-width:640px){#root .market-experience .stores-pill-tag{display:inline}}
+.market-experience .stores-pill-icon{width:15px;height:15px}
+#root .market-experience .stores-module-container{padding:4px 12px 16px;background:#fff}
+#root .market-experience .rentals{padding:0}
+#root .market-experience .rentals .ops-heading{margin:0 0 4px}
+#root .market-experience .rentals .ops-heading h2{font-size:14px}
+#root .market-experience .rentals .ops-heading p{font-size:10.5px;line-height:1.35;margin:2px 0}
+#root .market-experience .rental-search{margin:0 0 6px}
+#root .market-experience .rental-search input{min-height:34px!important;height:34px;font-size:12px}
+.market-experience .rental-discovery-toolbar{margin:4px 0 6px}
+.market-experience .rental-product{border-radius:10px;box-shadow:none;background:#fff;padding:8px;gap:6px}
+#root .market-experience .rental-product h3{font-size:12px}
+.market-experience .rental-product>img{height:110px;background:#f8f9fb}
+.market-experience .rental-price-tags{gap:3px;margin:4px 0}
+.market-experience .rental-price-tags>span{background:#f2f4f8;padding:3px 4px}
+.market-experience .rental-price-tags>span:first-child{background:#fff;color:#12244f;font-size:13px;padding-left:0;width:100%}
+.market-experience .rental-meta-tags{margin:3px 0}
+#root .market-experience .rental-product .ops-primary{min-height:32px!important;height:32px;font-size:11px}
+.market-experience .rental-hierarchical-layout .rental-filter-sidebar{background:#f5f6f9;border-color:#e5e8ef;border-radius:9px}
+
+/* Unified Discovery Dock & Search */
+.market-experience .spare-discovery-dock{padding:3px 0 4px;background:#fff;border-bottom:1px solid #edf0f4;margin-bottom:3px;border-radius:0;font-size:12px}
+.market-experience .spare-search-row{display:flex;align-items:center;gap:6px}
+.market-experience .spare-scoped-search{height:32px;min-height:32px;padding:0 10px;border-radius:9999px;background:#f8fafc;border:1px solid #cbd5e1;font-size:12px;display:flex;align-items:center;gap:6px;flex:1}
+.market-experience .spare-scoped-search input{height:100%;font-size:12px}
+.market-experience .spare-filter-trigger{height:32px;min-height:32px;padding:0 10px;border-radius:9999px;background:#f8fafc;border:1px solid #cbd5e1;font-size:11.5px;font-weight:650;display:inline-flex;align-items:center;gap:5px;flex:none}
+.market-experience .spare-filter-trigger.is-filtered{background:#142858;color:#fff;border-color:#142858}
+.market-experience .spare-cart-button{height:32px;min-height:32px;padding:0 10px;border-radius:9999px;font-size:11.5px;flex:none}
+.market-experience .spare-active-filters-bar{display:flex;align-items:center;gap:5px;overflow-x:auto;padding:3px 0 1px;scrollbar-width:none}
+.market-experience .spare-active-filter-pill{height:24px;min-height:24px;padding:0 8px;border-radius:9999px;font-size:10.5px;font-weight:650;background:#eef2ff;border:1px solid #c7d2fe;color:#1e1b4b;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+
+/* Community Second-Hand and Exchange Compact Rhythm & Android App Theme */
+#root .market-experience .community-market{padding:4px 12px 16px!important;min-width:0}
+#root .market-experience .community-market .ops-heading{margin:0 0 6px;gap:6px;display:flex;align-items:center;justify-content:space-between}
+#root .market-experience .community-market .ops-heading h2{font-size:14px;font-weight:750;margin:0;color:#0f172a}
+#root .market-experience .community-market .ops-heading p{font-size:10.5px;margin:2px 0 0;color:#64748b}
+#root .market-experience .community-market .market-toggle-btn{min-height:28px!important;height:28px;padding:0 10px;font-size:11px;font-weight:600;border-radius:9999px;border:1px solid #cbd5e1;background:#fff;color:#1e293b}
+#root .market-experience .community-market .market-policy{margin:4px 0 8px;padding:6px 10px;font-size:10.5px;line-height:1.35;border-radius:10px;display:flex;align-items:center;gap:6px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-weight:600}
+#root .market-experience .community-market .market-create-btn{min-height:34px!important;height:34px;font-size:11.5px;font-weight:700;padding:0 14px;border-radius:9999px;width:100%;margin-bottom:8px;background:#142858;color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 2px 6px rgba(20,40,88,0.18)}
+#root .market-experience .community-market .market-search{margin:4px 0 8px;gap:6px;display:flex;flex-wrap:wrap;align-items:center}
+#root .market-experience .community-market .market-search .market-query{flex:1 1 180px;min-width:0}
+#root .market-experience .community-market .market-search label{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#475569;margin:0}
+#root .market-experience .community-market .market-search select,#root .market-experience .community-market .market-search button{min-height:32px!important;height:32px;padding:0 10px;border-radius:9999px;font-size:11.5px;font-weight:600;border:1px solid #cbd5e1;background:#fff}
+#root .market-experience .community-market .market-search button:last-child{background:#142858;color:#fff;border-color:#142858}
+#root .market-experience .community-market .market-category-rail{padding:2px 0 6px;margin:2px 0 8px}
+
+/* Responsive 2-Column Mobile Grid for Second-Hand Products */
+#root .market-experience .community-market .market-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 16px}
+#root .market-experience .community-market .market-card{border:1px solid #e2e8f0;border-radius:12px;padding:6px;min-width:0;background:#fff;box-shadow:0 1px 4px rgba(20,40,88,0.04);transition:transform 0.16s ease,box-shadow 0.16s ease;display:flex;flex-direction:column}
+#root .market-experience .community-market .market-card:hover{transform:translateY(-1.5px);box-shadow:0 4px 12px rgba(20,40,88,0.08);border-color:#cbd5e1}
+#root .market-experience .community-market .market-card-open{display:flex;flex-direction:column;width:100%;text-align:left;background:transparent;border:0;padding:0;cursor:pointer;flex:1}
+
+/* Image Wrap & Micro Floating Badges */
+.market-card-img-wrap{position:relative;width:100%;aspect-ratio:1.15;background:#f8fafc;border-radius:9px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.market-card-img-wrap img{width:100%;height:100%;object-fit:contain;padding:4px}
+.market-badge-verified{position:absolute;top:4px;left:4px;display:inline-flex;align-items:center;gap:3px;font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:9999px;background:rgba(16,185,129,0.94);color:#fff;backdrop-filter:blur(4px);box-shadow:0 1px 3px rgba(0,0,0,0.15);letter-spacing:0.02em}
+.market-badge-verified.shop-verified{background:rgba(20,40,88,0.92)}
+.market-badge-hsn{position:absolute;bottom:4px;right:4px;font-size:8px;font-weight:750;font-family:monospace;padding:1px 5px;border-radius:5px;background:rgba(255,255,255,0.95);color:#1e293b;border:1px solid #cbd5e1;box-shadow:0 1px 2px rgba(0,0,0,0.08)}
+
+/* Card Body & Micro Typography */
+.market-card-body{padding:6px 2px 2px;display:flex;flex-direction:column;gap:1.5px;flex:1}
+.market-card-tag{font-size:8.5px;font-weight:750;text-transform:uppercase;letter-spacing:0.05em;color:#64748b}
+.market-card-body strong{font-size:11.5px;font-weight:650;color:#0f172a;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:28px}
+.market-card-sub{font-size:9.5px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-card-price-row{display:flex;align-items:baseline;justify-content:space-between;margin-top:auto;padding-top:4px;gap:4px}
+.market-card-price-row b{font-size:13px;font-weight:800;color:#142858}
+.market-card-loc{font-size:9px;color:#64748b;white-space:nowrap}
+
+/* Seller Manage Controls */
+.market-card-manage{margin-top:6px;padding-top:6px;border-top:1px solid #f1f5f9;display:flex;flex-direction:column;gap:4px}
+.market-card-manage .status-chip{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#475569;width:fit-content;text-transform:capitalize}
+.market-fee-note{font-size:9px;color:#15803d;font-weight:600;margin:0}
+.market-card-manage button{min-height:26px!important;height:26px;font-size:10px;padding:0 8px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;font-weight:600}
+
+/* Modals & Android App Form Experience */
+.market-form-modal,.market-detail-modal{max-width:520px!important;width:95vw!important;border-radius:18px!important}
+.market-form-promo-badge{display:flex;align-items:center;gap:6px;background:#fef3c7;border:1px solid #fde68a;border-radius:9px;padding:6px 10px;font-size:11px;font-weight:650;color:#92400e;margin-bottom:8px}
+.market-form label{font-size:11px!important;font-weight:650;color:#334155;margin:0 0 4px}
+.market-form input,.market-form select,.market-form textarea{font-size:12px!important;min-height:34px!important;border-radius:8px!important;border:1px solid #cbd5e1;padding:6px 8px!important}
+.market-form textarea{min-height:56px!important;line-height:1.4}
+.market-photo-section{margin:6px 0;padding:8px;background:#f8fafc;border-radius:10px;border:1px dashed #cbd5e1}
+.market-photo-label{font-size:11px;font-weight:650;color:#334155;display:block;margin-bottom:6px}
+.market-photo-box{display:flex;align-items:center;gap:10px}
+.market-photo-preview-wrap{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:1px solid #cbd5e1;flex-shrink:0}
+.market-photo-thumb{width:100%;height:100%;object-fit:cover}
+.market-photo-remove{position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.65);color:#fff;border:0;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer}
+.market-photo-placeholder{width:64px;height:64px;border-radius:8px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:9px;color:#64748b;padding:4px;flex-shrink:0}
+.market-photo-controls{display:flex;flex-direction:column;gap:3px;flex:1}
+.market-photo-controls input[type=file]{font-size:11px;padding:2px 0}
+.market-form-loc-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
+.market-form-loc-btn{min-height:30px!important;height:30px;padding:0 10px;border-radius:9999px;font-size:11px;font-weight:600;border:1px solid #cbd5e1;background:#fff;display:inline-flex;align-items:center;gap:5px;color:#1e293b}
+.market-policy-badge{font-size:10.5px;font-weight:700;color:#047857;background:#ecfdf5;padding:3px 8px;border-radius:6px}
+.market-terms-check{font-size:10.5px;color:#475569;margin:6px 0}
+.market-submit-btn{min-height:38px!important;height:38px;font-size:12.5px;font-weight:750;border-radius:9999px;width:100%;margin-top:6px;background:#142858;color:#fff}
+
+/* Detail Modal Specs */
+.market-detail-img-wrap{position:relative;width:100%;height:190px;background:#f8fafc;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.market-detail-img-wrap img{max-height:100%;max-width:100%;object-fit:contain}
+.market-detail-verified-badge{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:750;padding:3px 8px;border-radius:9999px;background:rgba(16,185,129,0.95);color:#fff;backdrop-filter:blur(4px);box-shadow:0 1px 4px rgba(0,0,0,0.12)}
+.market-detail-price-hero{display:flex;align-items:baseline;justify-content:space-between;margin:6px 0 10px}
+.market-detail-price-hero strong{font-size:20px;font-weight:800;color:#142858}
+.market-detail-hsn{font-size:10.5px;font-family:monospace;font-weight:700;padding:2px 8px;border-radius:6px;background:#f1f5f9;border:1px solid #cbd5e1;color:#334155}
+.market-detail-specs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0;background:#f8fafc;padding:10px;border-radius:10px;border:1px solid #e2e8f0}
+.market-detail-specs>div{display:flex;flex-direction:column;gap:1px}
+.market-detail-specs dt{font-size:9.5px;font-weight:600;color:#64748b;text-transform:uppercase}
+.market-detail-specs dd{margin:0;font-size:11.5px;font-weight:700;color:#0f172a}
+.market-detail-disclaimer{font-size:10px;color:#64748b;line-height:1.4;margin:8px 0;background:#fefce8;border:1px solid #fef08a;padding:6px 8px;border-radius:8px}
+.market-contact-revealed{display:flex;align-items:center;gap:10px;background:#ecfdf5;border:1px solid #a7f3d0;padding:10px 12px;border-radius:10px;margin-top:6px}
+.market-call-link{font-size:13px;font-weight:800;color:#047857;display:block}
+.market-contact-btn{min-height:36px!important;height:36px;font-size:12px;font-weight:700;border-radius:9999px;width:100%;margin-top:6px;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.market-report-details{margin-top:10px;font-size:10.5px;color:#64748b}
+.market-report-details summary{cursor:pointer;font-weight:600;margin-bottom:4px}
+.market-report-details textarea{width:100%;font-size:11px;padding:6px;border-radius:6px;border:1px solid #cbd5e1;margin:4px 0}
+.market-report-details button{font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;background:#e2e8f0;border:0}
+
+@media(min-width:640px){
+  #root .market-experience .community-market .market-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .market-card-img-wrap{aspect-ratio:1.25}
+}
+@media(min-width:900px){
+  #root .market-primary-switch{max-width:400px;margin:0 auto 8px}
+  .market-experience .stores-mobile-app-shell{width:100%}
+  #root .market-experience .stores-module-container{padding:6px 16px 20px}
+  #root .market-experience .community-market .market-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+}
+

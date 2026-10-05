@@ -1,0 +1,787 @@
+/* ==========================================================================
+   REPAIDO CATEGORY LEADERBOARD & VERIFIED SPECIALISTS (COMPACT ANDROID-NATIVE)
+   Theme: Signature Repaido Navy (#142858), Accent (#003BB5), Warm Amber (#F59E0B)
+   Optimized for Android App Sized Screens: High Density, Small Buttons, Zero Wasted Space
+   ========================================================================== */
+
+/* 1. Root Accordion Container */
+.service-leaders-accordion {
+  margin: 10px 0 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+  font-family: inherit;
+  color: #0f172a;
+}
+
+/* 2. Compact Accordion Header Preview Bar (Matches Service Accordion Pattern) */
+.leader-accordion-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: linear-gradient(115deg, #ffffff, #f8fafc);
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  border-left: 3px solid #142858;
+  gap: 10px;
+  transition: background 0.15s ease;
+}
+
+.leader-accordion-summary:hover {
+  background: #f1f5f9;
+}
+
+.leader-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+
+.leader-summary-trophy {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.25);
+}
+
+.leader-summary-titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.leader-summary-headline {
+  font-size: 13px;
+  font-weight: 800;
+  color: #142858;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.3;
+}
+
+.leader-summary-headline .verified-tag {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.leader-summary-subtitle {
+  font-size: 11px;
+  color: #64748b;
+  margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.leader-summary-subtitle strong {
+  color: #142858;
+}
+
+.leader-chevron-icon {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.leader-chevron-icon.is-expanded {
+  transform: rotate(180deg);
+  color: #142858;
+}
+
+/* 3. Accordion Expanded Body */
+.leader-accordion-content {
+  border-top: 1px solid #edf0f4;
+  background: #f8fafc;
+}
+
+/* 4. Single-Row Ultra-Compact Pill Rail (Category Selection + Randomize) */
+.leader-rails-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border-bottom: 1px solid #edf0f4;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.leader-rails-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Compact Randomize Button (Height 28px) */
+.leader-randomize-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.leader-randomize-btn:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.leader-randomize-btn.spinning svg {
+  animation: dice-rotate 0.5s ease-in-out;
+}
+
+@keyframes dice-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Category Pill (Height 28px) */
+.leader-pill-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.leader-pill-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.leader-pill-btn.is-selected {
+  background: #142858;
+  border-color: #142858;
+  color: #ffffff;
+}
+
+.leader-pill-btn.is-selected svg {
+  color: #f59e0b;
+}
+
+/* Location trigger pill */
+.leader-loc-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.leader-loc-pill:hover {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* 5. Dual Category Showcase Grid (Mobile-First: 100% width, No horizontal overflow) */
+.leader-showcase-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+@media (min-width: 640px) {
+  .leader-showcase-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 10px;
+  }
+}
+
+/* 6. Compact Specialist Card Frame */
+.leader-card-frame {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.leader-card-frame:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.07);
+}
+
+/* Card Row 1: Badges & Tags */
+.card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.card-cat-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #142858;
+}
+
+.card-top-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.card-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.demand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.demand-pill.highest {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.demand-pill.top {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.demand-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+/* Card Row 2: Identity & Avatar (Horizontal Micro Layout) */
+.card-identity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-identity-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.card-name-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.card-exp-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #334155;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.card-stats-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #475569;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.card-star-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.card-star-icon {
+  width: 12px;
+  height: 12px;
+  fill: #f59e0b;
+  color: #f59e0b;
+}
+
+.card-dot-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+.card-skills-micro {
+  font-size: 10.5px;
+  color: #64748b;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact Avatar Squircle (38x38px) */
+.card-avatar-squircle {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #142858 0%, #003bb5 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.card-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+}
+
+.card-avatar-check {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #ffffff;
+  z-index: 2;
+}
+
+/* Card Row 3: Single-Line Testimonial Ticker (Auto-scrolling, High density) */
+.card-ticker-strip {
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-radius: 6px;
+  padding: 3px 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 10px;
+  color: #713f12;
+  min-height: 22px;
+}
+
+.card-ticker-quote {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  line-height: 1.3;
+}
+
+.card-ticker-author {
+  font-weight: 700;
+  color: #854d0e;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.card-ticker-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-weight: 800;
+  color: #b45309;
+}
+
+/* Card Row 4: Small Bottom Actions & SLA Tag */
+.card-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 1px;
+}
+
+.card-bottom-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #475569;
+}
+
+.card-starting-price {
+  font-weight: 800;
+  color: #142858;
+}
+
+.card-sla-badge {
+  font-size: 9.5px;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.card-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Small 28px Action Buttons */
+.btn-small-profile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f8fafc;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-small-profile:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-small-hire {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  background: #003bb5;
+  color: #ffffff;
+  border: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 59, 181, 0.2);
+  white-space: nowrap;
+}
+
+.btn-small-hire:hover {
+  background: #002d8f;
+  box-shadow: 0 2px 5px rgba(0, 59, 181, 0.3);
+}
+
+/* ==========================================================================
+   7. MODAL STYLES (Clean Mobile-Friendly Sheets)
+   ========================================================================== */
+.quick-booking-modal-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.booking-specialist-header {
+  background: linear-gradient(135deg, #142858 0%, #003bb5 100%);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.booking-header-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #142858;
+  font-size: 15px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 2px solid #f59e0b;
+  overflow: hidden;
+}
+
+.modal-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+}
+
+.booking-header-details h3 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0;
+  color: #ffffff;
+}
+
+.booking-header-details p {
+  font-size: 11px;
+  color: #cbd5e1;
+  margin: 1px 0 0;
+}
+
+.package-choice-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.package-radio-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.package-radio-card:hover {
+  border-color: #003bb5;
+  background: #f8fafc;
+}
+
+.package-radio-card.is-selected-package {
+  border-color: #003bb5;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px #003bb5;
+}
+
+.package-radio-card .pkg-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.package-radio-card .pkg-duration {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.package-radio-card .pkg-rate {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #003bb5;
+  white-space: nowrap;
+}
+
+.slot-pills-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.slot-pill-choice {
+  flex: 1;
+  min-width: 75px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.slot-pill-choice.active-slot {
+  background: #142858;
+  color: #ffffff;
+  border-color: #142858;
+}
+
+.checkout-input-group label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 3px;
+}
+
+.checkout-text-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.checkout-text-input:focus {
+  border-color: #003bb5;
+  box-shadow: 0 0 0 2px rgba(0, 59, 181, 0.12);
+}
+
+.checkout-breakdown-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  color: #475569;
+}
+
+.breakdown-row.total-row {
+  border-top: 1px solid #cbd5e1;
+  padding-top: 4px;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.btn-proceed-checkout {
+  width: 100%;
+  height: 38px;
+  border-radius: 8px;
+  background: #003bb5;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(0, 59, 181, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-proceed-checkout:hover {
+  background: #002d8f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leader-randomize-btn.spinning svg {
+    animation: none;
+  }
+}

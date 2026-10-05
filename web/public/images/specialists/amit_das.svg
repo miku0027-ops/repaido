@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8c291" />
+      <stop offset="100%" stop-color="#e17055" />
+    </linearGradient>
+    <linearGradient id="shirt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#142858" />
+      <stop offset="100%" stop-color="#003bb5" />
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="200" height="200" rx="32" fill="url(#bg)" />
+  
+  <!-- Collar & Shirt -->
+  <path d="M 40 200 C 40 150 70 140 100 140 C 130 140 160 150 160 200 Z" fill="url(#shirt)" />
+  <path d="M 85 140 L 100 165 L 115 140 Z" fill="#ffffff" opacity="0.9" />
+  
+  <!-- Neck -->
+  <rect x="88" y="115" width="24" height="30" rx="6" fill="url(#skin)" />
+  
+  <!-- Face -->
+  <ellipse cx="100" cy="85" rx="36" ry="42" fill="url(#skin)" />
+  
+  <!-- Hair & Ears -->
+  <circle cx="64" cy="85" r="8" fill="url(#skin)" />
+  <circle cx="136" cy="85" r="8" fill="url(#skin)" />
+  <path d="M 64 80 C 64 45 80 40 100 40 C 120 40 136 45 136 80 C 130 60 115 54 100 54 C 85 54 70 60 64 80 Z" fill="#1e293b" />
+  
+  <!-- Eyes -->
+  <circle cx="86" cy="80" r="4" fill="#0f172a" />
+  <circle cx="114" cy="80" r="4" fill="#0f172a" />
+  <circle cx="87.5" cy="78.5" r="1.2" fill="#ffffff" />
+  <circle cx="115.5" cy="78.5" r="1.2" fill="#ffffff" />
+  
+  <!-- Eyebrows -->
+  <path d="M 78 72 Q 86 68 94 72" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 106 72 Q 114 68 122 72" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  
+  <!-- Smile & Moustache -->
+  <path d="M 85 96 C 92 98 108 98 115 96 C 112 104 88 104 85 96 Z" fill="#1e293b" />
+  <path d="M 90 108 Q 100 116 110 108" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  
+  <!-- Repaido Verified Badge -->
+  <circle cx="160" cy="160" r="18" fill="#10b981" stroke="#ffffff" stroke-width="3" />
+  <path d="M 152 160 L 157 165 L 168 154" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

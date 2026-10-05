@@ -1,0 +1,624 @@
+/* ==========================================================================
+   REPAIDO CONTRACTOR PORTAL & TENDERS AUCTION MARKETPLACE STYLES
+   High-density, WCAG AAA compliant, Micro-typography, Repaido Corporate Theme
+   100% Consistent with Repaido Agent App Design System & Tokens
+   ========================================================================== */
+
+/* Main Contractor App Shell (extends ops-worker) */
+.operations.ops-worker.contractor-app {
+  max-width: 760px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding: 16px 16px calc(110px + env(safe-area-inset-bottom));
+  background: #fbfcfe;
+  color: var(--op-ink, #0a172e);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 1024px) {
+  .operations.ops-worker.contractor-app {
+    max-width: 880px;
+  }
+}
+
+/* Micro badges & tags */
+.micro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+.micro-chip-navy {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.micro-chip-emerald {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.micro-chip-amber {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.micro-chip-purple {
+  background: #faf5ff;
+  color: #6b21a8;
+  border: 1px solid #e9d5ff;
+}
+
+/* Dual Login Switcher */
+.repaido-login-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  gap: 4px;
+}
+
+.repaido-login-switch-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: #475569;
+  transition: all 0.15s ease;
+}
+
+.repaido-login-switch-btn.active {
+  background: #ffffff;
+  color: #0f306e;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+/* Contractor Welcome Banner */
+.contractor-welcome-banner {
+  background: #fff3df;
+  border: 1px solid #b48332;
+  border-radius: 20px;
+  padding: 20px;
+  margin: 16px 0;
+  box-shadow: 0 2px 8px rgba(180, 131, 50, 0.08);
+}
+
+/* Agent 4-Tile Button Grid for Contractor */
+.contractor-button-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+@media (max-width: 480px) {
+  .contractor-button-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
+
+.contractor-grid-btn {
+  background: #ffffff;
+  border: 1px solid #d0daeb;
+  border-radius: 16px;
+  padding: 14px 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 105px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.contractor-grid-btn:hover {
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(15, 48, 110, 0.08);
+}
+
+.contractor-grid-btn.is-active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.contractor-grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.contractor-grid-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.contractor-badge-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.contractor-badge-pill.badge-live {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.contractor-badge-pill.badge-gold {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.contractor-badge-pill.badge-blue {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.contractor-grid-num {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #0f306e;
+  letter-spacing: -0.02em;
+  margin: 4px 0 2px;
+}
+
+.contractor-grid-sub {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Quick Tools Grid */
+.contractor-quick-tools {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+
+@media (max-width: 600px) {
+  .contractor-quick-tools {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.contractor-tool-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.contractor-tool-btn:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+  color: #0f306e;
+}
+
+.contractor-tool-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Search Bar (Agent Theme) */
+.contractor-search-wrap {
+  position: relative;
+  margin: 14px 0 10px;
+}
+
+.contractor-search-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px 12px 42px;
+  border: 1px solid #64748b;
+  border-radius: 14px;
+  background: #ffffff;
+  font-size: 0.84rem;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.contractor-search-input:focus {
+  border-color: #0f306e;
+  box-shadow: 0 0 0 3px rgba(15, 48, 110, 0.12);
+}
+
+.contractor-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* Horizontal Sector Filter Rail */
+.contractor-filter-rail {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 2px 12px;
+  scrollbar-width: thin;
+}
+
+.contractor-filter-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.contractor-filter-pill.active {
+  background: #10235a;
+  color: #ffffff;
+  border-color: #10235a;
+}
+
+/* Tender Card in Agent Ops-Card Style */
+.contractor-tender-card {
+  background: #ffffff;
+  border: 1px solid #d0daeb;
+  border-radius: 20px;
+  padding: 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.contractor-tender-card:hover {
+  border-color: #3b82f6;
+}
+
+.contractor-tender-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contractor-tender-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.35;
+  margin: 0 0 4px;
+}
+
+.contractor-tender-budget-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0;
+}
+
+.contractor-tender-budget-val {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #0f306e;
+}
+
+.contractor-tender-fee-pill {
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+}
+
+/* ========================================================================= */
+/* Responsive, Well-Aligned Column Spec Grid for Tenders & Bidding */
+/* ========================================================================= */
+.contractor-columns-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 6px 0;
+}
+
+@media (min-width: 520px) {
+  .contractor-columns-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.contractor-col-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.contractor-col-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.25;
+}
+
+.contractor-col-value {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.3;
+}
+
+.contractor-col-value.val-navy {
+  color: #0f306e;
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.contractor-col-value.val-emerald {
+  color: #059669;
+  font-weight: 800;
+}
+
+.contractor-col-value.val-amber {
+  color: #b45309;
+}
+
+.contractor-col-value.val-blue {
+  color: #1d4ed8;
+}
+
+.contractor-tender-scope-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contractor-tender-scope-box .scope-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contractor-tender-scope-box .scope-text {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #334155;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Modal Form Grids - Prevents unwrapped/squished column names */
+.contractor-modal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.contractor-modal-form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.contractor-modal-form-col label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.3;
+}
+
+/* Workforce Roster Card */
+.contractor-member-card {
+  background: #ffffff;
+  border: 1px solid #d0daeb;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+@media (max-width: 540px) {
+  .contractor-member-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.contractor-member-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contractor-member-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #bfdbfe;
+}
+
+.contractor-geofence-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #475569;
+  margin-top: 3px;
+}
+
+.contractor-geofence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.contractor-geofence-dot.green {
+  background: #10b981;
+}
+
+.contractor-geofence-dot.red {
+  background: #ef4444;
+}
+
+.contractor-geofence-dot.gray {
+  background: #94a3b8;
+}
+
+/* Modals matching Agent App */
+.contractor-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.contractor-modal-card {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  padding: 24px;
+}
+
+/* Won Contract Progress Bar */
+.contractor-progress-track {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.contractor-progress-fill {
+  height: 100%;
+  background: #10b981;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Prime Showcase Leaderboard Card */
+.contractor-prime-showcase-card {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  border: 1px solid #fde68a;
+  border-radius: 18px;
+  padding: 18px;
+  margin: 14px 0;
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.06);
+}
+
+.suitability-score-bubble {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.85rem;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 2.5px solid #10b981;
+  flex-shrink: 0;
+}

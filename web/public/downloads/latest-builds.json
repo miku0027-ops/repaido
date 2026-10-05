@@ -1,0 +1,23 @@
+{
+  "date": "2026-09-29",
+  "api_revision": "repaido-api-00074-deh",
+  "builds": [
+    {
+      "file": "repaido-app.apk",
+      "build": "debug-test",
+      "bytes": 17842573,
+      "sha256": "6c0fec33143e3dd780c5fa8e272c384983ad0a312ad30ca86b9d1346512a23a2",
+      "version": "1.0.5",
+      "version_code": 6
+    },
+    {
+      "file": "repaido-agent.apk",
+      "build": "debug-test",
+      "bytes": 3574879,
+      "sha256": "376e7bc842ae5059c2706b52a32c0b1a0dd280aad7976b42d4eb6e2abe30194d",
+      "version": "1.2.10",
+      "version_code": 13
+    }
+  ],
+  "ui_release": "travel-map-20260929"
+}

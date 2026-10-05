@@ -1,0 +1,14 @@
+.service-preview-accordion>summary{gap:10px!important;padding:10px!important;background:linear-gradient(115deg,#fff,#f5f7fb);align-items:center}
+.service-preview-accordion>summary>.service-accordion-photo{position:relative;display:block;flex:0 0 76px!important;width:76px!important;height:84px!important;min-width:76px;overflow:hidden;border-radius:12px;background:#e8edf2}
+.service-preview-accordion>summary>.service-accordion-copy{display:grid;flex:1;min-width:0;gap:6px}
+.service-preview-accordion>summary>.service-accordion-copy>strong{font-size:13px;line-height:1.4;color:#142858}
+.service-accordion-price{display:flex;align-items:center;gap:10px;font-size:12px;color:#35415a}.service-accordion-price>span{display:flex;align-items:center;gap:4px}.service-accordion-price b{font-size:13px;color:#142858}
+.service-accordion-fact{display:block;height:2.8em;overflow:hidden;font-size:11px;line-height:1.4;color:#35503b}
+.service-accordion-fact>span{display:flex;align-items:flex-start;gap:5px;animation:service-fact-enter .4s ease-out}.service-accordion-fact svg{flex-shrink:0;margin-top:1px}.service-accordion-fact>span>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.service-preview-accordion[open]>summary{background:#edf4ec!important;color:#142858!important}
+.service-preview-body .service-accordion-included{list-style:none;padding:0;display:grid;gap:7px}.service-accordion-included li{display:flex;align-items:flex-start;gap:6px;font-size:12px;line-height:1.5}.service-accordion-included svg{flex-shrink:0;margin-top:2px;color:#24512e}.service-preview-body>button{display:flex;align-items:center;justify-content:center;gap:6px}
+.service-preview-body details>summary{padding:8px 0;font-size:12px;font-weight:700}.service-preview-body details li{font-size:12px;line-height:1.5}.service-preview-accordion>summary:focus-visible{outline:3px solid #a87512;outline-offset:-3px}
+@keyframes service-fact-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:359px){.service-preview-accordion>summary>.service-accordion-photo{flex-basis:62px!important;min-width:62px;width:62px!important;height:80px!important}}
+@media(prefers-reduced-motion:reduce){.service-accordion-fact>span{animation:none}}.reduce-motion .service-accordion-fact>span{animation:none}
+.service-preview-accordion{align-self:start}.service-preview-body>p{font-size:12px;line-height:1.6;color:#35415a}

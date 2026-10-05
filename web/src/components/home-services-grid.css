@@ -1,0 +1,539 @@
+/* =============================================================================
+   REPAIDO HOME SERVICES MOTION GRID & 3D OPTION CAROUSEL
+   International high-level UI design with multi-layered depth shadows,
+   ambient bottom underglow, continuous diagonal shine shimmer, and
+   non-uniform staggered slide transitions with dynamic offer displays.
+   ============================================================================= */
+
+.repaido-services-grid-container {
+  padding: 0 16px 16px 16px;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.repaido-services-3col-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .repaido-services-3col-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+/* Base Service Motion Card */
+.repaido-service-motion-card {
+  position: relative;
+  overflow: visible; /* allows soft underglow to radiate */
+  border-radius: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 142px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Card Inner Surface with Multi-Layered Diffusion Shadows */
+.repaido-service-card-surface {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  padding: 10px 8px 8px 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfd 60%, #f4f6fa 100%);
+  border: 1px solid rgba(218, 225, 237, 0.95);
+  box-shadow: 
+    0 3px 6px -1px rgba(20, 40, 88, 0.05),
+    0 8px 20px -3px rgba(20, 40, 88, 0.09),
+    0 16px 32px -6px rgba(20, 40, 88, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(20, 40, 88, 0.02);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  will-change: transform, box-shadow, border-color;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              background 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 2;
+}
+
+/* Ambient Bottom Underglow Shadow with Soft Color Bloom */
+.repaido-service-card-shadow-ambient {
+  position: absolute;
+  bottom: -6px;
+  left: 10%;
+  right: 10%;
+  height: 18px;
+  border-radius: 50%;
+  filter: blur(10px);
+  opacity: 0.45;
+  will-change: opacity, transform, filter;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              filter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Moving Shine / Shimmer Light Reflection Sweep */
+.repaido-service-card-shimmer {
+  position: absolute;
+  top: -60%;
+  left: -130%;
+  width: 70%;
+  height: 220%;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.28) 45%,
+    rgba(255, 255, 255, 0.72) 50%,
+    rgba(255, 255, 255, 0.28) 55%,
+    transparent 75%
+  );
+  transform: rotate(25deg);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 5;
+}
+
+.repaido-service-motion-card.is-shining .repaido-service-card-shimmer {
+  animation: card-shimmer-pass 1.75s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes card-shimmer-pass {
+  0% { left: -130%; opacity: 0; }
+  18% { opacity: 0.85; }
+  82% { opacity: 0.85; }
+  100% { left: 170%; opacity: 0; }
+}
+
+/* Hover & Focus Elevated State */
+.repaido-service-motion-card:hover .repaido-service-card-surface,
+.repaido-service-motion-card:focus-visible .repaido-service-card-surface {
+  transform: translate3d(0, -4px, 0) scale(1.018);
+  border-color: var(--card-accent-border, #142858);
+  box-shadow: 
+    0 6px 14px -2px rgba(20, 40, 88, 0.08),
+    0 18px 36px -4px rgba(20, 40, 88, 0.16),
+    0 26px 52px -8px rgba(20, 40, 88, 0.10),
+    0 0 20px 2px var(--card-accent-glow, rgba(20, 40, 88, 0.16)),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.repaido-service-motion-card:hover .repaido-service-card-shadow-ambient,
+.repaido-service-motion-card:focus-visible .repaido-service-card-shadow-ambient {
+  opacity: 0.85;
+  transform: translate3d(0, 3px, 0) scale(1.18);
+  filter: blur(12px);
+}
+
+/* Active Selection */
+.repaido-service-motion-card.is-active .repaido-service-card-surface {
+  border-color: #142858;
+  background: linear-gradient(180deg, #f2f6ff 0%, #eaf0fc 100%);
+  box-shadow: 
+    0 0 0 2px rgba(20, 40, 88, 0.22),
+    0 12px 28px -4px rgba(20, 40, 88, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+/* Top Micro Badge Pill */
+.repaido-service-card-top-pill {
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.repaido-service-micro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  font-size: 8.5px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  padding: 1.5px 6.5px;
+  border-radius: 999px;
+  line-height: 1.25;
+  white-space: nowrap;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: badge-appear 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes badge-appear {
+  0% { opacity: 0; transform: translate3d(0, -3px, 0) scale(0.9); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Badge Color Themes */
+.repaido-badge-emerald {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.repaido-badge-sky {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+.repaido-badge-amber {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+}
+.repaido-badge-rose {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.22);
+}
+.repaido-badge-purple {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+.repaido-badge-flame {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 0 8px rgba(234, 88, 12, 0.22);
+}
+
+/* Pulsing Offer Dot */
+.repaido-badge-radar-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  position: relative;
+  display: inline-block;
+}
+
+.repaido-badge-radar-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+  animation: radar-ping 1.4s infinite cubic-bezier(0, 0, 0.2, 1);
+}
+
+@keyframes radar-ping {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Graphic Motion Stage */
+.repaido-service-graphic-stage {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 2px 0 3px 0;
+  perspective: 600px;
+}
+
+.repaido-service-graphic-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  animation: slide-in-up 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes slide-in-up {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.92);
+    filter: blur(1.5px);
+  }
+  65% {
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+.repaido-service-icon-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 6px rgba(20, 40, 88, 0.12));
+  animation: icon-float-anim 3.5s ease-in-out infinite;
+  backface-visibility: hidden;
+}
+
+.repaido-service-svg-art {
+  width: 46px;
+  height: 46px;
+  filter: drop-shadow(0 3px 7px rgba(20, 40, 88, 0.14));
+  animation: icon-float-anim 3.5s ease-in-out infinite;
+  backface-visibility: hidden;
+}
+
+@keyframes icon-float-anim {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -2.5px, 0); }
+}
+
+/* Offer Glow Halo Behind Graphic */
+.repaido-offer-glow-halo {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--offer-glow-color, rgba(245, 158, 11, 0.25)) 0%, transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+  animation: pulse-halo 2.2s ease-in-out infinite;
+}
+
+@keyframes pulse-halo {
+  0%, 100% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 0.95; }
+}
+
+/* Service Title */
+.repaido-service-motion-title {
+  font-size: 11px;
+  font-weight: 750;
+  color: #142443;
+  line-height: 1.25;
+  margin: 0;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dynamic Motion Sub-Caption / Offer Ticker */
+.repaido-service-motion-caption {
+  font-size: 9.2px;
+  font-weight: 600;
+  line-height: 1.25;
+  min-height: 14px;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repaido-caption-attribute {
+  color: #64748b;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  animation: caption-fade 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.repaido-caption-offer {
+  font-weight: 750;
+  color: #b45309;
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #b45309 0%, #ea580c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  animation: caption-fade 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes caption-fade {
+  0% { opacity: 0; transform: translate3d(0, 4px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* Micro Slide Dots Indicator */
+.repaido-service-dots-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 4px;
+  width: 100%;
+  height: 4px;
+}
+
+.repaido-service-dot {
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+.repaido-service-dot.is-active {
+  width: 12px;
+  background: var(--card-accent, #142858);
+  box-shadow: 0 0 6px var(--card-accent-glow, rgba(20, 40, 88, 0.3));
+}
+
+.repaido-service-dot.is-offer {
+  background: linear-gradient(90deg, #f59e0b, #ea580c);
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.45);
+}
+
+/* =============================================================================
+   EVENT-DRIVEN BEHAVIORAL HYDRATION STYLES
+   Static service grid for first-time visitors (< 3 browse events in 1 hour)
+   Dynamic motion grid for engaged returning customers (>= 3 browse events)
+   ============================================================================= */
+
+.repaido-services-grid-hydrated {
+  animation: services-grid-hydrate-reveal 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.repaido-services-grid-static {
+  animation: services-grid-static-enter 0.4s ease both;
+}
+
+@keyframes services-grid-hydrate-reveal {
+  0% {
+    opacity: 0.88;
+    transform: translate3d(0, 3px, 0) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes services-grid-static-enter {
+  0% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Static Service Card Variant (Zero-motion, clean cognitive clarity) */
+.repaido-service-static-card {
+  position: relative;
+  border-radius: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 142px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.repaido-service-static-card .repaido-service-card-surface {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.25s ease;
+}
+
+.repaido-service-static-card:hover .repaido-service-card-surface,
+.repaido-service-static-card:focus-visible .repaido-service-card-surface {
+  transform: translate3d(0, -3px, 0) scale(1.015);
+  border-color: var(--card-accent-border, #142858);
+  box-shadow: 
+    0 6px 14px -2px rgba(20, 40, 88, 0.08),
+    0 16px 30px -4px rgba(20, 40, 88, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.repaido-service-static-card.is-active .repaido-service-card-surface {
+  border-color: #142858;
+  background: linear-gradient(180deg, #f2f6ff 0%, #eaf0fc 100%);
+  box-shadow: 
+    0 0 0 2px rgba(20, 40, 88, 0.22),
+    0 12px 28px -4px rgba(20, 40, 88, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.repaido-static-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  display: inline-block;
+}
+
+.repaido-service-static-card.is-active .repaido-static-dot {
+  width: 10px;
+  background: var(--card-accent, #142858);
+}
+
+/* Responsiveness on very small screens (<= 340px) */
+@media (max-width: 340px) {
+  .repaido-services-3col-grid {
+    gap: 7px;
+  }
+  .repaido-service-card-surface {
+    padding: 8px 5px 6px 5px;
+    border-radius: 16px;
+  }
+  .repaido-service-graphic-stage {
+    width: 42px;
+    height: 42px;
+  }
+  .repaido-service-icon-img,
+  .repaido-service-svg-art {
+    width: 38px;
+    height: 38px;
+  }
+  .repaido-service-motion-title {
+    font-size: 10px;
+  }
+  .repaido-service-motion-caption {
+    font-size: 8.5px;
+  }
+  .repaido-service-micro-badge {
+    font-size: 7.5px;
+    padding: 1px 4.5px;
+  }
+}

@@ -1,0 +1,11 @@
+import {useEffect,useState} from 'react';
+import {auth} from '../firebase';
+import {apiFetch,apiAssetUrl} from '../services/api';
+export function InventoryPhoto({initial='',onBusy}:{initial?:string;onBusy:(busy:boolean)=>void}){
+ const [url,setUrl]=useState(initial),[preview,setPreview]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
+ const upload=async(file:File)=>{setError('');if(!['image/jpeg','image/png'].includes(file.type)||file.size>5*1024*1024){setError('Choose a JPG or PNG photo under 5 MB.');return;}setBusy(true);onBusy(true);try{const token=await auth.currentUser?.getIdToken();if(!token)throw Error('Sign in again before uploading.');const r=await apiFetch('/api/operations/shop/photos',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':file.type},body:file,signal:AbortSignal.timeout(60000)});const d=await r.json();if(!r.ok)throw Error(d.detail?.message||'Photo upload failed. Choose the photo again to retry.');setUrl(d.image_url);setPreview(URL.createObjectURL(file));}catch(e){setError((e as Error).message);}finally{setBusy(false);onBusy(false);}};
+ return <div className="inventory-photo"><label>Product photo · JPG or PNG<input type="file" accept="image/jpeg,image/png" disabled={busy} onChange={e=>{if(e.target.files?.[0])void upload(e.target.files[0]);}}/></label><input type="hidden" name="image_url" value={url}/>{(preview||url)&&<img src={preview||apiAssetUrl(url)} alt="Product photo preview" style={{height:120,width:160,objectFit:'contain'}}/>}<p className="ops-help">Up to 5 MB. Location metadata is removed. Publish only photos you have permission to use.</p>{busy&&<p role="status">Uploading photo…</p>}{error&&<p role="alert" className="ops-error">{error}</p>}</div>;
+}
+
+export function InventoryCategories(){return <datalist id="inventory-category-options">{['AC parts','Electrical','Plumbing','Appliance parts','Vehicle parts','Power tools','Hand tools','Cleaning equipment','Gardening equipment','Safety equipment'].map(c=><option key={c} value={c}/>)}</datalist>;}

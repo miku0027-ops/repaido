@@ -1,0 +1,214 @@
+/* ==========================================================================
+   SHOP ADMIN B2B & WHOLESALE MANAGEMENT PANEL STYLES
+   ========================================================================== */
+
+.shop-b2b-panel {
+  padding: 20px;
+  background: #f8fafc;
+  min-height: 100%;
+}
+
+.shop-b2b-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.shop-b2b-title-area h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px 0;
+}
+
+.shop-b2b-title-area p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Overview Pulse Metrics Cards */
+.shop-b2b-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.shop-b2b-metric-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.shop-b2b-metric-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.shop-b2b-metric-icon.blue { background: #e0e7ff; color: #1e3a8a; }
+.shop-b2b-metric-icon.amber { background: #fef3c7; color: #b45309; }
+.shop-b2b-metric-icon.emerald { background: #dcfce7; color: #15803d; }
+.shop-b2b-metric-icon.purple { background: #f3e8ff; color: #7e22ce; }
+
+.shop-b2b-metric-data strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.shop-b2b-metric-data span {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Sub-navigation tabs */
+.shop-b2b-tabs-bar {
+  display: flex;
+  gap: 10px;
+  border-bottom: 1.5px solid #e2e8f0;
+  margin-bottom: 20px;
+  padding-bottom: 2px;
+}
+
+.shop-b2b-tab-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.shop-b2b-tab-btn:hover {
+  color: #142858;
+}
+
+.shop-b2b-tab-btn.active {
+  color: #142858;
+  border-bottom-color: #142858;
+}
+
+/* Listings Table Container */
+.shop-b2b-table-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.shop-b2b-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.shop-b2b-table th {
+  background: #f8fafc;
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.shop-b2b-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.shop-b2b-table tr:hover td {
+  background: #f8fafc;
+}
+
+.shop-status-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shop-status-badge.active { background: #dcfce7; color: #15803d; }
+.shop-status-badge.paused { background: #fef3c7; color: #b45309; }
+
+/* Quotation Generator Modal Form */
+.shop-quote-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.shop-quote-modal-box {
+  background: #ffffff;
+  width: 100%;
+  max-width: 720px;
+  max-height: 92vh;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+
+.shop-quote-modal-header {
+  background: #142858;
+  color: #ffffff;
+  padding: 16px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shop-quote-modal-body {
+  padding: 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.shop-quote-breakdown-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+}

@@ -1,0 +1,455 @@
+/* ==========================================================================
+   REPAIDO OFFICIAL B2B WHOLESALE QUOTATION & PRINT STYLES
+   Meets WCAG AAA contrast and precision A4 page layout standards.
+   ========================================================================== */
+
+.b2b-quotation-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(10, 20, 40, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.b2b-quotation-modal-container {
+  background: #ffffff;
+  width: 100%;
+  max-width: 860px;
+  max-height: 94vh;
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(10, 25, 60, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #d5e0f2;
+}
+
+.b2b-quotation-modal-header {
+  background: #142858;
+  color: #ffffff;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #203a7a;
+}
+
+.b2b-quotation-modal-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+.b2b-quotation-modal-header .b2b-btn-close {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.b2b-quotation-modal-header .b2b-btn-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.b2b-quotation-modal-actions {
+  padding: 12px 20px;
+  background: #f7f9fd;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.b2b-quotation-modal-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: #f1f5f9;
+}
+
+/* ==========================================================================
+   OFFICIAL REPAIDO QUOTATION SHEET (A4 FORM FACTOR)
+   ========================================================================== */
+
+.repaido-quotation-sheet {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 36px 36px 48px;
+  max-width: 800px;
+  margin: 0 auto;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.45;
+  position: relative;
+}
+
+/* Top Branding Banner */
+.repaido-quote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 3px solid #142858;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+}
+
+.repaido-quote-logo-col {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.repaido-quote-logo-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(20, 40, 88, 0.2);
+}
+
+.repaido-quote-brand-title {
+  font-size: 20px;
+  font-weight: 900;
+  color: #142858;
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.repaido-quote-brand-sub {
+  font-size: 11px;
+  color: #475569;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 3px;
+}
+
+.repaido-quote-title-col {
+  text-align: right;
+}
+
+.repaido-quote-doctype {
+  font-size: 18px;
+  font-weight: 800;
+  color: #142858;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.repaido-quote-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0284c7;
+  font-family: monospace;
+  margin-top: 4px;
+}
+
+.repaido-quote-meta-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+/* Parties Details Grid (Supplier vs Buyer) */
+.repaido-quote-parties-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.repaido-quote-party-box h4 {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #142858;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.repaido-quote-party-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.repaido-quote-party-meta {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.repaido-quote-badge-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+/* Itemized Commercial Table */
+.repaido-quote-table-wrapper {
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.repaido-quote-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.repaido-quote-table th {
+  background: #142858;
+  color: #ffffff;
+  padding: 9px 10px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.repaido-quote-table th:last-child,
+.repaido-quote-table td:last-child,
+.repaido-quote-table th.text-right,
+.repaido-quote-table td.text-right {
+  text-align: right;
+}
+
+.repaido-quote-table td {
+  padding: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
+  vertical-align: top;
+}
+
+.repaido-quote-table tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+.repaido-quote-item-title {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.repaido-quote-item-specs {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Commercial Breakdown & Totals */
+.repaido-quote-totals-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 20px;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.repaido-quote-words-box {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.repaido-quote-words-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.repaido-quote-words-val {
+  font-weight: 700;
+  color: #142858;
+  font-style: italic;
+}
+
+.repaido-quote-totals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.repaido-quote-totals-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.repaido-quote-totals-table tr.grand-total-row td {
+  border-top: 2px solid #142858;
+  border-bottom: 2px solid #142858;
+  font-size: 15px;
+  font-weight: 800;
+  color: #142858;
+  background: #eef4ff;
+  padding: 8px 10px;
+}
+
+/* Terms and Certification */
+.repaido-quote-terms-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-size: 11px;
+  color: #475569;
+  margin-bottom: 24px;
+}
+
+.repaido-quote-terms-box h4 {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #142858;
+  margin-bottom: 8px;
+}
+
+.repaido-quote-terms-list {
+  padding-left: 18px;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.repaido-quote-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.repaido-quote-sig-box {
+  text-align: center;
+  padding: 12px;
+}
+
+.repaido-quote-stamp-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border: 2px solid #142858;
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  color: #142858;
+  font-weight: 800;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  opacity: 0.85;
+  transform: rotate(-10deg);
+}
+
+.repaido-quote-sig-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.repaido-quote-sig-sub {
+  font-size: 10px;
+  color: #64748b;
+}
+
+/* ==========================================================================
+   PRINT MEDIA RULES (PERFECT A4 EXPORT)
+   ========================================================================== */
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .b2b-quotation-modal-overlay,
+  .repaido-quotation-sheet,
+  .repaido-quotation-sheet * {
+    visibility: visible !important;
+  }
+
+  .b2b-quotation-modal-overlay {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .b2b-quotation-modal-container {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    max-height: none !important;
+  }
+
+  .b2b-quotation-modal-header,
+  .b2b-quotation-modal-actions {
+    display: none !important;
+  }
+
+  .b2b-quotation-modal-scroll {
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .repaido-quotation-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+}

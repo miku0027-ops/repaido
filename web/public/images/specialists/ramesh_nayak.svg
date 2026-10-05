@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg-carp" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+    <linearGradient id="skin-carp" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8c291" />
+      <stop offset="100%" stop-color="#e17055" />
+    </linearGradient>
+    <linearGradient id="shirt-carp" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="32" fill="url(#bg-carp)" />
+  <path d="M 40 200 C 40 150 70 140 100 140 C 130 140 160 150 160 200 Z" fill="url(#shirt-carp)" />
+  <path d="M 85 140 L 100 165 L 115 140 Z" fill="#ffffff" opacity="0.9" />
+  <rect x="88" y="115" width="24" height="30" rx="6" fill="url(#skin-carp)" />
+  <ellipse cx="100" cy="85" rx="36" ry="42" fill="url(#skin-carp)" />
+  <circle cx="64" cy="85" r="8" fill="url(#skin-carp)" />
+  <circle cx="136" cy="85" r="8" fill="url(#skin-carp)" />
+  <path d="M 64 80 C 64 42 80 38 100 38 C 120 38 136 42 136 80 C 130 62 116 56 100 56 C 84 56 70 62 64 80 Z" fill="#334155" />
+  <circle cx="86" cy="80" r="4" fill="#0f172a" />
+  <circle cx="114" cy="80" r="4" fill="#0f172a" />
+  <circle cx="87.5" cy="78.5" r="1.2" fill="#ffffff" />
+  <circle cx="115.5" cy="78.5" r="1.2" fill="#ffffff" />
+  <path d="M 78 72 Q 86 68 94 72" stroke="#334155" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 106 72 Q 114 68 122 72" stroke="#334155" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <path d="M 85 96 C 92 98 108 98 115 96 C 112 104 88 104 85 96 Z" fill="#334155" />
+  <path d="M 90 108 Q 100 116 110 108" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" />
+  <circle cx="160" cy="160" r="18" fill="#10b981" stroke="#ffffff" stroke-width="3" />
+  <path d="M 152 160 L 157 165 L 168 154" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

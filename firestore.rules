@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com' ||
+        (request.auth.token.role != null && request.auth.token.role == 'admin') ||
+        (request.auth.token.admin != null && request.auth.token.admin == true)
+      );
+    }
+
+    // 1. Services Catalog: Publicly readable by all users & visitors, writable by admin
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 2. Categories & Metadata: Public read, admin write
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 3. User Profiles: Authenticated users can read/write their own document
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 4. Bookings: Customers can read/create their own bookings; technicians can read assigned; admin full access
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid || 
+        resource.data.technician_id == request.auth.uid || 
+        isAdmin()
+      );
+      // All commercial state transitions go through server commands.
+      allow create, update, delete: if false;
+    }
+
+    // 5. Technicians & Specialists: Public read for active profiles (discovery within 6km); technician updates self; admin manages
+    match /technicians/{technicianId} {
+      // Legacy documents may contain phone/home/KYC data. Public discovery uses a
+      // server projection with an explicit safe-field allowlist.
+      allow read: if isOwner(technicianId) || isAdmin();
+      allow write: if false;
+    }
+
+    // 6. Partner Applications (Technician registration): Any applicant can submit; only admin can view/approve
+    match /partner_applications/{applicationId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // 7. Support Tickets: Anyone can submit a ticket; users can read their own; admin manages all
+    match /support_tickets/{ticketId} {
+      allow create: if true;
+      allow read, update: if isAuthenticated() && (
+        resource.data.user_id == request.auth.uid || 
+        resource.data.userId == request.auth.uid || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 8. City Slots & Capacity & Coverage: Public read; admin write
+    match /city_slots/{slotId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /city_coverage/{cityId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Transactional workers, work orders, commands, inventory, audit and outbox
+    // use ops_* collections through the Admin SDK. No direct mobile writes/reads.
+    match /{collection}/{document} {
+      allow read, write: if false;
+    }
+  }
+}

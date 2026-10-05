@@ -1,0 +1,5 @@
+/* Consistent line weights; focus outlines and selected rings remain distinct. */
+:root { --ui-stroke: 1px; --ui-icon-stroke: 1.8; }
+#root svg.lucide { stroke-width: var(--ui-icon-stroke); }
+#root :where(.ops-card,.customer-booking-card,.service-preview-accordion,.discovery-card,.home-entry-premium,.leader-strip,.contract-card) { border-width: var(--ui-stroke); }
+#root :where(button,input,select,textarea):focus-visible { outline-width: 2px; outline-offset: 3px; }

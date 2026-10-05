@@ -1,0 +1,75 @@
+import {readDeviceLocation} from './deviceLocation.mjs';
+import { apiFetch } from './api';
+import { auth } from '../firebase';
+import {beginLoading} from './loading';
+const operationReads=new Map<string,Promise<unknown>>();
+
+export interface Job {
+  coupon?:{code:string;bps:number;discount_paise:number};vendor_discount_paise?:number;
+  service_id:string;
+  home_plan_id?:string;home_brief_rows?:{label:string;value:string}[];home_log_required?:boolean;home_checklist?:string[];home_arrival_log?:{hygiene:boolean;checked:number[];note:string;at:number};home_daily_log?:{hygiene:boolean;checked:number[];note:string;at:number};
+  promotion_discount_paise?:number; promotion?:{id:string;title:string;discount_paise:number;terms:string};
+  service_terms?:{version:number;text:string};
+  parts_paid_paise?:number; parts_refund_hold?:boolean; procurement_version?:number; arrival_verified_visit?:string; id: string; visit_id:string; is_follow_up?:boolean; follow_up_reason?:string; follow_up_purpose?:string; version: number; state: string; service_name: string; category: string;
+  starts_at: string; starts_epoch: number; total_paise: number; base_price_paise: number;
+  city: string; address?: string; phone?: string; notes?: string; location?: {lat:number;lng:number};
+  worker_id?: string; worker_name?: string; worker_role?: string;
+  reminder_at: number; reminder_ack_at?: number; offer_expires_at?: number;
+  server_time: number; distance_metres: number | null; payment_status: string; payout_status: string;
+  allowed_actions: string[]; blockers: string[];
+  proposal?: {id:string;status:string;amount_paise:number;items:{name:string;quantity:number;unit_price_paise:number}[]};
+  penalties: {visit_id:string;code:string;current_percent:number;next_task_percent?:number;status:string}[];
+  events: {event_id:string;event_type:string;occurred_at_server_time:number}[];
+  completion_notes?: string; invoice?: {id:string;total_paise:number;status:string};
+  review?: {rating:number;text:string};
+  pickup_locations?: {name:string;location:{lat:number;lng:number}}[];
+  scopes: {credit_paise?:number;version:number;price_paise:number;quote?:{items:{name:string;quantity:number;unit_price_paise:number}[]}}[];
+  forgotten_info?: string;
+  before_omission_reason?: string;
+  evidence_summary?: {
+    has_before: boolean;
+    has_after: boolean;
+    has_forgotten_info: boolean;
+    before_omission_reason: string;
+    count: number;
+  };
+}
+export interface LiveWorker {
+  dob?:string; home_address?:string; location?:{lat:number;lng:number}; requested_role?:string; experience_years?:number; radius_km?:number;
+  id:string; name:string; phone:string; status:string; role:string; city:string;
+  categories:string[]; skills:string[]; tools:string[]; online:boolean; points:number;
+  completed_tasks:number; rating_sum:number; rating_count:number; review_reason?:string;
+}
+export async function operation<T>(path:string, init:RequestInit={}, options:{background?:boolean}={}):Promise<T> {
+  await auth.authStateReady();
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Sign in to continue. Your draft will stay open.');
+  const read=(init.method||'GET').toUpperCase()==='GET';
+  const key=`${auth.currentUser?.uid}:${path}`;
+  const existing=read?operationReads.get(key):undefined;
+  const done=options.background?()=>{}:beginLoading(path);
+  if(existing){try{return await existing as T;}finally{done();}}
+  const request=(async()=>{
+  const response = await apiFetch(`/api/operations${path}`, {...init, signal:AbortSignal.timeout(15000), headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true});
+  const body = await response.json().catch(()=>({}));
+  if (!response.ok) throw new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.'));
+  return body as T;
+  })();
+  if(read)operationReads.set(key,request);
+  try{return await request;}finally{if(operationReads.get(key)===request)operationReads.delete(key);done();}
+}
+const pending = new Map<string, {command_id:string;action:string;expected_version:number;payload:object}>();
+export async function jobCommand(job:Job, action:string, payload:object={}):Promise<Job> {
+  // Keep the same command across uncertain network retries. A changed version is a new intent.
+  const key = `${job.id}:${job.version}:${action}:${JSON.stringify(payload)}`;
+  const command = pending.get(key) || {command_id:crypto.randomUUID(), action, expected_version:job.version, payload};
+  pending.set(key, command);
+  const result = await operation<Job>(`/jobs/${job.id}/commands`, {method:'POST', body:JSON.stringify(command)});
+  pending.delete(key);
+  window.dispatchEvent(new Event('repaido:job-updated'));
+  return result;
+}
+export async function currentPosition(registration=false) {
+  return readDeviceLocation(navigator.geolocation,{registration,secure:window.isSecureContext});
+}
+export const money = (paise:number)=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(paise/100);

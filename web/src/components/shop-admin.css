@@ -1,0 +1,312 @@
+/* Repaido Shop Admin Design System & Branding
+   Matches Customer Platform Theme & Tokens
+   Navy: #0B132B / #0C1F42 | Royal Blue: #003BB5 | Amber: #F59E0B | Emerald: #059669
+*/
+
+/* Glowing Tabs Animation for Real-Time Activity */
+@keyframes repaidoTabGlowAmber {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.45), inset 0 0 4px rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.9), 0 0 28px rgba(245, 158, 11, 0.5), inset 0 0 8px rgba(245, 158, 11, 0.4);
+    border-color: #fbbf24;
+  }
+}
+
+@keyframes repaidoTabGlowBlue {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(0, 59, 181, 0.45), inset 0 0 4px rgba(0, 59, 181, 0.2);
+    border-color: #003BB5;
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(0, 59, 181, 0.85), 0 0 28px rgba(0, 59, 181, 0.45), inset 0 0 8px rgba(0, 59, 181, 0.35);
+    border-color: #3b82f6;
+  }
+}
+
+@keyframes repaidoPingPulse {
+  0% { transform: scale(0.95); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.9; }
+}
+
+@keyframes repaidoBeaconRing {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  50% { transform: scale(1.4); opacity: 0.2; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.tab-glowing-amber {
+  animation: repaidoTabGlowAmber 2.2s infinite ease-in-out !important;
+  position: relative;
+}
+
+.tab-glowing-blue {
+  animation: repaidoTabGlowBlue 2.2s infinite ease-in-out !important;
+  position: relative;
+}
+
+.tab-glow-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background-color: #f59e0b;
+  box-shadow: 0 0 10px #f59e0b, 0 0 18px #f59e0b;
+  animation: repaidoPingPulse 1.6s infinite ease-in-out;
+}
+
+/* Accordion Smooth Expand / Collapse Styles */
+.shop-accordion-header {
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.shop-accordion-chevron {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shop-accordion-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.shop-accordion-content {
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+}
+
+/* Map Clean Custom Pins for Shop Owner Radar */
+.shop-map-pin-store {
+  width: 36px;
+  height: 36px;
+  background: #003BB5;
+  color: #ffffff;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(0, 59, 181, 0.45);
+  border: 2.5px solid #ffffff;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.shop-map-pin-store:hover {
+  transform: scale(1.12);
+}
+
+.shop-map-agent-marker {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+}
+
+.shop-map-agent-body {
+  width: 34px;
+  height: 34px;
+  background: #0284c7;
+  color: #ffffff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.5);
+  position: relative;
+  z-index: 2;
+  transition: transform 0.2s ease;
+}
+
+.shop-map-agent-body.at-shop {
+  background: #059669;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.5);
+}
+
+.shop-map-agent-body.urgent {
+  background: #d97706;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.5);
+}
+
+.shop-map-agent-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid #0284c7;
+  animation: repaidoBeaconRing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  z-index: 1;
+}
+
+.shop-map-agent-pulse.at-shop {
+  border-color: #059669;
+}
+
+.shop-map-agent-pulse.urgent {
+  border-color: #d97706;
+}
+
+.shop-map-customer-pin {
+  width: 32px;
+  height: 32px;
+  background: #0B132B;
+  color: #ffffff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(11, 19, 43, 0.4);
+  border: 2px solid #ffffff;
+}
+
+/* Modern Repaido Toggle Switch (Matches Customer Platform) */
+.repaido-toggle-switch {
+  position: relative;
+  display: inline-flex;
+  height: 24px;
+  width: 44px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.repaido-toggle-switch:focus-visible {
+  outline: 2px solid #003BB5;
+  outline-offset: 2px;
+}
+
+.repaido-toggle-switch.active {
+  background-color: #003BB5;
+}
+
+.repaido-toggle-switch.inactive {
+  background-color: #cbd5e1;
+}
+
+.repaido-toggle-thumb {
+  pointer-events: none;
+  display: inline-block;
+  height: 20px;
+  width: 20px;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease-in-out;
+}
+
+.repaido-toggle-switch.active .repaido-toggle-thumb {
+  transform: translateX(20px);
+}
+
+.repaido-toggle-switch.inactive .repaido-toggle-thumb {
+  transform: translateX(0);
+}
+
+/* Repaido Brand Button Components */
+.repaido-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #003BB5;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(0, 59, 181, 0.2);
+}
+
+.repaido-btn-primary:hover {
+  background-color: #002D8F;
+  box-shadow: 0 4px 12px rgba(0, 59, 181, 0.3);
+  transform: translateY(-1px);
+}
+
+.repaido-btn-primary:active {
+  transform: translateY(0);
+  scale: 0.98;
+}
+
+.repaido-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #ffffff;
+  color: #0B132B;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  border: 1px solid #e2e8f0;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.repaido-btn-secondary:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.repaido-btn-amber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #f59e0b;
+  color: #0B132B;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.3);
+}
+
+.repaido-btn-amber:hover {
+  background-color: #d97706;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.repaido-btn-emerald {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #059669;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 2px rgba(5, 150, 105, 0.2);
+}
+
+.repaido-btn-emerald:hover {
+  background-color: #047857;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+}
+
+/* Card hover micro-animations */
+.repaido-card-interactive {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.repaido-card-interactive:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
