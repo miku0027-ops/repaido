@@ -5,6 +5,8 @@ using the repository configuration file `/cloudbuild.yaml`.
 Include both frontend and backend changes in the trigger; do not filter it to
 only one subdirectory. The trigger must use project `repaido`.
 
+The Python test step also installs Node.js: the camera metadata integration test
+executes the frontend's actual JavaScript encoder through a Node subprocess.
 The pipeline runs the backend tests, frontend tests and production build, then
 builds and pushes the backend container. It deploys a unique no-traffic Cloud Run
 candidate and checks its health and build ID before deploying Firebase Hosting.

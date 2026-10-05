@@ -7,6 +7,10 @@ steps:
     args:
       - -ceu
       - |
+        # The camera-metadata integration test invokes the browser's JS encoder.
+        apt-get update
+        apt-get install --yes --no-install-recommends nodejs
+        node --version
         pip install --no-cache-dir -r requirements-dev.txt
         REPAIDO_STORAGE=sqlite python -m pytest -q
 
