@@ -58,12 +58,17 @@ try{
   await cat('Home Cleaning');await settled();assert.equal(await page.locator('.catalog-professionals-toggle').getAttribute('aria-expanded'),'false');
   await page.locator('.catalog-professionals-toggle').click();assert.equal(await page.locator('.catalog-professional h3').textContent(),'Cleaning professional');
   await cat('All services');assert.equal(await page.locator('.catalog-professionals').count(),0);
+  const previousElectrical=requests.filter(r=>r.category==='electrician').length;
+  await cat('Electrical');await settled();assert.equal(requests.filter(r=>r.category==='electrician').length,previousElectrical,'reopening a fresh category should use the cached public profiles');
+  await cat('All services');
   await page.getByRole('button',{name:'Choose Electrical inspection for ₹299',exact:true}).click();assert.equal(await page.getByLabel('Chosen service').textContent(),'electric');
   console.log('Catalogue, category filtering, compact layout and real service action passed:',width);
  }
+ await page.reload();await page.locator('.uc-service-card').nth(3).waitFor();
  slowElectrical=true;const delayedRequest=page.waitForRequest(r=>r.url().includes('leaderboard')&&r.postDataJSON().category==='electrician');await cat('Electrical');await delayedRequest;
  await cat('Home Cleaning');await settled();await page.locator('.catalog-professionals-toggle').click();await page.waitForTimeout(650);assert.equal(await page.locator('.catalog-professional h3').textContent(),'Cleaning professional');slowElectrical=false;
- await cat('All services');failCleaning=true;await cat('Home Cleaning');await page.locator('.catalog-professionals-copy > span').filter({hasText:'temporarily unavailable'}).waitFor();
+ await page.reload();await page.locator('.uc-service-card').nth(3).waitFor();
+ failCleaning=true;await cat('Home Cleaning');await page.locator('.catalog-professionals-copy > span').filter({hasText:'temporarily unavailable'}).waitFor();
  assert.equal(await page.locator('.uc-service-card').count(),1);await page.locator('.catalog-professionals-toggle').click();await page.getByRole('alert').waitFor();failCleaning=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await settled();assert.equal(await page.locator('.catalog-professional h3').textContent(),'Cleaning professional');
  await cat('Plumbing');await settled();await page.locator('.catalog-professionals-toggle').click();await page.getByText('No matching professionals are listed here yet.',{exact:false}).waitFor();
  await cat('Electrical');await settled();await page.locator('.catalog-professionals-toggle').click();

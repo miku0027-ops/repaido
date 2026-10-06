@@ -29,7 +29,7 @@ def public_profile(u, w, jobs=None):
         'bio':profile.get('bio',''),'languages':profile.get('languages',[]),'specialties':profile.get('specialties',[]),
         'portrait_url':f"/api/operations/professional-media/{profile['portrait_id']}" if profile.get('portrait_id') else None,
         'cover_url':f"/api/operations/professional-media/{profile['cover_id']}" if profile.get('cover_id') else None,
-        'verification':'Team-reviewed professional','reviews':sorted(reviews,key=lambda r:r['at'] or 0,reverse=True),
+        'verification':'Team-reviewed professional','reviews':sorted(reviews,key=lambda r:r['at'] or 0,reverse=True)[:20],
         'rating':sum(r['rating'] for r in reviews)/len(reviews) if reviews else None,'review_count':len(reviews),
         'distribution':{str(i):sum(r['rating']==i for r in reviews) for i in range(1,6)}}
 

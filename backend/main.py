@@ -371,7 +371,7 @@ def logout(authorization: str = Header(default=''), user=Depends(current_user)):
     with db() as c: c.execute('DELETE FROM sessions WHERE token_hash=?', (hashlib.sha256(authorization[7:].encode()).hexdigest(),))
 
 @app.get('/catalog')
-def catalog():
+def catalog(include_ratings: bool = True):
     if USE_FIRESTORE:
         services = [doc.to_dict() for doc in fs_collection('services').stream()]
         services.sort(key=lambda service: service.get('id', ''))
@@ -389,7 +389,7 @@ def catalog():
             total, count = values.get(job['service_id'], (0, 0))
             values[job['service_id']] = (total + rating, count + 1)
         return values
-    ratings = operations_store.run(aggregates)
+    ratings = operations_store.run(aggregates) if include_ratings else {}
     for service in services:
         total, count = ratings.get(service['id'], (0, 0))
         service['rating'] = round(total/count, 2) if count else None

@@ -76,16 +76,24 @@ def worker_listing_offer(u,wid):
     return listing_offer()
 def candidates(u,area,exclude=(),request_id=None):
     now=time.time();p=policy(u);out=[]
-    busy={j.get('worker_id') for j in u.all('jobs') if j['state'] not in ('completed','cancelled','searching')}
-    busy|={h.get('worker_id') for h in u.all('hires') if h['id']!=request_id and h['state'] in ('offered','awaiting_choice','quoting','quoted')}
-    for w in u.all('workers'):
+    nearby=[]
+    for w in u.find('workers','online',True):
         m=u.get('hire_memberships',w['id']) or {};pos=w.get('position')
-        if w['id'] in exclude or w['id'] in busy or w['status']!='approved' or not listing_eligible(u,w['id']) or not w.get('online') or not pos or not 0<=now-pos.get('received_at',0)<=300:continue
+        if w['id'] in exclude or w['status']!='approved' or not listing_eligible(u,w['id']) or not pos or not 0<=now-pos.get('received_at',0)<=300:continue
         if m.get('policy_version')!=p['version'] or (area.category and area.category not in w['categories']) or (area.role!='all' and w['role']!=area.role):continue
         distance=metres(area.location.model_dump(),pos)
         limit=min(area.radius_km,m.get('radius_km',w['radius_km']))*(1+p['radius_buffer_bps']/10000 if area.allow_buffer else 1)
         if distance+pos.get('accuracy',0)>limit*1000:continue
-        profile=public_profile(u,w)
+        nearby.append((w,distance))
+    jobs=u.for_workers('jobs',[w['id'] for w,_ in nearby],('worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at'))
+    hires=u.for_workers('hires',[w['id'] for w,_ in nearby],('id','worker_id','state'))
+    by_worker={w['id']:[] for w,_ in nearby}
+    for j in jobs:by_worker[j['worker_id']].append(j)
+    busy={j.get('worker_id') for j in jobs if j['state'] not in ('completed','cancelled','searching')}
+    busy|={h.get('worker_id') for h in hires if h['id']!=request_id and h['state'] in ('offered','awaiting_choice','quoting','quoted')}
+    for w,distance in nearby:
+        if w['id'] in busy:continue
+        profile=public_profile(u,w,jobs=by_worker[w['id']])
         if area.min_rating and (profile['rating'] or 0)<area.min_rating:continue
         if area.query and area.query.casefold() not in ' '.join([w['name'],*w['skills'],*w['categories'],*profile['specialties']]).casefold():continue
         profile.update(distance_km=round(distance/1000,1),outside_preferred_radius=distance>area.radius_km*1000,zone=w['city'],premium=True)

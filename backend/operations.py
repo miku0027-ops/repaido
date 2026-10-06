@@ -136,6 +136,12 @@ class Store:
     def init(self):
         with self.core.db() as c:
             c.execute('CREATE TABLE IF NOT EXISTS operation_records (kind TEXT NOT NULL, id TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(kind,id))')
+            # Browse by city and fetch a candidate's work without reading every record.
+            c.execute("CREATE INDEX IF NOT EXISTS operation_workers_city ON operation_records(json_extract(body,'$.city')) WHERE kind='workers'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_workers_online ON operation_records(json_extract(body,'$.online')) WHERE kind='workers'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='jobs'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_hires_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='hires'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_offers_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='professional_offers'")
 
     def run(self, callback):
         if self.core.USE_FIRESTORE:
@@ -175,6 +181,56 @@ class Unit:
         else:
             rows = {r['id']: json.loads(r['body']) for r in self.conn.execute('SELECT id,body FROM operation_records WHERE kind=?', (kind,))}
         rows.update({key: copy.deepcopy(value) for (k, key), value in self.pending.items() if k == kind})
+        return list(rows.values())
+
+    def find(self, kind, field, value):
+        """Indexed equality lookups with transaction-local writes overlaid."""
+        allowed = {'workers': {'city', 'online'}, 'jobs': {'worker_id'}, 'hires': {'worker_id'},
+                   'professional_offers': {'worker_id'}}
+        if field not in allowed.get(kind, set()):
+            raise ValueError('Unsupported indexed lookup')
+        if self.tx is not None:
+            query = self.core.fs_collection('ops_' + kind).where(field, '==', value)
+            rows = {s.id: s.to_dict() for s in query.stream(transaction=self.tx)}
+        else:
+            sql = f"SELECT id,body FROM operation_records WHERE kind=? AND json_extract(body,'$.{field}')=?"
+            rows = {r['id']: json.loads(r['body']) for r in self.conn.execute(sql, (kind, int(value) if isinstance(value, bool) else value))}
+        for (pending_kind, key), item in self.pending.items():
+            if pending_kind == kind:
+                if item.get(field) == value: rows[key] = copy.deepcopy(item)
+                else: rows.pop(key, None)
+        return list(rows.values())
+
+    def for_workers(self, kind, worker_ids, fields=None):
+        """Indexed worker lookup, batched to at most 30 IDs on Firestore."""
+        if kind not in ('jobs', 'hires', 'professional_offers'): raise ValueError('Unsupported worker lookup')
+        if fields is not None:
+            allowed={'jobs': {'worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at'},
+                     'hires': {'id','worker_id','state'}, 'professional_offers': {'worker_id'}}
+            if not set(fields) <= allowed[kind] or 'worker_id' not in fields:
+                raise ValueError('Unsupported projection')
+        ids = list(set(worker_ids))
+        if not ids: return []
+        if self.tx is not None:
+            rows = {}
+            for start in range(0, len(ids), 30):
+                batch = ids[start:start+30]
+                query = self.core.fs_collection('ops_' + kind).where('worker_id', 'in', batch)
+                if fields is not None: query=query.select(fields)
+                rows.update({s.id: s.to_dict() for s in query.stream(transaction=self.tx)})
+        else:
+            rows = {}
+            for start in range(0, len(ids), 500):
+                batch = ids[start:start+500]
+                placeholders = ','.join('?' for _ in batch)
+                sql = f"SELECT id,body FROM operation_records WHERE kind=? AND json_extract(body,'$.worker_id') IN ({placeholders})"
+                rows.update({r['id']: json.loads(r['body']) for r in self.conn.execute(sql, (kind, *batch))})
+        allowed = set(ids)
+        for (pending_kind, key), item in self.pending.items():
+            if pending_kind == kind:
+                if item.get('worker_id') in allowed: rows[key] = copy.deepcopy(item)
+                else: rows.pop(key, None)
+        if fields is not None:return [{field:row[field] for field in fields if field in row} for row in rows.values()]
         return list(rows.values())
 
     def put(self, kind, key, value):

@@ -12,10 +12,11 @@ class Offer(Input):
     percent: int = Field(ge=1, le=50, strict=True)
     ends_at: float
 
-def active_offers(u, worker_id=None, city=None):
+def active_offers(u, worker_id=None, city=None, offers=None):
     now = time.time()
     rows = []
-    for offer in u.all('professional_offers'):
+    candidates = offers if offers is not None else u.find('professional_offers', 'worker_id', worker_id) if worker_id else u.all('professional_offers')
+    for offer in candidates:
         if not offer.get('active') or not offer['starts_at'] <= now < offer['ends_at']: continue
         if worker_id and offer['worker_id'] != worker_id: continue
         w = u.get('workers', offer['worker_id'])

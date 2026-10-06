@@ -1,6 +1,7 @@
-import {useEffect,useId,useState} from 'react';
+import {useEffect,useId,useRef,useState} from 'react';
 import {ArrowRight,ChevronDown,MapPin,ShieldCheck,Star,User} from 'lucide-react';
-import {apiFetch,apiAssetUrl} from '../services/api';
+import {apiAssetUrl} from '../services/api';
+import {cachedHireProfiles,hireProfiles} from '../services/hireProfileCache';
 import {categories} from '../data';
 import {Modal} from './ui';
 import {ProfessionalDetails,type Professional} from './Hiring';
@@ -19,6 +20,7 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
   const [open,setOpen]=useState(false),[selected,setSelected]=useState<Professional|null>(null);
   const [result,setResult]=useState<{key:string;rows:Professional[];total:number}|null>(null);
   const [error,setError]=useState(''),[retry,setRetry]=useState(0);
+  const lastRetry=useRef(0);
   const id=useId();
   const location=initialLocation?.city===city?initialLocation:undefined;
   const requestKey=JSON.stringify([category,city,location?.lat,location?.lng,role,radiusKm,retry]);
@@ -27,14 +29,20 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
   const name=categories.find(c=>c.id===category)?.name||category.replaceAll('-',' ');
   useEffect(()=>{
     if(!category||category==='all')return;
-    const controller=new AbortController();setResult(null);setError('');setSelected(null);
-    void apiFetch('/api/operations/hiring/leaderboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({city,category,role,location:location?{lat:location.lat,lng:location.lng}:null,radius_km:radiusKm}),signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])},{background:true}).then(async r=>{
-      if(!r.ok)throw Error('Profiles could not load. Your service list is still available.');
-      return r.json();
-    }).then(data=>{
-      if(!controller.signal.aborted)setResult({key:requestKey,rows:data.professionals.filter((p:Professional)=>p.categories.includes(category)),total:data.total});
-    }).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
-    return()=>controller.abort();
+    let active=true;setError('');setSelected(null);
+    const force=retry!==lastRetry.current;
+    lastRetry.current=retry;
+    const body={city,category,role,location:location?{lat:location.lat,lng:location.lng}:null,radius_km:radiusKm};
+    type Result={professionals:Professional[];total:number};
+    const cached=force?null:cachedHireProfiles<Result>(body);
+    if(cached){setResult({key:requestKey,rows:cached.professionals.filter(p=>p.categories.includes(category)),total:cached.total});}
+    else {
+      setResult(null);
+      void hireProfiles<Result>(body,force).then(data=>{
+        if(active)setResult({key:requestKey,rows:data.professionals.filter(p=>p.categories.includes(category)),total:data.total});
+      }).catch(error=>{if(active)setError(error.message);});
+    }
+    return()=>{active=false;};
   },[requestKey]);
   if(!category||category==='all')return null;
   const count=result?.key===requestKey?result.total:0;
