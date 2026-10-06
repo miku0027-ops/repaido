@@ -34,10 +34,11 @@ html:not(.large-text) #root .market-opportunities button{min-height:32px!importa
 .market-experience .market-opportunities small{font-size:8.5px;letter-spacing:.07em}
 .market-experience .market-opportunity-controls{bottom:4px;right:6px}
 #root .market-experience .market-opportunities button{min-height:28px!important;font-size:10.5px}
-#root .market-experience .stores-segmented-nav-wrap{padding:3px 12px;background:#fff;border-top:1px solid #edf0f4;border-bottom:1px solid #e1e5ed}
-#root .market-experience .stores-segmented-nav{gap:4px;padding:3px;border-radius:9999px;background:#f1f5f9;box-shadow:none;scrollbar-width:none}
-#root .market-experience .stores-nav-pill{min-height:32px!important;height:32px;padding:0 10px;gap:6px;border-radius:9999px;border:0;box-shadow:none;display:inline-flex;align-items:center}
-#root .market-experience .stores-pill-label{font-size:11.5px;line-height:1;font-weight:650;white-space:nowrap}
+#root .market-experience .stores-segmented-nav-wrap{padding:4px 12px;background:var(--ui-surface);border-top:1px solid var(--ui-line);border-bottom:1px solid var(--ui-line)}
+#root .market-experience .stores-segmented-nav{gap:4px;padding:4px;border-radius:14px;background:var(--ui-subtle);box-shadow:none;scrollbar-width:thin}
+#root .market-experience .stores-nav-pill{min-height:48px!important;height:auto;padding:10px 12px;gap:6px;border-radius:10px;border:1px solid transparent;box-shadow:none;display:inline-flex;align-items:center;background:transparent;color:var(--ui-muted)}
+#root .market-experience .stores-nav-pill.is-active{background:var(--ui-primary);border-color:var(--ui-primary);color:#fff}
+#root .market-experience .stores-pill-label{font-size:.8125rem;line-height:1.4;font-weight:650;white-space:nowrap;color:inherit}
 #root .market-experience .stores-pill-tag{font-size:9.5px;line-height:1;opacity:.8;display:none}
 @media(min-width:640px){#root .market-experience .stores-pill-tag{display:inline}}
 .market-experience .stores-pill-icon{width:15px;height:15px}
@@ -164,4 +165,3 @@ html:not(.large-text) #root .market-opportunities button{min-height:32px!importa
   #root .market-experience .stores-module-container{padding:6px 16px 20px}
   #root .market-experience .community-market .market-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 }
-

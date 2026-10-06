@@ -2,6 +2,8 @@
 #root .android-bottom-nav .android-nav-item {border:0;box-shadow:none;background:transparent;color:#fff;}
 #root .android-bottom-nav .android-nav-item.active {background:#fff;color:#17285c;box-shadow:0 2px 6px #0002;}
 #root .android-bottom-nav .android-nav-item svg {color:inherit;}
+#root .android-bottom-nav .android-nav-item {justify-content:flex-start;}
+#root .android-bottom-nav .android-nav-item span {min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal;overflow:visible;text-overflow:clip;}
 #root .android-bottom-nav .android-nav-item:focus-visible {outline:2px solid #f3be52;outline-offset:-3px;}
 .repaido-header-actions {
   margin-left: auto;
@@ -20,17 +22,17 @@
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  flex: 0 0 34px !important;
-  width: 34px !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  min-width: 34px !important;
+  flex: 0 0 44px !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  min-width: 44px !important;
   padding: 0 !important;
   border: none !important;
   border-radius: 0 !important;
   background: transparent !important;
   background-color: transparent !important;
-  color: #142858 !important;
+  color: var(--ui-link) !important;
   box-shadow: none !important;
   position: relative !important;
   cursor: pointer;
@@ -50,7 +52,7 @@
 }
 #root .repaido-header-actions>button:focus-visible,
 .repaido-header-actions>button:focus-visible {
-  outline: 2px solid #142858;
+  outline: 2px solid var(--ui-focus);
   outline-offset: 3px;
   border-radius: 6px;
 }
@@ -58,9 +60,9 @@
 .repaido-header-actions>button svg {
   width: 24px !important;
   height: 24px !important;
-  color: #142858 !important;
-  stroke: #142858 !important;
-  fill: #142858 !important;
+  color: currentColor !important;
+  stroke: currentColor !important;
+  fill: currentColor !important;
   display: block;
   transition: transform 0.18s ease, filter 0.18s ease;
 }
@@ -81,13 +83,14 @@
   top: -4px;
   right: -7px;
   min-width: 19px;
-  height: 19px;
+  min-height: 19px;
+  height: auto;
   padding: 0 4px;
-  background: #ef4444;
+  background: #9b1c24;
   color: #ffffff;
   font-size: 0.65rem;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.3;
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -120,12 +123,19 @@
 #root .customer-bookings-page .customer-home-plans-switch button {background:transparent;color:#475569;border:0;border-radius:14px;min-height:44px;}
 #root .customer-bookings-page .customer-home-plans-switch button[aria-pressed=true] {background:#0f172a;color:#fff;box-shadow:0 4px 14px #0f172a33;}
 @media(max-width:480px){
-  .repaido-header-actions { gap: 16px !important; }
+  .repaido-header-actions { gap: 12px !important; }
 }
 @media(max-width:360px){
-  .repaido-header-actions { gap: 12px !important; }
+  .repaido-header-actions { gap: 6px !important; }
+  .repaido-header-home .repaido-header-logo { max-width:112px; }
   #root .service-story{width:88px;min-width:88px;flex-basis:88px;}
 }
 @media(prefers-reduced-motion:reduce){.story-label[data-overflow=true]>span{animation:none}.service-story .story-label{overflow-x:auto;scrollbar-width:none}}
 html.reduce-motion .story-label[data-overflow=true]>span {animation:none;}
 html.reduce-motion .service-story .story-label {overflow-x:auto;scrollbar-width:none;}
+.repaido-header-home {min-height:44px;padding:4px;border:0;border-radius:10px;background:transparent;}
+.repaido-header-home:focus-visible {outline:2px solid var(--ui-focus);outline-offset:3px;}
+[data-theme=dark] .repaido-header-home {background:#fff;}
+@media(prefers-reduced-motion:reduce){#root .repaido-header-actions>button,#root .repaido-header-actions>button svg{transition:none;transform:none!important;filter:none!important;}}
+html.reduce-motion #root .repaido-header-actions>button,html.reduce-motion #root .repaido-header-actions>button svg{transition:none;transform:none!important;filter:none!important;}
+html.reduce-motion #root .repaido-header-actions :is(.repaido-cart-badge-pill,.repaido-bell-badge,.repaido-header-badge){animation:none;}

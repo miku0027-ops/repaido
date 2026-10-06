@@ -697,17 +697,19 @@ export default function App() {
         <header className="repaido-home-header">
           <div className="repaido-header-top-row">
             {/* Logo */}
-            <div
-              className="flex items-center gap-2 cursor-pointer select-none py-1 shrink-0"
+            <button
+              type="button"
+              className="repaido-header-home flex items-center gap-2 cursor-pointer select-none shrink-0"
+              aria-label="Repaido home"
               onClick={() => { setTab('Explore'); setActiveCategory('all'); }}
               title="Repaido - Professional Home Services & Repairs"
             >
               <img
                 src="/brand/repaido-logo-transparent.png"
                 alt="Repaido Logo"
-                className="h-8 sm:h-9 w-auto max-w-[140px] object-contain"
+                className="repaido-header-logo h-8 sm:h-9 w-auto max-w-[140px] object-contain"
               />
-            </div>
+            </button>
 
             {/* Desktop inline search bar — hidden on mobile */}
             <div className="desktop-header-search hidden lg:flex flex-1 mx-8 max-w-xl">
