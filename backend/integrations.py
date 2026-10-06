@@ -83,6 +83,9 @@ def apply_payment(u, payment):
     """Only called with an authenticated provider GET, never browser/webhook claims."""
     attempts = [a for a in u.all('payments') if a.get('order_id') == payment.get('order_id')]
     if not attempts:
+        from repaidians_billing import apply_provider_payment
+        community = apply_provider_payment(u, payment)
+        if community is not None: return community
         from rentals import apply_payment as apply_rental_payment
         rental = apply_rental_payment(u, payment)
         if rental is not None: return rental

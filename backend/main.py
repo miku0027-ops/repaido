@@ -215,10 +215,13 @@ def init_db():
 
 @asynccontextmanager
 async def lifespan(app):
+    if os.getenv('REPAIDO_STORAGE', 'sqlite').lower() == 'firestore' and not USE_FIRESTORE:
+        raise RuntimeError('Firestore storage was requested but is unavailable. Refusing ephemeral storage fallback.')
     init_db()
     if not os.getenv("K_SERVICE") or os.getenv("REPAIDO_SEED_CATALOG") == "true":
         init_firestore_seed()
     operations_store.init()
+    repaidians.initialize(sys.modules[__name__])
     async def run_scheduler():
         while True:
             try:
@@ -1118,3 +1121,8 @@ professional_offers.install(sys.modules[__name__])
 
 import shop_prime
 shop_prime.install(sys.modules[__name__])
+
+import repaidians_billing
+repaidians_billing.install(sys.modules[__name__])
+import repaidians
+repaidians.install(sys.modules[__name__])

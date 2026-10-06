@@ -1,12 +1,11 @@
-import {useEffect,useState,type CSSProperties} from 'react';
-import {Bookmark,BriefcaseBusiness,Clapperboard,Clock3,Infinity,LayoutGrid,LockKeyhole,Plus,User,Users,X} from 'lucide-react';
+import {Fragment,useCallback,useEffect,useRef,useState} from 'react';
+import {Bookmark,BriefcaseBusiness,Clapperboard,Crown,Heart,Home,MessageCircle,Plus,Search,User,X,Clock3,Infinity,LockKeyhole} from 'lucide-react';
 import {Modal} from '../ui';
-import type {Professional} from '../Hiring';
-import {apiAssetUrl} from '../../services/api';
-import {hireProfiles} from '../../services/hireProfileCache';
-import {chargeBrowsing,follow,snapshot,subscribe,toggleActivity,trades,visibleItems,bid,sendMessage} from '../../services/repaidiansService';
-import type {CommunityMember,CommunityPost,CommunitySnapshot,CommunityTab,StudioKind,Trade} from '../../types/repaidians';
-import {tokens} from '../../tokens';
+import {
+  snapshot,subscribe,chargeBrowsing,feed,memberProfile,publicationDetails,follow,toggleActivity,trades,
+  bid,sendMessage,tenderContact,deletePublication,reportPublication,blockMember,CommunityError,
+} from '../../services/repaidiansService';
+import type {CommunityMember,CommunityPost,CommunityReel,CommunitySnapshot,CommunityTab,CommunityTender,StudioKind,Trade} from '../../types/repaidians';
 import {Feed} from './Feed';
 import {StoriesTray,StoryViewer} from './Stories';
 import {Reels} from './Reels';
@@ -15,65 +14,165 @@ import {Profile} from './Profile';
 import {PublishingStudio} from './PublishingStudio';
 import {CommentsDrawer,MessageDrawer} from './CommentsDrawer';
 import {SubscriptionModal} from './SubscriptionModal';
+import {CommunityInbox,CommunityNotifications,PeopleSearch} from './CommunityDiscovery';
+import {Avatar,EmptyState} from './common';
 import './repaidians.css';
 
-export default function RepaidiansModal({account,name,city,onClose,onBook}:{account:string;name:string;city:string;onClose:()=>void;onBook:(trade:Trade)=>void}) {
-  const [state,setState]=useState<CommunitySnapshot>(()=>snapshot(account,name)),[tab,setTab]=useState<CommunityTab>('feed'),[genre,setGenre]=useState<Trade|'all'>('all'),[mode,setMode]=useState<'explore'|'following'|'saved'>('explore');
-  const [profiles,setProfiles]=useState<Professional[]>([]),[profileId,setProfileId]=useState<string|null>(null),[storyId,setStoryId]=useState<string|null>(null),[comments,setComments]=useState<string|null>(null),[recipient,setRecipient]=useState<CommunityMember|null>(null);
-  const [studio,setStudio]=useState<StudioKind|null>(null),[upgrade,setUpgrade]=useState(''),[notice,setNotice]=useState('');
-  const paid=!!state.subscription,locked=!paid&&state.remainingMs<=0;
+type TimelineItem=CommunityPost|CommunityReel|CommunityTender;
+type ProfileResult=Awaited<ReturnType<typeof memberProfile>>;
+type Confirm={kind:'delete'|'block'|'report';id:string};
+const navigation=[{id:'feed',label:'Home',icon:Home},{id:'search',label:'Search',icon:Search},{id:'reels',label:'Reels',icon:Clapperboard},{id:'tenders',label:'Tenders',icon:BriefcaseBusiness},{id:'profile',label:'My profile',icon:User}] as const;
+const uniqueIds=(ids:string[])=>[...new Set(ids)];
+const unique=<T extends {id:string}>(items:T[])=>[...new Map(items.map(item=>[item.id,item])).values()];
+
+export default function RepaidiansModal({account,name,city,onClose,onBook,onSignIn,initialPublicationId}:{account:string;name:string;city:string;onClose:()=>void;onBook:(trade:Trade)=>void;onSignIn?:()=>void;initialPublicationId?:string}) {
+  const [state,setState]=useState<CommunitySnapshot|null>(null),[tab,setTab]=useState<CommunityTab>('feed'),[genre,setGenre]=useState<Trade|'all'>('all'),[mode,setMode]=useState<'all'|'following'|'saved'>('all');
+  const [profileId,setProfileId]=useState<string|null>(null),[profileData,setProfileData]=useState<ProfileResult|null>(null),[profileBusy,setProfileBusy]=useState(false),[storyId,setStoryId]=useState<string|null>(null),[comments,setComments]=useState<string|null>(null),[recipient,setRecipient]=useState<CommunityMember|null>(null);
+  const [studio,setStudio]=useState<StudioKind|null>(null),[upgrade,setUpgrade]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState(''),[revision,setRevision]=useState(0),[confirm,setConfirm]=useState<Confirm|null>(null),[reason,setReason]=useState('spam'),[confirmBusy,setConfirmBusy]=useState(false),[detail,setDetail]=useState<CommunityPost|null>(null);
+  const [members,setMembers]=useState<Record<string,CommunityMember>>({}),[timeline,setTimeline]=useState<{key:string;items:TimelineItem[];cursor:string|null}>({key:'',items:[],cursor:null}),[feedBusy,setFeedBusy]=useState(false),[moreBusy,setMoreBusy]=useState(false),[remaining,setRemaining]=useState(15*60000);
+  const alive=useRef(true),authAccount=useRef(account),busyActions=useRef(new Set<string>()),remainingAt=useRef({ms:15*60000,at:Date.now()});
+  const paid=!!state?.subscription,locked=!!state&&!paid&&remaining<=0;
+  const addMembers=useCallback((incoming:CommunityMember[])=>setMembers(old=>({...old,...Object.fromEntries(incoming.map(m=>[m.id,m]))})),[]);
+  const refresh=useCallback(async()=>{
+    const requestAccount=account;
+    const next=await snapshot(account,name);
+    if(!alive.current||authAccount.current!==requestAccount)return;
+    setState(next);addMembers([...next.data.members,next.member]);
+    remainingAt.current={ms:next.remainingMs,at:Date.now()};setRemaining(next.remainingMs);setError('');
+  },[account,name,addMembers]);
   useEffect(()=>{
-    const refresh=()=>setState(snapshot(account,name));refresh();
-    const unsubscribe=subscribe(refresh);
-    let last=Date.now(),visible=!document.hidden;
-    const tick=()=>{const now=Date.now();try{if(visible)chargeBrowsing(account,last,now);refresh();}catch(e){setNotice((e as Error).message);}last=now;};
-    const onVisibility=()=>{tick();visible=!document.hidden;};
-    const timer=setInterval(tick,1000);document.addEventListener('visibilitychange',onVisibility);
-    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisibility);unsubscribe();if(visible)try{chargeBrowsing(account,last,Date.now());}catch{}};
-  },[account,name]);
-  useEffect(()=>{let active=true;void hireProfiles<{professionals:Professional[]}>({city}).then(data=>{if(active)setProfiles(data.professionals);}).catch(()=>{});return()=>{active=false;};},[city]);
-  useEffect(()=>{if(locked){setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setUpgrade('Your 15 minutes of free browsing are used for today. Come back after midnight or try Pro.');}},[locked]);
-  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),5000);return()=>clearTimeout(timer);},[notice]);
-  const normalize=(value:string)=>value.toLocaleLowerCase().replace(/[^a-z]/g,'');
-  const memberFor=(id:string):CommunityMember=>{
-    if(id===state.member.id)return state.member;
-    const member=state.data.members.find(m=>m.id===id)||{...state.member,id,name:'Community member',handle:'local_member'};
-    const live=profiles.find(p=>normalize(p.name)===normalize(member.name));
-    return live?{...member,registeredId:live.id,reviewed:true,role:live.contractor_verified?'Contractor':live.role,completedTasks:live.completed_tasks,rating:live.rating,avatarUrl:live.portrait_url?apiAssetUrl(live.portrait_url):member.avatarUrl,bio:live.bio||member.bio}:member;
+    alive.current=true;authAccount.current=account;setState(null);setMembers({});setTimeline({key:'',items:[],cursor:null});
+    void refresh().catch(e=>{if(alive.current)setError((e as Error).message);});
+    const changed=()=>{void refresh().catch(e=>{if(alive.current)setNotice((e as Error).message);});setRevision(v=>v+1);};
+    const unsubscribe=subscribe(changed);
+    const heartbeat=async()=>{
+      try{const usage=await chargeBrowsing(!document.hidden);if(!alive.current)return;remainingAt.current={ms:usage.remainingMs,at:Date.now()};setRemaining(usage.remainingMs);setState(old=>old?{...old,subscription:usage.subscription||null}:old);}catch(e){if(alive.current)setNotice((e as Error).message);}
+    };
+    const visibility=()=>{remainingAt.current={ms:remainingAt.current.ms,at:Date.now()};void heartbeat();};
+    const timer=setInterval(()=>{if(!document.hidden)void heartbeat();},10000);
+    const clock=setInterval(()=>{if(!document.hidden)setRemaining(Math.max(0,remainingAt.current.ms-(Date.now()-remainingAt.current.at)));},1000);
+    const poll=setInterval(()=>{if(!document.hidden){void refresh().catch(()=>{});setRevision(v=>v+1);}},30000);
+    document.addEventListener('visibilitychange',visibility);
+    return()=>{alive.current=false;unsubscribe();clearInterval(timer);clearInterval(clock);clearInterval(poll);document.removeEventListener('visibilitychange',visibility);void chargeBrowsing(false,true).catch(()=>{});};
+  },[refresh,account]);
+  useEffect(()=>{if(!locked)return;setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setDetail(null);setConfirm(null);},[locked]);
+  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(timer);},[notice]);
+  const handleError=(e:unknown)=>{
+    const problem=e as CommunityError;
+    if(problem.status===401){if(onSignIn)onSignIn();else setNotice('Sign in through your Repaido account to continue.');}
+    else if(problem.status===402||problem.code==='PRO_REQUIRED')setUpgrade(problem.message);
+    else {setNotice(problem.message||'Please retry.');if(problem.code.includes('QUOTA'))void refresh();}
   };
-  const act=(action:()=>void)=>{try{action();}catch(e){setNotice((e as Error).message);}};
-  const proAction=(reason:string,action:()=>void):boolean=>{if(!paid){setUpgrade(reason);return false;}try{action();return true;}catch(e){setNotice((e as Error).message);return false;}};
-  const create=(kind:StudioKind='post')=>proAction('Publish posts, work reels, stories and tender requirements with Repaidians Pro.',()=>setStudio(kind));
-  const message=(member:CommunityMember)=>proAction('Direct message previews are available with Repaidians Pro.',()=>{setStoryId(null);setRecipient(member);});
-  const openProfile=(id:string)=>{setProfileId(id);setTab('profile');};
+  const signed=()=>{if(state?.authenticated)return true;if(onSignIn)onSignIn();else setNotice('Sign in through your Repaido account to continue.');return false;};
+  const act=async(key:string,action:()=>Promise<unknown>):Promise<boolean>=>{
+    if(!signed()||busyActions.current.has(key))return false;busyActions.current.add(key);
+    try{await action();return true;}catch(e){handleError(e);return false;}finally{busyActions.current.delete(key);}
+  };
+  const proAction=(reason:string,action:()=>void)=>{if(!signed())return false;if(!paid){setUpgrade(reason);return false;}action();return true;};
+  const create=(kind:StudioKind='post')=>proAction('Share your work, build a portfolio and find your next collaboration.',()=>{if(!state?.mediaReady&&kind!=='tender'){setNotice('Media uploads are temporarily unavailable. Please retry later.');return;}setStudio(kind);});
+  const memberFor=(id:string):CommunityMember=>members[id]||(state?.member.id===id?state.member:{id,name:'Community member',handle:'member',trade:'cleaning',role:'Member',avatarUrl:'',bio:''});
+  const openProfile=(id:string)=>{setProfileId(id);setProfileData(null);setTab('profile');};
+  useEffect(()=>{
+    if(tab!=='profile'||!state||locked)return;
+    let active=true;setProfileBusy(true);
+    const id=profileId||state.member.id;
+    if(id==='guest'){setProfileBusy(false);return;}
+    void memberProfile(id).then(data=>{if(active){setProfileData(data);addMembers([data.member]);}}).catch(e=>{if(active)handleError(e);}).finally(()=>{if(active)setProfileBusy(false);});return()=>{active=false;};
+  },[profileId,tab,state?.member.id,revision,locked]);
+  const openDetail=useCallback(async(id:string)=>{
+    try{const data=await publicationDetails(id);addMembers(data.members);if(Array.isArray(data.item.media))setDetail(data.item as CommunityPost);else {setTab('reels');setGenre('all');setRevision(v=>v+1);}}catch(e){setNotice((e as Error).message);}
+  },[addMembers]);
+  useEffect(()=>{if(state&&!locked&&initialPublicationId)void openDetail(initialPublicationId);},[!!state,initialPublicationId]);
+  const kind=tab==='reels'?'reel':tab==='tenders'?'tender':'post';
+  const sourceKey=kind+':'+genre+':'+(kind==='post'?mode:'all');
+  useEffect(()=>{
+    if(!state||locked||!['feed','reels','tenders'].includes(tab))return;
+    const controller=new AbortController();setFeedBusy(true);
+    void feed(kind,genre,kind==='post'?mode:'all','',controller.signal).then(data=>{
+      if(controller.signal.aborted)return;addMembers(data.members);
+      setTimeline(old=>({key:sourceKey,items:old.key===sourceKey?unique([...(data.items as TimelineItem[]),...old.items]):data.items as TimelineItem[],cursor:old.key===sourceKey&&old.items.length>12?old.cursor:data.nextCursor}));
+      setError('');
+    }).catch(e=>{if(!controller.signal.aborted)setError((e as Error).message);}).finally(()=>{if(!controller.signal.aborted)setFeedBusy(false);});
+    return()=>controller.abort();
+  },[!!state,tab,genre,mode,revision,locked]);
+  const loadMore=async()=>{
+    if(!timeline.cursor||moreBusy)return;setMoreBusy(true);
+    try{const page=await feed(kind,genre,kind==='post'?mode:'all',timeline.cursor);addMembers(page.members);setTimeline(old=>old.key===sourceKey?{...old,items:unique([...old.items,...page.items as TimelineItem[]]),cursor:page.nextCursor}:old);}catch(e){handleError(e);}finally{setMoreBusy(false);}
+  };
   const share=async(post:CommunityPost)=>{
-    const data={title:'Repaidians · '+memberFor(post.authorId).name,text:post.caption+' (Repaidians local preview)',url:location.origin+'/?repaidians='+encodeURIComponent(post.id)};
-    try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(data.text+' '+data.url);setNotice('Preview link copied. Local posts are available only on this device.');}}catch(e){if((e as Error).name!=='AbortError')setNotice('Sharing is unavailable in this browser.');}
+    const data={title:memberFor(post.authorId).name+' on Repaidians',text:post.caption,url:location.origin+'/?repaidians='+encodeURIComponent(post.id)};
+    try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(data.text+' '+data.url);setNotice('Link copied. Your publication’s visibility rules still apply.');}}catch(e){if((e as Error).name!=='AbortError')setNotice('Sharing is unavailable in this browser.');}
   };
-  const stories=visibleItems(state.data.stories.filter(s=>s.expiresAt>Date.now()),state.member);
-  let posts=visibleItems(state.data.posts,state.member,genre);
-  if(mode==='following')posts=posts.filter(p=>state.activity.following.includes(p.authorId));
-  if(mode==='saved')posts=posts.filter(p=>state.activity.saved.includes(p.id));
-  const profile=memberFor(profileId||state.member.id);
+  const like=(id:string)=>void act('like:'+id,async()=>{
+    const item=timeline.items.find(item=>item.id===id) as CommunityPost|undefined;
+    const active=!(item?.liked??state?.activity.likes.includes(id));
+    const result=await toggleActivity(account,'likes',id,active);
+    setTimeline(old=>({...old,items:old.items.map(item=>item.id===id?{...item,liked:active,likeCount:result.likeCount}:item)}));
+    setDetail(old=>old?.id===id?{...old,liked:active,likeCount:result.likeCount}:old);
+    setState(old=>old?{...old,activity:{...old.activity,likes:active?uniqueIds([...old.activity.likes,id]):old.activity.likes.filter(value=>value!==id)}}:old);
+  });
+  const save=(id:string)=>void act('save:'+id,async()=>{
+    const item=timeline.items.find(item=>item.id===id) as CommunityPost|undefined;
+    const active=!(item?.saved??state?.activity.saved.includes(id));
+    await toggleActivity(account,'saved',id,active);
+    setTimeline(old=>({...old,items:old.items.map(item=>item.id===id?{...item,saved:active}:item)}));
+    setDetail(old=>old?.id===id?{...old,saved:active}:old);
+    setState(old=>old?{...old,activity:{...old.activity,saved:active?uniqueIds([...old.activity.saved,id]):old.activity.saved.filter(value=>value!==id)}}:old);
+  });
+  const chooseTab=(id:CommunityTab)=>{if((id==='inbox'||id==='notifications')&&!signed())return;setTab(id);setError('');if(id==='profile'){setProfileId(null);setProfileData(null);}};
+  const confirmAction=async()=>{
+    if(!confirm)return;setConfirmBusy(true);
+    try{
+      if(confirm.kind==='delete'){await deletePublication(confirm.id);setTimeline(old=>({...old,items:old.items.filter(i=>i.id!==confirm.id)}));setDetail(null);setNotice('Publication deleted.');}
+      else if(confirm.kind==='block'){await blockMember(confirm.id);setTimeline({key:'',items:[],cursor:null});setTab('feed');setProfileId(null);setNotice('Member blocked. Their content and messages are hidden.');}
+      else {await reportPublication(confirm.id,reason);setNotice('Report submitted for review.');}
+      setConfirm(null);
+    }catch(e){handleError(e);}finally{setConfirmBusy(false);}
+  };
+  const stories=state?.data.stories.filter(story=>story.expiresAt>Date.now())||[];
+  const activeItems=timeline.key===sourceKey?timeline.items:[];
+  const currentProfile=profileData?.member||(profileId?memberFor(profileId):state?.member);
+  const profilePosts=profileData?[...profileData.posts,...profileData.reels.map(reel=>({...reel,media:[reel.media]}))]:[];
+  const profileWithStats=currentProfile?{...currentProfile,postsCount:profileData?profileData.stats.posts+profileData.stats.reels:currentProfile.postsCount}:null;
+  const onMessage=(member:CommunityMember)=>{if(signed())setRecipient(member);};
+  const quotaLabel=paid?'Pro':`${Math.floor(remaining/60000)}:${String(Math.floor(remaining/1000)%60).padStart(2,'0')} today`;
+  const showContent=!!state&&!locked;
   return <Modal title="Repaidians community" frameless className="rp-shell" onClose={onClose}>
-    <div className="rp-shell-inner" style={{'--rp-panel-radius':tokens.radius.container+'px'} as CSSProperties}>
-      <header className="rp-header"><div className="rp-wordmark"><span><Users size={16}/> REPAIDO COMMUNITY</span><h1>Repaidians<span className="rp-wordmark-dot"/></h1></div><button className="rp-close" aria-label="Close Repaidians" data-autofocus onClick={onClose}><X size={22}/></button></header>
-      <div className="rp-toolbar"><button className="rp-quota" onClick={()=>setUpgrade(paid?'Your demo Pro preview is active until '+new Date(state.subscription!.endsAt).toLocaleDateString('en-IN')+'.':'Explore Repaidians Pro for unlimited browsing and more.')}><span>{paid?<Infinity size={15}/>:<Clock3 size={15}/>}</span>{paid?'Demo Pro':Math.ceil(state.remainingMs/60000)+'m left today'}</button><button className="rp-create" onClick={()=>create()}><Plus size={18}/>Create</button></div>
-      <main className="rp-content" data-reels={tab==='reels'}>{locked?<div className="rp-locked"><LockKeyhole size={34}/><h2>See you after midnight?</h2><p>You’ve used today’s 15 minutes. Your saved items and profile will be here when you return.</p><button className="rp-primary" onClick={()=>setUpgrade('Try Repaidians Pro for unlimited browsing and community tools.')}>Explore Pro · ₹199/month</button><button className="rp-secondary" onClick={onClose}>Back to Repaido</button></div>:<>
-        {tab==='feed'&&<><StoriesTray stories={stories} memberFor={memberFor} onOpen={setStoryId} onCreate={()=>create('story')}/><div className="rp-feed-intro"><div><span className="rp-kicker">CRAFT. CARE. COMMUNITY.</span><h2>Made by people who care.</h2></div></div><div className="rp-preview-note">Community preview · sample posts and local interactions.</div><div className="rp-feed-modes" role="group" aria-label="Feed source">{([{id:'explore',label:'Explore',icon:LayoutGrid},{id:'following',label:'Following',icon:Users},{id:'saved',label:'Saved',icon:Bookmark}] as const).map(item=><button key={item.id} aria-pressed={mode===item.id} onClick={()=>setMode(item.id)}><item.icon size={15}/>{item.label}</button>)}</div></>}
-        {(tab==='feed'||tab==='tenders'||tab==='reels')&&<div className="rp-genres" role="group" aria-label="Filter by trade"><button aria-pressed={genre==='all'} onClick={()=>setGenre('all')}>All trades</button>{trades.map(trade=><button key={trade.id} aria-pressed={genre===trade.id} onClick={()=>setGenre(trade.id)}>{trade.name}</button>)}</div>}
-        {tab==='feed'&&<Feed posts={posts} activity={state.activity} memberFor={memberFor} onProfile={openProfile} onLike={id=>act(()=>toggleActivity(account,'likes',id))} onSave={id=>act(()=>toggleActivity(account,'saved',id))} onComments={setComments} onShare={post=>void share(post)} onCreate={()=>create()}/>}
-        {tab==='reels'&&<Reels reels={visibleItems(state.data.reels,state.member,genre)} likes={state.activity.likes} memberFor={memberFor} onLike={id=>act(()=>toggleActivity(account,'likes',id))} onComments={setComments} onProfile={openProfile} onBook={reel=>onBook(reel.trade)} onCreate={()=>create('reel')}/>}
-        {tab==='tenders'&&<Tenders paid={paid} tenders={visibleItems(state.data.tenders,state.member,genre)} bids={state.activity.bids} memberFor={memberFor} onProfile={openProfile} onBid={id=>proAction('Bid on crew requirements and tenders with Repaidians Pro.',()=>{bid(account,id);setNotice('Interest saved on this device. No bid has been sent.');})} onContact={()=>proAction('Tender contact details are available with Repaidians Pro.',()=>{})} onCreate={()=>create('tender')}/>}
-        {tab==='profile'&&<Profile key={profile.id} account={account} member={profile} self={profile.id===state.member.id} posts={visibleItems(state.data.posts,state.member)} following={state.activity.following.includes(profile.id)} followingCount={state.data.follows.filter(edge=>edge.from===profile.id).length} followersCount={state.data.follows.filter(edge=>edge.to===profile.id).length} onBack={()=>setTab('feed')} onFollow={()=>act(()=>follow(account,profile.id))} onMessage={()=>message(profile)} onBook={()=>onBook(profile.trade)} onCreate={()=>create()}/>}
-      </>}</main>
-      <nav className="rp-bottom-nav" aria-label="Repaidians sections">{([{id:'feed',label:'Feed',icon:LayoutGrid},{id:'reels',label:'Reels',icon:Clapperboard},{id:'tenders',label:'Tenders',icon:BriefcaseBusiness},{id:'profile',label:'My profile',icon:User}] as const).map(item=><button key={item.id} aria-current={tab===item.id?'page':undefined} disabled={locked} onClick={()=>{setTab(item.id);if(item.id==='profile')setProfileId(null);}}><item.icon size={20}/><span>{item.label}</span></button>)}</nav>
+    <div className="rp-shell-inner">
+      <header className="rp-header"><div className="rp-wordmark"><span>THE PEOPLE BEHIND THE WORK</span><h1>Repaidians<span className="rp-wordmark-dot"/></h1></div><div className="rp-header-actions"><button aria-label="Your activity" onClick={()=>chooseTab('notifications')}><Heart size={24}/>{!!state?.unreadCount&&<i className="rp-notification-dot"/>}</button><button aria-label="Open messages" onClick={()=>chooseTab('inbox')}><MessageCircle size={24}/></button><button className="rp-close" aria-label="Close Repaidians" data-autofocus onClick={onClose}><X size={24}/></button></div></header>
+      <aside className="rp-desktop-sidebar" aria-label="Community navigation"><nav>{navigation.map(item=><button key={item.id} aria-current={tab===item.id?'page':undefined} onClick={()=>chooseTab(item.id)}><item.icon size={25}/>{item.label}</button>)}<button onClick={()=>create()}><Plus size={25}/>Create</button><button onClick={()=>chooseTab('inbox')}><MessageCircle size={25}/>Messages</button><button onClick={()=>chooseTab('notifications')}><Heart size={25}/>Activity</button></nav><button className="rp-sidebar-pro" onClick={()=>signed()&&setUpgrade('Make room for your next chapter.')}><Crown size={22}/>Repaidians Pro</button></aside>
+      <div className="rp-toolbar"><button className="rp-quota" aria-label={paid?'Repaidians Pro membership':'Daily browsing time remaining'} onClick={()=>signed()&&setUpgrade('A little more room to grow your craft and your connections.')}><span>{paid?<Infinity size={16}/>:<Clock3 size={16}/>}</span>{quotaLabel}</button><div><button className="rp-tender-shortcut" aria-pressed={tab==='tenders'} onClick={()=>chooseTab('tenders')}><BriefcaseBusiness size={18}/>Tenders</button><button className="rp-create" onClick={()=>create()}><Plus size={20}/>Create</button></div></div>
+      <main className="rp-content" data-reels={tab==='reels'}>
+        {!state&&<div className="rp-loading" role="status"><span className="rp-story-ring"><Avatar member={{id:'loading',name:'',handle:'',trade:'cleaning',role:'',avatarUrl:'',bio:''}}/></span><h2>Your community is coming into view.</h2><p>Connecting to Repaidians…</p></div>}
+        {error&&<div className="rp-error" role="alert"><p>{error}</p><button className="rp-secondary" onClick={()=>{if(!state)void refresh().catch(e=>setError((e as Error).message));else setRevision(v=>v+1);}}>Retry</button></div>}
+        {locked&&<div className="rp-locked"><LockKeyhole size={36}/><h2>That’s today’s 15 minutes.</h2><p>Your daily browsing time resets at midnight IST. Your portfolio and conversations will be here when you return.</p><button className="rp-primary" onClick={()=>signed()&&setUpgrade('Unlimited browsing, publishing and meaningful connections.')}>Explore Pro · ₹199/month</button><button className="rp-secondary" onClick={onClose}>Back to Repaido</button></div>}
+        {showContent&&<>
+          {!state.authenticated&&<div className="rp-auth-banner"><span>Your community, waiting to happen.</span><button onClick={()=>signed()}>Sign in</button></div>}
+          {tab==='feed'&&<><StoriesTray stories={stories} memberFor={memberFor} onOpen={setStoryId} onCreate={()=>create('story')}/><div className="rp-feed-modes" role="group" aria-label="Feed source">{([{id:'all',label:'For you',icon:Home},{id:'following',label:'Following',icon:User},{id:'saved',label:'Saved',icon:Bookmark}] as const).map(item=><button key={item.id} aria-pressed={mode===item.id} onClick={()=>{if(item.id!=='all'&&!signed())return;setMode(item.id);}}><item.icon size={16}/>{item.label}</button>)}</div></>}
+          {['feed','reels','tenders'].includes(tab)&&<div className="rp-genres" role="group" aria-label="Filter by trade"><button aria-pressed={genre==='all'} onClick={()=>setGenre('all')}>All trades</button>{trades.map(trade=><button key={trade.id} aria-pressed={genre===trade.id} onClick={()=>setGenre(trade.id)}>{trade.name}</button>)}</div>}
+          {feedBusy&&activeItems.length===0&&['feed','reels','tenders'].includes(tab)&&<p className="rp-loading" role="status">Finding the latest work…</p>}
+          {tab==='feed'&&(!feedBusy||activeItems.length>0)&&<Feed posts={activeItems as CommunityPost[]} activity={state.activity} memberFor={memberFor} currentMemberId={state.member.id} onProfile={openProfile} onLike={like} onSave={save} onComments={id=>{if(signed())setComments(id);}} onShare={post=>void share(post)} onCreate={()=>create()} onDelete={id=>setConfirm({kind:'delete',id})} onReport={id=>{if(signed())setConfirm({kind:'report',id});}}/>}
+          {tab==='reels'&&(!feedBusy||activeItems.length>0)&&<Reels suspended={!!(recipient||comments||storyId||studio||upgrade||detail||confirm)} reels={activeItems as CommunityReel[]} likes={state.activity.likes} memberFor={memberFor} onLike={like} onComments={id=>{if(signed())setComments(id);}} onProfile={openProfile} onBook={reel=>onBook(reel.trade)} onCreate={()=>create('reel')}/>}
+          {tab==='tenders'&&(!feedBusy||activeItems.length>0)&&<Tenders paid={paid} selfId={state.member.id} tenders={activeItems as CommunityTender[]} bids={state.activity.bids} memberFor={memberFor} onProfile={openProfile} onBid={async id=>{if(!proAction('Send tender interest and connect with the right crew.',()=>{}))return false;const ok=await act('bid:'+id,()=>bid(account,id));if(ok)setNotice('Your interest was sent to the tender owner.');return ok;}} onContact={async tender=>{if(!proAction('Connect directly with tender owners.',()=>{}))return null;try{return (await tenderContact(tender.id)).contact;}catch(e){handleError(e);return null;}}} onCreate={()=>create('tender')}/>}
+          {['feed','reels','tenders'].includes(tab)&&timeline.key===sourceKey&&timeline.cursor&&<button className="rp-load-more" disabled={moreBusy} onClick={()=>void loadMore()}>{moreBusy?'Loading…':'Load more'}</button>}
+          {tab==='search'&&<PeopleSearch onProfile={openProfile} onMembers={addMembers}/>}
+          {tab==='inbox'&&<CommunityInbox selfId={state.member.id} onMembers={addMembers} onOpen={id=>onMessage(memberFor(id))}/>}
+          {tab==='notifications'&&<CommunityNotifications onMembers={addMembers} onProfile={openProfile}/>}
+          {tab==='profile'&&(state.authenticated||profileId)&&profileBusy&&!profileData&&<p role="status" className="rp-loading">Opening the portfolio…</p>}
+          {tab==='profile'&&!state.authenticated&&!profileId&&<EmptyState title="A profile that grows with your craft.">Sign in to build your portfolio and connect with the community.<button className="rp-primary" onClick={()=>signed()}>Sign in to Repaido</button></EmptyState>}
+          {tab==='profile'&&(!profileBusy||!!profileData)&&profileWithStats&&profileWithStats.id!=='guest'&&<Profile key={profileWithStats.id} account={account} member={profileWithStats} self={profileWithStats.id===state.member.id} posts={profilePosts} following={state.activity.following.includes(profileWithStats.id)} followingCount={profileWithStats.followingCount||0} followersCount={profileWithStats.followersCount||0} onBack={()=>setTab('feed')} onFollow={()=>void act('follow:'+profileWithStats.id,()=>follow(account,profileWithStats.id,!state.activity.following.includes(profileWithStats.id)))} onMessage={()=>onMessage(profileWithStats)} onBook={()=>onBook(profileWithStats.trade)} onCreate={()=>create()} onPublication={id=>void openDetail(id)} onBlock={()=>{if(signed())setConfirm({kind:'block',id:profileWithStats.id});}}/>}
+        </>}
+      </main>
+      <aside className="rp-desktop-aside">{showContent&&<><div className="rp-aside-identity"><Avatar member={state.member}/><span><strong>{state.authenticated?state.member.name:'Welcome to Repaidians'}</strong><small>{state.authenticated?'@'+state.member.handle:'The people behind the work'}</small></span></div><section className="rp-pro-card"><Crown size={26}/><h2>Make something worth sharing.</h2><p>Join a community built around your craft.</p><button className="rp-primary" onClick={()=>create()}>Share your work</button></section><p className="rp-fine">Your feed shows real publications. Trade-only posts stay within their selected community.</p></>}</aside>
+      <nav className="rp-bottom-nav" aria-label="Repaidians sections">{navigation.filter(item=>item.id!=='tenders').map((item,index)=><Fragment key={item.id}>{index===2&&<button className="rp-nav-create" aria-label="Create publication" onClick={()=>create()} disabled={locked}><Plus size={25}/><span>Create</span></button>}<button aria-current={tab===item.id?'page':undefined} disabled={locked} onClick={()=>chooseTab(item.id)}><item.icon size={25}/><span>{item.label}</span></button></Fragment>)}</nav>
       {notice&&<div className="rp-toast" role="status">{notice}</div>}
-      {storyId&&!locked&&<StoryViewer stories={stories} initialId={storyId} memberFor={memberFor} onClose={()=>setStoryId(null)} suspended={!!upgrade} onReply={(member,text)=>proAction('Story replies are available with Repaidians Pro.',()=>{sendMessage(account,member.id,text);setNotice('Reply saved locally. It has not been delivered.');})}/>}
-      {comments&&!locked&&<CommentsDrawer account={account} targetId={comments} comments={state.data.comments} memberFor={memberFor} onClose={()=>setComments(null)}/>}
-      {recipient&&paid&&!locked&&<MessageDrawer account={account} recipient={recipient} messages={state.activity.messages} onClose={()=>setRecipient(null)}/>}
-      {studio&&paid&&!locked&&<PublishingStudio account={account} initialKind={studio} defaultTrade={state.member.trade} city={city} onClose={()=>setStudio(null)} onPublished={kind=>{setStudio(null);setTab(kind==='reel'?'reels':kind==='tender'?'tenders':'feed');setGenre('all');setMode('explore');setNotice('Published on this device.');}}/>}
-      {upgrade&&<SubscriptionModal account={account} reason={upgrade} onClose={()=>setUpgrade('')} onActivated={()=>{setState(snapshot(account,name));setUpgrade('');setNotice('Demo Pro activated. No payment was taken.');}}/>}
+      {storyId&&!locked&&<StoryViewer stories={stories} initialId={storyId} memberFor={memberFor} onClose={()=>setStoryId(null)} suspended={!!upgrade} onReply={async(member,text)=>{if(!proAction('Reply to stories and start real conversations.',()=>{}))return false;const ok=await act('reply:'+member.id,()=>sendMessage(account,member.id,text));if(ok)setNotice('Reply sent.');return ok;}}/>}
+      {comments&&!locked&&<CommentsDrawer account={account} targetId={comments} memberFor={memberFor} onMembers={addMembers} onClose={()=>setComments(null)}/>}
+      {recipient&&!locked&&state&&<MessageDrawer account={account} selfId={state.member.id} recipient={recipient} canSend={paid} onMembers={addMembers} onUpgrade={()=>setUpgrade('Send messages and build lasting connections with Pro.')} onClose={()=>setRecipient(null)}/>}
+      {studio&&paid&&!locked&&state&&<PublishingStudio account={account} initialKind={studio} defaultTrade={state.member.trade} city={city} onClose={()=>setStudio(null)} onPublished={kind=>{setStudio(null);setTab(kind==='reel'?'reels':kind==='tender'?'tenders':'feed');setGenre('all');setMode('all');setNotice('Published to Repaidians.');setRevision(v=>v+1);}}/>}
+      {detail&&!locked&&state&&<Modal title="Publication" className="rp-dialog rp-publication-detail" onClose={()=>setDetail(null)}><Feed posts={[detail]} activity={state.activity} memberFor={memberFor} currentMemberId={state.member.id} onProfile={id=>{setDetail(null);openProfile(id);}} onLike={like} onSave={save} onComments={id=>{if(signed())setComments(id);}} onShare={post=>void share(post)} onCreate={()=>create()} onDelete={id=>setConfirm({kind:'delete',id})} onReport={id=>{if(signed())setConfirm({kind:'report',id});}}/></Modal>}
+      {upgrade&&state?.authenticated&&<SubscriptionModal reason={upgrade} onClose={()=>setUpgrade('')} onActivated={()=>{void refresh();setUpgrade('');setNotice('Repaidians Pro is active.');}}/>}
+      {confirm&&<Modal title={confirm.kind==='delete'?'Delete publication':confirm.kind==='block'?'Block member':'Report publication'} className="rp-dialog" onClose={()=>!confirmBusy&&setConfirm(null)}><p>{confirm.kind==='delete'?'This publication and its media will be removed from the community.':confirm.kind==='block'?'This member’s content and messages will be hidden. They cannot interact with you while blocked.':'Tell us why this publication needs a review.'}</p>{confirm.kind==='report'&&<label>Reason<select value={reason} onChange={e=>setReason(e.target.value)}>{['spam','harassment','unsafe','fraud','other'].map(value=><option key={value} value={value}>{value[0].toUpperCase()+value.slice(1)}</option>)}</select></label>}<button className="rp-primary" disabled={confirmBusy} onClick={()=>void confirmAction()}>{confirmBusy?'Saving…':confirm.kind==='delete'?'Delete publication':confirm.kind==='block'?'Block member':'Submit report'}</button><button className="rp-secondary" disabled={confirmBusy} onClick={()=>setConfirm(null)}>Cancel</button></Modal>}
     </div>
   </Modal>;
 }
