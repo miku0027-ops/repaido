@@ -21,7 +21,10 @@ Targets:
   Override `_IMAGE` if the existing Artifact Registry repository differs.
 
 The existing Cloud Run service must exist. Deployment preserves its runtime
-identity, secrets and environment, adding only `REPAIDO_BUILD_ID`. The Dockerfile
+identity and secrets, setting `REPAIDO_BUILD_ID` and explicitly selecting
+`REPAIDO_STORAGE=firestore`. Before deployment proceeds, the candidate must
+complete a community read/write transaction against Firestore and report a
+configured durable media bucket. The Dockerfile
 includes `b2b.py`, which is imported by the API. Hosting deployment is restricted
 to `--only hosting`; Firestore rules and indexes are not deployed.
 

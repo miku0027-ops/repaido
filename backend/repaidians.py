@@ -478,6 +478,7 @@ def install(core):
                              'comments': [], 'follows': [{'from': user['id'], 'to': key} for key in activity['following']] if user else []},
                     'member': public_current, 'activity': activity, 'subscription': bill['subscription'], 'remainingMs': remaining,
                     'authenticated': bool(user), 'paymentsReady': bill['paymentsReady'], 'mediaReady': storage.ready(core),
+                    'storage': 'firestore' if core.USE_FIRESTORE else 'sqlite',
                     'cursors': {k: p['nextCursor'] for k, p in pages.items()},
                     'unreadCount': sum(not row.get('read') for row in notes if not blocked(u, user['id'], row['authorId'])) if user else 0}
         return store.run(read)

@@ -52,7 +52,7 @@ steps:
             subprocess.run(['gcloud', 'run', 'deploy', '${_SERVICE}',
                             '--project=$PROJECT_ID', '--region=${_REGION}',
                             '--image=${_IMAGE}:$BUILD_ID',
-                            '--update-env-vars=REPAIDO_BUILD_ID=$BUILD_ID',
+                            '--update-env-vars=REPAIDO_BUILD_ID=$BUILD_ID,REPAIDO_STORAGE=firestore',
                             '--no-traffic', '--tag=' + tag, '--quiet', '--format=json'],
                            stdout=output, check=True)
         service = json.load(open('/workspace/candidate.json'))
@@ -64,7 +64,16 @@ steps:
                 with urllib.request.urlopen(request, timeout=20) as response:
                     health = json.load(response)
                     assert health['status'] == 'ok' and health['build_id'] == '$BUILD_ID'
-                print('Cloud Run candidate health check passed; production traffic unchanged.')
+                # Use Cloud Run's IAM header so the public community request
+                # remains a guest request, not a Firebase sign-in attempt.
+                community = urllib.request.Request(url + '/repaidians/state',
+                    headers={'X-Serverless-Authorization': 'Bearer ' + token})
+                with urllib.request.urlopen(community, timeout=30) as response:
+                    state = json.load(response)
+                    assert state['storage'] == 'firestore', 'Community storage must be durable Firestore'
+                    assert state['mediaReady'], 'Community media needs a durable private bucket'
+                    assert state['authenticated'] is False and state['remainingMs'] > 0
+                print('Cloud Run candidate health, Firestore and media configuration passed; production traffic unchanged.')
                 break
             except Exception:
                 if attempt == 11:
