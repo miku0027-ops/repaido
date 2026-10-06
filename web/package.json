@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "build:cpanel": "tsc -b && vite build --mode cpanel --outDir dist-cpanel",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test tests/booking.test.mjs tests/repaidians.test.mjs",
+    "test": "node --test tests/booking.test.mjs tests/customer-bookings.test.mjs tests/repaidians.test.mjs tests/read-cache.test.mjs",
     "deploy": "npm run build && firebase deploy --only hosting"
   },
   "dependencies": {

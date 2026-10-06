@@ -380,7 +380,7 @@ def install(core):
     def notifications(user=Depends(core.current_user)):
         def read(u):
             onboarding_note(u,user['id'])
-            return {'notifications':sorted([n for n in u.all('notifications') if n['user_id']==user['id']],key=lambda n:n['created_at'],reverse=True)[:100]}
+            return {'notifications':sorted(u.find('notifications','user_id',user['id']),key=lambda n:n['created_at'],reverse=True)[:100]}
         return store.run(read)
 
     @router.get('/jobs/{job_id}/tracking')
@@ -757,7 +757,13 @@ def install(core):
                 if e['event_type'] not in ('position','stop_tracking','review','schedule_follow_up'):
                     for uid in set(filter(None,recipients)):
                         nid=digest(e['event_id']+uid)
-                        n=dict(id=nid,user_id=uid,job_id=j['id'],event_id=e['event_id'],created_at=e['occurred_at_server_time'],title='Repaido task update',body='Open Repaido to view your latest task update.')
+                        n=dict(id=nid,user_id=uid,job_id=j['id'],event_id=e['event_id'],event_type=e['event_type'],destination='booking',created_at=e['occurred_at_server_time'],title='Repaido task update',body='Open Repaido to view your latest task update.')
+                        if e['event_type']=='BookingRequested':
+                            n.update(title='Booking requested',body=f"Your request for {j['service_name']} has been received. Open your booking to follow its progress.")
+                        elif e['event_type']=='depart':
+                            n.update(title='Your professional is on the way' if uid==j['customer_id'] else 'Travel started',body=f"Open your {j['service_name']} booking for travel updates.")
+                        elif e['event_type']=='submit_completion':
+                            n.update(title='Your review is needed' if uid==j['customer_id'] else 'Completion submitted',body=f"Open your {j['service_name']} booking to review the completion status.")
                         if e['event_type']=='AssignmentOffered' and uid!=j['customer_id']:
                             if uid!=j.get('worker_id') or j['state']!='offered' or j['offer_expires_at']<=time.time():continue
                             if e.get('payload',{}).get('offer_expires_at',j['offer_expires_at'])!=j['offer_expires_at']:continue

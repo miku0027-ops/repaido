@@ -13,6 +13,7 @@ import {StoriesTray,StoryViewer} from './Stories';
 import {Reels} from './Reels';
 import {Tenders} from './Tenders';
 import {Profile} from './Profile';
+import {ProfileSettings} from './ProfileSettings';
 import {PublishingStudio} from './PublishingStudio';
 import {CommentsDrawer,MessageDrawer} from './CommentsDrawer';
 import {SubscriptionModal} from './SubscriptionModal';
@@ -188,6 +189,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
         {!state&&<div className="rp-loading" role="status"><span className="rp-story-ring"><Avatar member={{id:'loading',name:'',handle:'',trade:'cleaning',role:'',avatarUrl:'',bio:''}}/></span><h2>Your community is coming into view.</h2><p>Connecting to Repaidians…</p></div>}
         {error&&<div className="rp-error" role="alert"><p>{error}</p><button className="rp-secondary" onClick={()=>{if(!state)void refresh().catch(e=>setError((e as Error).message));else setRevision(v=>v+1);}}>Retry</button></div>}
         {locked&&<div className="rp-locked"><LockKeyhole size={36}/><h2>{state.authenticated?(trialEnded?'Your free trial has ended.':'Continue with Repaidians Pro.'):'That’s today’s 15 minutes.'}</h2><p>{state.authenticated?'Your 30 days of free access from first joining Repaidians have ended. Continue browsing, publishing and connecting for ₹199 per month. Your existing work stays saved. No automatic charge.':'Your guest preview resets at midnight IST. Sign in to start 30 days of free access to every Repaidians feature from first joining.'}</p><button className="rp-primary" onClick={()=>state.authenticated?setUpgrade('Your free trial has ended. Repaidians Pro is required to continue.'):signed()}>{state.authenticated?'Continue with Pro · ₹199/month':'Sign in · 30 days free'}</button><button className="rp-secondary" onClick={onClose}>Back to Repaido</button></div>}
+        {locked&&state.authenticated&&<div className="rp-expired-settings"><ProfileSettings key={state.member.id}/></div>}
         {showContent&&<>
           {!state.authenticated&&<div className="rp-auth-banner"><span>Join Repaidians. Every feature is free for 30 days from first joining, then ₹199/month. No automatic charge.</span><button onClick={()=>signed()}>Sign in · 30 days free</button></div>}
           {tab==='feed'&&<><StoriesTray stories={stories} memberFor={memberFor} onOpen={setStoryId} onCreate={()=>create('story')}/><button className="rp-work-entry" aria-label="Work & market" onClick={()=>chooseTab('opportunities')}><BriefcaseBusiness size={21}/><span><strong>Work & market</strong><small>Projects, jobs & products</small></span><ArrowRight size={18} aria-hidden="true"/></button><div className="rp-feed-modes" role="group" aria-label="Feed source">{([{id:'all',label:'For you',icon:Home},{id:'following',label:'Following',icon:User},{id:'saved',label:'Saved',icon:Bookmark}] as const).map(item=><button key={item.id} aria-pressed={mode===item.id} onClick={()=>{if(item.id!=='all'&&!signed())return;setMode(item.id);}}><item.icon size={16}/>{item.label}</button>)}</div></>}

@@ -11,7 +11,8 @@ from operations import Input,Pin,metres,fail
 from hiring import listing_eligible,free_listing,policy
 from worker_records import public_profile
 from home_plans import OFFERINGS
-from discovery import relevance
+from discovery import relevance,terms
+from search_index import public_search
 
 JOB_FIELDS=('worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at')
 
@@ -154,11 +155,22 @@ def install(core):
             worker_ids=[w['id'] for w in eligible]
             u.prefetch([('policies','current'),*[('worker_profiles',wid) for wid in worker_ids],
                         *[('home_availability',wid) for wid in worker_ids]])
+            if body.query:
+                # Reject impossible text matches before fetching each candidate's
+                # historical reviews, jobs and offers. Exact scoring is preserved.
+                texts=[]
+                for w in eligible:
+                    p=u.get('worker_profiles',w['id']) or {}
+                    h=u.get('home_availability',w['id']) or {}
+                    texts.append(' '.join([text(w['name']),*[text(v) for v in w.get('skills',[])],*[text(v) for v in p.get('specialties',[])],*[categories.get(c,c) for c in w.get('categories',[])],*[categories.get('home:'+c,c) for c in h.get('approved_services',[])]]))
+                matches=public_search.scores(texts,body.query,terms,.5) or {}
+                eligible=[w for i,w in enumerate(eligible) if i in matches]
+                worker_ids=[w['id'] for w in eligible]
             jobs=u.for_workers('jobs',worker_ids,JOB_FIELDS);by_worker=defaultdict(list)
             for j in jobs:by_worker[j.get('worker_id')].append(j)
             by_offer_worker=defaultdict(list)
             for offer in u.for_workers('professional_offers',worker_ids):by_offer_worker[offer['worker_id']].append(offer)
-            busy={j.get('worker_id') for j in jobs if j['state'] in ('travelling','arrived','in_progress','parts_pending','parts_approved','completion_pending')}
+            busy={j.get('worker_id') for j in jobs if j['state'] in ('en_route','travelling','arrived','in_progress','collecting_parts','parts_pending','parts_approved','completion_pending')}
             rows=[]
             for w in eligible:
                 m=u.get('hire_memberships',w['id']) or {}

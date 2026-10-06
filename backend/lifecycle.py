@@ -328,7 +328,19 @@ def install(core):
         def save(u):
             n=u.get('notifications',notification_id)
             if not n or n['user_id']!=user['id']:fail('NOT_FOUND','Notification not found.',404)
-            n['read_at']=n.get('read_at',time.time());u.put('notifications',notification_id,n);return {'status':'read'}
+            n['read_at']=n.get('read_at') or time.time();u.put('notifications',notification_id,n);return {'status':'read','read_at':n['read_at']}
+        return store.run(save)
+    @r.post('/notifications/read-all')
+    def read_notifications(user=Depends(core.current_user)):
+        def save(u):
+            stamp=time.time()
+            # Matches the 100 most recent messages displayed by the inbox; keep
+            # transaction writes below Firestore's per-commit limit.
+            rows=sorted(u.find('notifications','user_id',user['id']),key=lambda n:n.get('created_at',0),reverse=True)[:100]
+            for n in rows:
+                if not n.get('read_at'):
+                    n['read_at']=stamp;u.put('notifications',n['id'],n)
+            return {'status':'read','read_at':stamp}
         return store.run(save)
     @r.get('/admin/review-reports',dependencies=[Depends(core.operator)])
     def review_reports():return store.run(lambda u:{'reports':u.all('review_reports')})

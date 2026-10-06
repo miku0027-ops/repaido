@@ -1,7 +1,9 @@
 import {apiFetch} from './api';
 
-// Only public directory data lives here. Availability and hire actions always recheck the server.
+// Only public directory data lives here. Initial city cards can remain visible
+// during revalidation; availability and hire actions always recheck the server.
 const FRESH_MS=20_000;
+const STALE_MS=120_000;
 const MAX_ENTRIES=80;
 type Entry={at:number;value:unknown};
 const recent=new Map<string,Entry>();
@@ -17,7 +19,8 @@ function key(body:Record<string,unknown>):string {
 export function cachedHireProfiles<T>(body:Record<string,unknown>):T|null {
   const id=key(body),entry=recent.get(id);
   if(!entry)return null;
-  if(Date.now()-entry.at>=FRESH_MS){recent.delete(id);return null;}
+  const live=Boolean(body.location||body.available_only||body.strict_nearby);
+  if(Date.now()-entry.at>=(live?FRESH_MS:STALE_MS)){recent.delete(id);return null;}
   recent.delete(id);recent.set(id,entry);
   return entry.value as T;
 }
@@ -25,8 +28,8 @@ export function cachedHireProfiles<T>(body:Record<string,unknown>):T|null {
 export async function hireProfiles<T>(body:Record<string,unknown>,force=false):Promise<T> {
   const id=key(body);
   if(!force){
-    const cached=cachedHireProfiles<T>(body);
-    if(cached)return cached;
+    const entry=recent.get(id);
+    if(entry&&Date.now()-entry.at<FRESH_MS&&!body.available_only)return entry.value as T;
   }
   const running=inFlight.get(id);
   if(running)return running as Promise<T>;

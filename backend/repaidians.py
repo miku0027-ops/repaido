@@ -56,6 +56,7 @@ class ProfilePatch(Input):
     name: str | None = Field(default=None, min_length=2, max_length=100)
     bio: str | None = Field(default=None, max_length=500)
     trade: Trade | None = None
+    handle: str | None = Field(default=None,min_length=3,max_length=30,pattern=r'^[a-z0-9][a-z0-9._]{2,29}$')
     avatarUrl: str | None = Field(default=None, max_length=200)
     headline: str | None = Field(default=None, max_length=140)
     city: str | None = Field(default=None, max_length=80)
@@ -63,6 +64,15 @@ class ProfilePatch(Input):
     experienceYears: int | None = Field(default=None, ge=0, le=60, strict=True)
     workStatus: WorkStatus | None = None
     professionalType: ProfessionalType | None = None
+
+
+SETTINGS_DEFAULTS={'messagePrivacy':'everyone','likeNotifications':True,'commentNotifications':True,'followNotifications':True,'messageNotifications':True}
+class SettingsPatch(Input):
+    messagePrivacy: Literal['everyone','following','nobody'] | None = None
+    likeNotifications: bool | None = Field(default=None,strict=True)
+    commentNotifications: bool | None = Field(default=None,strict=True)
+    followNotifications: bool | None = Field(default=None,strict=True)
+    messageNotifications: bool | None = Field(default=None,strict=True)
 
 
 class Media(Input):
@@ -228,7 +238,7 @@ def index_member(u, member):
     u.put('rp_member_directory', member['id'], directory)
     old = u.get('rp_member_search_keys', member['id']) or {'keys': []}
     tokens = re.findall(r'[\w]+', (member['name'] + ' ' + member['handle']).casefold())
-    tokens.append(member['name'].casefold())
+    tokens=[member['handle'].casefold(),member['name'].casefold(),*tokens]
     keys = set()
     for token in tokens[:8]:
         keys.update(digest(token[:i]) for i in range(2, min(len(token), 20) + 1))
@@ -490,6 +500,8 @@ def rate(u, uid, kind, limit=60, period=3600000):
 def notify(u, recipient, sender, event, target_id):
     if recipient == sender or blocked(u, recipient, sender):
         return
+    settings={**SETTINGS_DEFAULTS,**((u.get('rp_members',recipient) or {}).get('settings') or {})}
+    if not settings.get(event+'Notifications',True):return
     stamp = now_ms()
     key = str(uuid.uuid4())
     row = dict(id=key, authorId=sender, type=event, targetId=target_id, createdAt=stamp, read=False, sortKey=sort_key(stamp, key))
@@ -686,6 +698,14 @@ def install(core):
                 values['skills'] = list(dict.fromkeys(skill.strip() for skill in values['skills'] if skill.strip()))
             if 'name' in values and len(values['name']) < 2:
                 fail('INVALID_NAME', 'Enter your display name.', 422)
+            if 'handle' in values and values['handle']!=member['handle']:
+                key=digest(values['handle'])
+                claim=u.get('rp_handles',key)
+                existing=u.find('rp_members','handle',values['handle'])
+                if (claim and claim['userId']!=user['id']) or any(row['id']!=user['id'] for row in existing):
+                    fail('HANDLE_TAKEN','This handle is already in use. Choose another.',409)
+                # Keep prior handle reservations to prevent impersonation by reuse.
+                u.put('rp_handles',key,{'userId':user['id'],'handle':values['handle']})
             if values.get('avatarUrl'):
                 mid = media_id(values['avatarUrl'])
                 media = u.get('rp_media', mid)
@@ -703,6 +723,31 @@ def install(core):
             index_member(u, member)
             return {'member': member_public(u, member)}
         return store.run(save)
+
+    @r.get('/settings')
+    def settings(a=Depends(actor)):
+        user=signed(a)
+        return store.run(lambda u:{'settings':{**SETTINGS_DEFAULTS,**member_ensure(u,user).get('settings',{})}})
+
+    @r.patch('/settings')
+    def update_settings(body:SettingsPatch,a=Depends(actor)):
+        user=signed(a)
+        def save(u):
+            member=member_ensure(u,user)
+            member['settings']={**SETTINGS_DEFAULTS,**member.get('settings',{}),**body.model_dump(exclude_none=True)}
+            u.put('rp_members',user['id'],member)
+            return {'settings':member['settings']}
+        return store.run(save)
+
+    @r.get('/blocks')
+    def my_blocks(a=Depends(actor)):
+        user=signed(a)
+        def read(u):
+            rows=[row for row in u.find('rp_blocks','from',user['id']) if row.get('active')]
+            u.prefetch([('rp_members',row['to']) for row in rows])
+            # Privacy settings show only the owner's explicit block list.
+            return {'members':[{'id':row['to'],'name':(u.get('rp_members',row['to']) or {}).get('name','Member')} for row in rows]}
+        return store.run(read)
 
     @r.post('/publications', status_code=201)
     def publish(body: Publication, a=Depends(actor)):
@@ -914,6 +959,10 @@ def install(core):
             prior = replay(u, user['id'], body, 'message', recipient_id)
             if prior:
                 return prior
+            recipient=u.get('rp_members',recipient_id) or {}
+            privacy=recipient.get('settings',{}).get('messagePrivacy','everyone')
+            if privacy=='nobody' or privacy=='following' and not (u.get('rp_follows',digest(recipient_id+':'+user['id'])) or {}).get('active'):
+                fail('MESSAGES_RESTRICTED','This member is not accepting messages from you.',403)
             member_ensure(u, user)
             if not body.text.strip():
                 fail('TEXT_REQUIRED', 'Write a message first.', 422)

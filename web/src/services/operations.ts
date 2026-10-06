@@ -2,7 +2,13 @@ import {readDeviceLocation} from './deviceLocation.mjs';
 import { apiFetch } from './api';
 import { auth } from '../firebase';
 import {beginLoading} from './loading';
-const operationReads=new Map<string,Promise<unknown>>();
+import {createReadCache} from './readCache.mjs';
+const operationCache=createReadCache();
+let cacheAccount='';
+function accountScope(){return auth.currentUser?.uid||localStorage.getItem('repaido.token')||'';}
+function syncAccount(){const scope=accountScope();if(scope!==cacheAccount){operationCache.invalidate();cacheAccount=scope;}return scope;}
+export function operationSnapshot<T>(path:string):T|null {const scope=syncAccount();return scope?operationCache.peek(scope+':'+path) as T|null:null;}
+export function invalidateOperationReads(){operationCache.invalidate();window.dispatchEvent(new Event('repaido:operations-updated'));}
 
 export interface Job {
   coupon?:{code:string;bps:number;discount_paise:number};vendor_discount_paise?:number;
@@ -40,23 +46,26 @@ export interface LiveWorker {
   categories:string[]; skills:string[]; tools:string[]; online:boolean; points:number;
   completed_tasks:number; rating_sum:number; rating_count:number; review_reason?:string;
 }
-export async function operation<T>(path:string, init:RequestInit={}, options:{background?:boolean}={}):Promise<T> {
+export async function operation<T>(path:string, init:RequestInit={}, options:{background?:boolean;force?:boolean}={}):Promise<T> {
   await auth.authStateReady();
-  const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error('Sign in to continue. Your draft will stay open.');
+  const scope=syncAccount();
+  const token = auth.currentUser?await auth.currentUser.getIdToken():localStorage.getItem('repaido.token');
+  if (!token) throw new Error('Sign in to view your account.');
   const read=(init.method||'GET').toUpperCase()==='GET';
-  const key=`${auth.currentUser?.uid}:${path}`;
-  const existing=read?operationReads.get(key):undefined;
-  const done=options.background?()=>{}:beginLoading(path);
-  if(existing){try{return await existing as T;}finally{done();}}
-  const request=(async()=>{
-  const response = await apiFetch(`/api/operations${path}`, {...init, signal:AbortSignal.timeout(15000), headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true});
-  const body = await response.json().catch(()=>({}));
-  if (!response.ok) throw new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.'));
-  return body as T;
-  })();
-  if(read)operationReads.set(key,request);
-  try{return await request;}finally{if(operationReads.get(key)===request)operationReads.delete(key);done();}
+  const cached=path==='/jobs'||path==='/notifications';
+  const done=(options.background??read)?()=>{}:beginLoading(path);
+  const load=async()=>{
+    const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal||AbortSignal.timeout(15000), headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true});
+    const body = await response.json().catch(()=>({}));
+    if (!response.ok) throw new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.'));
+    if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
+    return body as T;
+  };
+  try {
+    const result=read&&!init.signal?await operationCache.read(scope+':'+path,load,{freshMs:cached?10000:0,force:options.force}):await load();
+    if(!read)invalidateOperationReads();
+    return result as T;
+  }finally{done();}
 }
 const pending = new Map<string, {command_id:string;action:string;expected_version:number;payload:object}>();
 export async function jobCommand(job:Job, action:string, payload:object={}):Promise<Job> {

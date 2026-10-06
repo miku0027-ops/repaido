@@ -13,7 +13,8 @@ if (configuredOrigin && (new URL(configuredOrigin).protocol !== 'https:' || new 
 export async function apiFetch(path: string, init?: RequestInit, options?: {background?:boolean}): Promise<Response> {
   // Never forward authentication headers to an arbitrary URL supplied by a caller.
   if (!path.startsWith('/api/')) throw new Error('Expected a Repaido API path.');
-  const done=options?.background?()=>{}:beginLoading(path);
+  const background=options?.background??((init?.method||'GET').toUpperCase()==='GET');
+  const done=background?()=>{}:beginLoading(path);
   try{return await fetch(`${configuredOrigin}${path}`, {...init,signal:init?.signal||AbortSignal.timeout(20000)});}finally{done();}
 }
 

@@ -139,6 +139,10 @@ class Store:
             # Browse by city and fetch a candidate's work without reading every record.
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_city ON operation_records(json_extract(body,'$.city')) WHERE kind='workers'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_online ON operation_records(json_extract(body,'$.online')) WHERE kind='workers'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_customer ON operation_records(json_extract(body,'$.customer_id')) WHERE kind='jobs'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_members_handle ON operation_records(json_extract(body,'$.handle')) WHERE kind='rp_members'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_blocks_owner ON operation_records(json_extract(body,'$.from')) WHERE kind='rp_blocks'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_notifications_user ON operation_records(json_extract(body,'$.user_id')) WHERE kind='notifications'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='jobs'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_hires_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='hires'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_offers_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='professional_offers'")
@@ -205,8 +209,8 @@ class Unit:
 
     def find(self, kind, field, value):
         """Indexed equality lookups with transaction-local writes overlaid."""
-        allowed = {'workers': {'city', 'online'}, 'jobs': {'worker_id'}, 'hires': {'worker_id'},
-                   'professional_offers': {'worker_id'}}
+        allowed = {'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
+                   'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:
@@ -695,7 +699,10 @@ def install(core):
 
     @router.get('/jobs')
     def jobs(user=Depends(core.current_user)):
-        return store.run(lambda u: {'jobs': [public_job(u, j, user['id']) for j in u.all('jobs') if user['id'] in (j['customer_id'], j.get('worker_id'))]})
+        def read(u):
+            rows={j['id']:j for j in [*u.find('jobs','customer_id',user['id']),*u.find('jobs','worker_id',user['id'])]}
+            return {'jobs':[public_job(u,j,user['id']) for j in sorted(rows.values(),key=lambda j:j.get('starts_epoch',0),reverse=True)]}
+        return store.run(read)
 
     @router.get('/jobs/{job_id}')
     def get_job(job_id: str, user=Depends(core.current_user)):

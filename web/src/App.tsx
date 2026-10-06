@@ -11,7 +11,7 @@ import {HomeGreeting} from './components/HomeGreeting';
 import {StoresIcon} from './components/StoresIcon';
 import {auth} from './firebase';
 import {useCustomerIdentity} from './services/customerIdentity';
-import {operation} from './services/operations';
+import {operation,operationSnapshot,type Job} from './services/operations';
 import {PromotionRail,PromotionPreferences,promotionService,type Promotion} from './components/Promotions';
 import {Hiring,HireRequests} from './components/Hiring';
 import {Marketplace} from './components/Marketplace';
@@ -30,7 +30,6 @@ import { CustomerCartDrawer } from './components/CustomerCartDrawer';
 import { CustomerNotificationDrawer } from './components/CustomerNotificationDrawer';
 import { B2BQuotationPdfModal } from './components/B2BQuotationPdfModal';
 import type { B2BQuotation } from './types/b2b';
-import { b2bService } from './services/b2bService';
 import { cartService } from './services/cartService';
 import { TendersPlatform } from './components/TendersPlatform';
 import {ContractorPortal} from './components/ContractorPortal';
@@ -97,22 +96,18 @@ import CatalogApp from './CatalogApp';
 import { Brand, Modal, Field } from './components/ui';
 import RepaidoBrand from './components/RepaidoBrand';
 import ServiceImage from './components/ServiceImage';
-import { seededServices, seededBookings, cities, formatMoney, formatDuration, getTechnicianProgress, seededWorkers } from './data';
+import { seededServices, cities, formatMoney, formatDuration, getTechnicianProgress, seededWorkers } from './data';
 import type { BookingDraft, BookingRecord, CategoryId, ConfirmBooking, Service, WorkerProfile } from './types';
 import {
   signInWithGoogle,
   sendPhoneOtp,
   confirmPhoneOtp,
   logoutUser,
-  getSavedBookings,
-  clearSavedBookings,
   saveBooking,
   updateBookingStatus,
   submitPartnerApplication,
   fetchLiveServices,
   fetchLiveTechnicians,
-  fetchUserBookings,
-  subscribeToUserBookings,
   getWorkers,
   rateBookingWorker,
   calculateTaskBilling,
@@ -394,7 +389,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [bookingError, setBookingError] = useState('');
-  const [records, setRecords] = useState<BookingRecord[]>(() => getSavedBookings([]));
+  const [records, setRecords] = useState<BookingRecord[]>([]);
   const [bookingFilter, setBookingFilter] = useState<'active' | 'completed' | 'cancelled'>('active');
   const [activeTrackingBooking, setActiveTrackingBooking] = useState<BookingRecord | null>(null);
   const [activeInvoiceBooking, setActiveInvoiceBooking] = useState<BookingRecord | null>(null);
@@ -445,44 +440,22 @@ export default function App() {
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
   const [activeQuotationForPdf, setActiveQuotationForPdf] = useState<B2BQuotation | null>(null);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+  const bookingAccount=useRef(user?.id);
 
   useEffect(() => {
-    let alive = true;
-    const fetchUnread = async () => {
-      try {
-        let unread = 0;
-        if (user) {
-          const res = await operation<{ notifications: { read_at?: number }[] }>('/notifications');
-          if (alive && res?.notifications) {
-            unread += res.notifications.filter(n => !n.read_at).length;
-          }
-        }
-        const b2bNotifs = b2bService.getB2BNotifications();
-        unread += b2bNotifs.filter((n: any) => !n.read_at).length;
-        if (alive) {
-          setUnreadNotificationCount(unread);
-        }
-      } catch {
-        const b2bNotifs = b2bService.getB2BNotifications();
-        const unread = b2bNotifs.filter((n: any) => !n.read_at).length;
-        if (alive) setUnreadNotificationCount(unread);
-      }
+    let alive=true;
+    setUnreadNotificationCount(0);setShowNotificationDrawer(false);if(bookingAccount.current&&bookingAccount.current!==user?.id)setNotificationJob(undefined);bookingAccount.current=user?.id;
+    const fetchUnread=async()=>{
+      if(!user){if(alive)setUnreadNotificationCount(0);return;}
+      try{const res=await operation<{notifications:{read_at?:number}[]}>('/notifications',{}, {background:true});if(alive)setUnreadNotificationCount(res.notifications.filter(n=>!n.read_at).length);}catch{/* Keep the last confirmed count while offline. */}
     };
-    void fetchUnread();
-    const unsubB2B = b2bService.subscribe(fetchUnread);
-    const handleB2BNotif = () => void fetchUnread();
-    window.addEventListener('repaido:b2b:notification', handleB2BNotif);
-    const timer = setInterval(fetchUnread, 30000);
-    return () => {
-      alive = false;
-      unsubB2B();
-      window.removeEventListener('repaido:b2b:notification', handleB2BNotif);
-      clearInterval(timer);
-    };
-  }, [user]);
-
-  const activeBookingCount = records.filter(b => ['requested', 'confirmed', 'on_the_way', 'in_progress'].includes(b.status)).length;
-  const notificationCount = Math.max(activeBookingCount, unreadNotificationCount);
+    const refresh=()=>{if(!document.hidden)void fetchUnread();};
+    void fetchUnread();window.addEventListener('repaido:operations-updated',refresh);window.addEventListener('focus',refresh);
+    const timer=setInterval(refresh,30000);
+    return()=>{alive=false;clearInterval(timer);window.removeEventListener('repaido:operations-updated',refresh);window.removeEventListener('focus',refresh);};
+  },[user?.id]);
+  const activeBookingCount=records.filter(r=>!['completed','cancelled'].includes(r.status)).length;
+  const notificationCount=unreadNotificationCount;
 
   const [ratingBooking, setRatingBooking] = useState<BookingRecord | null>(null);
   const [ratingScore, setRatingScore] = useState<number>(5);
@@ -500,32 +473,13 @@ export default function App() {
     }).catch(() => { setTechniciansList([]); setError('Nearby professionals could not be loaded. Reopen the app to retry.'); });
   }, []);
 
-  // Sync user's cloud bookings in real-time when authenticated
-  useEffect(() => {
-    if (user?.id) {
-      fetchUserBookings(user.id).then(cloudBookings => {
-        if (cloudBookings && cloudBookings.length > 0) {
-          setRecords(curr => {
-            const map = new Map<string, BookingRecord>();
-            curr.forEach(b => map.set(b.id, b));
-            cloudBookings.forEach(b => map.set(b.id, b));
-            return Array.from(map.values());
-          });
-        }
-      });
-      const unsubscribe = subscribeToUserBookings(user.id, (cloudBookings) => {
-        if (cloudBookings && cloudBookings.length > 0) {
-          setRecords(curr => {
-            const map = new Map<string, BookingRecord>();
-            curr.forEach(b => map.set(b.id, b));
-            cloudBookings.forEach(b => map.set(b.id, b));
-            return Array.from(map.values());
-          });
-        }
-      });
-      return () => unsubscribe();
-    }
-  }, [user?.id]);
+  // Native operational bookings are authoritative for every customer surface.
+  useEffect(()=>{
+    let alive=true;setRecords([]);
+    const refresh=async()=>{if(!user?.id)return;try{const data=await operation<{jobs:import('./services/operations').Job[]}>('/jobs',{}, {background:true});if(alive)setRecords(data.jobs.map(j=>({id:j.id,serviceId:j.service_id,serviceName:j.service_name,category:j.category as CategoryId,city:j.city,address:j.address||'',startsAt:j.starts_at,status:(j.state==='en_route'?'on_the_way':j.state==='searching'?'requested':j.state==='offered'||j.state==='accepted'?'confirmed':j.state) as BookingRecord['status'],price:j.total_paise/100,canCancel:j.allowed_actions.includes('cancel')})));}catch{/* The booking screen provides a retry without inventing a record. */}};
+    void refresh();window.addEventListener('repaido:operations-updated',refresh);
+    return()=>{alive=false;window.removeEventListener('repaido:operations-updated',refresh);};
+  },[user?.id]);
 
   useEffect(() => {
     localStorage.setItem('repaido.place', JSON.stringify(place));
@@ -609,49 +563,10 @@ export default function App() {
     return { reference: booking.id, mode: 'live' as const };
   };
 
-  async function loadBookings() {
-    setBusy(true);
-    setError('');
-    try {
-      const data = await api('/bookings');
-      if (data && Array.isArray(data.bookings) && data.bookings.length > 0) {
-        const liveMapped: BookingRecord[] = data.bookings.map((b: any) => ({
-          id: b.id,
-          serviceId: b.service_id,
-          serviceName: b.service_name,
-          category: (b.category || 'cleaning') as any,
-          city: b.city,
-          address: b.address || place.address,
-          startsAt: b.starts_at,
-          status: b.status as any,
-          price: b.price,
-          canCancel: ['requested', 'confirmed'].includes(b.status)
-        }));
-        setRecords(liveMapped);
-      }
-    } catch {
-      setRecords(seededBookings);
-    } finally {
-      setBusy(false);
-    }
+  async function loadBookings(){
+    const data=await operation<{jobs:import('./services/operations').Job[]}>('/jobs',{}, {background:true,force:true});
+    setRecords(data.jobs.map(j=>({id:j.id,serviceId:j.service_id,serviceName:j.service_name,category:j.category as CategoryId,city:j.city,address:j.address||'',startsAt:j.starts_at,status:j.state as BookingRecord['status'],price:j.total_paise/100,canCancel:j.allowed_actions.includes('cancel')})));
   }
-
-  useEffect(() => {
-    const stored = getSavedBookings([]);
-    const hasMockBookingData = stored.some(booking =>
-      booking.id.startsWith('REP-') &&
-      (booking.status === 'on_the_way' || booking.status === 'confirmed' || booking.status === 'completed')
-    );
-
-    if (hasMockBookingData) {
-      clearSavedBookings();
-      setRecords([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (tab === 'Bookings' && token) void loadBookings();
-  }, [tab, token]);
 
   function navigate(next: Tab) {
     setTab(next);
@@ -1135,7 +1050,7 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'Bookings' && <div className="customer-bookings-page"><div className="customer-home-plans-switch" role="group" aria-label="Booking service type"><button aria-pressed={!homePlans&&!hireBookings} onClick={()=>{setHomePlans(false);setHireBookings(false);}}><Wrench size={15} aria-hidden="true"/>Visits</button><button aria-pressed={homePlans} onClick={()=>{setHomePlans(true);setHireBookings(false);}}><CalendarDays size={15} aria-hidden="true"/>Home plans & calendar</button><button aria-pressed={hireBookings&&!homePlans} onClick={()=>{setHomePlans(false);setHireBookings(true);}}><BriefcaseBusiness size={15} aria-hidden="true"/>Hiring</button></div>{hireBookings&&!homePlans?<><HireRequests onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={notificationJob||'hiring'} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);}}/>:<OperationalJobs kind="visits" key={notificationJob||'bookings'} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
+            {tab === 'Bookings' && <div className="customer-bookings-page"><div className="customer-home-plans-switch" role="group" aria-label="Booking service type"><button aria-pressed={!homePlans&&!hireBookings} onClick={()=>{setHomePlans(false);setHireBookings(false);}}><Wrench size={15} aria-hidden="true"/>Visits</button><button aria-pressed={homePlans} onClick={()=>{setHomePlans(true);setHireBookings(false);}}><CalendarDays size={15} aria-hidden="true"/>Home plans & calendar</button><button aria-pressed={hireBookings&&!homePlans} onClick={()=>{setHomePlans(false);setHireBookings(true);}}><BriefcaseBusiness size={15} aria-hidden="true"/>Hiring</button></div>{hireBookings&&!homePlans?<><HireRequests onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
@@ -2586,9 +2501,13 @@ export default function App() {
       <CustomerNotificationDrawer
         isOpen={showNotificationDrawer}
         onClose={() => setShowNotificationDrawer(false)}
-        onOpenJob={id => {
-          setNotificationJob(id);
-          setTab('Bookings');
+        onOpenJob={async id => {
+          try{
+            const cached=operationSnapshot<{jobs:Job[]}>('/jobs')?.jobs.find(job=>job.id===id);
+            const job=cached||await operation<Job>(`/jobs/${encodeURIComponent(id)}`,{}, {background:true});
+            setHomePlans(false);setHireBookings(job.service_id?.startsWith('day-hire-')||false);
+            setNotificationJob(id);setTab('Bookings');
+          }catch(e){setError((e as Error).message);}
         }}
         onOpenQuotationModal={quote => {
           setActiveQuotationForPdf(quote);
@@ -2606,7 +2525,6 @@ export default function App() {
         onOpenHomePlan={planId => {
           setHomeHub(planId || '');
         }}
-        activeBookings={records}
         onUnreadCountChange={count => setUnreadNotificationCount(count)}
       />
 

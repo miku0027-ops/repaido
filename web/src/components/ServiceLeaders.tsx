@@ -36,12 +36,10 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
     type Result={professionals:Professional[];total:number};
     const cached=force?null:cachedHireProfiles<Result>(body);
     if(cached){setResult({key:requestKey,rows:cached.professionals.filter(p=>p.categories.includes(category)),total:cached.total});}
-    else {
-      setResult(null);
-      void hireProfiles<Result>(body,force).then(data=>{
+    else setResult(null);
+    void hireProfiles<Result>(body,force).then(data=>{
         if(active)setResult({key:requestKey,rows:data.professionals.filter(p=>p.categories.includes(category)),total:data.total});
       }).catch(error=>{if(active)setError(error.message);});
-    }
     return()=>{active=false;};
   },[requestKey]);
   if(!category||category==='all')return null;

@@ -259,7 +259,7 @@ try{
   let studio=page.getByRole('dialog',{name:'Publishing studio',exact:true});
   await studio.getByLabel('Upload publication media',{exact:true}).setInputFiles(resolve(web,'public/images/electrical.jpg'));
   await studio.getByLabel('Caption & visual description',{exact:true}).fill('Electrical portfolio uploaded to the shared backend.');
-  await studio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();
+  await studio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await studio.waitFor({state:'hidden'});
   await shell(page).getByText('Electrical portfolio uploaded to the shared backend.',{exact:false}).waitFor();
   await page.reload();await shell(page).getByText('Electrical portfolio uploaded to the shared backend.',{exact:false}).waitFor();
   const alicePost=(await api('/repaidians/feed?kind=post',bob)).items.find(p=>p.authorId===alice.user.id);assert.ok(alicePost);
@@ -290,7 +290,7 @@ try{
   await studio.getByRole('button',{name:'Reel',exact:true}).click();
   await studio.getByLabel('Upload publication media',{exact:true}).setInputFiles(clip);
   await studio.getByLabel('Caption & visual description',{exact:true}).fill('A work reel stored on the server.');
-  await studio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await shell(page).locator('.rp-reel video').waitFor();
+  await studio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await studio.waitFor({state:'hidden'});await shell(page).locator('.rp-reel video').waitFor();
   await page.waitForFunction(()=>document.querySelector('.rp-reel video')?.readyState>=2);
   assert.equal(await shell(page).locator('.rp-reel video').evaluate(video=>video.paused),true,'Reduced motion starts reels paused.');
   await shell(page).getByRole('button',{name:'Play reel',exact:true}).click();await shell(page).getByRole('button',{name:'Pause reel',exact:true}).waitFor();
@@ -301,7 +301,7 @@ try{
   await shell(page).getByRole('button',{name:'Book a service',exact:true}).click();await page.getByLabel('Home search',{exact:true}).waitFor();
   assert.equal(await page.getByLabel('Home search',{exact:true}).inputValue(),'Electrical');
   await page.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(page).waitFor();
-  await nav(page,'My profile');await shell(page).locator('.rp-edit-profile > summary').click();
+  await nav(page,'My profile');await shell(page).getByText('Edit profile',{exact:true}).click();
   await shell(page).getByLabel('Headline',{exact:true}).fill('Electrical specialist available for project teams');
   await shell(page).getByLabel('City',{exact:true}).fill('Balasore');
   await shell(page).locator('.rp-edit-profile form').getByLabel(/^Skills/).fill('Wiring, Inspection');
@@ -310,6 +310,29 @@ try{
   await shell(page).locator('.rp-edit-profile form').getByLabel(/^Professional type/).selectOption('specialist');
   await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
   await shell(page).getByText('Profile saved.',{exact:true}).waitFor();
+  await shell(page).getByLabel('Handle',{exact:true}).fill('alice.electrical');
+  await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
+  await shell(page).locator('.rp-profile').getByText('@alice.electrical',{exact:true}).waitFor();
+  await shell(page).getByText('Privacy & notifications',{exact:true}).click();
+  await shell(page).getByLabel('Allow messages from',{exact:true}).selectOption('following');
+  await shell(page).getByLabel('Likes on my publications',{exact:true}).uncheck();
+  await shell(page).getByRole('button',{name:'Save settings',exact:true}).click();
+  await shell(page).getByText('Privacy and notification settings saved.',{exact:true}).waitFor();
+  const settings=(await api('/repaidians/settings',alice)).settings;
+  assert.equal(settings.messagePrivacy,'following');assert.equal(settings.likeNotifications,false);
+  // Restore the default so later message/reply tests remain independent.
+  await shell(page).getByLabel('Allow messages from',{exact:true}).selectOption('everyone');
+  await shell(page).getByLabel('Likes on my publications',{exact:true}).check();
+  await shell(page).getByRole('button',{name:'Save settings',exact:true}).click();
+  await shell(page).getByText('Privacy and notification settings saved.',{exact:true}).waitFor();
+  await shell(page).getByLabel('Profile photo',{exact:true}).setInputFiles(resolve(web,'public/images/electrical.jpg'));
+  await page.waitForFunction(()=>!document.querySelector('.rp-profile input[type="file"]')?.disabled);
+  const uploadedProfile=(await api('/repaidians/members/'+alice.user.id,bob)).member;
+  assert.notEqual(uploadedProfile.avatarUrl,avatar.url,'Profile-photo control uploads and attaches a new real image.');
+  avatar.url=uploadedProfile.avatarUrl;
+  await shell(page).getByRole('button',{name:'Remove profile photo',exact:true}).click();
+  await page.waitForFunction(()=>!document.querySelector('.rp-profile input[type="file"]')?.disabled);
+  assert.equal((await api('/repaidians/members/'+alice.user.id,bob)).member.avatarUrl,'');
   const editedProfile=(await api('/repaidians/members/'+alice.user.id,bob)).member;
   assert.equal(editedProfile.headline,'Electrical specialist available for project teams');assert.equal(editedProfile.experienceYears,8);
   await page.reload();await nav(page,'My profile');
@@ -485,7 +508,7 @@ try{
   await attachedStudio.getByText('Attached to your post',{exact:true}).waitFor();
   const purchaseCaption='A community update linked to my verified Repaido purchase.';
   await attachedStudio.getByLabel('Caption & visual description',{exact:true}).fill(purchaseCaption);
-  await attachedStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();
+  await attachedStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await attachedStudio.waitFor({state:'hidden'});
   const attachedPost=shell(opportunityPage).locator('.rp-post').filter({hasText:purchaseCaption});
   await attachedPost.getByText(nativeProduct.name,{exact:true}).waitFor();
   assert.equal(await attachedPost.locator('.rp-media-missing').count(),0,'A linked product post uses its listing card without a blank failed-media panel.');
@@ -505,7 +528,7 @@ try{
   await listingStudio.getByText('Attached to your post',{exact:true}).waitFor();
   const secondHandCaption='My used electrical tools are listed for another member.';
   await listingStudio.getByLabel('Caption & visual description',{exact:true}).fill(secondHandCaption);
-  await listingStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();
+  await listingStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await listingStudio.waitFor({state:'hidden'});
   await shell(opportunityPage).locator('.rp-post').filter({hasText:secondHandCaption}).getByText(nativeSecondHand.name,{exact:true}).waitFor();
   assert.deepEqual((await api('/repaidians/feed?kind=post',bob)).items.find(post=>post.caption===secondHandCaption).reference,{source:'second_hand',id:nativeSecondHand.id});
 

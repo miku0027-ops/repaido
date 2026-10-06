@@ -11,6 +11,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 from pydantic import Field
 from operations import Input, Pin, metres, fail
+from search_index import public_search
 
 
 class Search(Input):
@@ -81,7 +82,9 @@ def install(core):
                 label = {'car': 'Vehicle services', 'gardening': 'Gardening', 'moving': 'Moving'}.get(s['category'], s['category'].replace('_', ' ').title())
                 category_names[s['category']] = label
                 categories.append({'id': s['category'], 'name': label})
-        scored = [(relevance(body.query, ' '.join([s['name'], s['category'], category_names.get(s['category'], ''), s.get('description', '')])), s) for s in services]
+        texts=[' '.join([s['name'],s['category'],category_names.get(s['category'],''),s.get('description','')]) for s in services]
+        indexed=public_search.scores(texts,body.query,terms)
+        scored=[(indexed.get(i,0) if indexed is not None else 1,s) for i,s in enumerate(services)]
         services = [s for score, s in sorted(scored, key=lambda pair: (-pair[0], pair[1]['name'])) if score > 0 and s['price_paise'] >= body.min_price_paise and (body.max_price_paise is None or s['price_paise'] <= body.max_price_paise) and (body.max_duration_minutes is None or s['duration_minutes'] <= body.max_duration_minutes)]
         if body.sort == 'price': services.sort(key=lambda s: (s['price_paise'], s['name']))
         if body.sort == 'price_desc': services.sort(key=lambda s: (-s['price_paise'], s['name']))
@@ -90,7 +93,7 @@ def install(core):
         def read(u):
             workers = []
             if body.location and body.city in core.CITIES:
-                for w in u.all('workers'):
+                for w in u.find('workers','city',body.city):
                     p = w.get('position')
                     if w.get('status') != 'approved' or not w.get('online') or w['city'].casefold() != body.city.casefold(): continue
                     if not p or not 0 <= time.time()-p.get('received_at', 0) <= 900 or p.get('accuracy', 1000) > 100: continue

@@ -102,7 +102,11 @@ export const messagesPage = (id: string, cursor = '') => communityRequest<{messa
 export const threadsPage = () => communityRequest<{threads:CommunityThread[];members:CommunityMember[];nextCursor:string|null}>('/threads?limit=30');
 export const bid = (_account: string, id: string) => command('/bids/'+encodeURIComponent(id), {});
 export const tenderContact = (id: string) => communityRequest<{contact:string;tenderId:string}>('/tenders/'+encodeURIComponent(id)+'/contact');
-export const updateProfile = (_account:string,name:string,trade:Trade,bio:string,professional:ProfessionalFields={})=>mutate('/profile','PATCH',{name,trade,bio,...professional});
+export const updateProfile = (_account:string,name:string,trade:Trade,bio:string,professional:ProfessionalFields&{handle?:string}={})=>mutate('/profile','PATCH',{name,trade,bio,...professional});
+export interface CommunitySettings {messagePrivacy:'everyone'|'following'|'nobody';likeNotifications:boolean;commentNotifications:boolean;followNotifications:boolean;messageNotifications:boolean;}
+export const profileSettings=()=>communityRequest<{settings:CommunitySettings}>('/settings');
+export const updateSettings=(settings:Partial<CommunitySettings>)=>mutate<{settings:CommunitySettings}>('/settings','PATCH',settings);
+export const blockedMembers=()=>communityRequest<{members:{id:string;name:string}[]}>('/blocks');
 export const updateAvatar = (avatarUrl: string) => mutate('/profile', 'PATCH', {avatarUrl});
 export const publish = (_account: string, draft: PublicationDraft) => command<{item:{id:string}}>('/publications', draft as unknown as Record<string,unknown>);
 export const deletePublication = (id: string) => mutate('/publications/'+encodeURIComponent(id), 'DELETE');

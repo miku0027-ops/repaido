@@ -5,7 +5,7 @@ import {useEffect,useRef,useState} from 'react';
 import {Bell,RefreshCw,ArrowRight,BadgeCheck,ChevronLeft,ChevronRight} from 'lucide-react';
 import {apiFetch} from '../services/api';
 import {auth} from '../firebase';
-import {jobCommand,currentPosition,money,operation,type Job} from '../services/operations';
+import {jobCommand,currentPosition,money,operation,operationSnapshot,type Job} from '../services/operations';
 import {nativeAvailable,nativeCall} from '../services/native';
 import {AgentTaskWorkspace} from './AgentTaskWorkspace';
 import {LiveTrackingView} from './LiveTrackingView';
@@ -51,7 +51,7 @@ export function TaskSlideshowRail({
     if (railRef.current) {
       railRef.current.scrollTo({ left: 0, behavior: 'auto' });
     }
-  }, [jobs]);
+  }, [jobs.map(job=>job.id).join('|')]);
 
   const scrollToCard = (index: number) => {
     if (!railRef.current) return;
@@ -249,23 +249,38 @@ export function TaskSlideshowRail({
 export function OperationalJobs({worker=false,onSignIn,onRebook,initialJobId,visible=true,kind='all'}:{kind?:'all'|'hiring'|'visits';visible?:boolean;worker?:boolean;onSignIn?:()=>void;onRebook?:(draft:{service_id:string;category:string;city:string})=>void;initialJobId?:string}) {
   const [refreshing,setRefreshing]=useState(false);
   const [reportId,setReportId]=useState<string|null>(null);
-  const [jobs,setJobs]=useState<Job[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState('');
+  const [jobs,setJobs]=useState<Job[]>(()=>operationSnapshot<{jobs:Job[]}>('/jobs')?.jobs.filter(j=>!worker||j.worker_id===auth.currentUser?.uid).filter(j=>kind==='all'||(j.service_id?.startsWith('day-hire-')?kind==='hiring':kind==='visits'))||[]),[error,setError]=useState(''),[loading,setLoading]=useState(!operationSnapshot('/jobs')),[busy,setBusy]=useState('');
   const [filter,setFilter]=useState('active'),[selected,setSelected]=useState<string|null>(initialJobId||null),[sound,setSound]=useState(false),[muted,setMuted]=useState<string[]>([]);
   const audio=useRef<AudioContext|null>(null), watch=useRef<number|null>(null), locationBusy=useRef(false), currentJobs=useRef(jobs);
   currentJobs.current=jobs;
   useEffect(()=>{if(initialJobId)setSelected(initialJobId);},[initialJobId]);
-  const load=async(background=false)=>{try {const data=await operation<{jobs:Job[]}>('/jobs',{}, {background});setError('');setJobs(previous=>(worker?data.jobs.filter(j=>j.worker_id===auth.currentUser?.uid):data.jobs).filter(j=>kind==='all'||(j.service_id.startsWith('day-hire-')?(kind==='hiring'):(kind==='visits'))).map(j=>{const newer=previous.find(p=>p.id===j.id&&p.version>j.version);return newer||j;}));}catch(e){setError((e as Error).message);}finally{setLoading(false);}};
-  useEffect(()=>{void load();const timer=setInterval(()=>{if(!document.hidden)void load(true);},10000);return()=>{clearInterval(timer);};},[]);
+  const mounted=useRef(true),loads=useRef(0);
+  const load=async(_background=true,force=false)=>{
+    const id=++loads.current;
+    try {
+      const data=await operation<{jobs:Job[]}>('/jobs',{}, {background:true,force});
+      if(!mounted.current||id!==loads.current)return;
+      setError('');setJobs(previous=>data.jobs.filter(j=>!worker||j.worker_id===auth.currentUser?.uid).filter(j=>kind==='all'||(j.service_id?.startsWith('day-hire-')?kind==='hiring':kind==='visits')).map(j=>previous.find(p=>p.id===j.id&&p.version>j.version)||j));
+    }catch(e){if(mounted.current&&id===loads.current)setError((e as Error).message);}
+    finally{if(mounted.current&&id===loads.current)setLoading(false);}
+  };
+  useEffect(()=>{
+    mounted.current=true;void load();
+    const refresh=()=>{if(visible&&!document.hidden)void load(true);};
+    const timer=setInterval(refresh,15000);
+    window.addEventListener('repaido:operations-updated',refresh);window.addEventListener('focus',refresh);
+    return()=>{mounted.current=false;loads.current++;clearInterval(timer);window.removeEventListener('repaido:operations-updated',refresh);window.removeEventListener('focus',refresh);};
+  },[kind,worker,visible]);
   useEffect(()=>()=>{if(watch.current!==null)navigator.geolocation.clearWatch(watch.current);void audio.current?.close();},[]);
   const attention=jobs.find(j=>worker?j.state==='offered'||j.allowed_actions.includes('ack_reminder'):j.state==='arrived');
   const alertKey=attention?`${attention.id}:${attention.visit_id}:${attention.state}:${attention.allowed_actions.includes('ack_reminder')}`:'';
-  useEffect(()=>{if(attention&&!muted.includes(alertKey))setSelected(attention.id);},[alertKey]);
+  useEffect(()=>{if(worker&&attention&&!muted.includes(alertKey))setSelected(attention.id);},[alertKey]);
   useEffect(()=>{
     if(!sound||!attention||muted.includes(alertKey))return;
     return startTaskBell(audio.current);
   },[sound,alertKey,muted]);
   const enableSound=async()=>{audio.current ||= new AudioContext();await audio.current.resume();setSound(s=>!s);};
-  useEffect(()=>{const unlock=()=>{audio.current ||= new AudioContext();void audio.current.resume().then(()=>setSound(audio.current?.state==='running')).catch(()=>{});};document.addEventListener('pointerdown',unlock,{once:true,capture:true});document.addEventListener('keydown',unlock,{once:true,capture:true});return()=>{document.removeEventListener('pointerdown',unlock,true);document.removeEventListener('keydown',unlock,true);};},[]);
+  useEffect(()=>{if(!worker)return;const unlock=()=>{audio.current ||= new AudioContext();void audio.current.resume().then(()=>setSound(audio.current?.state==='running')).catch(()=>{});};document.addEventListener('pointerdown',unlock,{once:true,capture:true});document.addEventListener('keydown',unlock,{once:true,capture:true});return()=>{document.removeEventListener('pointerdown',unlock,true);document.removeEventListener('keydown',unlock,true);};},[]);
   const run=async(job:Job,action:string,payload:object={})=>{setBusy(job.id);setError('');try {const updated=await jobCommand(job,action,payload);if(updated.state==='released'){setJobs(list=>list.filter(j=>j.id!==job.id));setSelected(null);}else setJobs(list=>list.map(j=>j.id===job.id?updated:j));return updated;}catch(e){setError((e as Error).message);}finally{setBusy('');}};
   const stopWatch=()=>{if(watch.current!==null)navigator.geolocation.clearWatch(watch.current);watch.current=null;};
   const share=async(job:Job)=>{
@@ -297,10 +312,10 @@ export function OperationalJobs({worker=false,onSignIn,onRebook,initialJobId,vis
   };
 
   return <section className={`operations ${worker?'agent-job-list':'reference-bookings'}`} aria-label={worker?'Assigned tasks':'Live bookings'}>
-    <div className="ops-heading"><h2>{worker?'Your tasks':'Your bookings'}</h2><div className="ops-actions"><button aria-label={worker?"Refresh tasks":"Refresh bookings"} disabled={loading||refreshing||!!busy} onClick={async()=>{setRefreshing(true);try{await load();}finally{setRefreshing(false);}}}><RefreshCw size={17} className={refreshing?"booking-refreshing":""}/></button>{worker&&<button onClick={()=>void enableSound()} aria-pressed={sound}><Bell size={17}/>{sound?'Sound on':'Enable alerts'}</button>}</div></div>
+    <div className="ops-heading"><h2>{worker?'Your tasks':'Your bookings'}</h2><div className="ops-actions"><button aria-label={worker?"Refresh tasks":"Refresh bookings"} disabled={loading||refreshing||!!busy} onClick={async()=>{setRefreshing(true);try{await load(true,true);}finally{setRefreshing(false);}}}><RefreshCw size={17} className={refreshing?"booking-refreshing":""}/></button>{worker&&<button onClick={()=>void enableSound()} aria-pressed={sound}><Bell size={17}/>{sound?'Sound on':'Enable alerts'}</button>}</div></div>
     <div className="agent-list-filters">{[{id:'active',title:'Active',count:active.length},{id:'attention',title:'Needs you',count:attentionJobs.length},{id:'in_progress',title:'On site',count:inProgressJobs.length},{id:'history',title:'History',count:history.length}].map(f=><button key={f.id} data-filter={f.id} aria-pressed={filter===f.id} onClick={()=>setFilter(f.id)}>{f.title}<strong>{f.count}</strong></button>)}</div>
     {error&&!detail&&<p role="alert" className="ops-error">{error}<button onClick={()=>void load()}>Retry</button>{onSignIn&&<button onClick={onSignIn}>Sign in</button>}</p>}
-    {loading?<p role="status">{worker?'Loading tasks…':'Loading bookings…'}</p>:!filteredJobs().length?<div className="ops-empty">{worker?`No ${filter==='history'?'past':'matching'} tasks. New assignments appear here when available.`:filter==='attention'?'All clear. No booking needs your response right now.':filter==='in_progress'?'No visits at your location right now. Travelling agents appear under Active.':filter==='history'?'Your completed and cancelled bookings will appear here.':'No active bookings. Your next service visit will appear here.'}</div>:<TaskSlideshowRail jobs={filteredJobs()} worker={worker} onRebook={!worker&&onRebook?onRebook:undefined} onOpenReport={(id)=>setReportId(id)} onOpenJob={(id)=>setSelected(id)}/>}
+    {loading?<p role="status">{worker?'Loading tasks…':'Loading bookings…'}</p>:!filteredJobs().length&&!error?<div className="ops-empty">{worker?`No ${filter==='history'?'past':'matching'} tasks. New assignments appear here when available.`:filter==='attention'?'All clear. No booking needs your response right now.':filter==='in_progress'?'No visits at your location right now. Travelling agents appear under Active.':filter==='history'?'Your completed and cancelled bookings will appear here.':'No active bookings. Your next service visit will appear here.'}</div>:!filteredJobs().length?null:<TaskSlideshowRail jobs={filteredJobs()} worker={worker} onRebook={!worker&&onRebook?onRebook:undefined} onOpenReport={(id)=>setReportId(id)} onOpenJob={(id)=>setSelected(id)}/>}
     {reportId&&visible&&<Modal title="Completion report" className="agent-tool-sheet" onClose={()=>setReportId(null)}><TaskReport jobId={reportId}/></Modal>}
     {detail&&worker&&visible&&<AgentTaskWorkspace key={detail.id+detail.visit_id} job={detail} busy={!!busy} error={error} onClose={()=>{setMuted(m=>[...m,alertKey]);setSelected(null);}} onRefresh={load} onRun={(a,p)=>run(detail,a,p)} onShare={()=>share(detail)} onStop={async()=>{stopWatch();if(nativeAvailable())await nativeCall('stopTracking').catch(e=>setError((e as Error).message));await run(detail,'stop_tracking');}}/>}
     {detail&&!worker&&<div className="live-tracking-overlay" onClick={e=>{if(e.target===e.currentTarget)setSelected(null);}}><LiveTrackingView job={detail} worker={false} onClose={()=>setSelected(null)} onRefresh={load}/></div>}
