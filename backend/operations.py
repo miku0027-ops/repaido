@@ -165,15 +165,35 @@ class Unit:
     def __init__(self, core, transaction=None, connection=None):
         self.core, self.tx, self.conn = core, transaction, connection
         self.pending = {}
+        self.fetched = {}
 
     def get(self, kind, key):
         if (kind, key) in self.pending:
             return copy.deepcopy(self.pending[kind, key])
+        if (kind, key) in self.fetched:
+            return copy.deepcopy(self.fetched[kind, key])
         if self.tx is not None:
             s = self.core.fs_doc('ops_' + kind, key).get(transaction=self.tx)
-            return s.to_dict() if s.exists else None
+            value = s.to_dict() if s.exists else None
+            self.fetched[kind, key] = value
+            return copy.deepcopy(value)
         row = self.conn.execute('SELECT body FROM operation_records WHERE kind=? AND id=?', (kind, key)).fetchone()
         return json.loads(row['body']) if row else None
+
+    def prefetch(self, pairs):
+        """Fetch independent Firestore documents in bounded batches instead of serial RPCs."""
+        if self.tx is None: return
+        missing = list(dict.fromkeys((kind, key) for kind, key in pairs
+                                     if (kind, key) not in self.pending and (kind, key) not in self.fetched))
+        for start in range(0, len(missing), 200):
+            batch = missing[start:start+200]
+            references = [self.core.fs_doc('ops_' + kind, key) for kind, key in batch]
+            refs = {reference.path: pair for reference, pair in zip(references, batch)}
+            loaded = {pair: None for pair in batch}
+            for snapshot in self.core.fb_db.get_all(references, transaction=self.tx):
+                pair = refs.get(snapshot.reference.path)
+                if pair: loaded[pair] = snapshot.to_dict() if snapshot.exists else None
+            self.fetched.update(loaded)
 
     def all(self, kind):
         if self.tx is not None:
@@ -195,6 +215,7 @@ class Unit:
         else:
             sql = f"SELECT id,body FROM operation_records WHERE kind=? AND json_extract(body,'$.{field}')=?"
             rows = {r['id']: json.loads(r['body']) for r in self.conn.execute(sql, (kind, int(value) if isinstance(value, bool) else value))}
+        self.fetched.update({(kind, key): copy.deepcopy(item) for key, item in rows.items()})
         for (pending_kind, key), item in self.pending.items():
             if pending_kind == kind:
                 if item.get(field) == value: rows[key] = copy.deepcopy(item)

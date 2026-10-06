@@ -133,9 +133,12 @@ def install(core):
             if body.category and body.category not in categories:fail('INVALID_CATEGORY','Choose a listed category.',422)
             return store.run(lambda u:read(u,catalog,categories))
         def read(u,catalog,categories):
-            now=time.time();p=policy(u)
+            now=time.time()
             city=next((city for city in core.CITIES if city.casefold()==body.city.casefold()),body.city)
             pool=u.all('workers') if body.strict_nearby else u.find('workers','city',city)
+            u.prefetch([('hire_policy','current'),*[('hire_memberships',w['id']) for w in pool],
+                        *([] if free_listing() else [('partner_entitlements',w['id']) for w in pool])])
+            p=policy(u)
             eligible=[]
             for w in pool:
                 m=u.get('hire_memberships',w['id']) or {}
@@ -149,6 +152,8 @@ def install(core):
                     if not origin or metres(body.location.model_dump(),origin)>limit*1000:continue
                 eligible.append(w)
             worker_ids=[w['id'] for w in eligible]
+            u.prefetch([('policies','current'),*[('worker_profiles',wid) for wid in worker_ids],
+                        *[('home_availability',wid) for wid in worker_ids]])
             jobs=u.for_workers('jobs',worker_ids,JOB_FIELDS);by_worker=defaultdict(list)
             for j in jobs:by_worker[j.get('worker_id')].append(j)
             by_offer_worker=defaultdict(list)

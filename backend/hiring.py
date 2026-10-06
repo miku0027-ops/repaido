@@ -75,9 +75,13 @@ def worker_listing_offer(u,wid):
     if e.get('starts_at',0)<=time.time()<e.get('ends_at',0):return {'active':True,'starts_at':e['starts_at'],'ends_at':e['ends_at'],'earned':True}
     return listing_offer()
 def candidates(u,area,exclude=(),request_id=None):
-    now=time.time();p=policy(u);out=[]
+    now=time.time();out=[]
     nearby=[]
-    for w in u.find('workers','online',True):
+    online=u.find('workers','online',True)
+    u.prefetch([('hire_policy','current'),*[('hire_memberships',w['id']) for w in online],
+                *([] if free_listing() else [('partner_entitlements',w['id']) for w in online])])
+    p=policy(u)
+    for w in online:
         m=u.get('hire_memberships',w['id']) or {};pos=w.get('position')
         if w['id'] in exclude or w['status']!='approved' or not listing_eligible(u,w['id']) or not pos or not 0<=now-pos.get('received_at',0)<=300:continue
         if m.get('policy_version')!=p['version'] or (area.category and area.category not in w['categories']) or (area.role!='all' and w['role']!=area.role):continue
@@ -85,6 +89,7 @@ def candidates(u,area,exclude=(),request_id=None):
         limit=min(area.radius_km,m.get('radius_km',w['radius_km']))*(1+p['radius_buffer_bps']/10000 if area.allow_buffer else 1)
         if distance+pos.get('accuracy',0)>limit*1000:continue
         nearby.append((w,distance))
+    u.prefetch([('worker_profiles',w['id']) for w,_ in nearby])
     jobs=u.for_workers('jobs',[w['id'] for w,_ in nearby],('worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at'))
     hires=u.for_workers('hires',[w['id'] for w,_ in nearby],('id','worker_id','state'))
     by_worker={w['id']:[] for w,_ in nearby}

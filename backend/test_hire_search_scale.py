@@ -75,3 +75,27 @@ def test_public_browse_cache_coalesces_and_expires():
     assert len(calls)==2
     cache.get_or_load('another',load);cache.get_or_load('third',load)
     assert len(cache.rows)==2
+
+
+def test_firestore_profile_prefetch_batches_reads_and_preserves_pending_writes():
+    class Ref:
+        def __init__(self,path):self.path=path
+        def get(self,transaction=None):raise AssertionError('Per-profile Firestore read escaped prefetch')
+    class Snapshot:
+        def __init__(self,ref):self.reference=ref;self.exists=True
+        def to_dict(self):return {'id':self.reference.path.rsplit('/',1)[-1]}
+    class Db:
+        calls=[]
+        def get_all(self,refs,transaction=None):
+            self.calls.append((len(refs),transaction))
+            return (Snapshot(ref) for ref in refs)
+    class Core:
+        fb_db=Db()
+        def fs_doc(self,kind,key):return Ref(kind+'/'+key)
+    tx=object();unit=Unit(Core(),transaction=tx)
+    pairs=[('worker_profiles',str(i)) for i in range(201)]
+    unit.prefetch(pairs+pairs[:2])
+    assert unit.core.fb_db.calls==[(200,tx),(1,tx)]
+    assert unit.get('worker_profiles','0')=={'id':'0'}
+    unit.put('worker_profiles','0',{'id':'0','bio':'Updated'})
+    assert unit.get('worker_profiles','0')['bio']=='Updated'
