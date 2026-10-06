@@ -97,7 +97,7 @@ import { Brand, Modal, Field } from './components/ui';
 import {BusinessTabs} from './components/BusinessUI';
 import RepaidoBrand from './components/RepaidoBrand';
 import ServiceImage from './components/ServiceImage';
-import { seededServices, cities, formatMoney, formatDuration, getTechnicianProgress, seededWorkers } from './data';
+import { cities, formatMoney, formatDuration, getTechnicianProgress } from './data';
 import type { BookingDraft, BookingRecord, CategoryId, ConfirmBooking, Service, WorkerProfile } from './types';
 import {
   signInWithGoogle,
@@ -435,7 +435,7 @@ export default function App() {
   const [customerMapModalOpen, setCustomerMapModalOpen] = useState(false);
   const [workerMapModalOpen, setWorkerMapModalOpen] = useState(false);
   const [partnerApplicationId, setPartnerApplicationId] = useState('');
-  const [servicesList, setServicesList] = useState<Service[]>(seededServices);
+  const [servicesList, setServicesList] = useState<Service[]>([]);
   const [techniciansList, setTechniciansList] = useState<WorkerProfile[]>(() => getWorkers());
   const [notificationJob,setNotificationJob]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('booking')||undefined);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
@@ -464,10 +464,10 @@ export default function App() {
   const [selectedCompliments, setSelectedCompliments] = useState<string[]>([]);
   const [hasSpareOrders, setHasSpareOrders] = useState(() => read<unknown[]>('repaido.spare_orders', []).length > 0);
 
-  // Firestore Real-Time Data Sync: Load catalog from Cloud Firestore with seamless offline fallback
+  // Display server-confirmed scopes and prices, including an actually empty catalogue.
   useEffect(() => {
     fetchLiveServices().then(svcs => {
-      if (svcs && svcs.length > 0) setServicesList(svcs);
+      setServicesList(svcs);
     }).catch(() => setError('Live service prices are unavailable. Reopen the app to retry; booking requires the live catalogue.'));
     fetchLiveTechnicians().then(techs => {
       setTechniciansList(techs);
