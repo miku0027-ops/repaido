@@ -165,6 +165,7 @@ function writeLocal(key: string, data: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch {}
+  if(key===KEYS.TOKEN)window.dispatchEvent(new Event('repaido:identity-changed'));
 }
 
 /**
@@ -362,6 +363,7 @@ export async function logoutUser(): Promise<void> {
   } catch {}
   localStorage.removeItem(KEYS.USER);
   localStorage.removeItem(KEYS.TOKEN);
+  window.dispatchEvent(new Event('repaido:identity-changed'));
 }
 
 /**

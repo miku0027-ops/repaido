@@ -1,7 +1,7 @@
 """Transactional tender, project and consent-based workforce records. No money movement."""
-import hashlib,json,time,uuid,unicodedata
+import base64,hashlib,json,re,time,uuid,unicodedata
 from typing import Literal
-from fastapi import APIRouter,Depends
+from fastapi import APIRouter,Depends,Query
 from pydantic import Field,model_validator,field_validator
 from operations import Input,fail
 from integrations import audit
@@ -143,6 +143,62 @@ def public_hiring(p):
         progress=dict(approved=sum(g['status']=='approved' for g in p['goals']),total=len(p['goals'])),
         team=dict(total=len(team),supervisors=sum(m['role']=='supervisor' for m in team),members=sum(m['role']=='member' for m in team)))
 
+PUBLIC_TENDER_FIELDS=('id','title','sector','city','budget_paise','manpower_needed','opens_at','deadline','starts_at','ends_at','status')
+PUBLIC_TENDER_SCAN=64
+
+
+def initialize(core):
+    if core.USE_FIRESTORE and core.fb_db:return
+    with core.db() as conn:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_contract_tenders_public_status_key ON operation_records(json_extract(body,'$.status'),id) WHERE kind='contract_tenders'")
+
+
+def public_tender(t,now):
+    if t.get('status')!='open' or t['ends_at']<=now:return None
+    stage='upcoming' if now<t['opens_at'] else 'bidding' if now<t['deadline'] else 'decision'
+    fields=('id','title','sector','city','budget_paise','manpower_needed','opens_at','deadline','starts_at','ends_at')
+    return {**{key:t[key] for key in fields},'status':t['status'],'phase':stage}
+
+
+def published_keyset(u,after='',limit=PUBLIC_TENDER_SCAN):
+    """Read only bounded open summaries, projecting before private payloads leave storage."""
+    limit=min(PUBLIC_TENDER_SCAN,max(1,limit))
+    if u.tx is not None:
+        from google.cloud.firestore_v1.field_path import FieldPath
+        query=u.core.fs_collection('ops_contract_tenders').where('status','==','open')
+        query=query.select(PUBLIC_TENDER_FIELDS).order_by(FieldPath.document_id()).limit(limit)
+        if after:
+            query=query.start_after({FieldPath.document_id():u.core.fs_doc('ops_contract_tenders',after)})
+        return [(snapshot.id,{**snapshot.to_dict(),'id':snapshot.id}) for snapshot in query.stream(transaction=u.tx)]
+    columns=','.join(f"json_extract(body,'$.{field}') AS {field}" for field in PUBLIC_TENDER_FIELDS if field!='id')
+    rows=u.conn.execute(f"SELECT id,{columns} FROM operation_records WHERE kind='contract_tenders' AND id>? AND json_extract(body,'$.status')=? ORDER BY id LIMIT ?",(after,'open',limit))
+    return [(row['id'],dict(row)) for row in rows]
+
+
+def published_record(u,tid):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',tid):return None
+    if u.tx is not None:
+        snapshot=u.core.fs_doc('ops_contract_tenders',tid).get(field_paths=PUBLIC_TENDER_FIELDS,transaction=u.tx)
+        return {**snapshot.to_dict(),'id':snapshot.id} if snapshot.exists else None
+    columns=','.join(f"json_extract(body,'$.{field}') AS {field}" for field in PUBLIC_TENDER_FIELDS if field!='id')
+    row=u.conn.execute(f"SELECT id,{columns} FROM operation_records WHERE kind=? AND id=?",('contract_tenders',tid)).fetchone()
+    return dict(row) if row else None
+
+
+def published_cursor(cursor,filters):
+    binding=hashlib.sha256(json.dumps(filters,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    if not cursor:return '',binding
+    try:
+        decoded=base64.b64decode(cursor+'='*(-len(cursor)%4),altchars=b'-_',validate=True)
+        token=json.loads(decoded)
+        if token.get('v')!=1 or token.get('f')!=binding or not isinstance(token.get('k'),str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',token['k']):raise ValueError()
+        return token['k'],binding
+    except Exception:fail('CURSOR','Refresh these opportunities to continue with the selected filters.',422)
+
+
+def published_next_cursor(key,binding):
+    return base64.urlsafe_b64encode(json.dumps({'v':1,'k':key,'f':binding},separators=(',',':')).encode()).decode().rstrip('=')
+
 def identifier(prefix,user,request):return prefix+'-'+hashlib.sha256((user+':'+request).encode()).hexdigest()[:32]
 def same_create(old,body):
     digest=hashlib.sha256(json.dumps(body.model_dump(),sort_keys=True).encode()).hexdigest()
@@ -220,13 +276,43 @@ def install(core):
     def opportunities(user=Depends(core.current_user)):
         def execute(u):
             contractor(u,user)
-            return dict(tenders=[{k:v for k,v in tender_view(t,user['id']).items() if k not in ('request_hash','events','owner_id')} for t in u.all('contract_tenders')])
+            return dict(server_time=time.time(),tenders=[{k:v for k,v in tender_view(t,user['id']).items() if k not in ('request_hash','events','owner_id')} for t in u.all('contract_tenders')])
+        return store.run(execute)
+    @r.get('/published')
+    def published(sector:str=Query(default='',max_length=80),query:str=Query(default='',max_length=120),
+                  phase:Literal['all','upcoming','bidding','decision']='all',
+                  cursor:str=Query(default='',max_length=1024),limit:int=Query(default=24,ge=1,le=PUBLIC_TENDER_SCAN)):
+        """Public discovery is a summary, never a private tender/workspace projection."""
+        selected_sector=unicodedata.normalize('NFKC',sector).strip().casefold()
+        needle=unicodedata.normalize('NFKC',query).strip().casefold()
+        after,binding=published_cursor(cursor,dict(sector=selected_sector,query=needle,phase=phase))
+        def execute(u):
+            now=time.time();rows=published_keyset(u,after);items=[];consumed=0;last=after
+            for key,t in rows:
+                consumed+=1;last=key
+                summary=public_tender(t,now)
+                if not summary:continue
+                if selected_sector and unicodedata.normalize('NFKC',summary['sector']).casefold()!=selected_sector:continue
+                if phase!='all' and phase!=summary['phase']:continue
+                haystack=' '.join(str(summary[k]) for k in ('title','city','sector'))
+                if needle and needle not in unicodedata.normalize('NFKC',haystack).casefold():continue
+                items.append(summary)
+                if len(items)>=limit:break
+            has_more=consumed<len(rows) or len(rows)==PUBLIC_TENDER_SCAN
+            return dict(server_time=now,total=None,has_more=has_more,next_cursor=published_next_cursor(last,binding) if has_more else None,tenders=items)
+        return store.run(execute)
+    @r.get('/published/{tid}')
+    def published_summary(tid:str):
+        def execute(u):
+            now=time.time();record=published_record(u,tid);row=public_tender(record,now) if record else None
+            if not row:fail('NOT_FOUND','This opportunity is no longer published.',404)
+            return dict(server_time=now,tender=row)
         return store.run(execute)
     @r.get('/workspace')
     def workspace(user=Depends(core.current_user)):
         phone(user)
         def execute(u):
-            uid=user['id'];w=u.get('workers',uid) or {};return dict(user_id=uid,can_contract=w.get('status')=='approved' and bool(w.get('contractor_verified')),profile=u.get('contract_profiles',uid),projects=[project_view(p,uid) for p in u.all('contract_projects') if p['owner_id']==uid or any(m['worker_id']==uid for m in p['team'])],tenders=[tender_view(t,uid) for t in u.all('contract_tenders') if (w.get('status')=='approved' and w.get('contractor_verified')) or t['owner_id']==uid])
+            uid=user['id'];w=u.get('workers',uid) or {};return dict(server_time=time.time(),user_id=uid,can_contract=w.get('status')=='approved' and bool(w.get('contractor_verified')),profile=u.get('contract_profiles',uid),projects=[project_view(p,uid) for p in u.all('contract_projects') if p['owner_id']==uid or any(m['worker_id']==uid for m in p['team'])],tenders=[tender_view(t,uid) for t in u.all('contract_tenders') if (w.get('status')=='approved' and w.get('contractor_verified')) or t['owner_id']==uid])
         return store.run(execute)
     @r.put('/profile')
     def profile(body:Profile,user=Depends(core.current_user)):

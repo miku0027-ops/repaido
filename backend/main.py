@@ -221,6 +221,7 @@ async def lifespan(app):
     if not os.getenv("K_SERVICE") or os.getenv("REPAIDO_SEED_CATALOG") == "true":
         init_firestore_seed()
     operations_store.init()
+    contract_work.initialize(sys.modules[__name__])
     repaidians.initialize(sys.modules[__name__])
     repaidians_opportunities.initialize(sys.modules[__name__])
     async def run_scheduler():
@@ -1100,6 +1101,7 @@ import partner_program
 partner_program.install(sys.modules[__name__])
 
 import tenders
+import contract_work
 tenders.install(sys.modules[__name__])
 
 

@@ -162,7 +162,7 @@ def install(core):
         from home_plans import OFFERINGS
         catalog = core.catalog()
         services = [s for s in catalog['services'] if s.get('active', True)]+[{**s,'id':'home:'+s['id']} for s in OFFERINGS]
-        categories = {s['category'] for s in services}
+        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}
         targets = []
         # Queries are resolved transiently; never store raw keywords, locations or form contents.
         if body.kind == 'search':
@@ -178,6 +178,12 @@ def install(core):
             service = next((s for s in services if s['id'] == body.service_id), None)
             if not service: fail('SERVICE_UNAVAILABLE', 'This service is no longer listed.', 404)
             targets = [service['category']]; target = 'service:' + service['id']
+        # Preserve the existing broad-category response for Home service views,
+        # while remembering an explicitly opened Home plan as its own category.
+        # Search keywords alone never infer preference for a specific plan.
+        signal_targets=list(targets)
+        if body.kind in ('service_view','banner_open') and body.service_id.startswith('home:'):
+            signal_targets.append(body.service_id)
         def save(u):
             row = u.get('discovery_preferences', user['id']) or {}
             if not settings(row)['enabled']: fail('CONSENT_REQUIRED', 'Enable optional personalised suggestions first.', 403)
@@ -192,14 +198,14 @@ def install(core):
             if total >= 100: return {'recorded': False, 'reason': 'daily_limit'}
             weight = {'search': 1.5, 'category_view': 1, 'service_view': 2, 'banner_open': .5}[body.kind]
             signals = {k:v for k,v in row.get('signals', {}).items() if k in categories and now-v.get('at', 0) < 30*86400}
-            for category in targets:
+            for category in signal_targets:
                 old = signals.get(category, {})
                 score = old.get('score', 0) * math.exp(-max(0,now-old.get('at', now))/(7*86400))
                 signals[category] = {'score': min(30,score+weight/len(targets)), 'visits': min(100,old.get('visits',0)+1), 'at':now}
             seen[body.event_id] = now; recent[target] = now
             row.update(signals=signals, categories={k:v['visits'] for k,v in signals.items()},
                        seen=dict(sorted(seen.items(),key=lambda kv:kv[1])[-100:]), recent=recent,
-                       last_event_at=now, event_day=day, daily_count=total+1)
+                       last_event_at=now, updated_at=now, event_day=day, daily_count=total+1)
             u.put('discovery_preferences', user['id'], row)
             return {'recorded': True, 'categories': targets}
         return store.run(save)

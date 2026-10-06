@@ -94,6 +94,7 @@ import {
 } from 'lucide-react';
 import CatalogApp from './CatalogApp';
 import { Brand, Modal, Field } from './components/ui';
+import {BusinessTabs} from './components/BusinessUI';
 import RepaidoBrand from './components/RepaidoBrand';
 import ServiceImage from './components/ServiceImage';
 import { seededServices, cities, formatMoney, formatDuration, getTechnicianProgress, seededWorkers } from './data';
@@ -368,7 +369,7 @@ export default function App() {
   const [token, setToken] = useState(() => read<string>('repaido.token', ''));
   const [user, setUser] = useState<{ id?: string; name: string; email?: string; phone?: string; photoURL?: string } | null>(() => read('repaido.user', null));
   useEffect(()=>onIdTokenChanged(auth,async current=>{
-    if(!current){setUser(null);setToken('');try{localStorage.removeItem('repaido.user');localStorage.removeItem('repaido.token');}catch{}return;}
+    if(!current){setUser(null);setToken('');try{localStorage.removeItem('repaido.user');localStorage.removeItem('repaido.token');}catch{}window.dispatchEvent(new Event('repaido:identity-changed'));return;}
     setUser({id:current.uid,name:current.displayName||'',email:current.email||undefined,phone:current.phoneNumber||undefined,photoURL:current.photoURL||undefined});
     try{const fresh=await current.getIdToken();if(auth.currentUser?.uid===current.uid)setToken(fresh);}catch{setError('Connection interrupted. Your account is still signed in. Please retry.');}
   }),[]);
@@ -1055,42 +1056,8 @@ export default function App() {
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
               <div className="w-full market-experience">
-                <div className="market-primary-switch" role="group" aria-label="Marketplace destination">
-                  <button
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      marketSubTab === 'spares'
-                        ? 'bg-[#0f306e] text-white shadow'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    aria-pressed={marketSubTab === 'spares'}
-                    onClick={() => setMarketSubTab('spares')}
-                  >
-                    Marketplace
-                  </button>
-                  <button
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      marketSubTab === 'b2b'
-                        ? 'bg-[#0f306e] text-white shadow'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    aria-pressed={marketSubTab === 'b2b'}
-                    onClick={() => setMarketSubTab('b2b')}
-                  >
-                    B2B Wholesale
-                  </button>
-                  <button
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                      marketSubTab === 'tenders'
-                        ? 'bg-[#0f306e] text-white shadow'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    aria-pressed={marketSubTab === 'tenders'}
-                    onClick={() => setMarketSubTab('tenders')}
-                  >
-                    Contracts
-                  </button>
-                </div>
-
+                <BusinessTabs label="Marketplace destination" panelId="market-destination-panel" value={marketSubTab} onChange={setMarketSubTab} items={[{id:'spares',label:'Marketplace'},{id:'b2b',label:'B2B Wholesale'},{id:'tenders',label:'Contracts'}]}/>
+                <div id="market-destination-panel" role="tabpanel" aria-label={marketSubTab==='spares'?'Marketplace':marketSubTab==='b2b'?'B2B Wholesale':'Contracts'}>
                 {marketSubTab === 'spares' ? (
                   <SparePartsShop
                     onContracts={()=>setMarketSubTab('tenders')}
@@ -1114,16 +1081,17 @@ export default function App() {
                     onOpenContractorPortal={tenderId => {
                       if(communityReturn){setCommunityNative({kind:'workspace',tab:'Tenders',tenderId});return;}
                       setPortal('worker');
-                      window.history.pushState({}, '', '/worker?mode=contractor');
+                      window.history.pushState({}, '', '/worker?mode=contractor'+(tenderId?'&tender='+encodeURIComponent(tenderId):''));
                     }}
                     onOpenB2BMarket={() => setMarketSubTab('b2b')}
                   />
                 )}
+                </div>
               </div>
             )}
 
             {/* 5. YOU / PROFILE TAB (Includes Partner Registration underneath at the bottom) */}
-            {tab === 'Hire' && <Hiring services={servicesList} onRequests={()=>{setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} city={place.city} onSignIn={()=>setSheet('auth')} onBooking={id=>{setNotificationJob(id);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/>}
+            {tab === 'Hire' && <Hiring services={servicesList} onService={id=>{const service=servicesList.find(item=>item.id===id);if(service){setSelectedPromotion(undefined);setSelectedService(service);}else setError('This service is no longer listed. Refresh the catalogue.');}} onRequests={()=>{setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} city={place.city} onSignIn={()=>setSheet('auth')} onBooking={id=>{setNotificationJob(id);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/>}
             {tab === 'You' && (
               <div className="android-you-screen">
                 <div className="android-screen-header">

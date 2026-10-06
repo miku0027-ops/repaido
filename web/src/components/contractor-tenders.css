@@ -10,9 +10,9 @@
   margin: 0 auto;
   min-height: 100dvh;
   padding: 16px 16px calc(110px + env(safe-area-inset-bottom));
-  background: #fbfcfe;
-  color: var(--op-ink, #0a172e);
-  font-size: 0.8125rem;
+  background: var(--ui-subtle);
+  color: var(--ui-ink);
+  font-size: 1rem;
   line-height: 1.45;
 }
 
