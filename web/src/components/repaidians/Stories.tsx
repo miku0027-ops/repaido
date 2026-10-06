@@ -31,7 +31,7 @@ export function StoryViewer({stories,initialId,memberFor,onClose,onReply,suspend
     <div className="rp-story-header"><Avatar member={member}/><strong>{member.name}</strong><button onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play story':'Pause story'}>{paused?<Play size={18}/>:<Pause size={18}/>}</button>{story.media.kind==='video'&&<button onClick={()=>setMuted(v=>!v)} aria-label={muted?'Unmute story':'Mute story'}>{muted?<VolumeX size={18}/>:<Volume2 size={18}/>}</button>}</div>
     <div className="rp-story-canvas" onPointerDown={()=>setHeld(true)} onPointerUp={()=>setHeld(false)} onPointerCancel={()=>setHeld(false)} onPointerLeave={()=>setHeld(false)}>
       <Media asset={story.media} active muted={muted} paused={paused||held||hidden||suspended} onEnded={next}/>
-      <button className="rp-story-back" disabled={index===0} onClick={()=>setIndex(v=>v-1)} aria-label="Previous story"><ChevronLeft size={24}/></button>
+      {index>0&&<button className="rp-story-back" onClick={()=>setIndex(v=>v-1)} aria-label="Previous story"><ChevronLeft size={24}/></button>}
       <button className="rp-story-next" onClick={next} aria-label="Next story"><ChevronRight size={24}/></button>
       <div className="rp-story-caption"><LocalLabel sample={story.sample}/><p>{story.caption}</p></div>
     </div>

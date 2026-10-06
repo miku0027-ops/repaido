@@ -140,3 +140,4 @@
 
 .rp-compose input {flex:1;min-width:0;border:1px solid var(--ui-control);border-radius:var(--ui-radius);padding:10px;background:var(--ui-surface);font-size:.875rem;}
 .rp-post-media {touch-action:manipulation;}
+.rp-story-back svg,.rp-story-next svg {background:var(--ui-primary);padding:4px;border-radius:50%;width:32px;height:32px;}
