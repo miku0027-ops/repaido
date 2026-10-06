@@ -93,6 +93,27 @@ test('server authorization errors survive transport and failed reads can retry',
   await assert.rejects(service.snapshot(),error=>error.status===503&&/retry/i.test(error.message));
 });
 
+test('profile handles reject spaces before a write and suggest a format without saving it',async()=>{
+  assert.match(service.profileHandleError('paramesh electrician'),/cannot contain spaces/);
+  assert.equal(service.suggestProfileHandle('paramesh electrician'),'paramesh_electrician');
+  assert.equal(calls.length,0,'Suggestions do not rename an account.');
+  for(const invalid of ['ab','a'.repeat(31),'_worker','worker/name','worker name'])
+    await assert.rejects(service.updateProfile('ignored','Worker Name','electrician','',{handle:invalid}),error=>error.code==='INVALID_HANDLE'&&error.status===422);
+  assert.equal(calls.length,0,'Invalid handles cannot partially save other profile fields.');
+  assert.equal(service.profileHandleError('a'.repeat(30)),'');
+  await service.updateProfile('ignored','Worker Name','electrician','',{handle:' @Worker.Name '});
+  assert.equal(JSON.parse(calls[0].init.body).handle,'worker.name');
+  await service.updateProfile('ignored','Worker Name','electrician','',{headline:'Updated headline'});
+  assert.equal('handle' in JSON.parse(calls[1].init.body),false,'Name-only changes need not rewrite existing handles.');
+  globalThis.fetch=async()=>new Response(JSON.stringify({detail:{code:'HANDLE_TAKEN',message:'This handle is already in use. Choose another.'}}),{status:409});
+  await assert.rejects(service.updateProfile('ignored','Worker Name','electrician','',{handle:'taken.name'}),error=>error.code==='HANDLE_TAKEN'&&/already in use/.test(error.message));
+});
+
+test('server profile handle validation becomes an actionable error',async()=>{
+  globalThis.fetch=async()=>new Response(JSON.stringify({detail:[{loc:['body','handle'],msg:'String should match pattern',type:'string_pattern_mismatch'}]}),{status:422});
+  await assert.rejects(service.communityRequest('/profile',{method:'PATCH',body:JSON.stringify({handle:'worker name'})}),error=>error.code==='INVALID_HANDLE'&&/Spaces are not allowed/.test(error.message)&&!/pattern/.test(error.message));
+});
+
 test('trial metadata stays server-owned and expired-trial errors do not mint browser access',async()=>{
   const startsAt=1791290000000,endsAt=startsAt+30*86400000;
   const subscription={plan:'trial',provider:'trial',amountPaise:0,startsAt,endsAt};

@@ -301,7 +301,12 @@ try{
   await shell(page).getByRole('button',{name:'Book a service',exact:true}).click();await page.getByLabel('Home search',{exact:true}).waitFor();
   assert.equal(await page.getByLabel('Home search',{exact:true}).inputValue(),'Electrical');
   await page.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(page).waitFor();
+  const legacyHandle='historical.worker.name.12345678';assert.equal(legacyHandle.length,31);
+  fixture('rp_members',alice.user.id,{...storedRecord('rp_members',alice.user.id),handle:legacyHandle});
+  await page.reload();
   await nav(page,'My profile');await shell(page).getByText('Edit profile',{exact:true}).click();
+  assert.equal(await shell(page).getByLabel('Handle',{exact:true}).inputValue(),legacyHandle);
+  const profileCommands=[];page.on('request',r=>{if(new URL(r.url()).pathname==='/api/repaidians/profile'&&r.method()==='PATCH')profileCommands.push(r.postDataJSON());});
   await shell(page).getByLabel('Headline',{exact:true}).fill('Electrical specialist available for project teams');
   await shell(page).getByLabel('City',{exact:true}).fill('Balasore');
   await shell(page).locator('.rp-edit-profile form').getByLabel(/^Skills/).fill('Wiring, Inspection');
@@ -310,7 +315,28 @@ try{
   await shell(page).locator('.rp-edit-profile form').getByLabel(/^Professional type/).selectOption('specialist');
   await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
   await shell(page).getByText('Profile saved.',{exact:true}).waitFor();
-  await shell(page).getByLabel('Handle',{exact:true}).fill('alice.electrical');
+  assert.equal(profileCommands.length,1);assert.equal('handle' in profileCommands[0],false,'An unchanged legacy handle does not block other edits.');
+  const handleField=shell(page).getByLabel('Handle',{exact:true});
+  await handleField.fill('paramesh electrician');
+  await shell(page).getByLabel('Headline',{exact:true}).fill('This draft must survive handle validation.');
+  await shell(page).locator('#rp-handle-error').getByText('Handles cannot contain spaces. Use dots or underscores between words.',{exact:true}).waitFor();
+  await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
+  assert.equal(await handleField.getAttribute('aria-invalid'),'true');assert.equal(await handleField.evaluate(e=>e===document.activeElement),true);
+  assert.equal(profileCommands.length,1,'Invalid input is caught before any profile write.');
+  assert.equal((await api('/repaidians/members/'+alice.user.id,bob)).member.headline,'Electrical specialist available for project teams');
+  assert.equal(await shell(page).getByLabel('Headline',{exact:true}).inputValue(),'This draft must survive handle validation.');
+  await shell(page).getByRole('button',{name:'Use @paramesh_electrician',exact:true}).click();
+  assert.equal(await handleField.inputValue(),'paramesh_electrician');assert.equal(profileCommands.length,1,'A suggestion is never an automatic rename.');
+  await shell(page).getByLabel('Headline',{exact:true}).fill('Electrical specialist available for project teams');
+  await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
+  await shell(page).getByText('Profile saved.',{exact:true}).waitFor();
+  assert.equal((await api('/repaidians/members/'+alice.user.id,bob)).member.handle,'paramesh_electrician');
+  const takenHandle=(await api('/repaidians/members/'+bob.user.id,alice)).member.handle;
+  await handleField.fill(takenHandle);await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
+  await shell(page).locator('#rp-handle-error').getByText('This handle is already in use. Choose another.',{exact:true}).waitFor();
+  assert.equal(await handleField.evaluate(e=>e===document.activeElement),true);assert.equal(await handleField.inputValue(),takenHandle);
+  assert.equal((await api('/repaidians/members/'+alice.user.id,bob)).member.handle,'paramesh_electrician');
+  await handleField.fill('alice.electrical');
   await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
   await shell(page).locator('.rp-profile').getByText('@alice.electrical',{exact:true}).waitFor();
   await shell(page).getByText('Privacy & notifications',{exact:true}).click();
@@ -648,7 +674,7 @@ try{
   await guest.reload();assert.equal(await shell(guest).locator('.rp-post').count(),0);
   assert.deepEqual(errors,[]);
   succeeded=true;
-  console.log('Repaidians real SQLite/API/browser checks passed: 30-day trial and expiry/paid restoration, posts/media/comments/follows/DMs and privacy, exact portfolio reel/listing viewers, account-switch delayed private response isolation, preserved loaded feed pages after likes/refresh, professional profile persistence and filtered discovery, all four native opportunity sources, ownership/purchase-proven sharing, live UI listing prices and withdrawal, saved opportunities, attached purchased/refurbished and second-hand posts, real app product/career handoff and return, padded contained photos and expansion/tools, guest quota, 320–524px/desktop light-dark themes, 200% text, reduced motion and WCAG AA audits.');
+  console.log('Repaidians real SQLite/API/browser checks passed: 30-day trial and expiry/paid restoration, posts/media/comments/follows/DMs and privacy, exact portfolio reel/listing viewers, account-switch delayed private response isolation, preserved loaded feed pages after likes/refresh, professional profile persistence, inline invalid/taken handle errors, explicit suggestions and unchanged legacy-handle compatibility, filtered discovery, all four native opportunity sources, ownership/purchase-proven sharing, live UI listing prices and withdrawal, saved opportunities, attached purchased/refurbished and second-hand posts, real app product/career handoff and return, padded contained photos and expansion/tools, guest quota, 320–524px/desktop light-dark themes, 200% text, reduced motion and WCAG AA audits.');
 }catch(error){
   for(const [contextIndex,context] of (browser?.contexts()||[]).entries())for(const [index,page] of context.pages().entries()){
     await page.screenshot({path:resolve(work,'failure-'+contextIndex+'-'+index+'.png')}).catch(()=>{});

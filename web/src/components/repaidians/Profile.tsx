@@ -1,7 +1,7 @@
-import {useState} from 'react';
+import {useRef,useState} from 'react';
 import {ArrowLeft,ArrowUpRight,BadgeCheck,BriefcaseBusiness,Check,Film,Grid3X3,Link2,MapPin,MessageCircle,Star,UserPlus} from 'lucide-react';
 import type {CommunityMember,CommunityPost,ProfessionalFields,Trade} from '../../types/repaidians';
-import {storeMedia,trades,updateAvatar,updateProfile} from '../../services/repaidiansService';
+import {CommunityError,normalizeProfileHandle,PROFILE_HANDLE_PATTERN,profileHandleError,suggestProfileHandle,storeMedia,trades,updateAvatar,updateProfile} from '../../services/repaidiansService';
 import {ProfileSettings} from './ProfileSettings';
 import {Avatar,EmptyState,Media,tradeName} from './common';
 
@@ -18,6 +18,12 @@ export const workStatusName=(value?:string)=>workStatuses.find(status=>status.id
 
 export function Profile({account,member,self,posts,following,followingCount,followersCount,onBack,onFollow,onMessage,onBook,onCreate,onPublication,onBlock}:{account:string;member:CommunityMember;self:boolean;posts:CommunityPost[];following:boolean;followingCount:number;followersCount:number;onBack:()=>void;onFollow:()=>void;onMessage:()=>void;onBook:()=>void;onCreate:()=>void;onPublication?:(id:string)=>void;onBlock?:()=>void}) {
   const [handle,setHandle]=useState(member.handle);
+  const handleInput=useRef<HTMLInputElement>(null);
+  const [handleServerError,setHandleServerError]=useState('');
+  const normalizedHandle=normalizeProfileHandle(handle);
+  const handleChanged=normalizedHandle!==member.handle;
+  const handleIssue=(handleChanged?profileHandleError(handle):'')||handleServerError;
+  const handleSuggestion=handleIssue?suggestProfileHandle(handle):'';
   const [name,setName]=useState(member.name),[trade,setTrade]=useState<Trade>(member.trade),[bio,setBio]=useState(member.bio);
   const [headline,setHeadline]=useState(member.headline||''),[city,setCity]=useState(member.city||''),[skills,setSkills]=useState((member.skills||[]).join(', ')),[experience,setExperience]=useState(member.experienceYears?String(member.experienceYears):'');
   const [workStatus,setWorkStatus]=useState<ProfessionalFields['workStatus']>(member.workStatus||'not_looking'),[professionalType,setProfessionalType]=useState<ProfessionalFields['professionalType']>(member.professionalType||'member');
@@ -25,13 +31,14 @@ export function Profile({account,member,self,posts,following,followingCount,foll
   const authored=posts.filter(post=>post.authorId===member.id);
   const portfolio=authored.flatMap(post=>post.media.map((media,index)=>({media,id:post.id+'-'+index,publicationId:post.id,caption:post.caption}))).filter(item=>grid==='all'||item.media.kind==='video');
   const listingUpdates=grid==='all'?authored.filter(post=>!post.media.length&&post.reference):[];
-  const changed=()=>setSaved(false);
+  const changed=()=>{setSaved(false);setError('');};
   const save=async()=>{
     const parsedSkills=[...new Set(skills.split(',').map(skill=>skill.trim()).filter(Boolean))];
     if(parsedSkills.length>12||parsedSkills.some(skill=>skill.length>60))throw new Error('Add up to 12 skills, with no more than 60 characters per skill.');
     const years=experience.trim()===''?0:Number(experience);
     if(!Number.isInteger(years)||years<0||years>60)throw new Error('Enter whole years of experience between 0 and 60.');
-    await updateProfile(account,name,trade,bio,{headline:headline.trim(),city:city.trim(),skills:parsedSkills,experienceYears:years,workStatus,professionalType,...(handle!==member.handle?{handle:handle.trim().toLowerCase()}: {})});
+    if(name.trim().length<2)throw new Error('Enter a display name with at least 2 characters.');
+    await updateProfile(account,name.trim(),trade,bio,{headline:headline.trim(),city:city.trim(),skills:parsedSkills,experienceYears:years,workStatus,professionalType,...(handleChanged?{handle:normalizedHandle}: {})});
   };
   return <section className="rp-profile">
     <div className="rp-profile-title"><button className="rp-back" onClick={onBack} aria-label="Back to community"><ArrowLeft size={23}/></button><h2>{member.name}{member.reviewed&&<BadgeCheck size={19} aria-label="Reviewed Repaido professional"/>}</h2></div>
@@ -47,11 +54,11 @@ export function Profile({account,member,self,posts,following,followingCount,foll
     </div>
     {!self&&<div className="rp-profile-actions"><button className={following?'rp-secondary':'rp-primary'} aria-pressed={following} onClick={onFollow}>{following?<Check size={16}/>:<UserPlus size={16}/>} {following?'Following':'Follow'}</button><button className="rp-secondary" onClick={onMessage}><MessageCircle size={16}/>Message</button>{member.reviewed&&member.registeredId&&<button className="rp-secondary rp-book-profile" onClick={onBook}>Find services<ArrowUpRight size={16}/></button>}</div>}
     {!self&&onBlock&&<div className="rp-profile-safety"><button onClick={onBlock}>Block member</button></div>}
-    {self&&<details className="rp-edit-profile"><summary>Edit profile</summary><form onSubmit={async event=>{event.preventDefault();if(saving||uploading)return;setSaving(true);setError('');setSaved(false);try{await save();setSaved(true);}catch(error){setError((error as Error).message);}finally{setSaving(false);}}}>
+    {self&&<details className="rp-edit-profile"><summary>Edit profile</summary><form onSubmit={async event=>{event.preventDefault();if(saving||uploading)return;setSaving(true);setError('');setSaved(false);setHandleServerError('');try{await save();setSaved(true);}catch(error){if(error instanceof CommunityError&&['INVALID_HANDLE','HANDLE_TAKEN'].includes(error.code)){setHandleServerError(error.message);handleInput.current?.focus();}else setError((error as Error).message);}finally{setSaving(false);}}}>
       <label>Profile photo<input aria-label="Profile photo" aria-describedby="rp-avatar-help" type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading||saving} onChange={async event=>{const file=event.target.files?.[0];if(!file)return;setError('');setSaved(false);setUploading(true);try{if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw new Error('Choose a JPG, PNG or WebP profile photo.');if(file.size>2*1024*1024)throw new Error('Choose a profile photo up to 2 MB.');const [photo]=await storeMedia([file]);await updateAvatar(photo.url);setSaved(true);}catch(error){setError((error as Error).message);}finally{setUploading(false);event.target.value='';}}}/><small id="rp-avatar-help" className="rp-fine">JPG, PNG or WebP, up to 2 MB. Your new photo saves immediately.</small>{uploading&&<span role="status">Uploading your photo…</span>}</label>
-      <label>Handle<input required minLength={3} maxLength={30} value={handle} onChange={event=>{setHandle(event.target.value.toLowerCase().replace(/^@/,''));changed();}} autoCapitalize="none" spellCheck={false} aria-describedby="rp-handle-help"/></label><small id="rp-handle-help" className="rp-fine">3–30 lowercase letters, numbers, dots or underscores. Your handle helps people find you.</small>
+      <div className="rp-profile-field"><label>Handle<input ref={handleInput} required minLength={3} maxLength={30} pattern={handleChanged?PROFILE_HANDLE_PATTERN:undefined} value={handle} onChange={event=>{setHandle(event.target.value.toLowerCase().replace(/^@/,''));setHandleServerError('');changed();}} onBlur={()=>setHandle(normalizeProfileHandle(handle))} onInvalid={()=>{setHandleServerError(profileHandleError(handle));setSaved(false);}} autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={!!handleIssue} aria-describedby={`rp-handle-help${handleIssue?' rp-handle-error':''}`}/></label><small id="rp-handle-help" className="rp-fine">New handles use 3–30 letters, numbers, dots or underscores, starting with a letter or number. Your name below can include spaces.</small>{handleIssue&&<p id="rp-handle-error" className="rp-field-error" role="alert">{handleIssue}</p>}{handleSuggestion&&<button type="button" className="rp-secondary rp-handle-suggestion" onClick={()=>{setHandle(handleSuggestion);setHandleServerError('');changed();handleInput.current?.focus();}}>Use @{handleSuggestion}</button>}{handleSuggestion&&<small className="rp-fine">Availability is checked when you save.</small>}</div>
       {member.avatarUrl&&<button type="button" className="rp-secondary" disabled={saving||uploading} onClick={async()=>{setUploading(true);setError('');try{await updateAvatar('');setSaved(true);}catch(e){setError((e as Error).message);}finally{setUploading(false);}}}>Remove profile photo</button>}
-      <label>Name<input required maxLength={80} value={name} onChange={event=>{setName(event.target.value);changed();}}/></label>
+      <label>Name<input required minLength={2} maxLength={100} value={name} onChange={event=>{setName(event.target.value);changed();}}/></label>
       <label>Headline<input maxLength={140} value={headline} onChange={event=>{setHeadline(event.target.value);changed();}} placeholder="Describe the work you do"/></label>
       <div className="rp-form-grid"><label>Your trade<select value={trade} onChange={event=>{setTrade(event.target.value as Trade);changed();}}>{trades.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>City<input maxLength={80} value={city} onChange={event=>{setCity(event.target.value);changed();}} autoComplete="address-level2"/></label></div>
       <div className="rp-form-grid"><label>Professional type<select value={professionalType} onChange={event=>{setProfessionalType(event.target.value as ProfessionalFields['professionalType']);changed();}}>{professionalTypes.map(type=><option key={type.id} value={type.id}>{type.label}</option>)}</select></label><label>Work status<select value={workStatus} onChange={event=>{setWorkStatus(event.target.value as ProfessionalFields['workStatus']);changed();}}>{workStatuses.map(status=><option key={status.id} value={status.id}>{status.label}</option>)}</select></label></div>

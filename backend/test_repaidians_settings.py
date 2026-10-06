@@ -1,6 +1,25 @@
 from test_repaidians import api,auth,profile,post,expire
 
 
+def test_generated_handles_fit_limit_and_legacy_handles_do_not_block_other_edits(api):
+    import re
+    api.core.operations_store.run(lambda u:u.put('workers','alice',{'id':'alice','name':'Paramesh Prasad Mohapatra','categories':['electrician']}))
+    member=profile(api)
+    assert re.fullmatch(r'[a-z0-9][a-z0-9._]{2,29}',member['handle'])
+    assert len(member['handle'])==30
+    legacy='historical.worker.name.12345678'
+    assert len(legacy)==31
+    def old_profile(u):
+        row=u.get('rp_members','alice');row['handle']=legacy;u.put('rp_members','alice',row)
+    api.core.operations_store.run(old_profile)
+    updated=api.patch('/repaidians/profile',headers=auth(),json={'name':'Worker Name','headline':'Electrical repairs'})
+    assert updated.status_code==200,updated.text
+    assert updated.json()['member']['handle']==legacy
+    failed=api.patch('/repaidians/profile',headers=auth(),json={'handle':'paramesh electrician','headline':'Must not save'})
+    assert failed.status_code==422
+    assert api.get('/repaidians/members/alice',headers=auth()).json()['member']['headline']=='Electrical repairs'
+
+
 def test_unique_handles_and_private_settings(api):
     profile(api);profile(api,'bob')
     assert api.patch('/repaidians/profile',headers=auth(),json={'handle':'sipun.mahanta'}).status_code==200

@@ -223,7 +223,7 @@ def member_ensure(u, user):
     w = u.get('workers', user['id'])
     trade = next((t for t in (w or {}).get('categories', []) if t in TRADES), 'cleaning')
     name = str((w or {}).get('name') or user.get('name') or 'Repaido member')[:100]
-    slug = re.sub('[^a-z0-9]+', '.', name.lower()).strip('.')[:22] or 'member'
+    slug = re.sub('[^a-z0-9]+', '.', name.lower()).strip('.')[:21] or 'member'
     member = dict(id=user['id'], name=name, handle=f'{slug}.{digest(user["id"])[:8]}', trade=trade,
                   role='Member', avatarUrl='', bio='', followersCount=0, followingCount=0, createdAt=now_ms(),
                   **professional_defaults(w), professionalVersion=1)

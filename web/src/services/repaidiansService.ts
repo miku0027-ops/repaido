@@ -22,6 +22,20 @@ const mutationKeys = new Map<string, string>();
 export class CommunityError extends Error {
   constructor(message: string, public status: number, public code = '') {super(message);}
 }
+export const PROFILE_HANDLE_PATTERN='[a-z0-9][a-z0-9._]{2,29}';
+export const normalizeProfileHandle=(value:string)=>value.trim().toLowerCase().replace(/^@/,'');
+export function profileHandleError(value:string):string {
+  const handle=normalizeProfileHandle(value);
+  if(/\s/.test(handle))return 'Handles cannot contain spaces. Use dots or underscores between words.';
+  if(handle.length<3||handle.length>30)return 'Use 3–30 characters for your handle.';
+  if(!/^[a-z0-9]/.test(handle))return 'Start your handle with a lowercase letter or number.';
+  if(!new RegExp('^'+PROFILE_HANDLE_PATTERN+'$').test(handle))return 'Use only lowercase letters, numbers, dots or underscores.';
+  return '';
+}
+export function suggestProfileHandle(value:string):string {
+  const suggestion=normalizeProfileHandle(value).replace(/\s+/g,'_').replace(/[^a-z0-9._]/g,'').replace(/^[._]+/,'').slice(0,30);
+  return suggestion&&!profileHandleError(suggestion)&&suggestion!==normalizeProfileHandle(value)?suggestion:'';
+}
 async function identity() {
   await auth.authStateReady();
   const token = auth.currentUser ? await auth.currentUser.getIdToken() : localStorage.getItem('repaido.token');
@@ -45,10 +59,11 @@ export async function communityRequest<T>(path: string, init: RequestInit = {}):
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = body.detail;
-      const message = typeof detail === 'string' ? detail : detail?.message ||
+      const invalidHandle=path==='/profile'&&Array.isArray(detail)&&detail.some((d:{loc?:unknown[]})=>d.loc?.[1]==='handle');
+      const message = invalidHandle ? 'Use a handle with 3–30 lowercase letters, numbers, dots or underscores, starting with a letter or number. Spaces are not allowed.' : typeof detail === 'string' ? detail : detail?.message ||
         (Array.isArray(detail) ? detail.map((d:{msg:string}) => d.msg).join('. ') : '') ||
         (response.status === 401 ? 'Sign in to join the conversation.' : 'Could not connect. Please retry.');
-      throw new CommunityError(message, response.status, detail?.code || '');
+      throw new CommunityError(message, response.status, invalidHandle?'INVALID_HANDLE':detail?.code || '');
     }
     return body as T;
   })();
@@ -102,7 +117,15 @@ export const messagesPage = (id: string, cursor = '') => communityRequest<{messa
 export const threadsPage = () => communityRequest<{threads:CommunityThread[];members:CommunityMember[];nextCursor:string|null}>('/threads?limit=30');
 export const bid = (_account: string, id: string) => command('/bids/'+encodeURIComponent(id), {});
 export const tenderContact = (id: string) => communityRequest<{contact:string;tenderId:string}>('/tenders/'+encodeURIComponent(id)+'/contact');
-export const updateProfile = (_account:string,name:string,trade:Trade,bio:string,professional:ProfessionalFields&{handle?:string}={})=>mutate('/profile','PATCH',{name,trade,bio,...professional});
+export const updateProfile = async (_account:string,name:string,trade:Trade,bio:string,professional:ProfessionalFields&{handle?:string}={})=>{
+  const fields={...professional};
+  if(fields.handle!==undefined){
+    const issue=profileHandleError(fields.handle);
+    if(issue)throw new CommunityError(issue,422,'INVALID_HANDLE');
+    fields.handle=normalizeProfileHandle(fields.handle);
+  }
+  return mutate('/profile','PATCH',{name,trade,bio,...fields});
+};
 export interface CommunitySettings {messagePrivacy:'everyone'|'following'|'nobody';likeNotifications:boolean;commentNotifications:boolean;followNotifications:boolean;messageNotifications:boolean;}
 export const profileSettings=()=>communityRequest<{settings:CommunitySettings}>('/settings');
 export const updateSettings=(settings:Partial<CommunitySettings>)=>mutate<{settings:CommunitySettings}>('/settings','PATCH',settings);
