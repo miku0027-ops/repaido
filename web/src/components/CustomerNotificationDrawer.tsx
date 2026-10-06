@@ -25,14 +25,14 @@ function NotificationPanel({onClose,onOpenJob,onNavigateTab,onOpenPromotion,onOp
   const [notifications,setNotifications]=useState(cached?.notifications||[]);
   const [loading,setLoading]=useState(!cached),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState('');
   const [filter,setFilter]=useState<Filter>('all');
-  const alive=useRef(true),request=useRef(0),reading=useRef(false);
+  const alive=useRef(true),request=useRef(0);
   const load=async(force=false)=>{
-    if(reading.current)return;reading.current=true;const id=++request.current;setRefreshing(true);
+    const id=++request.current;setRefreshing(true);
     try{
       const data=await operation<{notifications:RawNotification[]}>('/notifications',{}, {background:true,force});
       if(alive.current&&id===request.current){setNotifications(data.notifications);setError('');}
     }catch(e){if(alive.current&&id===request.current)setError((e as Error).message);}
-    finally{reading.current=false;if(alive.current&&id===request.current){setLoading(false);setRefreshing(false);}}
+    finally{if(alive.current&&id===request.current){setLoading(false);setRefreshing(false);}}
   };
   useEffect(()=>{
     alive.current=true;void load();
