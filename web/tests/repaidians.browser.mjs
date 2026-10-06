@@ -19,12 +19,19 @@ const python=process.env.REPAIDIANS_TEST_PYTHON||resolve(backend,'.venv/bin/pyth
 const origin=process.env.REPAIDIANS_PREVIEW_ORIGIN||'http://127.0.0.1:5187';
 const port=Number(process.env.REPAIDIANS_TEST_PORT||8019),apiOrigin='http://127.0.0.1:'+port;
 const errors=[];
+const releaseReads=[];
 let server,browser,serverLog='',succeeded=false;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 function fixture(kind,id,body){
   const code='import json,sqlite3,sys\nc=sqlite3.connect(sys.argv[1],timeout=15)\nc.execute("INSERT INTO operation_records(kind,id,body) VALUES(?,?,?) ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body",(sys.argv[2],sys.argv[3],sys.argv[4]))\nc.commit()\nc.close()';
   const result=spawnSync(python,['-c',code,db,kind,id,JSON.stringify(body)],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+}
+function nativeFixture(kind,id,body){
+  // Use the same transactional write and source index hook as native APIs.
+  const code='import json,os,sys\nos.environ["REPAIDO_DB"]=sys.argv[1]\nos.environ["REPAIDO_STORAGE"]="sqlite"\nimport main\nmain.operations_store.run(lambda u:u.put(sys.argv[2],sys.argv[3],json.loads(sys.argv[4])))';
+  const result=spawnSync(python,['-c',code,db,kind,id,JSON.stringify(body)],{cwd:backend,encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
 }
 function grantPro(account){
@@ -76,6 +83,26 @@ async function newPage(account,width=390,clockMs){
   await page.locator('.rp-loading').waitFor({state:'hidden'});
   return page;
 }
+async function delayedRealRead(page,path){
+  let release,captured,finished;
+  const barrier=new Promise(resolve=>{release=resolve;}),reached=new Promise(resolve=>{captured=resolve;}),done=new Promise(resolve=>{finished=resolve;});
+  releaseReads.push(release);
+  const pattern='**/api'+path+'*';
+  const handler=async route=>{
+    const url=new URL(route.request().url());
+    const response=await route.fetch({url:apiOrigin+url.pathname+url.search});
+    captured(await response.json());await barrier;
+    await route.fulfill({response});finished();
+  };
+  await page.context().route(pattern,handler);
+  return {reached,release,done,remove:()=>page.context().unroute(pattern,handler)};
+}
+async function switchPreviewAccount(page,account){
+  const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/repaidians/state'&&response.request().headers().authorization==='Bearer '+account.token);
+  await page.evaluate(({id,token})=>{localStorage.setItem('repaido.token',token);window.dispatchEvent(new CustomEvent('repaidians-preview-account',{detail:id}));},{id:account.user.id,token:account.token});
+  assert.equal((await(await response).json()).member.id,account.user.id);
+  await shell(page).locator('.rp-loading').waitFor({state:'hidden'});
+}
 const shell=page=>page.getByRole('dialog',{name:'Repaidians community',exact:true});
 async function nav(page,label){
   if(label==='Tenders')return shell(page).locator('.rp-toolbar').getByRole('button',{name:label,exact:true}).click();
@@ -102,6 +129,23 @@ async function audit(page){
   const result=await page.evaluate(async()=>window.axe.run(document.querySelector('.rp-shell'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));
   assert.deepEqual(result.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)})),[]);
 }
+async function mediaLayout(page){
+  const post=shell(page).locator('.rp-post').first();
+  if(!await post.count())return;
+  const image=post.locator('.rp-post-media img.rp-media').first();
+  await image.waitFor();
+  const bounds=await post.evaluate(article=>{
+    const media=article.querySelector('.rp-post-media'),image=media?.querySelector('img.rp-media');
+    if(!media||!image)return null;
+    const card=article.getBoundingClientRect(),box=media.getBoundingClientRect(),picture=image.getBoundingClientRect();
+    return {left:box.left-card.left,right:card.right-box.right,fit:getComputedStyle(image).objectFit,
+      contained:picture.left>=box.left-1&&picture.right<=box.right+1&&picture.top>=box.top-1&&picture.bottom<=box.bottom+1};
+  });
+  assert.ok(bounds,'A shared photo has its own padded media region.');
+  assert.equal(bounds.fit,'contain','Community photos preserve their original composition.');
+  assert.ok(bounds.left>=8&&bounds.right>=8,'Photos keep visible gutters inside the feed card: '+JSON.stringify(bounds));
+  assert.equal(bounds.contained,true,'Photo contents stay within the padded card region.');
+}
 
 try{
   const env={...process.env,REPAIDO_DB:db,REPAIDO_STORAGE:'sqlite',REPAIDO_COMMUNITY_MEDIA_DIR:resolve(work,'media'),REPAIDO_COMMUNITY_BUCKET:'',REPAIDO_KYC_BUCKET:'',RAZORPAY_KEY_ID:'',RAZORPAY_KEY_SECRET:'',RAZORPAY_WEBHOOK_SECRET:''};
@@ -118,6 +162,15 @@ try{
     await api('/repaidians/state',account);
     await api('/repaidians/profile',account,'PATCH',{name:account.user.name,trade,bio:'Test account in an isolated community database.'});
   }
+  const professional={headline:'Electrical specialist for homes and project teams',city:'Balasore',skills:['Wiring','Inspection'],experienceYears:7,workStatus:'open_to_work',professionalType:'specialist'};
+  await api('/repaidians/profile',alice,'PATCH',professional);
+  const professionalProfile=(await api('/repaidians/members/'+alice.user.id,bob)).member;
+  for(const [key,value] of Object.entries(professional))assert.deepEqual(professionalProfile[key],value,'Professional profile persists '+key+'.');
+  assert.equal(professionalProfile.professionalInfoSource,'profile');
+  assert.equal(!!professionalProfile.reviewed,false,'Choosing a professional role does not grant a reviewed Repaido badge.');
+  const professionalQuery='/repaidians/members?search=Alice&trade=electrician&city=balasore&workStatus=open_to_work&professionalType=specialist';
+  assert.deepEqual((await api(professionalQuery,bob)).members.map(member=>member.id),[alice.user.id]);
+  assert.deepEqual((await api(professionalQuery.replace('open_to_work','hiring'),bob)).members,[],'Professional discovery combines real profile and category filters.');
   const initial=await api('/repaidians/state',alice);
   assert.equal(initial.authenticated,true);assert.equal(initial.paymentsReady,false);
   assert.equal(initial.subscription.plan,'trial');assert.equal(initial.subscription.provider,'trial');assert.equal(initial.subscription.amountPaise,0);
@@ -171,6 +224,18 @@ try{
   await membership.getByRole('button',{name:'Close dialog',exact:true}).click();
   assert.equal(storedRecord('rp_subscriptions',alice.user.id),null,'An account trial does not invent a captured paid subscription.');
   assert.equal(storedRecord('rp_subscriptions',bob.user.id),null);
+  await mediaLayout(page);
+  await shell(page).getByRole('button',{name:'Expand photo',exact:true}).click();
+  const photoViewer=page.getByRole('dialog',{name:'Photo by Bob Cleaning',exact:true});await photoViewer.waitFor();
+  assert.equal(await photoViewer.locator('img.rp-media').evaluate(image=>getComputedStyle(image).objectFit),'contain');
+  await photoViewer.getByRole('button',{name:'Close photo',exact:true}).click();
+  await shell(page).getByRole('button',{name:'Expand photo',exact:true}).click();
+  await page.keyboard.press('Escape');await photoViewer.waitFor({state:'hidden'});
+  const options=shell(page).getByRole('button',{name:'Post options',exact:true});await options.click();
+  await shell(page).getByRole('button',{name:'Report post',exact:true}).waitFor();
+  await page.keyboard.press('Escape');assert.equal(await options.getAttribute('aria-expanded'),'false');
+  await options.click();await shell(page).locator('.rp-wordmark').click();
+  assert.equal(await options.getAttribute('aria-expanded'),'false','Post tools dismiss when focus moves outside their menu.');
   await shell(page).getByRole('button',{name:'Like post',exact:true}).click();await shell(page).getByRole('button',{name:'Unlike post',exact:true}).waitFor();
   assert.equal((await api('/repaidians/feed?kind=post',bob)).items.find(p=>p.id===bobPost.id).likeCount,1);
   await shell(page).getByRole('button',{name:'Save post',exact:true}).click();
@@ -236,22 +301,55 @@ try{
   await shell(page).getByRole('button',{name:'Book a service',exact:true}).click();await page.getByLabel('Home search',{exact:true}).waitFor();
   assert.equal(await page.getByLabel('Home search',{exact:true}).inputValue(),'Electrical');
   await page.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(page).waitFor();
+  await nav(page,'My profile');await shell(page).locator('.rp-edit-profile > summary').click();
+  await shell(page).getByLabel('Headline',{exact:true}).fill('Electrical specialist available for project teams');
+  await shell(page).getByLabel('City',{exact:true}).fill('Balasore');
+  await shell(page).locator('.rp-edit-profile form').getByLabel(/^Skills/).fill('Wiring, Inspection');
+  await shell(page).getByLabel('Years of experience',{exact:true}).fill('8');
+  await shell(page).locator('.rp-edit-profile form').getByLabel(/^Work status/).selectOption('open_to_work');
+  await shell(page).locator('.rp-edit-profile form').getByLabel(/^Professional type/).selectOption('specialist');
+  await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
+  await shell(page).getByText('Profile saved.',{exact:true}).waitFor();
+  const editedProfile=(await api('/repaidians/members/'+alice.user.id,bob)).member;
+  assert.equal(editedProfile.headline,'Electrical specialist available for project teams');assert.equal(editedProfile.experienceYears,8);
+  await page.reload();await nav(page,'My profile');
+  await shell(page).getByText('Electrical specialist available for project teams',{exact:true}).waitFor();
+  await shell(page).getByText('Professional details shared by this member.',{exact:true}).waitFor();
+  const selectedReel=(await api('/repaidians/feed?kind=reel',bob)).items[0];
+  await shell(page).getByRole('button',{name:'Open video by Alice Electrician: '+selectedReel.caption,exact:true}).click();
+  const reelPublication=page.getByRole('dialog',{name:'Publication',exact:true});await reelPublication.waitFor();
+  await reelPublication.getByText(selectedReel.caption,{exact:false}).waitFor();
+  await reelPublication.locator('video.rp-media').waitFor();
+  assert.equal(await reelPublication.locator('video.rp-media').getAttribute('aria-label'),selectedReel.media.alt,'A portfolio reel opens the exact selected publication and media.');
+  await reelPublication.getByRole('button',{name:'Close dialog',exact:true}).click();
 
   for(const width of [320,390,430,524,1280]){
-    await page.setViewportSize({width,height:850});await nav(page,'Home');await layout(page);
+    await page.setViewportSize({width,height:850});await nav(page,'Home');await layout(page);await mediaLayout(page);
     if(width===1280)await page.screenshot({path:resolve(web,'test-results/repaidians-desktop.png')});
-    await page.evaluate(()=>document.documentElement.dataset.theme='dark');await layout(page);
+    await page.evaluate(()=>document.documentElement.dataset.theme='dark');await layout(page);await mediaLayout(page);
     await page.evaluate(()=>document.documentElement.dataset.theme='light');
   }
   await page.setViewportSize({width:390,height:850});await audit(page);
   await page.screenshot({path:resolve(web,'test-results/repaidians-phone.png')});
   await page.evaluate(()=>document.documentElement.dataset.theme='dark');await audit(page);
   await page.screenshot({path:resolve(web,'test-results/repaidians-dark.png')});
-  await page.evaluate(()=>document.documentElement.style.fontSize='200%');await layout(page);
+  await page.evaluate(()=>document.documentElement.style.fontSize='200%');await layout(page);await mediaLayout(page);
   await page.evaluate(()=>document.documentElement.style.fontSize='100%');
   await nav(page,'Search');await shell(page).getByLabel('Search Repaidians',{exact:true}).fill('Alice');
   await shell(page).locator('.rp-search-results').getByText('Alice Electrician',{exact:true}).waitFor();
   assert.equal(await shell(page).locator('.rp-search-results').getByText('Bob Cleaning',{exact:true}).count(),0,'Server search must filter results.');
+  await shell(page).locator('.rp-professional-filters > summary').click();
+  await shell(page).locator('.rp-professional-filters').getByLabel(/^Trade/).selectOption('electrician');
+  await shell(page).getByLabel('City',{exact:true}).fill('Balasore');
+  await shell(page).locator('.rp-professional-filters').getByLabel(/^Work status/).selectOption('open_to_work');
+  await shell(page).locator('.rp-professional-filters').getByLabel(/^Professional type/).selectOption('specialist');
+  await shell(page).locator('.rp-search-results').getByText('Alice Electrician',{exact:true}).waitFor();
+  await shell(page).locator('.rp-professional-filters').getByLabel(/^Work status/).selectOption('hiring');
+  await shell(page).getByText('No matching professionals yet.',{exact:true}).waitFor();
+  await shell(page).locator('.rp-professional-filters').getByLabel(/^Work status/).selectOption('open_to_work');
+  await shell(page).locator('.rp-search-results').getByText('Electrical specialist available for project teams',{exact:true}).waitFor();
+  await layout(page);await audit(page);
+  await page.evaluate(()=>document.documentElement.dataset.theme='light');await layout(page);await audit(page);
   const tender=await publication(bob,{kind:'tender',caption:'A real crew brief created by a test member.',title:'Cleaning crew request',trade:'cleaning',visibility:'public',media:[],location:'Balasore',budgetRupees:650,slots:3,deadline:Date.now()+86400000,contact:'Contact the project owner through their Repaidians profile.'});
   await page.reload();await nav(page,'Tenders');await shell(page).getByRole('button',{name:/Submit interest|Submit bid/}).click();
   await shell(page).getByRole('button',{name:'Interest submitted',exact:true}).waitFor();
@@ -278,7 +376,7 @@ try{
   const expired=await api('/repaidians/state',carol);
   assert.equal(expired.trial.status,'expired');assert.equal(expired.subscription,null);assert.equal(expired.remainingMs,0);
   for(const [path,method,body] of [
-    ['/feed?kind=post','GET'],['/members?search=Alice','GET'],['/members/'+bob.user.id,'GET'],
+    ['/feed?kind=post','GET'],['/members?search=Alice','GET'],['/members/'+bob.user.id,'GET'],['/opportunities','GET'],
     ['/comments/'+bobPost.id,'GET'],['/comments/'+bobPost.id,'POST',{text:'Expired account comment',clientId:randomUUID()}],
     ['/activity/likes/'+bobPost.id,'PUT',{active:true}],['/follow/'+bob.user.id,'PUT',{active:true}],
     ['/messages/'+bob.user.id,'GET'],['/messages/'+bob.user.id,'POST',{text:'Expired account DM',clientId:randomUUID()}],
@@ -308,6 +406,216 @@ try{
   await exhausted.getByRole('dialog',{name:'Publishing studio',exact:true}).getByRole('button',{name:'Close dialog',exact:true}).click();
   assert.equal((await api('/repaidians/feed?kind=post',carol)).items.length,1);
 
+  const nativeNow=Date.now()/1000;
+  nativeFixture('workers',bob.user.id,{id:bob.user.id,name:bob.user.name,status:'approved',role:'specialist',contractor_verified:true,categories:['cleaning'],city:'Balasore'});
+  nativeFixture('shops','community-shop',{id:'community-shop',owner_id:bob.user.id,name:'Bob parts shop',status:'approved',city:'Balasore',location:{lat:21.49,lng:86.94},phone:'PRIVATE_SHOP_CONTACT'});
+  const nativeTender={id:'native-tender',owner_id:bob.user.id,owner_name:bob.user.name,status:'open',title:'School electrical maintenance tender',scope:'Replace and inspect the agreed electrical circuits.',sector:'Electrical',city:'Balasore',site:'PRIVATE_SITE_ADDRESS',budget_paise:850000,opens_at:nativeNow-3600,deadline:nativeNow+3600,starts_at:nativeNow+7200,ends_at:nativeNow+86400};
+  const nativeCareer={id:'native-career',owner_id:bob.user.id,owner_name:bob.user.name,status:'planning',title:'Electrical project team opening',scope:'Electrical maintenance project',site:'PRIVATE_CAREER_SITE',starts_at:nativeNow+7200,ends_at:nativeNow+86400,team:[],goals:[],hiring:{status:'open',summary:'Join a project team for electrical maintenance and inspections.',sector:'Electrical',city:'Balasore',area:'Town centre',skills:['Wiring','Inspection'],daily_rate_paise:95000,openings:2,deadline:nativeNow+3600,version:1,updated_at:nativeNow,worker_role:'any',minimum_experience:1,hours_per_day:8,terms:'Agreed working hours and site safety equipment are required.'}};
+  const refurbishment={grade:'B',cosmetic_condition:'Minor marks on the case',tested_functions:'Cooling and electrical safety checked',tested_on:'2026-01-01',repairs:'Thermostat replaced',known_defects:'Minor case marks only',accessories:'Power cable',warranty_days:90,warranty_terms:'Shop repair warranty',return_days:7,return_terms:'Return for an undisclosed fault'};
+  const nativeProduct={id:'native-product',shop_id:'community-shop',name:'Refurbished refrigerator checked by the shop',sku:'FRIDGE-REF',category:'AC parts',compatibility:'Shop-tested refrigerator with disclosed condition.',condition:'refurbished',refurbishment,status:'approved',stock:2,reserved:0,stock_confirmed_at:nativeNow,price_paise:239900,image_url:'/images/ac.jpg',version:1};
+  const nativeSecondHand={id:'native-second-hand',owner_id:alice.user.id,owner_name:alice.user.name,name:'Second hand electrical tool kit',brand:'Test brand',product_type:'tools',mode:'second_hand',condition:'Tools are working with normal visible wear.',status:'published',value_paise:120000,purchase_paise:180000,age_months:24,manufacture_year:2024,warranty:'No remaining manufacturer warranty',reason:'Moving to a different workshop',radius_km:10,photo_id:'fixture-photo',city:'Balasore',location:{lat:21.49,lng:86.94},expires_at:nativeNow+86400,created_at:nativeNow};
+  nativeFixture('contract_tenders',nativeTender.id,nativeTender);
+  nativeFixture('contract_projects',nativeCareer.id,nativeCareer);
+  nativeFixture('inventory',nativeProduct.id,nativeProduct);
+  nativeFixture('market_listings',nativeSecondHand.id,nativeSecondHand);
+  const nativeCards=(await api('/repaidians/opportunities?city=Balasore',alice)).items;
+  assert.deepEqual(nativeCards.map(card=>card.source).sort(),['career','contract','inventory','second_hand']);
+  assert.equal(JSON.stringify(nativeCards).includes('PRIVATE_'),false,'Community cards never disclose native site addresses or private shop contacts.');
+  assert.deepEqual(nativeCards.find(card=>card.source==='inventory').refurbishment,refurbishment);
+  assert.equal(nativeCards.find(card=>card.source==='inventory').condition,'refurbished');
+  assert.equal(nativeCards.find(card=>card.source==='inventory').shareable,false,'A customer must have a verified paid native purchase before sharing a shop product.');
+  assert.deepEqual((await api('/repaidians/opportunities?kind=jobs&trade=electrician&city=balasore',alice)).items.map(card=>card.id),[nativeCareer.id]);
+  await api('/repaidians/publications',carol,'POST',{kind:'post',caption:'Forged shop ownership.',trade:'spares',visibility:'public',media:[],reference:{source:'inventory',id:nativeProduct.id},clientId:randomUUID()},403);
+  await api('/repaidians/publications',alice,'POST',{kind:'post',caption:'A forged price is not a genuine native reference.',trade:'spares',visibility:'public',media:[],reference:{source:'inventory',id:nativeProduct.id,pricePaise:1},clientId:randomUUID()},422);
+  nativeFixture('retail_orders','native-customer-purchase',{id:'native-customer-purchase',customer_id:alice.user.id,state:'paid',payment_id:'pay_CommunityFixture1',items:[{product_id:nativeProduct.id,quantity:1}]});
+  const shareable=(await api('/repaidians/opportunities?kind=products&mode=shareable',alice)).items;
+  assert.deepEqual(shareable.map(card=>card.id).sort(),[nativeProduct.id,nativeSecondHand.id].sort(),'Shareable products come from actual ownership or a verified native paid purchase.');
+  assert.equal((await api('/repaidians/opportunities/inventory/'+nativeProduct.id,carol)).shareable,false,'Purchase proof cannot be borrowed from another account.');
+  const nativeShare=await publication(bob,{kind:'post',caption:'Our inspected refurbished refrigerator is now available.',trade:'spares',visibility:'public',media:[],reference:{source:'inventory',id:nativeProduct.id}});
+  const customerShare=await publication(alice,{kind:'post',caption:'I purchased this checked refurbished item through Repaido.',trade:'spares',visibility:'public',media:[],reference:{source:'inventory',id:nativeProduct.id}});
+  assert.deepEqual(customerShare.reference,{source:'inventory',id:nativeProduct.id});
+  assert.equal((await api('/repaidians/publications/'+nativeShare.id,alice)).item.referenceCard.pricePaise,nativeProduct.price_paise);
+  nativeFixture('inventory',nativeProduct.id,{...nativeProduct,price_paise:249900,version:2});
+  assert.equal((await api('/repaidians/publications/'+nativeShare.id,alice)).item.referenceCard.pricePaise,249900,'Shared posts hydrate the current native product price instead of a stale copied listing.');
+  await api('/repaidians/opportunities/inventory/'+nativeProduct.id+'/saved',alice,'PUT',{active:true});
+  assert.deepEqual((await api('/repaidians/opportunities?mode=saved',alice)).items.map(card=>card.id),[nativeProduct.id]);
+  nativeFixture('contract_tenders',nativeTender.id,{...nativeTender,status:'withdrawn'});
+  await api('/repaidians/opportunities/contract/'+nativeTender.id,alice,'GET',undefined,404);
+  assert.equal((await api('/repaidians/opportunities?kind=tenders',alice)).items.length,0,'Withdrawn native tenders are immediately removed from community discovery.');
+  nativeFixture('contract_tenders',nativeTender.id,nativeTender);
+
+  const opportunityPage=await newPage(alice);
+  await shell(opportunityPage).getByRole('button',{name:'Work & market',exact:true}).first().click();
+  const board=shell(opportunityPage).getByRole('region',{name:'Professional opportunities',exact:true});
+  await board.getByText(nativeTender.title,{exact:true}).waitFor();
+  await board.getByText(nativeCareer.title,{exact:true}).waitFor();
+  await board.getByText(nativeProduct.name,{exact:true}).waitFor();
+  await board.getByText(nativeSecondHand.name,{exact:true}).waitFor();
+  await board.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Jobs',exact:true}).click();
+  await board.getByText(nativeCareer.title,{exact:true}).waitFor();
+  assert.equal(await board.getByText(nativeProduct.name,{exact:true}).count(),0,'Job discovery does not show products from another category.');
+  await board.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Products',exact:true}).click();
+  await board.getByText(nativeProduct.name,{exact:true}).waitFor();
+  const productCard=board.locator('.rp-opportunity-card').filter({has:opportunityPage.getByRole('heading',{name:nativeProduct.name,exact:true})});
+  await productCard.getByText('Refurbished',{exact:true}).waitFor();
+  assert.equal(await productCard.getByText('Prime shop',{exact:true}).count(),0,'A genuine shop listing does not get a paid Prime badge without a paid membership.');
+  await productCard.getByRole('button',{name:'Unsave opportunity',exact:true}).click();
+  await productCard.getByRole('button',{name:'Save opportunity',exact:true}).waitFor();
+  assert.equal((await api('/repaidians/opportunities?mode=saved',alice)).items.length,0);
+  await productCard.getByRole('button',{name:'Save opportunity',exact:true}).click();
+  await productCard.getByRole('button',{name:'Unsave opportunity',exact:true}).waitFor();
+  for(const width of [320,390,430,524]){
+    await opportunityPage.setViewportSize({width,height:850});await layout(opportunityPage);
+    await opportunityPage.evaluate(()=>document.documentElement.dataset.theme='dark');await layout(opportunityPage);
+    await opportunityPage.evaluate(()=>document.documentElement.dataset.theme='light');
+  }
+  await opportunityPage.setViewportSize({width:390,height:850});await audit(opportunityPage);
+  await opportunityPage.evaluate(()=>document.documentElement.dataset.theme='dark');await audit(opportunityPage);
+  await opportunityPage.evaluate(()=>document.documentElement.style.fontSize='200%');await layout(opportunityPage);
+  await opportunityPage.evaluate(()=>{document.documentElement.style.fontSize='100%';document.documentElement.dataset.theme='light';});
+  await productCard.getByRole('button',{name:'View product',exact:true}).click();
+  const destination=opportunityPage.getByRole('status');await destination.waitFor();
+  assert.equal(await destination.textContent(),'Opened inventory:'+nativeProduct.id+' · '+nativeProduct.name);
+  assert.equal(await shell(opportunityPage).count(),0,'Opening a native product hands off its actual source and record to Repaido.');
+  await opportunityPage.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(opportunityPage).waitFor();
+  await shell(opportunityPage).getByRole('button',{name:'Work & market',exact:true}).first().click();
+  await board.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Products',exact:true}).click();
+  await productCard.getByRole('button',{name:'Share opportunity with Repaidians',exact:true}).click();
+  const attachedStudio=opportunityPage.getByRole('dialog',{name:'Publishing studio',exact:true});await attachedStudio.waitFor();
+  await attachedStudio.getByText('Attached to your post',{exact:true}).waitFor();
+  const purchaseCaption='A community update linked to my verified Repaido purchase.';
+  await attachedStudio.getByLabel('Caption & visual description',{exact:true}).fill(purchaseCaption);
+  await attachedStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();
+  const attachedPost=shell(opportunityPage).locator('.rp-post').filter({hasText:purchaseCaption});
+  await attachedPost.getByText(nativeProduct.name,{exact:true}).waitFor();
+  assert.equal(await attachedPost.locator('.rp-media-missing').count(),0,'A linked product post uses its listing card without a blank failed-media panel.');
+  const storedPurchaseShare=(await api('/repaidians/feed?kind=post',bob)).items.find(post=>post.caption===purchaseCaption);
+  assert.deepEqual(storedPurchaseShare.reference,{source:'inventory',id:nativeProduct.id});
+  assert.equal(storedPurchaseShare.authorId,alice.user.id);assert.equal(storedPurchaseShare.referenceCard.pricePaise,249900);
+  await opportunityPage.reload();await shell(opportunityPage).locator('.rp-post').filter({hasText:purchaseCaption}).getByText(nativeProduct.name,{exact:true}).waitFor();
+  nativeFixture('inventory',nativeProduct.id,{...nativeProduct,price_paise:269900,version:3});
+  await opportunityPage.evaluate(()=>window.dispatchEvent(new Event('repaidians:update')));
+  const refreshedPurchase=shell(opportunityPage).locator('.rp-post').filter({hasText:purchaseCaption});
+  await refreshedPurchase.getByText('₹2,699',{exact:true}).waitFor();
+  assert.equal(await refreshedPurchase.getByText('₹2,499',{exact:true}).count(),0,'Refreshing a community publication replaces the previously loaded native price.');
+  await shell(opportunityPage).getByRole('button',{name:'Create',exact:true}).click();
+  const listingStudio=opportunityPage.getByRole('dialog',{name:'Publishing studio',exact:true});
+  await listingStudio.getByRole('button',{name:/^Attach an opportunity/}).click();
+  await listingStudio.locator('.rp-studio-reference-option').filter({hasText:nativeSecondHand.name}).click();
+  await listingStudio.getByText('Attached to your post',{exact:true}).waitFor();
+  const secondHandCaption='My used electrical tools are listed for another member.';
+  await listingStudio.getByLabel('Caption & visual description',{exact:true}).fill(secondHandCaption);
+  await listingStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();
+  await shell(opportunityPage).locator('.rp-post').filter({hasText:secondHandCaption}).getByText(nativeSecondHand.name,{exact:true}).waitFor();
+  assert.deepEqual((await api('/repaidians/feed?kind=post',bob)).items.find(post=>post.caption===secondHandCaption).reference,{source:'second_hand',id:nativeSecondHand.id});
+
+  const appPage=await newPage(alice);
+  await appPage.goto(origin+'/?noSplash=1&tab=explore');
+  await appPage.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(appPage).waitFor();
+  await shell(appPage).getByRole('button',{name:'Work & market',exact:true}).first().click();
+  const appBoard=shell(appPage).getByRole('region',{name:'Professional opportunities',exact:true});
+  await appBoard.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Products',exact:true}).click();
+  await appBoard.locator('.rp-opportunity-card').filter({hasText:nativeProduct.name}).getByRole('button',{name:'View product',exact:true}).click();
+  const productDetails=appPage.getByRole('dialog',{name:nativeProduct.name,exact:true});await productDetails.waitFor();
+  await productDetails.getByText(refurbishment.repairs,{exact:true}).waitFor();
+  await productDetails.getByText(refurbishment.warranty_terms,{exact:false}).waitFor();
+  await productDetails.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await appPage.getByRole('button',{name:'Back to Repaidians',exact:true}).click();await shell(appPage).waitFor();
+  await appBoard.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Products',exact:true}).click();
+  await appBoard.locator('.rp-opportunity-card').filter({hasText:nativeSecondHand.name}).getByRole('button',{name:'View product',exact:true}).click();
+  const usedDetails=appPage.getByRole('dialog',{name:nativeSecondHand.name,exact:true});await usedDetails.waitFor();
+  await usedDetails.getByText(nativeSecondHand.condition,{exact:true}).waitFor();
+  await usedDetails.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await appPage.getByRole('button',{name:'Back to Repaidians',exact:true}).click();await shell(appPage).waitFor();
+  await appBoard.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Jobs',exact:true}).click();
+  await appBoard.locator('.rp-opportunity-card').filter({hasText:nativeCareer.title}).getByRole('button',{name:'View job',exact:true}).click();
+  const careerDetails=appPage.getByRole('dialog',{name:'Project opportunity',exact:true});await careerDetails.waitFor();
+  await careerDetails.getByRole('heading',{name:nativeCareer.title,exact:true}).waitFor();
+  await careerDetails.getByText(nativeCareer.hiring.summary,{exact:true}).waitFor();
+  await careerDetails.getByRole('button',{name:'Close dialog',exact:true}).click();await shell(appPage).waitFor();
+  nativeFixture('inventory',nativeProduct.id,{...nativeProduct,stock:0,price_paise:269900,version:4});
+  const unavailableShare=(await api('/repaidians/publications/'+nativeShare.id,alice)).item;
+  assert.equal(unavailableShare.referenceCard,null);assert.equal(unavailableShare.referenceUnavailable,true,'A sold-out native product cannot remain an actionable live offer on its shared post.');
+  await api('/repaidians/opportunities/inventory/'+nativeProduct.id,alice,'GET',undefined,404);
+  await opportunityPage.evaluate(()=>window.dispatchEvent(new Event('repaidians:update')));
+  await refreshedPurchase.getByText('This listing is no longer available. Your publication stays in your portfolio.',{exact:true}).waitFor();
+  assert.equal(await refreshedPurchase.getByRole('button',{name:'View product',exact:true}).count(),0,'A source withdrawn after initial hydration cannot keep an actionable stale offer in the loaded feed.');
+  await nav(opportunityPage,'My profile');
+  const listingUpdates=shell(opportunityPage).getByRole('region',{name:'Listing updates',exact:true});await listingUpdates.waitFor();
+  await listingUpdates.getByRole('button',{name:'Open listing update: '+nativeSecondHand.name,exact:true}).click();
+  const profileListing=opportunityPage.getByRole('dialog',{name:'Publication',exact:true});await profileListing.waitFor();
+  await profileListing.getByText(secondHandCaption,{exact:false}).waitFor();
+  await profileListing.getByText(nativeSecondHand.name,{exact:true}).waitFor();
+  await profileListing.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await listingUpdates.getByRole('button',{name:'Open listing update: Listing unavailable',exact:true}).first().click();
+  await profileListing.getByText('This listing is no longer available. Your publication stays in your portfolio.',{exact:true}).waitFor();
+  assert.equal(await profileListing.getByRole('button',{name:'View product',exact:true}).count(),0,'A profile retains an honest portfolio update after its original listing is withdrawn.');
+  await profileListing.getByRole('button',{name:'Close dialog',exact:true}).click();
+
+  const privateCaption='Private electrical portfolio for my trade only.';
+  const switchPrivate=await publication(alice,{kind:'post',caption:privateCaption,trade:'electrician',visibility:'trade',media:[avatar]});
+  const privateComment='Private electrical work discussion.';
+  await api('/repaidians/comments/'+switchPrivate.id,alice,'POST',{text:privateComment,clientId:randomUUID()},201);
+  const bobPrivateComment='A different private cleaning discussion.';
+  await api('/repaidians/comments/'+privatePost.id,bob,'POST',{text:bobPrivateComment,clientId:randomUUID()},201);
+  const switching=await newPage(alice);
+  await nav(switching,'My profile');
+  const oldDetail=await delayedRealRead(switching,'/repaidians/publications/'+switchPrivate.id);
+  await shell(switching).getByRole('button',{name:'Open image by Alice Electrician: '+privateCaption,exact:true}).click();
+  assert.equal((await oldDetail.reached).item.caption,privateCaption,'The held response is the real previously authorized private publication.');
+  await switchPreviewAccount(switching,bob);
+  await shell(switching).locator('.rp-profile-title h2').waitFor();
+  assert.equal(await shell(switching).locator('.rp-profile-title h2').textContent(),bob.user.name);
+  oldDetail.release();await oldDetail.done;await oldDetail.remove();
+  await switching.waitForLoadState('networkidle');
+  assert.equal(await switching.getByText(privateCaption,{exact:false}).count(),0,'An old authorized publication response cannot open after the account has switched.');
+  assert.equal(await shell(switching).locator('.rp-profile-title h2').textContent(),bob.user.name,'An account change clears the previous private profile/portfolio data.');
+  await switchPreviewAccount(switching,alice);await nav(switching,'Home');
+  const privateFeedCard=shell(switching).locator('.rp-post').filter({hasText:privateCaption});await privateFeedCard.waitFor();
+  const oldComments=await delayedRealRead(switching,'/repaidians/comments/'+switchPrivate.id);
+  await privateFeedCard.getByRole('button',{name:'Open comments',exact:true}).click();
+  await switching.getByRole('dialog',{name:'Comments',exact:true}).waitFor();
+  assert.equal((await oldComments.reached).comments[0].text,privateComment);
+  await switchPreviewAccount(switching,bob);
+  assert.equal(await switching.getByRole('dialog',{name:'Comments',exact:true}).count(),0,'Account changes close an open private conversation even while its prior response is pending.');
+  const newPrivateCard=shell(switching).locator('.rp-post').filter({hasText:privatePost.caption});await newPrivateCard.waitFor();
+  await newPrivateCard.getByRole('button',{name:'Open comments',exact:true}).click();
+  const newComments=switching.getByRole('dialog',{name:'Comments',exact:true});
+  await newComments.getByText(bobPrivateComment,{exact:true}).waitFor();
+  oldComments.release();await oldComments.done;await oldComments.remove();
+  await switching.waitForLoadState('networkidle');
+  await newComments.getByText(bobPrivateComment,{exact:true}).waitFor();
+  assert.equal(await switching.getByText(privateComment,{exact:true}).count(),0);
+  assert.equal(await shell(switching).getByText(privateCaption,{exact:false}).count(),0);
+  await newComments.getByRole('button',{name:'Close dialog',exact:true}).click();
+
+  const paginationPosts=[];
+  for(let index=0;index<14;index++)paginationPosts.push(await publication(bob,{kind:'post',caption:'Shared work update '+(index+1)+' from Bob.',trade:'cleaning',visibility:'public',media:[photo]}));
+  const paginationPage=await newPage(carol);
+  await shell(paginationPage).getByRole('button',{name:'Load more',exact:true}).waitFor();
+  assert.equal(await shell(paginationPage).locator('.rp-post').count(),12,'The first authoritative feed page remains bounded.');
+  assert.equal(await shell(paginationPage).getByText(paginationPosts[0].caption,{exact:false}).count(),0,'The target publication is genuinely outside the first page.');
+  await shell(paginationPage).getByRole('button',{name:'Load more',exact:true}).click();
+  const laterPost=shell(paginationPage).locator('.rp-post').filter({hasText:paginationPosts[0].caption});await laterPost.waitFor();
+  const loadedExtent=await shell(paginationPage).locator('.rp-post').count();assert.ok(loadedExtent>12);
+  const reloadedFeed=()=>paginationPage.waitForResponse(response=>{
+    const url=new URL(response.url());return url.pathname==='/api/repaidians/feed'&&url.searchParams.get('kind')==='post'&&!url.searchParams.get('cursor')&&Number(url.searchParams.get('limit'))>=loadedExtent;
+  });
+  const laterLike=laterPost.getByRole('button',{name:'Like post',exact:true});await laterLike.scrollIntoViewIfNeeded();
+  const scrollBeforeLike=await shell(paginationPage).locator('.rp-content').evaluate(content=>content.scrollTop);
+  const afterLike=reloadedFeed();await laterLike.click();
+  const likedReload=await(await afterLike).json();
+  assert.equal(likedReload.items.find(post=>post.id===paginationPosts[0].id).liked,true);
+  await paginationPage.waitForLoadState('networkidle');
+  await laterPost.getByRole('button',{name:'Unlike post',exact:true}).waitFor();
+  assert.ok(await shell(paginationPage).locator('.rp-post').count()>=loadedExtent,'Liking an item on the second page preserves the loaded feed extent.');
+  const scrollAfterLike=await shell(paginationPage).locator('.rp-content').evaluate(content=>content.scrollTop);
+  assert.ok(Math.abs(scrollAfterLike-scrollBeforeLike)<=8,'Liking a later-page post preserves the current scroll position: '+scrollBeforeLike+' → '+scrollAfterLike);
+  const afterUpdate=reloadedFeed();await paginationPage.evaluate(()=>window.dispatchEvent(new Event('repaidians:update')));await afterUpdate;
+  await paginationPage.waitForLoadState('networkidle');
+  await laterPost.getByRole('button',{name:'Unlike post',exact:true}).waitFor();
+  assert.ok(await shell(paginationPage).locator('.rp-post').count()>=loadedExtent,'An authoritative update replaces fresh records across the loaded window without removing the second page.');
+
   const guest=await newPage(null);
   const cookies=await guest.context().cookies(origin);
   const session=cookies.find(cookie=>cookie.name==='__session');assert.ok(session,'Guest browsing uses the Hosting-supported quota cookie.');
@@ -317,10 +625,15 @@ try{
   await guest.reload();assert.equal(await shell(guest).locator('.rp-post').count(),0);
   assert.deepEqual(errors,[]);
   succeeded=true;
-  console.log('Repaidians real backend: once-account 30-day full-feature trial, expired-trial gates and paid restoration, shared posts/media/comments/follows/DMs, privacy, reels, bids, search, guest quota, mobile/desktop themes, reduced motion, enlarged text and accessibility passed.');
+  console.log('Repaidians real SQLite/API/browser checks passed: 30-day trial and expiry/paid restoration, posts/media/comments/follows/DMs and privacy, exact portfolio reel/listing viewers, account-switch delayed private response isolation, preserved loaded feed pages after likes/refresh, professional profile persistence and filtered discovery, all four native opportunity sources, ownership/purchase-proven sharing, live UI listing prices and withdrawal, saved opportunities, attached purchased/refurbished and second-hand posts, real app product/career handoff and return, padded contained photos and expansion/tools, guest quota, 320–524px/desktop light-dark themes, 200% text, reduced motion and WCAG AA audits.');
 }catch(error){
+  for(const [contextIndex,context] of (browser?.contexts()||[]).entries())for(const [index,page] of context.pages().entries()){
+    await page.screenshot({path:resolve(work,'failure-'+contextIndex+'-'+index+'.png')}).catch(()=>{});
+    await writeFile(resolve(work,'failure-'+contextIndex+'-'+index+'.html'),await page.content().catch(()=>''));
+  }
   await writeFile(resolve(work,'backend.log'),serverLog);console.error('Isolated backend logs: '+resolve(work,'backend.log'));throw error;
 }finally{
+  releaseReads.forEach(release=>release());
   await browser?.close();server?.kill('SIGTERM');
   if(server)await Promise.race([new Promise(resolve=>server.once('exit',resolve)),pause(3000)]);
   if(succeeded)await rm(work,{recursive:true,force:true});

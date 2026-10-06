@@ -68,7 +68,7 @@ def install(core):
             if len(matches)!=1:fail('ORDER_RECONCILING','Payment outcome is being reconciled. Keep this order; do not create another.',409)
             order=matches[0]
         else:
-            try:order=razorpay('orders',method='POST',body={'amount':row['total_paise'],'currency':'INR','receipt':row['receipt'],'notes':{'retail_order':row['id']}})
+            try:order=razorpay('orders',{'amount':row['total_paise'],'currency':'INR','receipt':row['receipt'],'notes':{'retail_order':row['id']}})
             except Exception:fail('ORDER_RECONCILING','The provider outcome is unknown. Retry this same checkout to reconcile; no second order will be sent.',503)
         if order.get('amount')!=row['total_paise'] or order.get('currency')!='INR':fail('AMOUNT_MISMATCH','Provider order requires reconciliation.',409)
         def ready(u):

@@ -6,7 +6,7 @@ import RepaidoBrand from './RepaidoBrand';
 import QuickActionCatalog from './QuickActionCatalog';
 import './home-quick-actions.css';
 
-export type QuickMarket = {condition?:'refurbished';search?:string;budget?:number;sell?:boolean;listingId?:string;location?:{lat:number;lng:number}};
+export type QuickMarket = {condition?:'refurbished';search?:string;budget?:number;sell?:boolean;listingId?:string;productId?:string;location?:{lat:number;lng:number}};
 export interface HomeQuickActionsProps {
   city:string;
   location?:{lat:number;lng:number};

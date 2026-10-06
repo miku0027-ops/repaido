@@ -18,12 +18,18 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 from pydantic import Field
+from typing import Annotated
 
 from operations import Input, fail
 
 TRADES = ('cleaning', 'electrician', 'plumber', 'ac', 'pest', 'carpenter', 'civil', 'spares')
 Trade = Literal['cleaning', 'electrician', 'plumber', 'ac', 'pest', 'carpenter', 'civil', 'spares']
 Kind = Literal['post', 'reel', 'story', 'tender']
+WorkStatus = Literal['available', 'open_to_work', 'hiring', 'not_looking']
+ProfessionalType = Literal['agent', 'specialist', 'contractor', 'shop_owner', 'member']
+WORK_STATUSES = ('available', 'open_to_work', 'hiring', 'not_looking')
+PROFESSIONAL_TYPES = ('agent', 'specialist', 'contractor', 'shop_owner', 'member')
+PROFESSIONAL_FIELDS = ('headline', 'city', 'skills', 'experienceYears', 'workStatus', 'professionalType')
 QUOTA = 15 * 60 * 1000
 LEASE = 15000
 IST = ZoneInfo('Asia/Kolkata')
@@ -51,12 +57,23 @@ class ProfilePatch(Input):
     bio: str | None = Field(default=None, max_length=500)
     trade: Trade | None = None
     avatarUrl: str | None = Field(default=None, max_length=200)
+    headline: str | None = Field(default=None, max_length=140)
+    city: str | None = Field(default=None, max_length=80)
+    skills: list[Annotated[str, Field(min_length=1, max_length=60)]] | None = Field(default=None, max_length=12)
+    experienceYears: int | None = Field(default=None, ge=0, le=60, strict=True)
+    workStatus: WorkStatus | None = None
+    professionalType: ProfessionalType | None = None
 
 
 class Media(Input):
     url: str = Field(max_length=200)
     kind: Literal['image', 'video']
     alt: str = Field(default='', max_length=300)
+
+
+class PublicationReference(Input):
+    source: Literal['contract', 'career', 'inventory', 'second_hand']
+    id: str = Field(pattern=r'^[A-Za-z0-9_-]{1,100}$')
 
 
 class Publication(Input):
@@ -72,6 +89,7 @@ class Publication(Input):
     deadline: int | None = None
     contact: str | None = Field(default=None, max_length=150)
     clientId: uuid.UUID | None = None
+    reference: PublicationReference | None = None
 
 
 class Bid(Input):
@@ -166,6 +184,11 @@ def member_public(u, row):
         return None
     out = {k: row.get(k) for k in ('id', 'name', 'handle', 'trade', 'role', 'avatarUrl', 'bio', 'followersCount', 'followingCount')}
     w = u.get('workers', row['id'])
+    defaults = professional_defaults(w)
+    out.update({key: row.get(key, defaults[key]) for key in PROFESSIONAL_FIELDS})
+    # These fields describe what the member chooses to put on their profile.
+    # A self-declared specialist/contractor never becomes a reviewed badge.
+    out['professionalInfoSource'] = 'profile'
     approved = bool(w and w.get('status') == 'approved')
     out.update(reviewed=approved, registeredId=row['id'] if w else None,
                completedTasks=int(w.get('completed_tasks', 0)) if approved else 0,
@@ -179,6 +202,12 @@ def member_ensure(u, user):
     from repaidians_billing import ensure_trial
     member = u.get('rp_members', user['id'])
     if member:
+        if member.get('professionalVersion') != 1:
+            defaults = professional_defaults(u.get('workers', user['id']))
+            for key in PROFESSIONAL_FIELDS:
+                member.setdefault(key, defaults[key])
+            member['professionalVersion'] = 1
+            index_member(u, member)
         ensure_trial(u, user['id'], starts_at=member['createdAt'], now=now_ms() / 1000)
         return member
     w = u.get('workers', user['id'])
@@ -186,7 +215,8 @@ def member_ensure(u, user):
     name = str((w or {}).get('name') or user.get('name') or 'Repaido member')[:100]
     slug = re.sub('[^a-z0-9]+', '.', name.lower()).strip('.')[:22] or 'member'
     member = dict(id=user['id'], name=name, handle=f'{slug}.{digest(user["id"])[:8]}', trade=trade,
-                  role='Member', avatarUrl='', bio='', followersCount=0, followingCount=0, createdAt=now_ms())
+                  role='Member', avatarUrl='', bio='', followersCount=0, followingCount=0, createdAt=now_ms(),
+                  **professional_defaults(w), professionalVersion=1)
     index_member(u, member)
     ensure_trial(u, user['id'], starts_at=member['createdAt'], now=now_ms() / 1000)
     return member
@@ -194,7 +224,7 @@ def member_ensure(u, user):
 
 def index_member(u, member):
     u.put('rp_members', member['id'], member)
-    directory = {'id': member['id'], 'sortKey': sort_key(member['createdAt'], member['id'])}
+    directory = {'id': member['id'], 'sortKey': sort_key(member['createdAt'], member['id']), 'active': True}
     u.put('rp_member_directory', member['id'], directory)
     old = u.get('rp_member_search_keys', member['id']) or {'keys': []}
     tokens = re.findall(r'[\w]+', (member['name'] + ' ' + member['handle']).casefold())
@@ -207,6 +237,71 @@ def index_member(u, member):
     for key in keys:
         u.put('rp_search_' + key, member['id'], {**directory, 'active': True})
     u.put('rp_member_search_keys', member['id'], {'keys': sorted(keys)})
+    previous = u.get('rp_member_filter_keys', member['id']) or {'keys': []}
+    filters = {key: str(member.get(key, '')).strip().casefold() for key in ('trade', 'city', 'workStatus', 'professionalType')}
+    filters['city'] = normalized_city(member.get('city', ''))
+    fields = [key for key, value in filters.items() if value]
+    new_keys = {filter_key({fields[i]: filters[fields[i]] for i in range(len(fields)) if mask & (1 << i)})
+                for mask in range(1, 1 << len(fields))}
+    for key in set(previous['keys']) - new_keys:
+        u.put('rp_member_filter_' + key, member['id'], {**directory, 'active': False})
+    for key in new_keys:
+        u.put('rp_member_filter_' + key, member['id'], directory)
+    u.put('rp_member_filter_keys', member['id'], {'keys': sorted(new_keys)})
+
+
+def professional_defaults(worker):
+    worker = worker or {}
+    skills = [str(skill).strip()[:60] for skill in worker.get('skills', []) if str(skill).strip()][:12]
+    years = worker.get('experience_years', 0)
+    return {'headline': '', 'city': str(worker.get('city') or '')[:80], 'skills': list(dict.fromkeys(skills)),
+            'experienceYears': min(60, max(0, years)) if type(years) is int else 0,
+            'workStatus': 'available' if worker.get('online') and worker.get('status') == 'approved' else 'not_looking',
+            'professionalType': 'specialist' if worker.get('role') == 'specialist' and worker.get('status') == 'approved' else 'agent' if worker else 'member'}
+
+
+def normalized_city(value):
+    return ' '.join(str(value).split()).casefold()
+
+
+def filter_key(filters):
+    return digest(json.dumps(filters, sort_keys=True, separators=(',', ':')))
+
+
+def reindex_professional_members(core, limit=5):
+    """Backfill old joined members in small resumable batches, never a scan.
+
+    Each profile has its own transaction (under 500 Firestore writes even for
+    old/new search prefixes). The durable cursor makes repeated discovery
+    requests advance, preserving original joining dates and trial grants.
+    """
+    limit = max(1, min(limit, 20))
+    store = core.operations_store
+    def read(u):
+        checkpoint = u.get('rp_professional_index_meta', 'v1') or {}
+        if checkpoint.get('complete'):
+            return checkpoint, []
+        return checkpoint, query(u, 'rp_member_directory', limit + 1, checkpoint.get('after'), descending=False)
+    checkpoint, rows = store.run(read)
+    if checkpoint.get('complete'):
+        return False
+    for row in rows[:limit]:
+        def migrate(u, key=row['id']):
+            member = u.get('rp_members', key)
+            if member:
+                member_ensure(u, {'id': key, 'name': member['name']})
+        store.run(migrate)
+    after = rows[min(limit, len(rows)) - 1]['sortKey'] if rows else checkpoint.get('after')
+    complete = len(rows) <= limit
+    def save(u):
+        latest = u.get('rp_professional_index_meta', 'v1') or {}
+        if latest.get('complete'):
+            return False
+        if latest.get('after') and after and latest['after'] > after:
+            return True
+        u.put('rp_professional_index_meta', 'v1', {'after': after, 'complete': complete, 'updatedAt': now_ms()})
+        return not complete
+    return store.run(save)
 
 
 def subscription_state(u, uid):
@@ -264,7 +359,9 @@ def signed(actor):
 def blocked(u, actor_id, other_id):
     if not actor_id or actor_id == other_id:
         return False
-    return any((u.get('rp_blocks', digest(a + ':' + b)) or {}).get('active') for a, b in ((actor_id, other_id), (other_id, actor_id)))
+    return any((u.get('rp_blocks', digest(a + ':' + b)) or {}).get('active')
+               or (u.get('network_blocks', a + ':' + b) or {}).get('active')
+               for a, b in ((actor_id, other_id), (other_id, actor_id)))
 
 
 def visible(u, item, actor):
@@ -292,6 +389,15 @@ def clean_item(item, u=None, actor=None):
     out = {k: v for k, v in item.items() if k not in private}
     if item['kind'] == 'tender':
         out['contact'] = ''
+    if item.get('reference'):
+        card = None
+        if u is not None:
+            from repaidians_opportunities import hydrate
+            card = hydrate(u, item['reference'], actor or {'user': None})
+        # The stored post contains just source/id. All commercial details are
+        # projected afresh from native records; withdrawn sources expose none.
+        out['referenceCard'] = card
+        out['referenceUnavailable'] = card is None
     if u is not None and actor:
         uid = (actor.get('user') or {}).get('id')
         for action, flag in (('likes', 'liked'), ('saved', 'saved')):
@@ -314,7 +420,9 @@ def prefetch_blocks(u, actor, ids):
     uid = (actor.get('user') or {}).get('id')
     if uid:
         other = set(ids) - {uid}
-        u.prefetch([('rp_blocks', digest(left + ':' + right)) for key in other for left, right in ((uid, key), (key, uid))])
+        pairs = [(left, right) for key in other for left, right in ((uid, key), (key, uid))]
+        u.prefetch([('rp_blocks', digest(left + ':' + right)) for left, right in pairs]
+                   + [('network_blocks', left + ':' + right) for left, right in pairs])
 
 
 def feed_page(u, actor, kind='post', trade='all', mode='all', cursor=None, limit=20, author=None):
@@ -359,6 +467,10 @@ def feed_page(u, actor, kind='post', trade='all', mode='all', cursor=None, limit
     more = bool(examined and (len(items) == limit or len(scans) >= limit * 3 + 1))
     if uid:
         u.prefetch([('rp_activity', digest(uid + ':' + action + ':' + item['id'])) for item in items for action in ('likes', 'saved')])
+    references = [item['reference'] for item in items if item.get('reference')]
+    if references:
+        from repaidians_opportunities import reference_pairs
+        u.prefetch(reference_pairs(references))
     return {'items': [clean_item(item, u, actor) for item in items], 'members': members_for(u, [item['authorId'] for item in items], actor),
             'nextCursor': cursor_encode(examined) if more else None}
 
@@ -463,6 +575,9 @@ def install(core):
                                 secure=core.USE_FIRESTORE or request.url.scheme == 'https', samesite='lax', path='/')
         return {'user': None, 'subject': 'guest_' + digest(cookie)}
 
+    # The native opportunity bridge shares this authentication/cookie path.
+    core.repaidians_actor = actor
+
     @r.get('/state')
     def state(a=Depends(actor)):
         def read(u):
@@ -509,17 +624,38 @@ def install(core):
         return store.run(lambda u: feed_page(u, a, kind, trade, mode, cursor, limit))
 
     @r.get('/members')
-    def members(search: str = '', cursor: str | None = None, limit: int = 20, a=Depends(actor)):
-        if not 1 <= limit <= 50 or len(search) > 100:
+    def members(search: str = '', cursor: str | None = None, limit: int = 20, trade: str = '', city: str = '',
+                workStatus: str = '', professionalType: str = '', a=Depends(actor)):
+        if not 1 <= limit <= 50 or len(search) > 100 or len(city) > 80:
             fail('INVALID_SEARCH', 'Keep searches and page sizes within the supported limit.', 422)
+        filters = {key: value for key, value in {'trade': trade, 'city': normalized_city(city),
+                   'workStatus': workStatus, 'professionalType': professionalType}.items() if value and value != 'all'}
+        if filters.get('trade') and filters['trade'] not in TRADES or filters.get('workStatus') and filters['workStatus'] not in WORK_STATUSES or filters.get('professionalType') and filters['professionalType'] not in PROFESSIONAL_TYPES:
+            fail('INVALID_FILTER', 'Choose a supported trade, work status and profile type.', 422)
         prefix = search.strip().casefold()[:20]
+        indexing = False
+        if filters:
+            store.run(lambda u: browse(u, a))
+            indexing = reindex_professional_members(core, 5)
         def read(u):
             browse(u, a)
             if prefix and len(prefix) < 2:
-                return {'members': [], 'nextCursor': None}
-            rows = query(u, 'rp_search_' + digest(prefix) if prefix else 'rp_member_directory', limit + 1, cursor_decode(cursor))
-            results = members_for(u, [row['id'] for row in rows[:limit] if row.get('active', True)], a)
-            return {'members': results, 'nextCursor': cursor_encode(rows[limit - 1]['sortKey']) if len(rows) > limit else None}
+                return {'members': [], 'nextCursor': None, 'indexing': indexing}
+            source = 'rp_search_' + digest(prefix) if prefix else 'rp_member_filter_' + filter_key(filters) if filters else 'rp_member_directory'
+            scan_limit = min(100, limit * 3 + 1)
+            rows = query(u, source, scan_limit, cursor_decode(cursor))
+            found = {member['id']: member for member in members_for(u, [row['id'] for row in rows if row.get('active', True)], a)}
+            results = []
+            examined = None
+            for row in rows:
+                examined = row['sortKey']
+                member = found.get(row['id']) if row.get('active', True) else None
+                if member and all((normalized_city(member.get(key, '')) if key == 'city' else member.get(key)) == value for key, value in filters.items()):
+                    results.append(member)
+                    if len(results) >= limit:
+                        break
+            more = bool(examined and (len(results) == limit or len(rows) >= scan_limit))
+            return {'members': results, 'nextCursor': cursor_encode(examined) if more else None, 'indexing': indexing}
         return store.run(read)
 
     @r.get('/members/{member_id}')
@@ -543,9 +679,11 @@ def install(core):
             browse(u, a)
             member = member_ensure(u, user)
             values = body.model_dump(exclude_none=True)
-            for field in ('name', 'bio'):
+            for field in ('name', 'bio', 'headline', 'city'):
                 if field in values:
                     values[field] = values[field].strip()
+            if 'skills' in values:
+                values['skills'] = list(dict.fromkeys(skill.strip() for skill in values['skills'] if skill.strip()))
             if 'name' in values and len(values['name']) < 2:
                 fail('INVALID_NAME', 'Enter your display name.', 422)
             if values.get('avatarUrl'):
@@ -573,12 +711,20 @@ def install(core):
             pro(u, a)
             prior = replay(u, user['id'], body, 'publish')
             if prior:
-                return prior
+                original = u.get('rp_publications', prior['item']['id'])
+                if not original or original.get('deleted'):
+                    fail('PUBLICATION_REMOVED', 'This publication was already removed.', 409)
+                return {'item': clean_item(original, u, a)}
             member = member_ensure(u, user)
             rate(u, user['id'], 'publish', 30)
             stamp = now_ms()
             if body.visibility == 'trade' and body.trade != member['trade']:
                 fail('TRADE_REQUIRED', 'Private trade posts must match your profile trade.', 422)
+            if body.reference:
+                if body.kind != 'post':
+                    fail('REFERENCE_POST_REQUIRED', 'Share native opportunities and products in a feed post.', 422)
+                from repaidians_opportunities import authorizepublish
+                authorizepublish(u, user, body.reference.model_dump())
             if body.kind == 'tender':
                 if not all((body.title and body.title.strip(), body.caption.strip(), body.location and body.location.strip(), body.budgetRupees, body.slots, body.deadline, body.contact and body.contact.strip())):
                     fail('TENDER_DETAILS_REQUIRED', 'Provide title, details, location, budget, slots, deadline and contact.', 422)
@@ -587,8 +733,8 @@ def install(core):
                 if body.media:
                     fail('INVALID_MEDIA', 'Tender cards use structured project details.', 422)
             elif body.kind == 'post':
-                if not body.media or any(m.kind != 'image' for m in body.media):
-                    fail('PHOTO_REQUIRED', 'Choose one to ten photos for a post.', 422)
+                if not body.media and not body.reference or any(m.kind != 'image' for m in body.media):
+                    fail('PHOTO_REQUIRED', 'Choose photos or an available native opportunity/product for a post.', 422)
             elif len(body.media) != 1 or (body.kind == 'reel' and body.media[0].kind != 'video'):
                 fail('MEDIA_REQUIRED', 'Choose one video for a reel or one photo/video for a story.', 422)
             key = str(uuid.uuid4())
@@ -610,6 +756,8 @@ def install(core):
                         sortKey=sort_key(stamp, key), deleted=False, mediaIds=media_ids, likeCount=0, commentCount=0)
             if body.kind == 'post':
                 item['media'] = medias
+                if body.reference:
+                    item['reference'] = body.reference.model_dump()
             elif body.kind in ('story', 'reel'):
                 item['media'] = medias[0]
                 if body.kind == 'story':
@@ -910,7 +1058,7 @@ def install(core):
             for row in chosen:
                 item = u.get('rp_publications', row['targetId'])
                 results.append({**{k: v for k, v in row.items() if k != 'sortKey'},
-                                'publication': clean_item(item) if item else None,
+                                'publication': clean_item(item, u) if item else None,
                                 'publicationDeleted': bool(item and item.get('deleted'))})
             audit(u, 'RepaidiansReportsViewed', admin['id'], report_ids=[row['id'] for row in chosen])
             return {'reports': results, 'members': members,

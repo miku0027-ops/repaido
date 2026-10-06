@@ -3,6 +3,7 @@ import type {
   CommunityComment, CommunityMedia, CommunityMember, CommunityMessage, CommunityPage,
   CommunityPost, CommunityReel, CommunitySnapshot, CommunityStory, CommunityTender,
   CommunityNotification, CommunityThread, PublicationDraft, SubscriptionStatus, Trade,
+  ProfessionalFields,ProfessionalFilters,OpportunityFilters,OpportunityPage,OpportunityReference,CommunityOpportunity,
 } from '../types/repaidians';
 
 export const FREE_BROWSE_MS = 15 * 60 * 1000;
@@ -73,12 +74,24 @@ export const chargeBrowsing = (active: boolean, keepalive = false) => communityR
 export function subscribe(listener: () => void): () => void {
   window.addEventListener(UPDATE, listener);return () => window.removeEventListener(UPDATE, listener);
 }
-export function feed(kind: 'post'|'story'|'reel'|'tender', trade: Trade|'all' = 'all', mode = 'all', cursor = '', signal?:AbortSignal) {
-  const params = new URLSearchParams({kind,trade,mode,limit:'12'});
+export function feed(kind: 'post'|'story'|'reel'|'tender', trade: Trade|'all' = 'all', mode = 'all', cursor = '', signal?:AbortSignal, limit = 12) {
+  const params = new URLSearchParams({kind,trade,mode,limit:String(Math.max(1,Math.min(50,Math.floor(limit))))});
   if(cursor)params.set('cursor',cursor);
   return communityRequest<CommunityPage<CommunityPost|CommunityStory|CommunityReel|CommunityTender>>('/feed?' + params, {signal});
 }
-export const searchMembers = (query: string, signal?:AbortSignal) => communityRequest<{members:CommunityMember[];nextCursor?:string|null}>('/members?search='+encodeURIComponent(query.replace(/^@/,''))+'&limit=20', {signal});
+export const searchMembers = (query:string,signal?:AbortSignal,filters:ProfessionalFilters={},cursor='') => {
+  const params=new URLSearchParams({search:query.replace(/^@/,''),limit:'20'});
+  for(const key of ['trade','city','workStatus','professionalType'] as const)if(filters[key]&&filters[key]!=='all')params.set(key,filters[key]!);
+  if(cursor||filters.cursor)params.set('cursor',cursor||filters.cursor!);
+  return communityRequest<{members:CommunityMember[];nextCursor?:string|null;indexing?:boolean}>('/members?'+params,{signal});
+};
+export const opportunities=(filters:OpportunityFilters={},signal?:AbortSignal)=>{
+  const params=new URLSearchParams();
+  for(const [key,value] of Object.entries(filters))if(value!==undefined&&value!=='')params.set(key,String(value));
+  return communityRequest<OpportunityPage>('/opportunities?'+params,{signal});
+};
+export const opportunityDetails=(reference:OpportunityReference)=>communityRequest<CommunityOpportunity>('/opportunities/'+encodeURIComponent(reference.source)+'/'+encodeURIComponent(reference.id));
+export const saveOpportunity=(reference:OpportunityReference,active:boolean)=>mutate<{saved:boolean}>('/opportunities/'+encodeURIComponent(reference.source)+'/'+encodeURIComponent(reference.id)+'/saved','PUT',{active});
 export const memberProfile = (id: string) => communityRequest<{member:CommunityMember;posts:CommunityPost[];reels:CommunityReel[];stories:CommunityStory[];stats:{followers:number;following:number;posts:number;reels:number}}>('/members/'+encodeURIComponent(id));
 export const toggleActivity = (_account: string, kind: 'likes'|'saved', id: string, active: boolean) => mutate<{active:boolean;likeCount?:number}>('/activity/'+kind+'/'+encodeURIComponent(id), 'PUT', {active});
 export const follow = (_account: string, id: string, active: boolean) => mutate('/follow/'+encodeURIComponent(id), 'PUT', {active});
@@ -89,7 +102,7 @@ export const messagesPage = (id: string, cursor = '') => communityRequest<{messa
 export const threadsPage = () => communityRequest<{threads:CommunityThread[];members:CommunityMember[];nextCursor:string|null}>('/threads?limit=30');
 export const bid = (_account: string, id: string) => command('/bids/'+encodeURIComponent(id), {});
 export const tenderContact = (id: string) => communityRequest<{contact:string;tenderId:string}>('/tenders/'+encodeURIComponent(id)+'/contact');
-export const updateProfile = (_account: string, name: string, trade: Trade, bio: string) => mutate('/profile', 'PATCH', {name,trade,bio});
+export const updateProfile = (_account:string,name:string,trade:Trade,bio:string,professional:ProfessionalFields={})=>mutate('/profile','PATCH',{name,trade,bio,...professional});
 export const updateAvatar = (avatarUrl: string) => mutate('/profile', 'PATCH', {avatarUrl});
 export const publish = (_account: string, draft: PublicationDraft) => command<{item:{id:string}}>('/publications', draft as unknown as Record<string,unknown>);
 export const deletePublication = (id: string) => mutate('/publications/'+encodeURIComponent(id), 'DELETE');

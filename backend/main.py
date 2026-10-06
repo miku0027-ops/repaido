@@ -222,6 +222,7 @@ async def lifespan(app):
         init_firestore_seed()
     operations_store.init()
     repaidians.initialize(sys.modules[__name__])
+    repaidians_opportunities.initialize(sys.modules[__name__])
     async def run_scheduler():
         while True:
             try:
@@ -1126,3 +1127,5 @@ import repaidians_billing
 repaidians_billing.install(sys.modules[__name__])
 import repaidians
 repaidians.install(sys.modules[__name__])
+import repaidians_opportunities
+repaidians_opportunities.install(sys.modules[__name__])

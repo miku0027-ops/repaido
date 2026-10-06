@@ -4,6 +4,8 @@ import type {QuickMarket} from './HomeQuickActions';
 import {Marketplace} from './Marketplace';
 import {RentalMarket} from './Rentals';
 import { apiFetch,apiAssetUrl } from '../services/api';
+import {opportunityDetails} from '../services/repaidiansService';
+import type {OpportunityReference} from '../types/repaidians';
 import { cartService } from '../services/cartService';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -37,7 +39,8 @@ import {
   Laptop,
   Smartphone,
   RotateCcw,
-  Award
+  Award,
+  Share2
 } from 'lucide-react';
 import './refurbished-market.css';
 import type { SparePartProduct, SpareCartItem, SparePartCategory } from '../types';
@@ -52,6 +55,7 @@ interface SparePartsShopProps {
   onBackToExplore?: () => void;
   authToken?: string;
   onSignIn?:()=>void;
+  onShare?:(reference:OpportunityReference)=>void;
   initialSection?: StoreSection;
   onSectionChange?: (sec: StoreSection) => void;
 }
@@ -59,7 +63,7 @@ interface SparePartsShopProps {
 export type StoreSection = 'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned';
 export type SparesConditionFilter = 'all' | 'new' | 'refurbished';
 
-export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBackToExplore, authToken, onSignIn, initialSection, onSectionChange,quickIntent }) => {
+export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBackToExplore, authToken, onSignIn,onShare, initialSection, onSectionChange,quickIntent }) => {
   const [sellLaunch,setSellLaunch]=useState(0);
   const [section, setSectionState] = useState<StoreSection>(initialSection || 'spares');
   const setSection = (sec: StoreSection) => {
@@ -95,6 +99,17 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
   useEffect(()=>{alignMarketSection(section);},[section]);
 
   const [detail, setDetail] = useState<SparePartProduct|null>(null);
+  const [intentError,setIntentError]=useState('');
+  const [shareableProductId,setShareableProductId]=useState<string|null>(null);
+  const handledProductId=useRef<string|undefined>(undefined);
+  useEffect(()=>{
+    let active=true;setShareableProductId(null);
+    if(!detail||!onShare||!authToken)return;
+    void opportunityDetails({source:'inventory',id:detail.id}).then(card=>{
+      if(active&&card.available&&card.shareable)setShareableProductId(detail.id);
+    }).catch(()=>{});
+    return()=>{active=false;};
+  },[detail?.id,onShare,authToken]);
   const [liveShops,setLiveShops]=useState<{id:string;shopName:string;address:string;city:string;lat:number;lng:number}[]>([]);
   const [catalogError,setCatalogError]=useState(''),[catalogLoading,setCatalogLoading]=useState(true),[catalogAttempt,setCatalogAttempt]=useState(0);
   const shop = detail ? liveShops.find(s => s.id === detail.shopId) : undefined;
@@ -153,6 +168,16 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
     }).finally(()=>{if(active)setCatalogLoading(false);});
     return()=>{active=false;};
   }, [catalogAttempt]);
+  useEffect(()=>{
+    const id=quickIntent?.productId;
+    if(!id){handledProductId.current=undefined;setIntentError('');return;}
+    if(catalogLoading||catalogError||handledProductId.current===id)return;
+    handledProductId.current=id;
+    const product=products.find(item=>item.id===id&&item.status==='approved'&&item.stock>0);
+    if(!product){setDetail(null);setIntentError('This product is no longer available in the live catalogue. Browse another item or retry products.');return;}
+    setIntentError('');setDetail(product);
+    setSection(product.condition==='refurbished'?'refurbished':'spares');
+  },[quickIntent?.productId,products,catalogLoading,catalogError]);
 
   const standardCategories = [
     { id: 'all', label: section==='refurbished'?'All refurbished':'All spares', icon: Layers },
@@ -356,6 +381,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
         </div>
 
       {/* 3. SECTION CONTENT PANELS */}
+      {intentError&&<p role="alert" className="prime-placement-note">{intentError}<button type="button" onClick={()=>{handledProductId.current=undefined;setCatalogAttempt(value=>value+1);}}>Retry products</button></p>}
       {(section === 'spares'||section==='refurbished') && (
         <section id={`panel-${section}`} role="tabpanel" aria-labelledby={`tab-${section}`} className="stores-module-container">
           {catalogError && (
@@ -626,14 +652,14 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       {/* EXCHANGE TAB CONTAINER */}
       {section === 'exchange' && (
         <section id="panel-exchange" role="tabpanel" aria-labelledby="tab-exchange" className="stores-module-container">
-          <Marketplace mode="exchange" onSignIn={onSignIn} />
+          <Marketplace mode="exchange" onSignIn={onSignIn} onShare={onShare} />
         </section>
       )}
 
       {/* PRE-OWNED TAB CONTAINER */}
       {section === 'preowned' && (
         <section id="panel-preowned" role="tabpanel" aria-labelledby="tab-preowned" className="stores-module-container">
-          <Marketplace key={`${sellLaunch}-${quickIntent?.listingId||''}`} initialListingId={quickIntent?.listingId} initialLocation={quickIntent?.location} initialSearch={quickIntent?.search} mode="second_hand" onSignIn={onSignIn} initialCreate={!!sellLaunch||quickIntent?.sell} />
+          <Marketplace key={`${sellLaunch}-${quickIntent?.listingId||''}`} initialListingId={quickIntent?.listingId} initialLocation={quickIntent?.location} initialSearch={quickIntent?.search} mode="second_hand" onSignIn={onSignIn} onShare={onShare} initialCreate={!!sellLaunch||quickIntent?.sell} />
         </section>
       )}
 
@@ -767,6 +793,8 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           <p className="spare-detail-note">Catalogue information may change. Confirm stock, compatibility and the final price with the shop before travelling.</p>
           {directions ? <a className="spare-directions" href={directions} target="_blank" rel="noopener noreferrer">Directions to store <ArrowRight size={18} aria-hidden="true"/><span className="sr-only"> (opens Google Maps in a new tab)</span></a> : <p role="status">Directions will be available when the shop adds its location.</p>}
         </section>
+        <button type="button" className="ops-primary" disabled={detail.stock<=0} onClick={()=>addToCart(detail)}><ShoppingBag size={16}/> Add to cart</button>
+        {shareableProductId===detail.id&&onShare&&<button type="button" className="ops-primary" onClick={()=>onShare({source:'inventory',id:detail.id})}><Share2 size={16}/> Share on Repaidians</button>}
       </Modal>}
 
       {/* Floating Cart Quick Access Pill (Positioned neatly above bottom nav bar) */}

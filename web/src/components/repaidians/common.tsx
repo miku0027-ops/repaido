@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useId,useRef,useState} from 'react';
 import {BadgeCheck,User,ImageOff,Camera} from 'lucide-react';
 import type {CommunityMedia,CommunityMember} from '../../types/repaidians';
 import {loadMedia,trades} from '../../services/repaidiansService';
@@ -11,10 +11,12 @@ export function timeAgo(at: number) {
 }
 export function Avatar({member,size='normal'}:{member:CommunityMember;size?:'normal'|'large'}) {
   const {url,failed,setFailed}=useAssetUrl(member.avatarUrl);
-  return <span className={'rp-avatar rp-avatar-'+size}>{url&&!failed?<img src={url} alt="" loading="lazy" onError={()=>setFailed(true)}/>:<User size={size==='large'?32:20} aria-hidden="true"/>}</span>;
+  const initials=member.name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(name=>Array.from(name)[0]).join('').toLocaleUpperCase();
+  return <span className={'rp-avatar rp-avatar-'+size}>{url&&!failed?<img src={url} alt="" loading="lazy" onError={()=>setFailed(true)}/>:initials?<span className="rp-avatar-initials" aria-hidden="true">{initials}</span>:<User size={size==='large'?32:20} aria-hidden="true"/>}</span>;
 }
 export function Author({member,onOpen}:{member:CommunityMember;onOpen:()=>void}) {
-  return <button className="rp-author" onClick={onOpen} aria-label={'View '+member.name+' profile'}><Avatar member={member}/><span><strong>{member.handle||member.name}{member.reviewed&&<BadgeCheck size={15} aria-label="Reviewed Repaido profile"/>}</strong><small>{member.name} · {tradeName(member.trade)}</small></span></button>;
+  const reviewedId=useId(),detail=(member.handle?'@'+member.handle+' · ':'')+tradeName(member.trade);
+  return <button className="rp-author" onClick={onOpen} aria-label={'View '+member.name+' profile'} aria-describedby={member.reviewed?reviewedId:undefined}><Avatar member={member}/><span className="rp-author-details"><strong><span className="rp-author-name" title={member.name}>{member.name}</span>{member.reviewed&&<BadgeCheck size={15} aria-hidden="true"/>}</strong><small title={detail}>{detail}</small>{member.reviewed&&<span id={reviewedId} className="sr-only">Reviewed Repaido professional</span>}</span></button>;
 }
 export function Media({asset,active=false,muted=true,controls=false,paused=false,loop=false,onEnded,className=''}:{asset:CommunityMedia;active?:boolean;muted?:boolean;controls?:boolean;paused?:boolean;loop?:boolean;onEnded?:()=>void;className?:string}) {
   const [visible,setVisible]=useState(false),container=useRef<HTMLDivElement>(null);

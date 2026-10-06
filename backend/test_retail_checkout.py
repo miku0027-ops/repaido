@@ -14,8 +14,8 @@ def gateway(monkeypatch):
  calls=[]
  order=dict(id='order_fixture',amount=22600,currency='INR')
  payment=dict(id='pay_fixture',order_id='order_fixture',amount=22600,currency='INR',status='captured',captured=True,amount_refunded=0)
- def send(path,**kw):
-  calls.append((path,kw))
+ def send(path,body=None,payout=False,key=None):
+  calls.append((path,dict(body=body,payout=payout,key=key)))
   if path=='orders':return order
   if path.startswith('orders?'):return {'items':[order]}
   if path.endswith('/payments'):return {'items':[payment]}
@@ -23,6 +23,16 @@ def gateway(monkeypatch):
   raise AssertionError(path)
  monkeypatch.setattr(retail_checkout,'razorpay',send);monkeypatch.setattr(retail_checkout,'payments_ready',lambda:True)
  return calls,payment
+
+def test_create_uses_real_gateway_signature_and_exact_saved_order(api,monkeypatch):
+ seed();calls,_=gateway(monkeypatch)
+ response=api.post('/operations/retail/orders',headers=auth('customer'),json=body())
+ assert response.status_code==201,response.text
+ saved=response.json()
+ assert saved['state']=='payment_pending' and saved['order_id']=='order_fixture'
+ creates=[details for path,details in calls if path=='orders']
+ assert creates==[dict(body=dict(amount=saved['total_paise'],currency='INR',receipt=saved['receipt'],notes={'retail_order':saved['id']}),payout=False,key=None)]
+ assert saved['total_paise']==22600
 
 def test_mixed_quote_excludes_tax_and_new_items(api):
  seed();b=body();r=api.post('/operations/retail/quote',headers=auth('customer'),json={k:b[k] for k in ['items','coupon_code']});assert r.status_code==200,r.text
@@ -67,9 +77,9 @@ def test_payment_retry_stock_and_receipt_are_atomic(api,monkeypatch):
 
 def test_unknown_gateway_outcome_reconciles_without_second_create(api,monkeypatch):
  seed();calls,payment=gateway(monkeypatch);real=retail_checkout.razorpay
- def uncertain(path,**kw):
+ def uncertain(path,body=None,payout=False,key=None):
   if path=='orders':raise TimeoutError('unknown')
-  return real(path,**kw)
+  return real(path,body=body,payout=payout,key=key)
  monkeypatch.setattr(retail_checkout,'razorpay',uncertain);b=body()
  assert api.post('/operations/retail/orders',headers=auth('customer'),json=b).status_code==503
  r=api.post('/operations/retail/orders',headers=auth('customer'),json=b);assert r.status_code==201,r.text

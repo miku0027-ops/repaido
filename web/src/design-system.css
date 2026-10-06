@@ -1317,3 +1317,8 @@ html.large-text .repaido-header-signin-btn {white-space:nowrap;}
 
 /* Trailing room lets even the final Market option settle at the left inset. */
 @media(max-width:768px){.stores-segmented-nav::after{content:"";display:block;flex:0 0 var(--market-rail-tail,0px);pointer-events:none}.stores-segmented-nav{overscroll-behavior-x:contain}}
+
+/* Native work and commerce handoffs preserve a clear return to the community. */
+.community-return-bar{position:fixed;z-index:45;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));max-width:calc(100vw - 32px)}
+.community-return-bar button{display:flex;align-items:center;gap:8px;min-height:44px;background:var(--ui-surface);color:var(--ui-ink);border:1px solid var(--ui-line);border-radius:14px;padding:10px 14px;font-size:13px;font-weight:700;box-shadow:0 4px 18px #14284a16}
+.community-route-status{position:fixed;z-index:200;bottom:96px;left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:12px 16px;background:var(--ui-surface);color:var(--ui-ink);border:1px solid var(--ui-line);border-radius:14px;font-size:13px}

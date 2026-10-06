@@ -33,7 +33,11 @@ import type { B2BQuotation } from './types/b2b';
 import { b2bService } from './services/b2bService';
 import { cartService } from './services/cartService';
 import { TendersPlatform } from './components/TendersPlatform';
-import { Fragment, lazy, Suspense, useEffect, useState } from 'react';
+import {ContractorPortal} from './components/ContractorPortal';
+import {ProjectDetail,Applications} from './components/WorkNetwork';
+import {opportunityDetails} from './services/repaidiansService';
+import type {CommunityOpportunity,CommunityTab,OpportunityReference,OpportunitySource} from './types/repaidians';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bell,
   Package,
@@ -202,6 +206,9 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 
 export default function App() {
   const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
+  const [communityStart,setCommunityStart]=useState<CommunityTab>('feed'),[communityReference,setCommunityReference]=useState<OpportunityReference>();
+  const [communityReturn,setCommunityReturn]=useState(false),[communityNative,setCommunityNative]=useState<{kind:'career';card:CommunityOpportunity}|{kind:'applications'}|{kind:'workspace';tab:'Tenders'|'Hiring';tenderId?:string}|null>(null);
+  const [communityTenderId,setCommunityTenderId]=useState<string>(),[communityRouteBusy,setCommunityRouteBusy]=useState(false),[communityRouteError,setCommunityRouteError]=useState('');
   const [homePreferred,setHomePreferred]=useState<{id:string;name:string}>();
   const [hireBookings,setHireBookings]=useState(new URLSearchParams(location.search).has('hiring'));
   const [homeHub,setHomeHub]=useState<string|null>(null),[homePlans,setHomePlans]=useState(new URLSearchParams(location.search).has('home-plan'));
@@ -370,6 +377,8 @@ export default function App() {
     setUser({id:current.uid,name:current.displayName||'',email:current.email||undefined,phone:current.phoneNumber||undefined,photoURL:current.photoURL||undefined});
     try{const fresh=await current.getIdToken();if(auth.currentUser?.uid===current.uid)setToken(fresh);}catch{setError('Connection interrupted. Your account is still signed in. Please retry.');}
   }),[]);
+  const communityActor=useRef(user?.id||'guest');communityActor.current=user?.id||'guest';
+  useEffect(()=>{setCommunityNative(null);setCommunityReference(undefined);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityRouteError('');},[user?.id]);
   const customerIdentity=useCustomerIdentity(user,portal);
   const [offerSettings,setOfferSettings]=useState(false);
   useEffect(()=>{const campaign=new URLSearchParams(location.search).get('campaign');if(!campaign)return;let alive=true;const body=JSON.stringify({city:place.city,placement:'push'});const load=async()=>{try{await auth.authStateReady();const r=auth.currentUser?await operation<{cards:Promotion[]}>('/campaigns/feed/personal',{method:'POST',body}):await apiFetch('/api/operations/campaigns/feed',{method:'POST',headers:{'Content-Type':'application/json'},body}).then(r=>r.json());const match=r.cards.find((c:Promotion)=>c.id===campaign);if(alive&&match)openPromotion(match);else if(alive)setError('This offer is no longer available. You can still browse regular services.');}catch{if(alive)setError('Offer could not load. Please retry from notifications.');}};void load();return()=>{alive=false;};},[place.city]);
@@ -713,10 +722,37 @@ export default function App() {
     return b.status === 'cancelled';
   });
 
+  const backToCommunity=()=>{navigatePortal('customer');setCommunityNative(null);setMarketProfile(null);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityStart('opportunities');setCommunityReference(undefined);setRepaidiansOpen(true);};
+  const shareNative=useCallback((reference:OpportunityReference)=>{setCommunityStart('opportunities');setCommunityReference(reference);setCommunityNative(null);setRepaidiansOpen(true);},[]);
+  const openCommunityListing=async(card:CommunityOpportunity)=>{
+    if(communityRouteBusy)return;const requestActor=communityActor.current;setCommunityRouteBusy(true);setCommunityRouteError('');
+    try{
+      const current=await opportunityDetails({source:card.source,id:card.id});
+      if(communityActor.current!==requestActor)return;
+      if(current.source==='career'&&!current.details)throw new Error('This job notice is unavailable. Please refresh opportunities.');
+      setCommunityReturn(true);setCommunityReference(undefined);setRepaidiansOpen(false);
+      if(current.source==='career'){
+        setCommunityNative({kind:'career',card:current});
+      }else if(current.source==='contract'){
+        setCommunityTenderId(current.id);setMarketSubTab('tenders');setTab('ShopSpares');
+      }else{
+        setMarketSubTab('spares');
+        if(current.source==='second_hand'){openStoreSection('preowned');setMarketQuick({listingId:current.id});}
+        else{openStoreSection(current.condition==='refurbished'?'refurbished':'spares');setMarketQuick({productId:current.id,...(current.condition==='refurbished'?{condition:'refurbished' as const}:{})});}
+      }
+    }catch(problem){if(communityActor.current===requestActor)setCommunityRouteError((problem as Error).message);}finally{setCommunityRouteBusy(false);}
+  };
+  const manageCommunity=(source:OpportunitySource|'applications')=>{
+    setCommunityRouteError('');setCommunityReturn(true);setCommunityReference(undefined);setRepaidiansOpen(false);
+    if(source==='applications')setCommunityNative({kind:'applications'});
+    else if(source==='contract'||source==='career')setCommunityNative({kind:'workspace',tab:source==='career'?'Hiring':'Tenders'});
+    else if(source==='inventory')navigatePortal('shop-admin');
+    else{setMarketSubTab('spares');openStoreSection('preowned');setMarketQuick({sell:true});}
+  };
   if (portal === 'worker') {
     return (
       <LiveWorkerPortal
-        onBack={() => navigatePortal('customer')}
+        onBack={() => communityReturn?backToCommunity():navigatePortal('customer')}
         onOpenB2BMarket={() => {
           navigatePortal('customer');
           setTab('ShopSpares');
@@ -726,10 +762,10 @@ export default function App() {
     );
   }
   if (portal === 'shop-admin') {
-    return <OperationsAdmin shop onBack={() => navigatePortal('customer')} />;
+    return <OperationsAdmin shop onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} />;
   }
   if (portal === 'company-admin') {
-    return <OperationsAdmin onBack={() => navigatePortal('customer')} />;
+    return <OperationsAdmin onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} />;
   }
 
   return (
@@ -1148,6 +1184,7 @@ export default function App() {
                     authToken={token}
                     initialSection={storeSection}
                     quickIntent={marketQuick}
+                    onShare={shareNative}
                     onSectionChange={setStoreSection}
                   />
                 ) : marketSubTab === 'b2b' ? (
@@ -1158,7 +1195,9 @@ export default function App() {
                   />
                 ) : (
                   <TendersPlatform
-                    onOpenContractorPortal={() => {
+                    initialTenderId={communityTenderId}
+                    onOpenContractorPortal={tenderId => {
+                      if(communityReturn){setCommunityNative({kind:'workspace',tab:'Tenders',tenderId});return;}
                       setPortal('worker');
                       window.history.pushState({}, '', '/worker?mode=contractor');
                     }}
@@ -1346,12 +1385,16 @@ export default function App() {
         </div>
       </footer>
 
+      {communityReturn&&!repaidiansOpen&&<div className="community-return-bar"><button className="btn-outline" onClick={backToCommunity}><ArrowLeft size={17}/>Back to Repaidians</button></div>}
+      {communityRouteBusy&&<p className="community-route-status" role="status">Checking this listing’s latest details…</p>}
+      {communityRouteError&&<Modal title="Listing unavailable" onClose={()=>setCommunityRouteError('')}><p role="alert">{communityRouteError}</p><button className="btn-outline" onClick={()=>setCommunityRouteError('')}>Back to opportunities</button></Modal>}
+      {communityNative&&<Modal title={communityNative.kind==='career'?'Project opportunity':communityNative.kind==='applications'?'My applications':'Business workspace'} className="work-network-sheet" onClose={backToCommunity}>{communityNative.kind==='career'?<ProjectDetail project={communityNative.card.details!} uid={user?.id} onApplied={()=>setCommunityNative({kind:'applications'})}/>:communityNative.kind==='applications'?<Applications uid={user?.id}/>:<ContractorPortal initialTab={communityNative.tab} initialTenderId={communityNative.tenderId} onBackToCustomer={backToCommunity} onPartnerProfile={()=>{setCommunityNative(null);setTab('You');}}/>}</Modal>}
       {tab==='Explore'&&<RepaidiansFab onOpen={()=>setRepaidiansOpen(true)}/>}
-      {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={()=>setRepaidiansOpen(false)}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} initialPublicationId={new URLSearchParams(location.search).get('repaidians')||undefined} onSignIn={()=>{setRepaidiansOpen(false);setAuthMode('signin');setSheet('auth');setError('');}} onClose={()=>setRepaidiansOpen(false)} onBook={trade=>{setRepaidiansOpen(false);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
+      {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={()=>setRepaidiansOpen(false)}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} initialTab={communityStart} initialReference={communityReference} onDestination={card=>void openCommunityListing(card)} onManage={manageCommunity} initialPublicationId={communityStart==='feed'?new URLSearchParams(location.search).get('repaidians')||undefined:undefined} onSignIn={()=>{setRepaidiansOpen(false);setAuthMode('signin');setSheet('auth');setError('');}} onClose={()=>setRepaidiansOpen(false)} onBook={trade=>{setRepaidiansOpen(false);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
       {myRentalsOpen&&<Modal title="My rentals" className="rental-modal" onClose={()=>setMyRentalsOpen(false)}><RentalManager onSignIn={()=>setSheet('auth')}/></Modal>}
       {discoveryOpen && <SearchDiscovery onHomeService={id=>{setDiscoveryOpen(false);setQuery('');setHomeHub(id);}} onEvent={hydration.event} onPreferencesChange={hydration.refresh} query={query} onQuery={setQuery} place={place} signedIn={hydration.signedIn} onClose={()=>{setDiscoveryOpen(false);setQuery('');}} onLocation={()=>{setDiscoveryOpen(false);setCityModalOpen(true);}} onSignIn={()=>{setDiscoveryOpen(false);setSheet('auth');}} onBook={service=>{setDiscoveryOpen(false);setQuery('');setSelectedService(service);}}/>}
       {homeDetail&&<HomeServiceDetails service={homeDetail} onClose={()=>setHomeDetail(null)} onBook={()=>{setSelectedService(homeDetail);setHomeDetail(null);}}/>}
-      {marketProfile&&<Modal title={marketProfile==='exchange'?'Let’s exchange':'My used items'} className="market-manager-modal" onClose={()=>setMarketProfile(null)}><Marketplace mode={marketProfile} manage onSignIn={()=>setSheet('auth')}/></Modal>}
+      {marketProfile&&<Modal title={marketProfile==='exchange'?'Let’s exchange':'My used items'} className="market-manager-modal" onClose={()=>setMarketProfile(null)}><Marketplace mode={marketProfile} manage onShare={shareNative} onSignIn={()=>setSheet('auth')}/></Modal>}
       {homeHub!==null&&<HomeHub preferredWorker={homePreferred} onEvent={hydration.event} city={place.city} initialService={homeHub||undefined} onClose={()=>{setHomeHub(null);setHomePreferred(undefined);}} onSignIn={()=>setSheet('auth')} onPlans={()=>{setHomeHub(null);setHomePreferred(undefined);setHomePlans(true);setTab('Bookings');}}/>}
       <CouponWelcome onExplore={scope=>{if(scope==='rental')openStoreSection('rentals');else if(scope==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else setTab('Services');}}/>
       {selectedService && <LiveBooking service={selectedService} city={place.city} promotionId={selectedPromotion} onRemovePromotion={()=>setSelectedPromotion(undefined)} onPromotion={openPromotion} onClose={() => {setSelectedService(null);setSelectedPromotion(undefined);}} onSignIn={() => setSheet('auth')} onBooked={() => { setSelectedService(null);setSelectedPromotion(undefined); setTab('Bookings'); }} />}

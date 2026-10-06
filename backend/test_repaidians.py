@@ -556,3 +556,218 @@ def test_trial_is_server_owned_once_per_uid_survives_devices_profile_and_backfil
     clock[0] = first['endsAt']
     assert api.get('/repaidians/state', headers=auth()).json()['trial']['status'] == 'expired'
     assert api.get('/repaidians/feed', headers=auth()).status_code == 402
+
+
+def test_professional_profile_persistence_filters_validation_and_badge_boundary(api):
+    fields = {'headline': 'Electrical installations and fault diagnosis', 'city': ' Balasore ',
+              'skills': [' Wiring ', 'Troubleshooting', 'Wiring'], 'experienceYears': 7,
+              'workStatus': 'open_to_work', 'professionalType': 'specialist'}
+    updated = api.patch('/repaidians/profile', headers=auth(), json=fields)
+    assert updated.status_code == 200, updated.text
+    member = updated.json()['member']
+    assert member['headline'] == fields['headline'] and member['city'] == 'Balasore'
+    assert member['skills'] == ['Wiring', 'Troubleshooting'] and member['experienceYears'] == 7
+    assert member['workStatus'] == 'open_to_work' and member['professionalType'] == 'specialist'
+    assert member['professionalInfoSource'] == 'profile'
+    assert member['reviewed'] is False and member['role'] == 'Member'
+    assert api.patch('/repaidians/profile', headers=auth(), json={'experienceYears': '7'}).status_code == 422
+    assert api.patch('/repaidians/profile', headers=auth(), json={'experienceYears': 61}).status_code == 422
+    assert api.patch('/repaidians/profile', headers=auth(), json={'skills': ['Skill'] * 13}).status_code == 422
+    assert api.patch('/repaidians/profile', headers=auth(), json={'skills': ['x' * 61]}).status_code == 422
+    assert api.patch('/repaidians/profile', headers=auth(), json={'headline': 'x' * 141}).status_code == 422
+    assert api.patch('/repaidians/profile', headers=auth(), json={'professionalType': 'verified_specialist'}).status_code == 422
+    assert api.patch('/repaidians/profile', headers=auth(), json={'reviewed': True}).status_code == 422
+    with TestClient(api.core.app) as another_device:
+        saved = another_device.get('/repaidians/state', headers=auth()).json()['member']
+        assert saved['skills'] == member['skills'] and saved['headline'] == member['headline']
+    filters = {'city': 'balasore', 'workStatus': 'open_to_work', 'professionalType': 'specialist'}
+    found = api.get('/repaidians/members', params=filters).json()
+    assert [row['id'] for row in found['members']] == ['alice']
+    assert api.get('/repaidians/members', params={**filters, 'search': 'alice'}).json()['members'][0]['id'] == 'alice'
+    assert api.get('/repaidians/members?city=Bhadrak').json()['members'] == []
+    assert api.get('/repaidians/members?workStatus=imaginary').status_code == 422
+    assert api.patch('/repaidians/profile', headers=auth(), json={'city': 'Bhadrak', 'workStatus': 'hiring'}).status_code == 200
+    assert api.get('/repaidians/members', params=filters).json()['members'] == []
+    assert api.get('/repaidians/members?city=bhadrak&workStatus=hiring').json()['members'][0]['id'] == 'alice'
+
+
+def test_professional_worker_defaults_backfill_and_bounded_filter_pagination(api, monkeypatch):
+    stamp = social.now_ms() - 5 * 86400000
+    original_trial_end = stamp + 30 * 86400000
+    def seed(u):
+        for index in range(12):
+            uid = 'old-professional-' + str(index)
+            member = {'id': uid, 'name': 'Registered Worker ' + str(index), 'handle': 'worker.' + str(index),
+                      'trade': 'electrician', 'role': 'Member', 'avatarUrl': '', 'bio': '',
+                      'followersCount': 0, 'followingCount': 0, 'createdAt': stamp + index}
+            u.put('rp_members', uid, member)
+            u.put('rp_member_directory', uid, {'id': uid, 'sortKey': social.sort_key(stamp + index, uid)})
+            u.put('workers', uid, {'id': uid, 'status': 'approved', 'role': 'specialist', 'city': 'Balasore',
+                                    'skills': ['Safe rewiring', 'Fault diagnosis'], 'experience_years': 9, 'online': True,
+                                    'home_address': 'Private residence', 'phone': '9876543210'})
+    api.core.operations_store.run(seed)
+    monkeypatch.setattr(Unit, 'all', lambda *_: (_ for _ in ()).throw(AssertionError('Unbounded profile scan')))
+    first = api.get('/repaidians/members?city=balasore&trade=electrician&professionalType=specialist&limit=2').json()
+    assert first['indexing'] is True and len(first['members']) == 2
+    for _ in range(4):
+        latest = api.get('/repaidians/members?city=Balasore&trade=electrician&professionalType=specialist&limit=2').json()
+        if not latest['indexing']:
+            break
+    assert latest['indexing'] is False
+    seen = []
+    cursor = ''
+    for _ in range(10):
+        page = api.get('/repaidians/members', params={'city': 'BALASORE', 'trade': 'electrician', 'professionalType': 'specialist', 'limit': 2, 'cursor': cursor}).json()
+        seen += [member['id'] for member in page['members']]
+        assert all(member['experienceYears'] == 9 and member['skills'] == ['Safe rewiring', 'Fault diagnosis'] and member['reviewed'] for member in page['members'])
+        assert 'Private residence' not in str(page) and '9876543210' not in str(page)
+        cursor = page['nextCursor']
+        if not cursor:
+            break
+    assert len(seen) == len(set(seen)) == 12
+    member = api.core.operations_store.run(lambda u: u.get('rp_members', 'old-professional-0'))
+    trial = api.core.operations_store.run(lambda u: u.get('rp_trials', 'old-professional-0'))
+    assert member['createdAt'] == stamp and trial['startsAt'] == stamp and trial['endsAt'] == original_trial_end
+
+
+def seed_native_references(api):
+    stamp = time.time()
+    def seed(u):
+        u.put('contract_tenders', 'contract-alice', {
+            'id': 'contract-alice', 'owner_id': 'alice', 'owner_name': 'Alice', 'status': 'open',
+            'title': 'Apartment rewiring', 'scope': 'Install and inspect electrical circuits', 'sector': 'Electrical',
+            'city': 'Balasore', 'budget_paise': 2400000, 'manpower_needed': 3,
+            'deadline': stamp + 86400, 'ends_at': stamp + 10 * 86400,
+            'site_address': 'Private tender worksite', 'contact_phone': '9876543210',
+            'bids': [{'private_proposal': 'Private competing bid'}], 'events': [{'secret': 'Internal action'}],
+        })
+        u.put('shops', 'shop-bob', {'id': 'shop-bob', 'owner_id': 'bob', 'status': 'approved', 'name': 'Bob Electrical', 'city': 'Balasore'})
+        u.put('inventory', 'product-bob', {'id': 'product-bob', 'shop_id': 'shop-bob', 'name': 'Surge protector',
+              'category': 'electrical', 'status': 'approved', 'price_paise': 49000, 'stock': 10,
+              'stock_confirmed_at': stamp, 'condition': 'new', 'reserved': 0})
+        u.put('retail_orders', 'purchase-alice', {'id': 'purchase-alice', 'customer_id': 'alice', 'state': 'paid',
+                                               'payment_id': 'pay_testcapture', 'items': [{'product_id': 'product-bob', 'quantity': 1}]})
+        u.put('workers', 'alice', {'id': 'alice', 'status': 'approved', 'role': 'specialist', 'contractor_verified': True})
+        u.put('contract_projects', 'career-alice', {'id': 'career-alice', 'owner_id': 'alice', 'owner_name': 'Alice',
+              'title': 'Wiring crew opening', 'status': 'planning', 'starts_at': stamp + 86400, 'ends_at': stamp + 10 * 86400,
+              'team': [], 'goals': [], 'site_address': 'Private customer site',
+              'hiring': {'status': 'open', 'sector': 'Electrical', 'city': 'Balasore', 'summary': 'Experienced installers wanted',
+                         'skills': ['Wiring'], 'openings': 2, 'daily_rate_paise': 120000, 'deadline': stamp + 86400}})
+        u.put('market_listings', 'second-alice', {'id': 'second-alice', 'owner_id': 'alice', 'owner_name': 'Alice',
+              'name': 'Pre-owned drill', 'product_type': 'Power tools', 'mode': 'second_hand', 'status': 'published',
+              'city': 'Balasore', 'value_paise': 120000, 'condition': 'Used, tested and functional', 'photo_id': 'photo-safe',
+              'location': {'lat': 21.2, 'lng': 86.5}, 'contact': '9876543210'})
+        u.put('jobs', 'private-task', {'id': 'private-task', 'customer_id': 'bob', 'phone': '9876543210',
+                                     'address': 'Private customer service address', 'state': 'in_progress'})
+    api.core.operations_store.run(seed)
+
+
+def test_linked_publications_validate_native_owner_or_purchase_and_never_private_tasks(api):
+    profile(api)
+    profile(api, 'bob')
+    seed_native_references(api)
+    def publish(source, key, uid='alice', **extra):
+        return api.post('/repaidians/publications', headers=auth(uid), json={
+            'kind': 'post', 'caption': 'From my professional work', 'trade': 'electrician', 'visibility': 'public',
+            'media': [], 'reference': {'source': source, 'id': key}, **extra,
+        })
+    for source, key, expected_kind in [('contract', 'contract-alice', 'tender'), ('career', 'career-alice', 'job'),
+                                       ('inventory', 'product-bob', 'product'), ('second_hand', 'second-alice', 'product')]:
+        response = publish(source, key)
+        assert response.status_code == 201, response.text
+        item = response.json()['item']
+        assert item['media'] == [] and item['reference'] == {'source': source, 'id': key}
+        assert item['referenceCard']['kind'] == expected_kind and item['referenceUnavailable'] is False
+        assert 'Private customer' not in response.text and '9876543210' not in response.text
+        assert 'Private competing' not in response.text and 'Internal action' not in response.text
+    assert publish('contract', 'contract-alice', 'bob').status_code == 403
+    assert publish('inventory', 'product-bob', 'carol').status_code == 403
+    assert publish('career', 'private-task').status_code == 404
+    assert publish('jobs', 'private-task').status_code == 422
+    assert publish('contract', 'unknown-source').status_code == 404
+    assert publish('contract', 'contract-alice', kind='story').status_code == 422
+    assert publish('contract', 'contract-alice', reference={'source': 'contract', 'id': 'contract-alice', 'budgetPaise': 1}).status_code == 422
+
+
+def test_linked_cards_rehydrate_latest_values_retries_and_source_withdrawal(api, monkeypatch):
+    profile(api)
+    profile(api, 'bob')
+    seed_native_references(api)
+    body = {'kind': 'post', 'caption': 'Project announcement', 'trade': 'electrician', 'visibility': 'public', 'media': [],
+            'reference': {'source': 'contract', 'id': 'contract-alice'}, 'clientId': str(uuid.uuid4())}
+    first = api.post('/repaidians/publications', headers=auth(), json=body)
+    assert first.status_code == 201
+    publication_id = first.json()['item']['id']
+    assert first.json()['item']['referenceCard']['budgetPaise'] == 2400000
+    def update(u):
+        row = u.get('contract_tenders', 'contract-alice')
+        row.update(title='Updated electrical project', budget_paise=3200000)
+        u.put('contract_tenders', row['id'], row)
+    api.core.operations_store.run(update)
+    monkeypatch.setattr(Unit, 'all', lambda *_: (_ for _ in ()).throw(AssertionError('Unbounded linked source scan')))
+    current = api.get('/repaidians/publications/' + publication_id).json()['item']
+    assert current['referenceCard']['title'] == 'Updated electrical project' and current['referenceCard']['budgetPaise'] == 3200000
+    retried = api.post('/repaidians/publications', headers=auth(), json=body)
+    assert retried.json()['item']['id'] == publication_id and retried.json()['item']['referenceCard']['budgetPaise'] == 3200000
+    primary = api.core.operations_store.run(lambda u: u.get('rp_publications', publication_id))
+    assert 'referenceCard' not in primary and 'budgetPaise' not in primary and primary['reference'] == body['reference']
+    def withdraw(u):
+        row = u.get('contract_tenders', 'contract-alice')
+        row['status'] = 'withdrawn'
+        u.put('contract_tenders', row['id'], row)
+    api.core.operations_store.run(withdraw)
+    unavailable = api.get('/repaidians/feed').json()['items'][0]
+    assert unavailable['id'] == publication_id and unavailable['referenceUnavailable'] is True
+    assert unavailable['referenceCard'] is None and '3200000' not in str(unavailable)
+    assert api.post('/repaidians/publications', headers=auth(), json={**body, 'clientId': str(uuid.uuid4())}).status_code == 404
+
+
+def test_purchased_reference_rechecks_refund_stock_and_block_visibility(api):
+    profile(api)
+    profile(api, 'bob')
+    profile(api, 'carol')
+    seed_native_references(api)
+    body = {'kind': 'post', 'caption': 'Purchased equipment', 'trade': 'electrician', 'visibility': 'public', 'media': [],
+            'reference': {'source': 'inventory', 'id': 'product-bob'}}
+    response = api.post('/repaidians/publications', headers=auth(), json=body)
+    assert response.status_code == 201
+    publication_id = response.json()['item']['id']
+    assert api.get('/repaidians/publications/' + publication_id, headers=auth('carol')).json()['item']['referenceCard']['pricePaise'] == 49000
+    assert api.put('/repaidians/blocks/bob', headers=auth('carol'), json={'active': True}).status_code == 200
+    hidden_source = api.get('/repaidians/publications/' + publication_id, headers=auth('carol')).json()['item']
+    assert hidden_source['referenceCard'] is None and hidden_source['referenceUnavailable'] is True
+    def refund(u):
+        row = u.get('retail_orders', 'purchase-alice')
+        row['state'] = 'refunded'
+        u.put('retail_orders', row['id'], row)
+    api.core.operations_store.run(refund)
+    assert api.post('/repaidians/publications', headers=auth(), json=body).status_code == 403
+    current = api.get('/repaidians/publications/' + publication_id, headers=auth()).json()['item']
+    assert current['referenceCard']['shareable'] is False
+    def stock(u):
+        row = u.get('inventory', 'product-bob')
+        row.update(stock=0, price_paise=55000)
+        u.put('inventory', row['id'], row)
+    api.core.operations_store.run(stock)
+    unavailable = api.get('/repaidians/publications/' + publication_id).json()['item']
+    assert unavailable['referenceCard'] is None and unavailable['referenceUnavailable'] is True
+
+
+def test_existing_work_network_blocks_apply_to_social_discovery_content_and_messages(api):
+    profile(api)
+    profile(api, 'bob')
+    asset = photo(api)
+    item = post(api, media=asset)
+    assert api.get('/repaidians/feed', headers=auth('bob')).json()['items']
+    api.core.operations_store.run(lambda u: u.put('network_blocks', 'bob:alice', {'active': True}))
+    assert api.get('/repaidians/feed', headers=auth('bob')).json()['items'] == []
+    assert api.get('/repaidians/members?search=alice', headers=auth('bob')).json()['members'] == []
+    assert api.get('/repaidians/members?trade=electrician', headers=auth('bob')).json()['members'][0]['id'] == 'bob'
+    assert api.get('/repaidians/members/alice', headers=auth('bob')).status_code == 404
+    assert api.get(asset['url'].removeprefix('/api'), headers=auth('bob')).status_code == 404
+    assert api.post('/repaidians/comments/' + item['id'], headers=auth('bob'), json={'text': 'Blocked'}).status_code == 404
+    assert api.post('/repaidians/messages/alice', headers=auth('bob'), json={'text': 'Blocked'}).status_code == 404
+    assert api.post('/repaidians/messages/bob', headers=auth(), json={'text': 'Other side blocked'}).status_code == 404
+    assert api.put('/repaidians/follow/alice', headers=auth('bob'), json={'active': True}).status_code == 404
+    api.core.operations_store.run(lambda u: u.put('network_blocks', 'bob:alice', {'active': False}))
+    assert api.get('/repaidians/feed', headers=auth('bob')).json()['items'][0]['id'] == item['id']

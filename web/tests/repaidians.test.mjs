@@ -40,7 +40,30 @@ test('requests never forward session credentials to external API paths',async()=
     await assert.rejects(service.communityRequest(path),/Expected a Repaidians API path/);
   assert.equal(calls.length,0);
   await service.searchMembers('name & role/cleaning');
-  assert.equal(calls[0].path,'/api/repaidians/members?search=name%20%26%20role%2Fcleaning&limit=20');
+  const query=new URL(calls[0].path,'https://repaido.test');
+  assert.equal(query.pathname,'/api/repaidians/members');assert.equal(query.searchParams.get('search'),'name & role/cleaning');
+});
+
+test('professional discovery and native opportunity references preserve server identity and encoded filters',async()=>{
+  values.set('repaido.token','professional-session');
+  await service.searchMembers('@Alice & crew',undefined,{trade:'electrician',city:'Balasore & coast',workStatus:'open_to_work',professionalType:'specialist'},'prefix/next');
+  const people=new URL(calls.at(-1).path,'https://repaido.test');
+  assert.deepEqual(Object.fromEntries(people.searchParams),{search:'Alice & crew',limit:'20',trade:'electrician',city:'Balasore & coast',workStatus:'open_to_work',professionalType:'specialist',cursor:'prefix/next'});
+  const fields={headline:'Electrical inspections',city:'Balasore',skills:['Wiring'],experienceYears:8,workStatus:'open_to_work',professionalType:'specialist'};
+  await service.updateProfile('another-user','Alice','electrician','Agreed electrical scope.',fields);
+  assert.equal(calls.at(-1).path,'/api/repaidians/profile');assert.equal(calls.at(-1).init.method,'PATCH');
+  assert.deepEqual(JSON.parse(calls.at(-1).init.body),{name:'Alice',trade:'electrician',bio:'Agreed electrical scope.',...fields});
+  await service.opportunities({kind:'products',mode:'shareable',city:'Balasore & coast',cursor:'source/next',limit:20});
+  const market=new URL(calls.at(-1).path,'https://repaido.test');
+  assert.equal(market.pathname,'/api/repaidians/opportunities');
+  assert.deepEqual(Object.fromEntries(market.searchParams),{kind:'products',mode:'shareable',city:'Balasore & coast',cursor:'source/next',limit:'20'});
+  const reference={source:'inventory',id:'product/a'};
+  await service.opportunityDetails(reference);assert.equal(calls.at(-1).path,'/api/repaidians/opportunities/inventory/product%2Fa');
+  await service.saveOpportunity(reference,true);assert.equal(calls.at(-1).path,'/api/repaidians/opportunities/inventory/product%2Fa/saved');
+  assert.equal(calls.at(-1).init.method,'PUT');assert.deepEqual(JSON.parse(calls.at(-1).init.body),{active:true});
+  await service.publish('another-user',{kind:'post',caption:'Purchased through Repaido.',trade:'spares',visibility:'public',media:[],reference});
+  const published=JSON.parse(calls.at(-1).init.body);assert.deepEqual(published.reference,reference);assert.equal('ownerId' in published,false);
+  assert.ok(published.clientId);assert.equal(calls.at(-1).init.headers.get('Authorization'),'Bearer professional-session');
 });
 
 test('in-flight reads deduplicate within an identity and remain isolated across accounts',async()=>{

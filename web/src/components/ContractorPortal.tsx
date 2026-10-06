@@ -26,11 +26,23 @@ function WorkForm({form,onClose,onSaved}:{form:Form;onClose:()=>void;onSaved:()=
  return <Modal title={form.title} onClose={()=>{if(!busy)onClose();}} className="contract-dialog"><form className="contract-form" onSubmit={submit}>{form.description&&<p>{form.description}</p>}{form.fields.map(f=><label key={f.name}>{f.label}{f.type==='sector'?<BusinessSectorField name={f.name} value={String(f.value||'')} required={f.required!==false}/>:f.type==='textarea'?<textarea name={f.name} defaultValue={f.value} required={f.required!==false} minLength={typeof f.min==='number'?f.min:undefined} maxLength={typeof f.max==='number'?f.max:6000} rows={3}/>:f.options?<select name={f.name} defaultValue={f.value??''} required={f.required!==false}><option value="">Choose…</option>{f.options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>:<input name={f.name} type={f.type||'text'} defaultValue={f.value} min={f.min} max={f.max} step={f.type==='number'?'0.01':undefined} required={f.required!==false} maxLength={f.type==='text'||!f.type?300:undefined}/>}</label>)}{form.confirm&&<label className="contract-consent"><input type="checkbox" required/>{form.confirm}</label>}{error&&<p className="ops-error" role="alert">{error}</p>}<button className="contract-primary" disabled={busy}>{busy?'Saving…':'Save & continue'}</button></form></Modal>;
 }
 
-export function ContractorPortal({onBackToCustomer,onPartnerProfile,accountControls,agent=false,onOpenB2BMarket}:{accountControls?:ReactNode;onBackToCustomer?:()=>void;onPartnerProfile?:()=>void;agent?:boolean;onOpenB2BMarket?:()=>void}){
- const [data,setData]=useState<Workspace|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[tab,setTab]=useState(agent?'Projects':'Overview'),[query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[sort,setSort]=useState('deadline');
+export function ContractorPortal({onBackToCustomer,onPartnerProfile,accountControls,agent=false,onOpenB2BMarket,initialTab,initialTenderId}:{accountControls?:ReactNode;onBackToCustomer?:()=>void;onPartnerProfile?:()=>void;agent?:boolean;onOpenB2BMarket?:()=>void;initialTab?:'Tenders'|'Hiring';initialTenderId?:string}){
+ const [data,setData]=useState<Workspace|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[tab,setTab]=useState(agent?'Projects':initialTab||'Overview'),[query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[sort,setSort]=useState('deadline');
+ const [intentError,setIntentError]=useState('');
+ const handledTenderId=useRef<string|undefined>(undefined);
  const [projectId,setProjectId]=useState<string|null>(null),[tenderId,setTenderId]=useState<string|null>(null),[form,setForm]=useState<Form|null>(null),[agents,setAgents]=useState<Row[]>([]);
  const load=async(background=false)=>{const next=await operation<Workspace>('/contractor/workspace',{}, {background});setData(next);};
  useEffect(()=>{void load().catch(e=>setError(e.message));const timer=setInterval(()=>{if(!document.hidden)void load(true).catch(e=>setError(e.message));},45000);return()=>clearInterval(timer);},[]);
+ useEffect(()=>{if(initialTab&&!agent){setTab(initialTab);setFilter('all');}},[initialTab,agent]);
+ useEffect(()=>{
+   if(!initialTenderId){handledTenderId.current=undefined;setIntentError('');return;}
+   if(!data||handledTenderId.current===initialTenderId)return;
+   handledTenderId.current=initialTenderId;
+   const tender=data.tenders.find(row=>row.id===initialTenderId);
+   if(!agent)setTab('Tenders');
+   setTenderId(tender?.id||null);
+   setIntentError(tender?'':'This tender is unavailable in your authorized workspace. It may have been removed, or your account may need contractor approval.');
+ },[initialTenderId,data,agent]);
  const run=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const send=(path:string,body:Row)=>operation('/contractor'+path,{method:'POST',body:JSON.stringify(body)});
  const pc=(p:Row,action:string,extra:Row={})=>send(`/projects/${p.id}/commands`,{expected_version:p.version,action,...extra});
@@ -48,6 +60,7 @@ export function ContractorPortal({onBackToCustomer,onPartnerProfile,accountContr
  const filtered=tenders.filter(t=>(filter==='all'||(filter==='mine'?t.owner_id===uid:filter==='registered'?t.registered:filter==='upcoming'?t.status==='open'&&t.opens_at>Date.now()/1000:t.status===filter))&&`${t.title} ${t.city} ${t.sector}`.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>sort==='budget'?a.budget_paise-b.budget_paise:sort==='newest'?b.created_at-a.created_at:a.deadline-b.deadline);
  return <section className="contract-desk" aria-label={agent?'Project teams':'Contractor workspace'}>
   <header className="contract-heading"><div><span className="contract-kicker"><Building2 size={16}/> REPAIDO WORKSPACE</span><h1>{agent?'Your project teams':'Contracts, teams & tenders'}</h1><p>{agent?'Review invitations, record attendance and deliver your goals.':'Plan the work. Build the team. Track every decision.'}</p></div><button aria-label="Refresh workspace" disabled={busy} onClick={()=>void run(load)}><RefreshCw size={19}/></button></header>
+  {intentError&&<p className="ops-error" role="alert">{intentError}</p>}
   {error&&<p className="ops-error" role="alert">{error}<button onClick={()=>void run(load)}>Retry</button></p>}
   {!data?<p role="status">Loading your workspace…</p>:<>
   {!agent&&!data.can_contract&&<div className="contract-note"><ShieldCheck size={20}/><div><strong>Contractor approval required</strong><p>You can browse opportunities and publish your own tender. Project creation and bidding unlock after contractor review.</p>{onPartnerProfile&&<button onClick={onPartnerProfile}>Complete partner profile <ArrowUpRight size={16}/></button>}</div></div>}
