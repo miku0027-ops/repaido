@@ -150,8 +150,8 @@ input[type=checkbox], input[type=radio] { accent-color: var(--ui-primary); flex-
 .booking-drawer { bottom: var(--ui-nav-clearance); }
 .repaido-brand-container { flex-shrink: 0; }
 .modal { color: var(--ui-ink); background: var(--ui-surface); padding: 24px; overflow: auto; scroll-padding-bottom: 6rem; }
-.modal > div:first-child h2 { padding-top: 8px; }
-.modal > div:first-child button { padding: 12px; }
+.modal > .app-modal-heading h2 { padding-top: 8px; }
+.modal > .app-modal-heading button { padding: 12px; }
 .modal form > :is(.ops-primary,.button-primary):last-child { position: sticky; bottom: 0; z-index: 2; box-shadow: 0 0 0 8px var(--ui-surface); }
 .ui-preferences { border: 1px solid var(--ui-line); border-radius: var(--ui-radius); padding: 16px; margin-block: 24px; background: var(--ui-surface); }
 .ui-preferences legend { font-weight: 700; padding-inline: 8px; }

@@ -1,6 +1,7 @@
 import {CouponWelcome} from './components/Coupons';
 import OpportunityCarousel,{opportunities} from './components/OpportunityCarousel';
 import HomeQuickActions,{type QuickMarket} from './components/HomeQuickActions';
+import {RepaidiansFab} from './components/repaidians/RepaidiansFab';
 import HomeServiceFinder from './components/HomeServiceFinder';
 import {ServiceAccordion} from './components/ServiceAccordion';
 import {useSavedTab} from './services/navigation';
@@ -32,7 +33,7 @@ import type { B2BQuotation } from './types/b2b';
 import { b2bService } from './services/b2bService';
 import { cartService } from './services/cartService';
 import { TendersPlatform } from './components/TendersPlatform';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useState } from 'react';
 import {
   Bell,
   Package,
@@ -132,6 +133,8 @@ import { HomeServicesGrid } from './components/HomeServicesGrid';
 import { recordCustomerBrowse } from './services/customerBrowseTracker';
 import './reference.css';
 
+const RepaidiansModal=lazy(()=>import('./components/repaidians/RepaidiansModal'));
+
 type Tab = 'Explore' | 'Services' | 'Bookings' | 'ShopSpares' | 'You' | 'Hire';
 type Place = { city: string; address: string; landmark: string; label: string; lat?: number; lng?: number; accuracy?: number; confirmed: boolean };
 
@@ -198,6 +201,7 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 ];
 
 export default function App() {
+  const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
   const [homePreferred,setHomePreferred]=useState<{id:string;name:string}>();
   const [hireBookings,setHireBookings]=useState(new URLSearchParams(location.search).has('hiring'));
   const [homeHub,setHomeHub]=useState<string|null>(null),[homePlans,setHomePlans]=useState(new URLSearchParams(location.search).has('home-plan'));
@@ -519,8 +523,9 @@ export default function App() {
   }, [place]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = 'light';
-    localStorage.removeItem('repaido.theme');
+    const saved=localStorage.getItem('repaido.theme')?.replaceAll('"','');
+    if(saved==='dark'||saved==='light')document.documentElement.dataset.theme=saved;
+    else if(!document.documentElement.dataset.theme)document.documentElement.dataset.theme='light';
   }, []);
 
   useEffect(() => {
@@ -1341,6 +1346,8 @@ export default function App() {
         </div>
       </footer>
 
+      {tab==='Explore'&&<RepaidiansFab onOpen={()=>setRepaidiansOpen(true)}/>}
+      {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={()=>setRepaidiansOpen(false)}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} onClose={()=>setRepaidiansOpen(false)} onBook={trade=>{setRepaidiansOpen(false);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
       {myRentalsOpen&&<Modal title="My rentals" className="rental-modal" onClose={()=>setMyRentalsOpen(false)}><RentalManager onSignIn={()=>setSheet('auth')}/></Modal>}
       {discoveryOpen && <SearchDiscovery onHomeService={id=>{setDiscoveryOpen(false);setQuery('');setHomeHub(id);}} onEvent={hydration.event} onPreferencesChange={hydration.refresh} query={query} onQuery={setQuery} place={place} signedIn={hydration.signedIn} onClose={()=>{setDiscoveryOpen(false);setQuery('');}} onLocation={()=>{setDiscoveryOpen(false);setCityModalOpen(true);}} onSignIn={()=>{setDiscoveryOpen(false);setSheet('auth');}} onBook={service=>{setDiscoveryOpen(false);setQuery('');setSelectedService(service);}}/>}
       {homeDetail&&<HomeServiceDetails service={homeDetail} onClose={()=>setHomeDetail(null)} onBook={()=>{setSelectedService(homeDetail);setHomeDetail(null);}}/>}
