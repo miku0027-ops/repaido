@@ -28,6 +28,25 @@
 .catalog-professionals-empty{margin:0;color:var(--ui-muted)}
 .catalog-professionals :is(button,summary):focus-visible{outline:3px solid var(--ui-focus);outline-offset:-3px}
 .catalog-professionals-toggle:hover,.catalog-professional-open:hover{background:var(--ui-subtle)}
+.catalog-professionals-heading{display:flex;align-items:center;background:var(--ui-subtle)}
+.catalog-professionals-heading .catalog-professionals-toggle{flex:1;min-width:0;width:auto}
+.catalog-leaders-refresh{display:grid;place-items:center;flex:none;width:44px;height:44px;margin-right:8px;border:1px solid var(--ui-line);border-radius:9px;background:var(--ui-surface);color:var(--ui-link)}
+.catalog-leaders-refresh:disabled{opacity:.65}
+.catalog-leaders-heading{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--ui-subtle)}
+.catalog-leaders-heading .catalog-leaders-refresh{margin:0}
+.catalog-leaders-heading h2{margin:0;font-size:.8125rem;line-height:1.4;font-weight:700;color:var(--ui-ink)}
+.catalog-leaders-heading p{margin:3px 0 0;font-size:.6875rem;line-height:1.5;color:var(--ui-muted);overflow-wrap:anywhere}
+.catalog-leaders-rail{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-inline:contain;padding:8px 10px;scroll-snap-type:x proximity}
+.catalog-leader-preview{display:flex;align-items:center;gap:8px;flex:0 0 230px;max-width:100%;min-width:0;min-height:68px;padding:8px;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);text-align:left;white-space:normal;scroll-snap-align:start;transition:background-color var(--ui-feedback)}
+.catalog-leader-preview:hover{background:var(--ui-subtle)}
+.catalog-leader-preview>svg{flex:none;color:var(--ui-link)}
+.catalog-leader-preview .catalog-professional-avatar{flex:none;width:32px;height:32px;border-radius:9px}
+.catalog-leader-preview .catalog-professional-avatar img{width:32px;height:32px}
+.catalog-leader-preview-copy{display:grid;flex:1;min-width:0;gap:2px;overflow-wrap:anywhere}
+.catalog-leader-preview-copy strong{font-size:.6875rem;font-weight:650;line-height:1.5;color:var(--ui-link)}
+.catalog-leader-preview-copy>span{font-size:.75rem;font-weight:650;line-height:1.45;color:var(--ui-ink)}
+.catalog-leader-preview-copy small{font-size:.6875rem;line-height:1.5;color:var(--ui-muted)}
+.catalog-leaders-status{margin:8px 12px;font-size:.75rem;line-height:1.6;color:var(--ui-muted)}
 .catalog-professional-dialog .hire-cover{max-height:140px;object-fit:cover}
 .catalog-professional-dialog .hire-profile-person>img{width:64px;height:64px;object-fit:cover;object-position:center top}
 @keyframes catalog-panel-enter{from{transform:translateY(-2px)}to{transform:translateY(0)}}

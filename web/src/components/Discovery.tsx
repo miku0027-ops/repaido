@@ -120,12 +120,14 @@ export default function Discovery({
   const [roleFilter, setRoleFilter] = useState<'all'|'specialist'|'technician'>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [cityOpen,setCityOpen]=useState(false);
+  const [leadersExpanded,setLeadersExpanded]=useState(false);
   const [maxPrice, setMaxPrice] = useState('');
   const [radiusKm, setRadiusKm] = useState('6');
 
   useEffect(() => {
     setCategory((initialCategory as CategoryId) || 'all');
     setQuery(initialQuery);
+    setLeadersExpanded(false);
   }, [initialCategory, initialQuery]);
 
   // Filtered Services
@@ -197,8 +199,8 @@ export default function Discovery({
       </header>
 
       <section id="main-content" aria-label="Service catalogue" className="page-width uc-discovery-main catalog-discovery pb-56">
-        <ServiceStories services={services} selected={category} onSelect={setCategory} title="Find your service"/>
-        {category!=='all'&&<ServiceLeaders key={`${category}:${city}`} category={category} city={city} initialLocation={nearbyLocation} role={roleFilter} radiusKm={Number(radiusKm)}/>}
+        <ServiceStories services={services} selected={category} onSelect={c=>{setCategory(c);setLeadersExpanded(false);}} title="Find your service"/>
+        <ServiceLeaders key={`${category}:${city}`} category={category} city={city} initialLocation={nearbyLocation} role={roleFilter} radiusKm={Number(radiusKm)} categoryIds={services.map(s=>s.category)} initiallyExpanded={leadersExpanded} onSelectCategory={c=>{setCategory(c as CategoryId);setLeadersExpanded(true);}}/>
 
         {/* Section Heading & Compact Filter Controls */}
         <div className="uc-services-controls">
@@ -228,7 +230,7 @@ export default function Discovery({
             </div>
 
             <div className="filter-group">
-              <label htmlFor="filter-role">Professional role · selected category</label>
+              <label htmlFor="filter-role">Professional role</label>
               <select id="filter-role" value={roleFilter} onChange={e => setRoleFilter(e.target.value as any)}>
                 <option value="all">All listed professionals</option>
                 <option value="specialist">Specialist</option>
