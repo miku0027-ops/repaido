@@ -1,4 +1,4 @@
-"""Server-owned Repaidians membership: authenticated gateway captures only.
+"""Server-owned Repaidians access: one trial per member UID, verified paid grants.
 
 Provider calls run outside database transactions. Per-user pointers and per-order
 indexes keep reads bounded; a receipt cannot be used by another Repaido purchase.
@@ -23,6 +23,8 @@ PRICE = 19900
 POLICY = 'repaidians-pro-monthly-v1'
 MAX_WEBHOOK_BYTES = 256 * 1024
 MAX_PREPAID_PERIODS = 12
+TRIAL_MS = 30 * 86400 * 1000
+TRIAL_POLICY = 'repaidians-full-social-trial-30-days-v1'
 
 
 class Empty(Input):
@@ -31,6 +33,27 @@ class Empty(Input):
 
 class Check(Input):
     attempt_id: str | None = Field(default=None, pattern=r'^[a-f0-9-]{36}$')
+
+
+def ensure_trial(u, user_id, starts_at=None, now=None):
+    """Issue once after joining. ``starts_at`` is trusted server milliseconds.
+
+    This is never a browser endpoint. An existing UID's grant is immutable, even
+    if its community profile is updated, deleted and rejoined, or read again.
+    """
+    now = time.time() if now is None else now
+    member = u.get('rp_members', user_id) if user_id else None
+    if not member:
+        return None
+    trial = u.get('rp_trials', user_id)
+    if not trial:
+        starts = starts_at if starts_at is not None else member.get('createdAt', int(now * 1000))
+        if type(starts) is not int or starts < 0:
+            fail('MEMBER_DATE_REQUIRED', 'Your community joining date needs review.')
+        trial = dict(userId=user_id, startsAt=starts, endsAt=starts + TRIAL_MS, policy=TRIAL_POLICY)
+        u.put('rp_trials', user_id, trial)
+    return dict(startsAt=trial['startsAt'], endsAt=trial['endsAt'],
+                status='active' if trial['startsAt'] <= now * 1000 < trial['endsAt'] else 'expired')
 
 
 def _current_period(member, now):
@@ -53,6 +76,7 @@ def _current_period(member, now):
 def subscription(u, user_id, now=None):
     """Public, sanitized state. ``now`` is server seconds; API timestamps are ms."""
     now = time.time() if now is None else now
+    trial = ensure_trial(u, user_id, now=now)
     member = u.get('rp_subscriptions', user_id)
     period = _current_period(member, now)
     account = u.get('rp_billing_accounts', user_id) or {}
@@ -60,7 +84,9 @@ def subscription(u, user_id, now=None):
     public = {k: member[k] for k in ('plan', 'amountPaise', 'provider')} if period else None
     if public:
         public.update(startsAt=period[0], endsAt=period[1])
-    return dict(active=bool(period), subscription=public,
+    elif trial and trial['status'] == 'active':
+        public = dict(plan='trial', amountPaise=0, provider='trial', startsAt=trial['startsAt'], endsAt=trial['endsAt'])
+    return dict(active=bool(public), subscription=public, trial=trial, serverNow=int(now * 1000),
                 paymentsReady=payments_ready(), amount=PRICE, currency='INR',
                 paymentStatus=attempt.get('status') if attempt else None)
 
@@ -119,7 +145,9 @@ def apply_payment(u, attempt, payment, now=None):
         _save_grants(u, attempt['userId'], [g for g in grants if g['attemptId'] != attempt['id']], now)
     elif status == 'captured' and payment.get('captured') is True:
         if attempt.get('status') not in ('captured', 'refunded'):
-            starts = max(int(now * 1000), max((g['endsAt'] for g in grants), default=0))
+            trial = ensure_trial(u, attempt['userId'], now=now)
+            trial_end = trial['endsAt'] if trial and trial['status'] == 'active' else 0
+            starts = max(int(now * 1000), trial_end, max((g['endsAt'] for g in grants), default=0))
             ends = int(month_after(starts / 1000) * 1000)
             grant = dict(attemptId=attempt['id'], paymentId=pid, startsAt=starts, endsAt=ends)
             _save_grants(u, attempt['userId'], [*grants, grant], now)
@@ -207,6 +235,8 @@ def install(core):
             fail('PAYMENTS_UNAVAILABLE', 'Repaidians payments are not connected yet. No charge was made.', 503)
 
         def reserve(u):
+            if not u.get('rp_members', user['id']):
+                fail('MEMBER_REQUIRED', 'Join Repaidians and start your free trial before purchasing a membership.', 403)
             account = u.get('rp_billing_accounts', user['id']) or {}
             pending = u.get('rp_payments', account['currentAttemptId']) if account.get('currentAttemptId') else None
             if pending and pending['status'] in ('creating', 'created'):

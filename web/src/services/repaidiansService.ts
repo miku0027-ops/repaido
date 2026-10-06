@@ -69,7 +69,7 @@ async function command<T>(path: string, body: Record<string, unknown>): Promise<
 // The account arguments keep component callers consistent. The server resolves
 // the owner from the verified bearer token, never from these browser arguments.
 export const snapshot = (_account?: string, _name?: string) => communityRequest<CommunitySnapshot>('/state');
-export const chargeBrowsing = (active: boolean, keepalive = false) => communityRequest<{remainingMs:number; subscription?:CommunitySnapshot['subscription']}>('/usage', {method:'POST', body:JSON.stringify({active}), keepalive});
+export const chargeBrowsing = (active: boolean, keepalive = false) => communityRequest<{remainingMs:number;subscription:CommunitySnapshot['subscription'];trial:CommunitySnapshot['trial'];serverNow:number}>('/usage', {method:'POST', body:JSON.stringify({active}), keepalive});
 export function subscribe(listener: () => void): () => void {
   window.addEventListener(UPDATE, listener);return () => window.removeEventListener(UPDATE, listener);
 }

@@ -30,6 +30,16 @@ function fixture(kind,id,body){
 function grantPro(account){
   fixture('rp_subscriptions',account.user.id,{userId:account.user.id,plan:'pro',amountPaise:19900,provider:'razorpay',startsAt:Date.now()-60000,endsAt:Date.now()+86400000,status:'active',paymentId:'test-only',attemptId:'test-only'});
 }
+function storedRecord(kind,id){
+  const code='import sqlite3,sys\nc=sqlite3.connect(sys.argv[1])\nrow=c.execute("SELECT body FROM operation_records WHERE kind=? AND id=?",(sys.argv[2],sys.argv[3])).fetchone()\nprint(row[0] if row else "null")\nc.close()';
+  const result=spawnSync(python,['-c',code,db,kind,id],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);return JSON.parse(result.stdout);
+}
+function expireTrial(account){
+  const trial=storedRecord('rp_trials',account.user.id);
+  assert.ok(trial,'The real server must create the once-per-account trial.');
+  fixture('rp_trials',account.user.id,{...trial,startsAt:Date.now()-31*86400000,endsAt:Date.now()-1000});
+}
 async function api(path,account,method='GET',body,expected=200,headers={}){
   const response=await fetch(apiOrigin+path,{method,headers:{...(account?{Authorization:'Bearer '+account.token}:{}),...(body&&!Buffer.isBuffer(body)?{'Content-Type':'application/json'}:{}),...headers},...(body===undefined?{}:{body:Buffer.isBuffer(body)?body:JSON.stringify(body)})});
   const data=await response.json().catch(()=>({}));
@@ -46,14 +56,15 @@ async function publication(account,draft){
   const result=await api('/repaidians/publications',account,'POST',{...draft,clientId:randomUUID()},201);
   return result.item||result;
 }
-async function newPage(account,width=390){
+async function newPage(account,width=390,clockMs){
   const context=await browser.newContext({viewport:{width,height:850},reducedMotion:'reduce'});
-  await context.addInitScript(({token})=>{
+  await context.addInitScript(({token,clockMs})=>{
+    if(clockMs)Date.now=()=>clockMs;
     if(token)localStorage.setItem('repaido.token',token);
     // A prior browser prototype must not become a public post or entitlement.
     localStorage.setItem('repaidians.v1.subscription.guest',JSON.stringify({plan:'demo-pro',provider:'mock',startsAt:0,endsAt:9999999999999}));
     localStorage.setItem('repaidians.v1.community',JSON.stringify({version:1,posts:[{id:'old-local-mock',caption:'OLD MOCK MUST NOT APPEAR'}]}));
-  },{token:account?.token||''});
+  },{token:account?.token||'',clockMs});
   await context.route('**/api/**',async route=>{
     const url=new URL(route.request().url());
     const response=await route.fetch({url:apiOrigin+url.pathname+url.search});
@@ -108,18 +119,27 @@ try{
     await api('/repaidians/profile',account,'PATCH',{name:account.user.name,trade,bio:'Test account in an isolated community database.'});
   }
   const initial=await api('/repaidians/state',alice);
-  assert.equal(initial.authenticated,true);assert.equal(initial.subscription,null);assert.equal(initial.paymentsReady,false);
+  assert.equal(initial.authenticated,true);assert.equal(initial.paymentsReady,false);
+  assert.equal(initial.subscription.plan,'trial');assert.equal(initial.subscription.provider,'trial');assert.equal(initial.subscription.amountPaise,0);
+  assert.equal(initial.trial.status,'active');assert.equal(initial.trial.endsAt-initial.trial.startsAt,30*86400000);
+  assert.equal(initial.subscription.endsAt,initial.trial.endsAt);
+  const trialEnd=initial.trial.endsAt;
+  const login=await api('/auth/login',null,'POST',{email:alice.user.email,password:'isolated-test-password'});
+  assert.equal(login.user.id,alice.user.id);alice.token=login.token;
+  assert.equal((await api('/repaidians/state',alice)).trial.endsAt,trialEnd,'Another session must not restart an account trial.');
+  assert.equal((await api('/repaidians/subscription',alice)).trial.status,'active');
+  assert.equal((await api('/repaidians/usage',alice,'POST',{active:true})).subscription.plan,'trial');
+  const quotaDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const signedSubject='user_'+createHash('sha256').update(alice.user.id).digest('hex').slice(0,32);
+  fixture('rp_usage',signedSubject,{day:quotaDay,usedMs:900000,leaseUntil:0});
+  assert.equal((await api('/repaidians/state',alice)).subscription.plan,'trial','A trial has unlimited browsing even when the guest-style quota record is exhausted.');
   assert.deepEqual(initial.data.posts,[],'A new database must not generate sample posts.');
-  await api('/repaidians/publications',alice,'POST',{kind:'post',caption:'Free account attempt',trade:'electrician',visibility:'public',media:[]},402);
   await api('/repaidians/subscription/order',alice,'POST',undefined,503);
   const avatar=await upload(alice,resolve(web,'public/images/electrical.jpg'),'image/jpeg');
   await api('/repaidians/profile',alice,'PATCH',{avatarUrl:avatar.url});
   assert.equal((await api('/repaidians/members/'+alice.user.id,bob)).member.avatarUrl,avatar.url);
-  assert.equal((await fetch(apiOrigin+avatar.url,{headers:{Authorization:'Bearer '+bob.token}})).status,200,'Free member profile photos are shared after attachment to the profile.');
-  await api('/repaidians/media',alice,'POST',Buffer.alloc(2*1024*1024+1),413,{'Content-Type':'image/jpeg'});
-  for(let count=0;count<3;count++)await upload(alice,resolve(web,'public/images/electrical.jpg'),'image/jpeg');
-  await api('/repaidians/media',alice,'POST',await readFile(resolve(web,'public/images/electrical.jpg')),429,{'Content-Type':'image/jpeg'});
-  grantPro(bob);
+  assert.equal((await fetch(apiOrigin+avatar.url,{headers:{Authorization:'Bearer '+bob.token}})).status,200,'Trial member profile photos are shared after attachment to the profile.');
+  await api('/repaidians/media',alice,'POST',Buffer.alloc(8*1024*1024+1),413,{'Content-Type':'image/jpeg'});
   const photo=await upload(bob,resolve(web,'public/images/cleaning.jpg'),'image/jpeg');
   const bobPost=await publication(bob,{kind:'post',caption:'Shared cleaning work from a real API.',trade:'cleaning',visibility:'public',media:[{...photo,alt:'Cleaning a tile wall'}]});
   const privatePost=await publication(bob,{kind:'post',caption:'Only cleaning members can see this scope.',trade:'cleaning',visibility:'trade',media:[{...photo,alt:'Trade-only cleaning scope'}]});
@@ -134,19 +154,23 @@ try{
   const clip=resolve(work,'work.webm');
   const ffmpeg=spawnSync('ffmpeg',['-hide_banner','-loglevel','error','-f','lavfi','-i','color=c=0xd73484:s=360x640:d=3','-an','-c:v','libvpx','-y',clip],{encoding:'utf8'});
   assert.equal(ffmpeg.status,0,'ffmpeg fixture creation: '+ffmpeg.stderr);
-  await api('/repaidians/media',alice,'POST',await readFile(clip),402,{'Content-Type':'video/webm'});
   browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/usr/bin/chromium',headless:true,args:['--disable-dev-shm-usage']});
   await mkdir(resolve(web,'test-results'),{recursive:true});
   const page=await newPage(alice);
   await shell(page).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
   assert.equal(await shell(page).getByText('OLD MOCK MUST NOT APPEAR',{exact:false}).count(),0);
   assert.equal(await shell(page).locator('.rp-post').count(),1);
-  await shell(page).getByRole('button',{name:'Create',exact:true}).click();
-  const upgrade=page.getByRole('dialog',{name:'Repaidians Pro',exact:true});await upgrade.waitFor();
-  assert.equal(await upgrade.getByRole('button',{name:/simulate|demo/i}).count(),0);
-  await upgrade.getByRole('button',{name:'Pay ₹199 for one month',exact:true}).waitFor();
-  assert.equal(await upgrade.getByRole('button',{name:'Pay ₹199 for one month',exact:true}).isDisabled(),true,'Unavailable payment gateway must not unlock membership.');
-  await upgrade.getByRole('button',{name:'Close dialog',exact:true}).click();
+  const trialBadge=shell(page).getByRole('button',{name:/^Free trial:/});await trialBadge.waitFor();
+  assert.match(await trialBadge.getAttribute('aria-label'),/All Repaidians features included/);
+  assert.ok((await trialBadge.getAttribute('aria-label')).includes(new Date(trialEnd).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})+' IST'),'The trial badge names the exact server-owned expiry in India time.');
+  await trialBadge.click();
+  const membership=page.getByRole('dialog',{name:'Repaidians membership',exact:true});await membership.waitFor();
+  await membership.getByText('₹199/month after your trial',{exact:false}).waitFor();
+  await membership.getByText('No automatic charge',{exact:false}).waitFor();
+  assert.equal(await membership.getByRole('button',{name:'Pay ₹199 for one month',exact:true}).count(),0,'Joining the trial never starts a checkout.');
+  await membership.getByRole('button',{name:'Close dialog',exact:true}).click();
+  assert.equal(storedRecord('rp_subscriptions',alice.user.id),null,'An account trial does not invent a captured paid subscription.');
+  assert.equal(storedRecord('rp_subscriptions',bob.user.id),null);
   await shell(page).getByRole('button',{name:'Like post',exact:true}).click();await shell(page).getByRole('button',{name:'Unlike post',exact:true}).waitFor();
   assert.equal((await api('/repaidians/feed?kind=post',bob)).items.find(p=>p.id===bobPost.id).likeCount,1);
   await shell(page).getByRole('button',{name:'Save post',exact:true}).click();
@@ -165,7 +189,7 @@ try{
   assert.equal(await story.getByRole('button',{name:'Play story',exact:true}).count(),1,'Reduced motion starts stories paused.');
   await story.getByRole('button',{name:'Close story',exact:true}).click();
 
-  grantPro(alice);await page.reload();await shell(page).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
+  await page.reload();await shell(page).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
   await shell(page).getByRole('button',{name:'Create',exact:true}).click();
   let studio=page.getByRole('dialog',{name:'Publishing studio',exact:true});
   await studio.getByLabel('Upload publication media',{exact:true}).setInputFiles(resolve(web,'public/images/electrical.jpg'));
@@ -243,15 +267,57 @@ try{
   await shell(page).getByRole('button',{name:'Close Repaidians',exact:true}).click();await launcher.waitFor();
   assert.equal(await page.evaluate(()=>localStorage.getItem('repaido.place')),placeBefore,'Closing the community preserves the customer location.');
 
-  const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  const subject='user_'+createHash('sha256').update(carol.user.id).digest('hex').slice(0,32);
-  fixture('rp_usage',subject,{day,usedMs:900000,leaseUntil:0});
+  const skewed=await newPage(carol,390,new Date('2040-01-01T00:00:00Z').getTime());
+  await shell(skewed).getByRole('button',{name:/^Free trial:/}).waitFor();
+  await shell(skewed).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
+  await shell(skewed).getByRole('button',{name:'Create',exact:true}).click();
+  await skewed.getByRole('dialog',{name:'Publishing studio',exact:true}).waitFor();
+  expireTrial(carol);
+  await shell(skewed).getByText('Your free trial has ended.',{exact:true}).waitFor({timeout:20000});
+  assert.equal(await skewed.getByRole('dialog',{name:'Publishing studio',exact:true}).count(),0,'Server-confirmed trial expiry closes open privileged dialogs despite an incorrect local clock.');
+  const expired=await api('/repaidians/state',carol);
+  assert.equal(expired.trial.status,'expired');assert.equal(expired.subscription,null);assert.equal(expired.remainingMs,0);
+  for(const [path,method,body] of [
+    ['/feed?kind=post','GET'],['/members?search=Alice','GET'],['/members/'+bob.user.id,'GET'],
+    ['/comments/'+bobPost.id,'GET'],['/comments/'+bobPost.id,'POST',{text:'Expired account comment',clientId:randomUUID()}],
+    ['/activity/likes/'+bobPost.id,'PUT',{active:true}],['/follow/'+bob.user.id,'PUT',{active:true}],
+    ['/messages/'+bob.user.id,'GET'],['/messages/'+bob.user.id,'POST',{text:'Expired account DM',clientId:randomUUID()}],
+    ['/threads','GET'],['/notifications','GET'],
+    ['/publications','POST',{kind:'post',caption:'Expired publication',trade:'plumber',visibility:'public',media:[avatar],clientId:randomUUID()}],
+    ['/bids/'+tender.id,'POST',{clientId:randomUUID()}],['/tenders/'+tender.id+'/contact','GET'],
+  ]){
+    const result=await api('/repaidians'+path,carol,method,body,402);
+    assert.equal(result.detail.code,'TRIAL_EXPIRED',method+' '+path+' must require paid access after the trial.');
+  }
+  const expiredLogin=await api('/auth/login',null,'POST',{email:carol.user.email,password:'isolated-test-password'});
+  carol.token=expiredLogin.token;
+  assert.equal((await api('/repaidians/state',carol)).trial.endsAt,expired.trial.endsAt,'Signing in again cannot renew an expired trial.');
   const exhausted=await newPage(carol);assert.equal(await shell(exhausted).locator('.rp-post').count(),0);
-  assert.equal((await api('/repaidians/state',carol)).remainingMs,0);
-  await api('/repaidians/feed?kind=post',carol,'GET',undefined,402);
+  await shell(exhausted).getByRole('button',{name:/₹199/}).click();
+  await shell(exhausted).getByText('Your free trial has ended.',{exact:true}).waitFor();
+  const upgrade=exhausted.getByRole('dialog',{name:'Repaidians membership',exact:true});await upgrade.waitFor();
+  assert.equal(await upgrade.getByRole('button',{name:/simulate|demo/i}).count(),0);
+  await upgrade.getByRole('button',{name:'Pay ₹199 for one month',exact:true}).waitFor();
+  assert.equal(await upgrade.getByRole('button',{name:'Pay ₹199 for one month',exact:true}).isDisabled(),true,'Unavailable payment gateway must not grant membership after the trial.');
+  await upgrade.getByRole('button',{name:'Close dialog',exact:true}).click();
+  grantPro(carol);
+  const restored=await api('/repaidians/state',carol);
+  assert.equal(restored.subscription.plan,'pro');assert.equal(restored.subscription.provider,'razorpay');assert.equal(restored.trial.status,'expired');
+  await exhausted.reload();await shell(exhausted).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
+  await shell(exhausted).getByRole('button',{name:'Create',exact:true}).click();await exhausted.getByRole('dialog',{name:'Publishing studio',exact:true}).waitFor();
+  await exhausted.getByRole('dialog',{name:'Publishing studio',exact:true}).getByRole('button',{name:'Close dialog',exact:true}).click();
+  assert.equal((await api('/repaidians/feed?kind=post',carol)).items.length,1);
+
+  const guest=await newPage(null);
+  const cookies=await guest.context().cookies(origin);
+  const session=cookies.find(cookie=>cookie.name==='__session');assert.ok(session,'Guest browsing uses the Hosting-supported quota cookie.');
+  const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const guestSubject='guest_'+createHash('sha256').update(session.value).digest('hex').slice(0,32);
+  fixture('rp_usage',guestSubject,{day,usedMs:900000,leaseUntil:0});
+  await guest.reload();assert.equal(await shell(guest).locator('.rp-post').count(),0);
   assert.deepEqual(errors,[]);
   succeeded=true;
-  console.log('Repaidians real backend: shared posts/media/comments/follows/DMs, membership and ownership gates, protected trade content, reels, bids, search, server quota, mobile/desktop themes, reduced motion, enlarged text and accessibility passed.');
+  console.log('Repaidians real backend: once-account 30-day full-feature trial, expired-trial gates and paid restoration, shared posts/media/comments/follows/DMs, privacy, reels, bids, search, guest quota, mobile/desktop themes, reduced motion, enlarged text and accessibility passed.');
 }catch(error){
   await writeFile(resolve(work,'backend.log'),serverLog);console.error('Isolated backend logs: '+resolve(work,'backend.log'));throw error;
 }finally{

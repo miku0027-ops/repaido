@@ -176,8 +176,10 @@ def member_public(u, row):
 
 
 def member_ensure(u, user):
+    from repaidians_billing import ensure_trial
     member = u.get('rp_members', user['id'])
     if member:
+        ensure_trial(u, user['id'], starts_at=member['createdAt'], now=now_ms() / 1000)
         return member
     w = u.get('workers', user['id'])
     trade = next((t for t in (w or {}).get('categories', []) if t in TRADES), 'cleaning')
@@ -186,6 +188,7 @@ def member_ensure(u, user):
     member = dict(id=user['id'], name=name, handle=f'{slug}.{digest(user["id"])[:8]}', trade=trade,
                   role='Member', avatarUrl='', bio='', followersCount=0, followingCount=0, createdAt=now_ms())
     index_member(u, member)
+    ensure_trial(u, user['id'], starts_at=member['createdAt'], now=now_ms() / 1000)
     return member
 
 
@@ -209,9 +212,9 @@ def index_member(u, member):
 def subscription_state(u, uid):
     if not uid:
         from rentals import payments_ready
-        return {'active': False, 'subscription': None, 'paymentsReady': payments_ready()}
+        return {'active': False, 'subscription': None, 'paymentsReady': payments_ready(), 'trial': None, 'serverNow': now_ms()}
     from repaidians_billing import subscription
-    return subscription(u, uid)
+    return subscription(u, uid, now=now_ms() / 1000)
 
 
 def usage(u, subject, beat=None):
@@ -233,8 +236,11 @@ def usage(u, subject, beat=None):
 
 
 def browse(u, actor):
-    if actor.get('user') and subscription_state(u, actor['user']['id'])['active']:
-        return QUOTA
+    if actor.get('user'):
+        member_ensure(u, actor['user'])
+        if subscription_state(u, actor['user']['id'])['active']:
+            return QUOTA
+        fail('TRIAL_EXPIRED', 'Your 30-day community trial has ended. An active membership is required to continue.', 402)
     remaining = usage(u, actor['subject'], True)
     if remaining <= 0:
         fail('DAILY_LIMIT', 'Your 15-minute community browsing allowance is used. Upgrade or return after midnight IST.', 402)
@@ -244,8 +250,9 @@ def browse(u, actor):
 def pro(u, actor):
     if not actor.get('user'):
         fail('SIGN_IN_REQUIRED', 'Sign in to continue.', 401)
+    member_ensure(u, actor['user'])
     if not subscription_state(u, actor['user']['id'])['active']:
-        fail('PRO_REQUIRED', 'An active Repaidians Pro subscription is required.', 402)
+        fail('TRIAL_EXPIRED', 'Your 30-day community trial has ended. An active membership is required to continue.', 402)
 
 
 def signed(actor):
@@ -462,7 +469,7 @@ def install(core):
             user = a['user']
             current = member_ensure(u, user) if user else {'id': 'guest', 'name': 'Guest', 'handle': 'guest', 'trade': 'cleaning', 'role': 'Guest', 'avatarUrl': '', 'bio': ''}
             bill = subscription_state(u, (user or {}).get('id'))
-            remaining = QUOTA if bill['active'] else usage(u, a['subject'], True)
+            remaining = QUOTA if bill['active'] else 0 if user else usage(u, a['subject'], True)
             pages = {k: feed_page(u, a, k, limit=15) for k in ('post', 'story', 'reel', 'tender')} if remaining else {}
             activity = {key: [row['id'] for row in actor_rows(u, 'rp_' + key, user['id'], 200)] if user and remaining else [] for key in ('likes', 'saved', 'following', 'bids')}
             activity['messages'] = []
@@ -476,7 +483,8 @@ def install(core):
                              'posts': pages.get('post', {}).get('items', []), 'stories': pages.get('story', {}).get('items', []),
                              'reels': pages.get('reel', {}).get('items', []), 'tenders': pages.get('tender', {}).get('items', []),
                              'comments': [], 'follows': [{'from': user['id'], 'to': key} for key in activity['following']] if user else []},
-                    'member': public_current, 'activity': activity, 'subscription': bill['subscription'], 'remainingMs': remaining,
+                    'member': public_current, 'activity': activity, 'subscription': bill['subscription'], 'trial': bill['trial'],
+                    'serverNow': bill['serverNow'], 'remainingMs': remaining,
                     'authenticated': bool(user), 'paymentsReady': bill['paymentsReady'], 'mediaReady': storage.ready(core),
                     'storage': 'firestore' if core.USE_FIRESTORE else 'sqlite',
                     'cursors': {k: p['nextCursor'] for k, p in pages.items()},
@@ -486,9 +494,11 @@ def install(core):
     @r.post('/usage')
     def heartbeat(body: Heartbeat, a=Depends(actor)):
         def save(u):
+            if a['user']:
+                member_ensure(u, a['user'])
             bill = subscription_state(u, (a['user'] or {}).get('id'))
-            remaining = QUOTA if bill['active'] else usage(u, a['subject'], body.active)
-            return {'remainingMs': QUOTA if bill['active'] else remaining, 'subscription': bill['subscription']}
+            remaining = QUOTA if bill['active'] else 0 if a['user'] else usage(u, a['subject'], body.active)
+            return {'remainingMs': remaining, 'subscription': bill['subscription'], 'trial': bill['trial'], 'serverNow': bill['serverNow']}
         return store.run(save)
 
     @r.get('/feed')
@@ -503,10 +513,10 @@ def install(core):
         if not 1 <= limit <= 50 or len(search) > 100:
             fail('INVALID_SEARCH', 'Keep searches and page sizes within the supported limit.', 422)
         prefix = search.strip().casefold()[:20]
-        if prefix and len(prefix) < 2:
-            return {'members': [], 'nextCursor': None}
         def read(u):
             browse(u, a)
+            if prefix and len(prefix) < 2:
+                return {'members': [], 'nextCursor': None}
             rows = query(u, 'rp_search_' + digest(prefix) if prefix else 'rp_member_directory', limit + 1, cursor_decode(cursor))
             results = members_for(u, [row['id'] for row in rows[:limit] if row.get('active', True)], a)
             return {'members': results, 'nextCursor': cursor_encode(rows[limit - 1]['sortKey']) if len(rows) > limit else None}
@@ -632,6 +642,8 @@ def install(core):
     def remove(publication_id: str, a=Depends(actor)):
         user = signed(a)
         def save(u):
+            # Account/privacy controls remain available after membership expiry.
+            # They never return publication content or unlock any social read.
             item = u.get('rp_publications', publication_id)
             if not item or item['authorId'] != user['id']:
                 fail('NOT_FOUND', 'Publication unavailable.', 404)
@@ -858,6 +870,7 @@ def install(core):
     def read_notifications(body: ReadNotifications, a=Depends(actor)):
         user = signed(a)
         def save(u):
+            browse(u, a)
             collection = lane('rp_notifications', user['id'])
             for key in body.ids:
                 row = u.get(collection, key)
@@ -935,6 +948,8 @@ def install(core):
     def block(member_id: str, body: Toggle, a=Depends(actor)):
         user = signed(a)
         def save(u):
+            # Blocking and unblocking are privacy controls, including when the
+            # owner's trial has expired; browse/message gates remain unchanged.
             member_ensure(u, user)
             other = u.get('rp_members', member_id)
             if not other or member_id == user['id']:
@@ -966,23 +981,18 @@ def install(core):
             fail('MEDIA_UNAVAILABLE', 'Durable community media storage is not configured.', 503)
         mime = request.headers.get('content-type', '').split(';')[0]
         def reserve(u):
-            browse(u, a)
-            paid = subscription_state(u, user['id'])['active']
-            if not paid and mime not in ('image/jpeg', 'image/png', 'image/webp'):
-                fail('PRO_REQUIRED', 'An active Pro subscription is required for video uploads.', 402)
-            rate(u, user['id'], 'upload' if paid else 'avatar_upload', 60 if paid else 5,
-                 3600000 if paid else 86400000)
-            return paid
-        paid = store.run(reserve)
-        maximum = 8 * 1024 * 1024 if paid else 2 * 1024 * 1024
+            pro(u, a)
+            rate(u, user['id'], 'upload', 60, 3600000)
+        store.run(reserve)
+        maximum = 8 * 1024 * 1024
         data = bytearray()
         async for chunk in request.stream():
             data.extend(chunk)
             if len(data) > maximum:
-                fail('MEDIA_TOO_LARGE', 'Pro media must be 8 MB or smaller; free profile photos must be 2 MB or smaller.', 413)
+                fail('MEDIA_TOO_LARGE', 'Media must be 8 MB or smaller.', 413)
         normalized, mime, kind = storage.prepare(bytes(data), mime)
         if len(normalized) > maximum:
-            fail('MEDIA_TOO_LARGE', 'Choose a smaller profile photo.', 413)
+            fail('MEDIA_TOO_LARGE', 'Choose a smaller photo.', 413)
         key = str(uuid.uuid4())
         object_key = 'repaidians/' + digest(user['id']) + '/' + key
         try:

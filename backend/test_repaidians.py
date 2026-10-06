@@ -63,6 +63,14 @@ def grant(api, uid='alice'):
     }))
 
 
+def expire(api, uid='alice'):
+    stamp = social.now_ms()
+    api.core.operations_store.run(lambda u: u.put('rp_trials', uid, {
+        'userId': uid, 'startsAt': stamp - 31 * 86400000, 'endsAt': stamp - 86400000,
+        'policy': 'repaidians-trial-30d-v1',
+    }))
+
+
 def profile(api, uid='alice', trade='electrician'):
     r = api.patch('/repaidians/profile', headers=auth(uid), json={'trade': trade})
     assert r.status_code == 200, r.text
@@ -103,27 +111,29 @@ def test_empty_genuine_feed_guests_cookie_auth_and_pro_gate(api):
     assert api.get('/repaidians/state', headers=auth()).json()['member']['reviewed'] is False
 
 
-def test_server_heartbeat_shared_budget_no_client_time_and_ist_reset(api, monkeypatch):
+def test_guest_heartbeat_shared_budget_no_client_time_and_ist_reset(api, monkeypatch):
     clock = [int(datetime(2026, 10, 6, 23, 58, tzinfo=ZoneInfo('Asia/Kolkata')).timestamp() * 1000)]
     monkeypatch.setattr(social, 'now_ms', lambda: clock[0])
-    api.get('/repaidians/state', headers=auth())
-    assert api.post('/repaidians/usage', headers=auth(), json={'active': True}).json()['remainingMs'] == 900000
+    first = api.get('/repaidians/state')
+    token = first.cookies['__session']
+    assert api.post('/repaidians/usage', json={'active': True}).json()['remainingMs'] == 900000
     clock[0] += 7000
-    assert api.post('/repaidians/usage', headers=auth(), json={'active': True}).json()['remainingMs'] == 893000
-    assert api.post('/repaidians/usage', headers=auth(), json={'active': True}).json()['remainingMs'] == 893000
-    assert api.post('/repaidians/usage', headers=auth(), json={'active': True, 'durationMs': -900000}).status_code == 422
+    assert api.post('/repaidians/usage', json={'active': True}).json()['remainingMs'] == 893000
+    assert api.post('/repaidians/usage', json={'active': True}).json()['remainingMs'] == 893000
+    assert api.post('/repaidians/usage', json={'active': True, 'durationMs': -900000}).status_code == 422
     # Pausing stops renewal but never refunds a prepaid 15-second slice.
     clock[0] += 60000
-    assert api.post('/repaidians/usage', headers=auth(), json={'active': False}).json()['remainingMs'] == 885000
-    subject = 'user_' + social.digest('alice')
+    assert api.post('/repaidians/usage', json={'active': False}).json()['remainingMs'] == 885000
+    subject = 'guest_' + social.digest(token)
     day = datetime.fromtimestamp(clock[0] / 1000, social.IST).date().isoformat()
     api.core.operations_store.run(lambda u: u.put('rp_usage', subject, {'day': day, 'usedMs': 900000, 'leaseUntil': clock[0] - 1}))
-    assert api.get('/repaidians/feed', headers=auth()).status_code == 402
-    assert api.get('/repaidians/state', headers=auth()).json()['data']['posts'] == []
-    # A different authenticated user has its own authoritative counter.
-    assert api.get('/repaidians/state', headers=auth('bob')).json()['remainingMs'] == 900000
+    assert api.get('/repaidians/feed').status_code == 402
+    assert api.get('/repaidians/state').json()['data']['posts'] == []
+    # A different preview cookie has its own authoritative counter.
+    with TestClient(api.core.app) as other:
+        assert other.get('/repaidians/state').json()['remainingMs'] == 900000
     clock[0] = int(datetime(2026, 10, 7, 0, 0, tzinfo=social.IST).timestamp() * 1000)
-    assert api.get('/repaidians/state', headers=auth()).json()['remainingMs'] == 900000
+    assert api.get('/repaidians/state').json()['remainingMs'] == 900000
 
 
 def test_trade_visibility_owner_media_and_verified_identity(api):
@@ -195,7 +205,7 @@ def test_real_two_sided_messages_pro_send_thread_isolation_and_blocks(api):
     assert message['senderId'] == 'alice' and message['recipientId'] == 'bob'
     assert api.get('/repaidians/messages/bob', headers=auth('carol')).json()['messages'] == []
     assert api.get('/repaidians/threads', headers=auth('bob')).json()['threads'][0]['recipientId'] == 'alice'
-    assert api.post('/repaidians/messages/alice', headers=auth('bob'), json={'text': 'Unpaid reply'}).status_code == 402
+    assert api.post('/repaidians/messages/alice', headers=auth('bob'), json={'text': 'Trial member reply'}).status_code == 201
     assert api.put('/repaidians/blocks/alice', headers=auth('bob'), json={'active': True}).status_code == 200
     assert api.get('/repaidians/messages/alice', headers=auth('bob')).status_code == 404
     assert api.post('/repaidians/messages/bob', headers=auth(), json={'text': 'Blocked'}).status_code == 404
@@ -211,6 +221,7 @@ def test_tender_contact_never_in_public_snapshot_bids_durable_owner_only(api):
                   title='Apartment rewiring', location='Balasore', budgetRupees=24000, slots=3,
                   deadline=int(time.time() * 1000) + 86400000, contact='+919876543210')
     assert tender['contact'] == '' and '+919876543210' not in api.get('/repaidians/state').text
+    expire(api, 'bob')
     assert api.get('/repaidians/tenders/' + tender['id'] + '/contact', headers=auth('bob')).status_code == 402
     assert api.post('/repaidians/bids/' + tender['id'], headers=auth('bob'), json={}).status_code == 402
     grant(api, 'bob')
@@ -300,16 +311,16 @@ def test_missing_or_false_heartbeat_cannot_bypass_server_browse_leases(api, monk
     clock = [int(datetime(2026, 10, 6, 10, 0, tzinfo=social.IST).timestamp() * 1000)]
     monkeypatch.setattr(social, 'now_ms', lambda: clock[0])
     for index in range(60):
-        assert api.post('/repaidians/usage', headers=auth(), json={'active': False}).status_code == 200
-        r = api.get('/repaidians/feed', headers=auth())
+        assert api.post('/repaidians/usage', json={'active': False}).status_code == 200
+        r = api.get('/repaidians/feed')
         assert r.status_code == 200, (index, r.text)
         # Multiple tabs/refreshes in the same lease never double charge.
-        assert api.get('/repaidians/feed', headers=auth()).status_code == 200
+        assert api.get('/repaidians/feed').status_code == 200
         clock[0] += social.LEASE
-    assert api.get('/repaidians/feed', headers=auth()).status_code == 402
-    assert api.get('/repaidians/state', headers=auth()).json()['remainingMs'] == 0
-    assert api.post('/repaidians/usage', headers=auth(), json={'active': False}).json()['remainingMs'] == 0
-    assert api.post('/repaidians/usage', headers=auth(), json={'active': True}).json()['remainingMs'] == 0
+    assert api.get('/repaidians/feed').status_code == 402
+    assert api.get('/repaidians/state').json()['remainingMs'] == 0
+    assert api.post('/repaidians/usage', json={'active': False}).json()['remainingMs'] == 0
+    assert api.post('/repaidians/usage', json={'active': True}).json()['remainingMs'] == 0
 
 
 def test_hosting_compatible_guest_cookie_persists_on_json_and_media_response(api, monkeypatch):
@@ -333,16 +344,13 @@ def test_hosting_compatible_guest_cookie_persists_on_json_and_media_response(api
     assert 'HttpOnly' in media.headers['set-cookie']
 
 
-def test_free_profile_media_is_bounded_and_paid_time_does_not_spend_free_quota(api, monkeypatch):
+def test_trial_media_is_bounded_and_entitled_time_does_not_spend_guest_quota(api, monkeypatch):
     asset = photo(api)
     assert api.patch('/repaidians/profile', headers=auth(), json={'avatarUrl': asset['url']}).status_code == 200
-    assert api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'video/mp4'}, content=b'video').status_code == 402
-    assert api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'image/jpeg'}, content=b'x' * (2 * 1024 * 1024 + 1)).status_code == 413
-    for _ in range(3):
-        photo(api)
-    output = io.BytesIO()
-    Image.new('RGB', (8, 8)).save(output, format='JPEG')
-    assert api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'image/jpeg'}, content=output.getvalue()).status_code == 429
+    assert api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'video/mp4'}, content=b'video').status_code == 422
+    assert api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'image/jpeg'}, content=b'x' * (8 * 1024 * 1024 + 1)).status_code == 413
+    expire(api)
+    assert api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'image/jpeg'}, content=b'photo').status_code == 402
     grant(api, 'bob')
     clock = [int(time.time() * 1000)]
     monkeypatch.setattr(social, 'now_ms', lambda: clock[0])
@@ -410,3 +418,141 @@ def test_operator_retain_does_not_change_content_or_private_contacts(api):
                         json={'decision': 'retain', 'reason': 'The reported tender follows the community policy.'})
     assert response.status_code == 200
     assert api.get('/repaidians/feed?kind=tender').json()['items'][0]['id'] == tender['id']
+
+
+def test_new_members_join_from_direct_api_and_get_full_30_day_social_trial(api, monkeypatch):
+    stamp = int(time.time() * 1000)
+    monkeypatch.setattr(social, 'now_ms', lambda: stamp)
+    # The first interaction is a direct authenticated discovery request, with
+    # no state fetch and no billing/test Pro grant to unlock the account.
+    assert api.get('/repaidians/feed', headers=auth()).status_code == 200
+    initial = api.get('/repaidians/state', headers=auth()).json()
+    trial = initial['trial']
+    assert trial == {'startsAt': stamp, 'endsAt': stamp + 30 * 86400000, 'status': 'active'}
+    assert initial['serverNow'] == stamp and initial['subscription'] == {
+        'plan': 'trial', 'provider': 'trial', 'amountPaise': 0,
+        'startsAt': stamp, 'endsAt': stamp + 30 * 86400000,
+    }
+    profile(api)
+    # A direct authenticated upload also joins the recipient before its first
+    # state/profile request and provides the same complete media entitlement.
+    bob_asset = photo(api, 'bob')
+    assert bob_asset['kind'] == 'image'
+    profile(api, 'bob')
+    asset = photo(api)
+    item = post(api, media=asset)
+    story = post(api, media=asset, kind='story')
+    import struct
+    def box(kind, payload=b''):
+        return struct.pack('>I4s', len(payload) + 8, kind) + payload
+    video = box(b'ftyp', b'isom\x00\x00\x00\x00mp42') + box(b'moov') + box(b'mdat', b'video frame')
+    uploaded = api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'video/mp4'}, content=video)
+    assert uploaded.status_code == 201
+    reel_media = {key: uploaded.json()[key] for key in ('url', 'kind', 'alt')}
+    reel = post(api, media=reel_media, kind='reel')
+    assert api.get('/repaidians/feed?kind=reel', headers=auth('bob')).json()['items'][0]['id'] == reel['id']
+    assert api.get('/repaidians/feed?kind=story', headers=auth('bob')).json()['items'][0]['id'] == story['id']
+    assert api.put('/repaidians/activity/likes/' + item['id'], headers=auth('bob'), json={'active': True}).status_code == 200
+    assert api.post('/repaidians/comments/' + item['id'], headers=auth('bob'), json={'text': 'Great work'}).status_code == 201
+    assert api.put('/repaidians/follow/alice', headers=auth('bob'), json={'active': True}).status_code == 200
+    assert api.post('/repaidians/messages/bob', headers=auth(), json={'text': 'Can your crew help?'}).status_code == 201
+    assert api.post('/repaidians/messages/alice', headers=auth('bob'), json={'text': 'Yes, we are available'}).status_code == 201
+    tender = post(api, kind='tender', title='Apartment wiring', location='Balasore', budgetRupees=24000,
+                  slots=2, deadline=stamp + 86400000, contact='+919123456789')
+    assert api.post('/repaidians/bids/' + tender['id'], headers=auth('bob'), json={'note': 'Crew ready'}).status_code == 201
+    assert api.get('/repaidians/tenders/' + tender['id'] + '/contact', headers=auth('bob')).json()['contact'] == '+919123456789'
+    assert api.get('/repaidians/notifications', headers=auth()).json()['notifications']
+    assert api.core.operations_store.run(lambda u: u.get('rp_subscriptions', 'alice')) is None
+    assert api.core.operations_store.run(lambda u: u.get('rp_usage', 'user_' + social.digest('alice'))) is None
+
+
+def test_trial_exact_expiry_locks_every_social_endpoint_and_paid_restores(api, monkeypatch):
+    clock = [int(time.time() * 1000)]
+    monkeypatch.setattr(social, 'now_ms', lambda: clock[0])
+    profile(api)
+    profile(api, 'bob')
+    asset = photo(api)
+    item = post(api, media=asset)
+    tender = post(api, kind='tender', title='Future rewiring', location='Balasore', budgetRupees=20000,
+                  slots=2, deadline=clock[0] + 60 * 86400000, contact='+919123456789')
+    trial = api.get('/repaidians/state', headers=auth()).json()['trial']
+    clock[0] = trial['endsAt'] - 1
+    assert api.get('/repaidians/feed', headers=auth()).status_code == 200
+    clock[0] += 1
+    state = api.get('/repaidians/state', headers=auth()).json()
+    assert state['trial']['status'] == 'expired' and state['serverNow'] == trial['endsAt']
+    assert state['subscription'] is None and state['remainingMs'] == 0
+    assert state['data']['posts'] == state['data']['stories'] == state['data']['reels'] == state['data']['tenders'] == []
+    assert state['member']['id'] == 'alice'
+    sync = api.post('/repaidians/usage', headers=auth(), json={'active': True}).json()
+    assert sync['trial']['status'] == 'expired' and sync['remainingMs'] == 0 and sync['serverNow'] == clock[0]
+    calls = [
+        ('get', '/repaidians/feed', {}), ('get', '/repaidians/members', {}),
+        ('get', '/repaidians/members/bob', {}), ('get', '/repaidians/publications/' + item['id'], {}),
+        ('get', '/repaidians/comments/' + item['id'], {}), ('get', '/repaidians/messages/bob', {}),
+        ('get', '/repaidians/threads', {}), ('get', '/repaidians/notifications', {}),
+        ('get', asset['url'].removeprefix('/api'), {}),
+        ('get', '/repaidians/tenders/' + tender['id'] + '/contact', {}),
+        ('get', '/repaidians/bids/' + tender['id'], {}),
+        ('patch', '/repaidians/profile', {'json': {'name': 'Changed Name'}}),
+        ('put', '/repaidians/activity/likes/' + item['id'], {'json': {'active': True}}),
+        ('put', '/repaidians/follow/bob', {'json': {'active': True}}),
+        ('post', '/repaidians/comments/' + item['id'], {'json': {'text': 'Late'}}),
+        ('post', '/repaidians/messages/bob', {'json': {'text': 'Late'}}),
+        ('post', '/repaidians/bids/' + tender['id'], {'json': {}}),
+        ('post', '/repaidians/publications', {'json': {'kind': 'post', 'caption': 'Late', 'trade': 'electrician', 'visibility': 'public', 'media': [asset]}}),
+        ('post', '/repaidians/media', {'headers': {**auth(), 'Content-Type': 'image/jpeg'}, 'content': b'photo'}),
+        ('post', '/repaidians/notifications/read', {'json': {'ids': []}}),
+        ('post', '/repaidians/reports', {'json': {'targetId': item['id'], 'reason': 'other'}}),
+    ]
+    for method, url, kwargs in calls:
+        kwargs.setdefault('headers', auth())
+        response = getattr(api, method)(url, **kwargs)
+        assert response.status_code == 402, (method, url, response.text)
+        assert response.json()['detail']['code'] == 'TRIAL_EXPIRED'
+    # Expiry never prevents owners removing their own content or using block
+    # controls. These routes return acknowledgements, not social content.
+    assert api.delete('/repaidians/publications/' + item['id'], headers=auth('bob')).status_code == 404
+    assert api.delete('/repaidians/publications/' + item['id'], headers=auth()).status_code == 200
+    assert api.put('/repaidians/blocks/bob', headers=auth(), json={'active': True}).status_code == 200
+    assert api.get('/repaidians/messages/bob', headers=auth()).status_code == 402
+    assert api.put('/repaidians/blocks/bob', headers=auth(), json={'active': False}).status_code == 200
+    # Signed-out visitors still receive only the separate metered public preview.
+    assert api.get('/repaidians/feed').status_code == 200
+    assert api.get('/repaidians/state').json()['trial'] is None
+    api.core.operations_store.run(lambda u: u.put('rp_subscriptions', 'alice', {
+        'status': 'active', 'plan': 'pro', 'provider': 'razorpay', 'amountPaise': 19900,
+        'startsAt': clock[0], 'endsAt': clock[0] + 86400000,
+    }))
+    assert api.get('/repaidians/feed', headers=auth()).status_code == 200
+    restored = api.get('/repaidians/state', headers=auth()).json()
+    assert restored['subscription']['plan'] == 'pro' and restored['trial']['status'] == 'expired'
+    assert api.post('/repaidians/messages/bob', headers=auth(), json={'text': 'Paid again'}).status_code == 201
+
+
+def test_trial_is_server_owned_once_per_uid_survives_devices_profile_and_backfill(api, monkeypatch):
+    clock = [int(time.time() * 1000)]
+    monkeypatch.setattr(social, 'now_ms', lambda: clock[0])
+    first = api.get('/repaidians/state', headers=auth()).json()['trial']
+    assert api.patch('/repaidians/profile', headers=auth(), json={'name': 'Sipun Mahanta'}).status_code == 200
+    api.cookies.clear()
+    clock[0] += 20 * 86400000
+    with TestClient(api.core.app) as another_device:
+        assert another_device.get('/repaidians/state', headers=auth()).json()['trial'] == first
+        assert another_device.post('/repaidians/usage', headers=auth(), json={'active': True, 'endsAt': clock[0] + 999999999}).status_code == 422
+        assert another_device.patch('/repaidians/profile', headers=auth(), json={'createdAt': clock[0]}).status_code == 422
+    assert api.core.operations_store.run(lambda u: u.get('rp_usage', 'user_' + social.digest('alice'))) is None
+    # Existing durable community profiles backfill from their original joining
+    # date instead of receiving a fresh trial each time this release deploys.
+    old_start = clock[0] - 31 * 86400000
+    api.core.operations_store.run(lambda u: u.put('rp_members', 'bob', {
+        'id': 'bob', 'name': 'Existing Professional', 'handle': 'existing.bob', 'trade': 'electrician',
+        'role': 'Member', 'avatarUrl': '', 'bio': '', 'createdAt': old_start,
+        'followersCount': 0, 'followingCount': 0,
+    }))
+    existing = api.get('/repaidians/state', headers=auth('bob')).json()
+    assert existing['trial'] == {'startsAt': old_start, 'endsAt': old_start + 30 * 86400000, 'status': 'expired'}
+    assert existing['remainingMs'] == 0
+    clock[0] = first['endsAt']
+    assert api.get('/repaidians/state', headers=auth()).json()['trial']['status'] == 'expired'
+    assert api.get('/repaidians/feed', headers=auth()).status_code == 402

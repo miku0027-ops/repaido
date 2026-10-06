@@ -22,9 +22,10 @@ export interface CommunityComment {
   id: string; targetId: string; authorId: string; text: string; createdAt: number;
 }
 export interface CommunityMessage { id: string; recipientId: string; senderId?: string; text: string; createdAt: number; }
-export interface CommunitySubscription {
-  plan: 'pro'; amountPaise: 19900; startsAt: number; endsAt: number; provider: 'razorpay';
-}
+export type CommunitySubscription =
+  {plan:'pro';amountPaise:19900;startsAt:number;endsAt:number;provider:'razorpay'} |
+  {plan:'trial';amountPaise:0;startsAt:number;endsAt:number;provider:'trial'};
+export interface CommunityTrial {startsAt:number;endsAt:number;status:'active'|'expired';}
 export interface DailyUsage { day: string; usedMs: number; chargedUntil: number; }
 export interface CommunityData {
   version: 1; members: CommunityMember[]; posts: CommunityPost[]; stories: CommunityStory[];
@@ -37,7 +38,7 @@ export interface CommunityActivity {
 }
 export interface CommunitySnapshot {
   data: CommunityData; activity: CommunityActivity; member: CommunityMember;
-  subscription: CommunitySubscription | null; remainingMs: number;
+  subscription: CommunitySubscription | null; trial:CommunityTrial|null; remainingMs: number; serverNow:number;
   authenticated: boolean; paymentsReady: boolean; mediaReady: boolean; unreadCount?: number;
 }
 export interface PublicationDraft {
@@ -48,4 +49,4 @@ export interface PublicationDraft {
 export interface CommunityPage<T> {items: T[]; members: CommunityMember[]; nextCursor: string | null;}
 export interface CommunityNotification {id: string; type: string; actorId?: string; authorId?: string; targetId?: string; text?: string; createdAt: number; read?: boolean;}
 export interface CommunityThread {id: string; memberId?: string; recipientId?: string; lastMessage?: string; text?: string; updatedAt?: number; unreadCount?: number;}
-export interface SubscriptionStatus {active: boolean; subscription: CommunitySubscription | null; paymentsReady: boolean; amount: number; currency: string; paymentStatus?: string;}
+export interface SubscriptionStatus {active: boolean; subscription: CommunitySubscription | null; trial:CommunityTrial|null; serverNow:number; paymentsReady: boolean; amount: number; currency: string; paymentStatus?: string;}

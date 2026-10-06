@@ -3,6 +3,7 @@ import copy
 import hashlib
 import hmac
 import json
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -14,11 +15,17 @@ from test_operations import api, auth
 
 
 @pytest.fixture
-def gateway(monkeypatch):
+def gateway(api, monkeypatch):
     monkeypatch.setenv('REPAIDO_PAYMENTS_ENABLED', 'true')
     monkeypatch.setenv('RAZORPAY_KEY_ID', 'rzp_test_fixture')
     monkeypatch.setenv('RAZORPAY_KEY_SECRET', 'fixture-secret')
     monkeypatch.setenv('RAZORPAY_WEBHOOK_SECRET', 'fixture-webhook')
+    # Existing members whose one-time free trial has expired isolate paid-flow tests.
+    stamp = int((time.time() - 90 * 86400) * 1000)
+    def members(u):
+        for uid in ('customer', 'stranger', 'worker'):
+            u.put('rp_members', uid, {'id': uid, 'createdAt': stamp})
+    main.operations_store.run(members)
     state = dict(orders=[], payments={}, creates=0, unknown=False, requests=[])
 
     def request(path, body=None):
@@ -333,3 +340,142 @@ def test_passive_state_transitions_across_refunded_gap_without_gateway_calls(api
     state = api.get('/repaidians/subscription', headers=auth('customer')).json()
     assert state['active'] and state['subscription']['endsAt'] == last_end
     assert len(gateway['requests']) == before
+
+
+def test_trial_requires_join_and_is_immutable_once_per_uid(api, gateway, monkeypatch):
+    clock = [datetime(2027, 1, 15, 12, tzinfo=ZoneInfo('Asia/Kolkata')).timestamp()]
+    monkeypatch.setattr(billing.time, 'time', lambda: clock[0])
+    with main.db() as c:
+        c.execute("DELETE FROM operation_records WHERE kind IN ('rp_members', 'rp_trials')")
+    before = api.get('/repaidians/subscription', headers=auth('customer')).json()
+    assert not before['active'] and before['trial'] is None
+    rejected = api.post('/repaidians/subscription/order', headers=auth('customer'))
+    assert rejected.status_code == 403 and rejected.json()['detail']['code'] == 'MEMBER_REQUIRED'
+    assert gateway['creates'] == 0 and gateway['requests'] == []
+    assert main.operations_store.run(lambda u: billing.ensure_trial(u, 'customer')) is None
+    assert main.operations_store.run(lambda u: u.get('rp_trials', 'customer')) is None
+    stamp = int(clock[0] * 1000)
+
+    def join(u):
+        u.put('rp_members', 'customer', {'id': 'customer', 'createdAt': stamp})
+        return billing.ensure_trial(u, 'customer', starts_at=stamp)
+    trial = main.operations_store.run(join)
+    assert trial == {'startsAt': stamp, 'endsAt': stamp + 30 * 86400 * 1000, 'status': 'active'}
+    state = api.get('/repaidians/subscription', headers=auth('customer')).json()
+    assert state['active'] and state['trial'] == trial
+    assert state['subscription'] == {'plan': 'trial', 'provider': 'trial', 'amountPaise': 0,
+                                      'startsAt': stamp, 'endsAt': trial['endsAt']}
+    stored = main.operations_store.run(lambda u: u.get('rp_trials', 'customer'))
+    clock[0] += 40 * 86400
+
+    def rejoin(u):
+        u.put('rp_members', 'customer', {'id': 'customer', 'createdAt': int(clock[0] * 1000)})
+        return billing.ensure_trial(u, 'customer', starts_at=int(clock[0] * 1000))
+    assert main.operations_store.run(rejoin)['status'] == 'expired'
+    assert main.operations_store.run(lambda u: u.get('rp_trials', 'customer')) == stored
+    assert not api.get('/repaidians/subscription', headers=auth('customer')).json()['active']
+    assert main.operations_store.run(lambda u: (u.all('rp_payments'), u.all('receipts'))) == ([], [])
+    assert gateway['creates'] == 0
+    assert api.get('/repaidians/subscription', headers=auth('stranger')).json()['trial'] is None
+
+
+@pytest.mark.parametrize('offset_ms,active', [(-1, False), (0, True), (30 * 86400 * 1000 - 1, True), (30 * 86400 * 1000, False)])
+def test_trial_uses_exact_server_time_boundary(api, gateway, monkeypatch, offset_ms, active):
+    stamp = 1800000000000
+    clock = (stamp + offset_ms) / 1000
+    monkeypatch.setattr(billing.time, 'time', lambda: clock)
+    main.operations_store.run(lambda u: u.put('rp_members', 'customer', {'id': 'customer', 'createdAt': stamp}))
+    state = api.get('/repaidians/subscription', headers=auth('customer')).json()
+    assert state['active'] is active
+    assert state['serverNow'] == stamp + offset_ms
+    assert state['trial'] == {'startsAt': stamp, 'endsAt': stamp + billing.TRIAL_MS, 'status': 'active' if active else 'expired'}
+    assert (state['subscription'] or {}).get('plan') == ('trial' if active else None)
+    assert gateway['creates'] == 0
+
+
+def test_trial_backfill_preserves_original_join_date_even_when_expired(api, gateway, monkeypatch):
+    stamp = 1800000000000
+    clock = [stamp / 1000 + 45 * 86400]
+    monkeypatch.setattr(billing.time, 'time', lambda: clock[0])
+    main.operations_store.run(lambda u: u.put('rp_members', 'customer', {'id': 'customer', 'createdAt': stamp}))
+    state = api.get('/repaidians/subscription', headers=auth('customer')).json()
+    assert not state['active'] and state['subscription'] is None
+    assert state['trial'] == {'startsAt': stamp, 'endsAt': stamp + billing.TRIAL_MS, 'status': 'expired'}
+    clock[0] += 100 * 86400
+    assert api.get('/repaidians/subscription', headers=auth('customer')).json()['trial'] == state['trial']
+    assert main.operations_store.run(lambda u: u.all('rp_payments')) == []
+
+
+def test_paid_capture_during_trial_preserves_free_days_then_activates_paid_month(api, gateway, monkeypatch):
+    clock = [datetime(2027, 1, 1, 12, tzinfo=ZoneInfo('Asia/Kolkata')).timestamp()]
+    monkeypatch.setattr(billing.time, 'time', lambda: clock[0])
+    stamp = int(clock[0] * 1000)
+    main.operations_store.run(lambda u: u.put('rp_members', 'customer', {'id': 'customer', 'createdAt': stamp}))
+    trial = api.get('/repaidians/subscription', headers=auth('customer')).json()['trial']
+    clock[0] += 7 * 86400
+    row = order(api)
+    p = payment(gateway, row)
+    state = check(api)
+    assert state['paymentStatus'] == 'captured' and state['subscription']['plan'] == 'trial'
+    attempt = main.operations_store.run(lambda u: u.get('rp_payments', row['attempt_id']))
+    assert attempt['grantStartsAt'] == trial['endsAt']
+    assert datetime.fromtimestamp(attempt['grantEndsAt'] / 1000, ZoneInfo('Asia/Kolkata')).isoformat().startswith('2027-02-28T12:00')
+    assert signed_hook(api, p['id']).status_code == 200
+    assert main.operations_store.run(lambda u: u.get('rp_payments', row['attempt_id']))['grantEndsAt'] == attempt['grantEndsAt']
+    clock[0] = trial['endsAt'] / 1000 - .001
+    assert api.get('/repaidians/subscription', headers=auth('customer')).json()['subscription']['plan'] == 'trial'
+    clock[0] = trial['endsAt'] / 1000
+    paid = api.get('/repaidians/subscription', headers=auth('customer')).json()
+    assert paid['active'] and paid['subscription']['plan'] == 'pro'
+    assert paid['subscription']['startsAt'] == trial['endsAt']
+    assert paid['trial']['status'] == 'expired'
+    clock[0] = attempt['grantEndsAt'] / 1000
+    assert not api.get('/repaidians/subscription', headers=auth('customer')).json()['active']
+
+
+def test_refund_does_not_erase_or_restart_remaining_trial(api, gateway, monkeypatch):
+    clock = [1800000000.0]
+    monkeypatch.setattr(billing.time, 'time', lambda: clock[0])
+    main.operations_store.run(lambda u: u.put('rp_members', 'customer', {'id': 'customer', 'createdAt': int(clock[0] * 1000)}))
+    initial = api.get('/repaidians/subscription', headers=auth('customer')).json()['trial']
+    stored = main.operations_store.run(lambda u: u.get('rp_trials', 'customer'))
+    row = order(api)
+    p = payment(gateway, row)
+    assert check(api)['subscription']['plan'] == 'trial'
+    p.update(status='refunded', amount_refunded=19900)
+    state = check(api)
+    assert state['active'] and state['subscription']['plan'] == 'trial' and state['trial'] == initial
+    assert state['paymentStatus'] == 'refunded'
+    p.update(status='captured', amount_refunded=0)
+    assert check(api)['subscription']['plan'] == 'trial'
+    assert main.operations_store.run(lambda u: u.get('rp_trials', 'customer')) == stored
+    clock[0] = initial['endsAt'] / 1000
+    assert not api.get('/repaidians/subscription', headers=auth('customer')).json()['active']
+
+
+def test_existing_paid_period_has_priority_and_trial_remains_independent(api, gateway, monkeypatch):
+    clock = [1800000000.0]
+    monkeypatch.setattr(billing.time, 'time', lambda: clock[0])
+    row = order(api)
+    p = payment(gateway, row)
+    # Paid records from before the trial policy may already overlap a joining trial.
+    starts = int(clock[0] * 1000)
+    ends = int(billing.month_after(clock[0]) * 1000)
+    def legacy_paid(u):
+        attempt = u.get('rp_payments', row['attempt_id'])
+        attempt.update(status='captured', paymentId=p['id'], grantStartsAt=starts, grantEndsAt=ends)
+        u.put('rp_payments', attempt['id'], attempt)
+        billing._save_grants(u, 'customer', [{'attemptId': attempt['id'], 'paymentId': p['id'], 'startsAt': starts, 'endsAt': ends}], clock[0])
+        u.put('receipts', p['id'], {'id': p['id'], 'rpAttemptId': attempt['id'], 'userId': 'customer'})
+    main.operations_store.run(legacy_paid)
+    paid = {'plan': 'pro', 'provider': 'razorpay', 'amountPaise': 19900, 'startsAt': starts, 'endsAt': ends}
+    clock[0] += 10 * 86400
+    stamp = int(clock[0] * 1000)
+    main.operations_store.run(lambda u: u.put('rp_members', 'customer', {'id': 'customer', 'createdAt': stamp}))
+    combined = api.get('/repaidians/subscription', headers=auth('customer')).json()
+    assert combined['subscription'] == paid and combined['trial']['status'] == 'active'
+    p.update(status='refunded', amount_refunded=19900)
+    fallback = check(api)
+    assert fallback['active'] and fallback['subscription']['plan'] == 'trial'
+    assert fallback['trial'] == combined['trial']
+    assert main.operations_store.run(lambda u: u.get('rp_subscriptions', 'customer'))['status'] == 'refunded'
