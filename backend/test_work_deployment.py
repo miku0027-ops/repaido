@@ -149,3 +149,60 @@ def test_denied_api_listing_does_not_try_unverified_enable_or_iam_changes(monkey
     with pytest.raises(deploy.subprocess.CalledProcessError):
         deploy.ensure_required_apis('repaido')
     assert commands == [('services', 'list', '--enabled', '--project=repaido')]
+
+
+@pytest.mark.parametrize(('arguments', 'stderr'), [
+    (('run', 'services', 'describe', 'repaido-work-api'),
+     'ERROR: (gcloud.run.services.describe) Cannot find service [repaido-work-api]\n'),
+    (('run', 'services', 'describe', 'repaido-work-worker'),
+     'WARNING: SDK configuration notice\nERROR: (gcloud.run.services.describe) Cannot find service [repaido-work-worker].\n'),
+    (('scheduler', 'jobs', 'describe', 'repaido-work-updates'),
+     'ERROR: (gcloud.scheduler.jobs.describe) NOT_FOUND: Job not found.\n'),
+    (('iam', 'service-accounts', 'describe', 'repaido-work-scheduler@repaido.iam.gserviceaccount.com'),
+     'ERROR: (gcloud.iam.service-accounts.describe) NOT_FOUND: Unknown service account.\n'),
+])
+def test_missing_resources_recognize_sdk_run_404_and_scheduler_iam_not_found(monkeypatch, arguments, stderr):
+    calls = []
+    def run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=1, stdout='', stderr=stderr)
+    monkeypatch.setattr(deploy.subprocess, 'run', run)
+    assert deploy.exists(*arguments, '--project=repaido') is None
+    assert calls == [['gcloud', *arguments, '--project=repaido', '--format=json']]
+
+
+@pytest.mark.parametrize(('arguments', 'stderr'), [
+    (('run', 'services', 'describe', 'repaido-work-api'),
+     'ERROR: (gcloud.run.services.describe) PERMISSION_DENIED: Permission run.services.get denied on service that does not exist or is inaccessible.\n'),
+    (('scheduler', 'jobs', 'describe', 'repaido-work-updates'),
+     'ERROR: (gcloud.scheduler.jobs.describe) PERMISSION_DENIED: Job not found or caller lacks permission.\n'),
+    (('iam', 'service-accounts', 'describe', 'repaido-work-scheduler@repaido.iam.gserviceaccount.com'),
+     'ERROR: (gcloud.iam.service-accounts.describe) PERMISSION_DENIED: Permission iam.serviceAccounts.get denied on resource (or it may not exist).\n'),
+    (('run', 'services', 'describe', 'repaido-work-api'),
+     'ERROR: (gcloud.run.services.describe) UNAUTHENTICATED: Resource not found without credentials.\n'),
+    (('run', 'services', 'describe', 'repaido-work-api'),
+     'ERROR: (gcloud.run.services.describe) Cannot find service [different-service]\n'),
+    (('scheduler', 'jobs', 'describe', 'repaido-work-updates'),
+     'ERROR: (gcloud.scheduler.jobs.describe) Cannot find service [repaido-work-updates]\n'),
+    (('run', 'services', 'describe', 'repaido-work-api'),
+     'ERROR: (gcloud.run.services.describe) UNAVAILABLE: Service temporarily unavailable.\n'),
+])
+def test_resource_checks_keep_permission_and_unverified_missing_errors_fail_closed(monkeypatch, arguments, stderr):
+    calls = []
+    def run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=1, stdout='', stderr=stderr)
+    monkeypatch.setattr(deploy.subprocess, 'run', run)
+    with pytest.raises(RuntimeError, match='GCP resource check failed'):
+        deploy.exists(*arguments, '--project=repaido')
+    assert calls == [['gcloud', *arguments, '--project=repaido', '--format=json']]
+
+
+def test_existing_resource_description_is_returned_without_mutation(monkeypatch):
+    calls = []
+    def run(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stdout='{"metadata":{"name":"repaido-work-api"}}', stderr='')
+    monkeypatch.setattr(deploy.subprocess, 'run', run)
+    assert deploy.exists('run', 'services', 'describe', 'repaido-work-api') == {'metadata': {'name': 'repaido-work-api'}}
+    assert calls == [['gcloud', 'run', 'services', 'describe', 'repaido-work-api', '--format=json']]

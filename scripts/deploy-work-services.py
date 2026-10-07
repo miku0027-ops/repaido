@@ -6,6 +6,7 @@ secret values or writing them to logs. No credentials are generated or exported.
 import argparse
 import json
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -25,7 +26,14 @@ def exists(*args):
     result = subprocess.run(['gcloud', *args, '--format=json'], text=True, capture_output=True)
     if result.returncode == 0:
         return json.loads(result.stdout)
-    if 'NOT_FOUND' in result.stderr or 'not found' in result.stderr.lower() or 'does not exist' in result.stderr.lower():
+    denied = re.search(r'\b(?:PERMISSION_DENIED|UNAUTHENTICATED)\b', result.stderr)
+    # Cloud Run describe converts an HTTP 404 into this ArgumentError instead
+    # of retaining NOT_FOUND. Match only this command and the requested name.
+    missing_run_service = args[:3] == ('run', 'services', 'describe') and len(args) > 3 and re.search(
+        r'^ERROR: \(gcloud\.run\.services\.describe\) Cannot find service \[' + re.escape(args[3]) + r'\]\.?$',
+        result.stderr, re.MULTILINE)
+    if not denied and (missing_run_service or 'NOT_FOUND' in result.stderr or
+                       'not found' in result.stderr.lower() or 'does not exist' in result.stderr.lower()):
         return None
     raise RuntimeError('GCP resource check failed: ' + result.stderr)
 
