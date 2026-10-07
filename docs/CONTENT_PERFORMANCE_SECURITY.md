@@ -30,6 +30,7 @@ deletion and trial policy still determine access to protected media.
 | Layer | Implemented behavior | Cost or latency effect |
 | --- | --- | --- |
 | Hashed Vite `assets/**` | One-year immutable Hosting cache | Repeated visits reuse the same build assets; changed hashes fetch new assets. |
+| App HTML at root and worker/admin routes | `no-cache, must-revalidate` on rewrite URLs | Navigation checks the current app build while hashed assets remain reusable. |
 | Push service worker and brand manifest | Mutable files use `no-store` / fresh validation | A stale worker cannot retain obsolete account behavior for a year. |
 | Content reads | Memory-only, 48-entry LRU, fixed 15-second monotonic lifetime | Concurrent reads share work; revisiting a fresh feed avoids an HTTP request. |
 | Retained feed UI | Six source windows, original earliest page expiry retained | Remounting a view does not silently extend cached data's lifetime. |
@@ -143,6 +144,12 @@ screening or immunity to phishing.
 The current Firebase Hosting `/api` rewrites and direct `run.app` callers are not
 behind a configured Cloud Armor policy. Application admission limits reduce
 resource amplification but cannot absorb or bill-protect a large global attack.
+
+[The API edge Terraform module](../infra/api-edge/README.md) prepares the gateway,
+private-backend routing and preview policies below. It has passed local source
+and mock-provider checks but has not been applied. Its cPanel A-record output is
+available only after the connected operator provisions the reserved address;
+DNS, certificate activation and client/ingress cutover remain explicit stages.
 
 Implement the edge rollout in this order in staging, then production:
 

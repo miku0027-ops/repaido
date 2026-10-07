@@ -1,0 +1,12 @@
+project_id        = "repaido"
+region            = "us-central1"
+domain            = "api.repaido.com"
+name_prefix       = "repaido-api-edge"
+main_service_name = "repaido-api"
+work_service_name = "repaido-work-api"
+
+# Observe real traffic before enforcement. Shared carrier IPs can serve many users.
+security_rules_preview      = true
+rate_limit_count            = 600
+rate_limit_interval_seconds = 60
+log_sample_rate             = 0.1
