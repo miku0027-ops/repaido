@@ -12,7 +12,7 @@
   --ui-primary:#f5f5f5;--ui-primary-hover:#ddd;--ui-link:#e3b5ff;--ui-control:#929292;
   --ui-line:#363636;--ui-focus:#e3b5ff;
 }
-.rp-fab {position:fixed;right:max(16px,env(safe-area-inset-right));bottom:calc(94px + env(safe-area-inset-bottom));z-index:35;display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #ffffff50;border-radius:18px;background:linear-gradient(120deg,#7026a2,#9f1c59,#8f2940);color:#fff;box-shadow:0 5px 24px #7026a236;text-align:left;font-family:var(--ui-font);}
+.rp-fab {position:fixed;right:max(16px,env(safe-area-inset-right));bottom:var(--ui-nav-clearance);z-index:35;display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #ffffff50;border-radius:18px;background:linear-gradient(120deg,#7026a2,#9f1c59,#8f2940);color:#fff;box-shadow:0 5px 24px #7026a236;text-align:left;font-family:var(--ui-font);}
 .rp-fab-icon {display:grid;place-items:center;width:36px;height:36px;background:#ffffff1a;border-radius:12px;}
 .rp-fab strong,.rp-fab small {display:block;line-height:1.45;}.rp-fab strong{font-size:.875rem;}.rp-fab small{font-size:.6875rem;color:#fff;}
 .rp-shell.modal {width:min(100% - 32px,1180px);max-width:1180px;height:min(94dvh,1000px);max-height:94dvh;padding:0;margin:auto;overflow:hidden;border:1px solid var(--ui-line);border-radius:18px;box-shadow:0 24px 90px #0006;background:var(--ui-surface);}

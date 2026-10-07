@@ -39,7 +39,7 @@
 #root .market-experience .community-market .market-policy { padding:6px 8px; font-size:var(--market-meta); color:var(--ui-muted); background:var(--ui-subtle); border-color:var(--ui-line); font-weight:500; }
 #root .market-experience .community-market .market-policy svg { flex-shrink:0; }
 #root .market-experience .community-market .market-create-btn { width:auto; margin:0; }
-#root .market-experience .community-market .market-search-compact { display:grid; grid-template-columns:minmax(0,1fr) auto 44px; margin:2px 0 8px; gap:4px; }
+#root .market-experience .community-market .market-search-compact { display:grid; grid-template-columns:minmax(0,1fr) auto var(--ui-target,48px); margin:2px 0 8px; gap:4px; }
 #root .market-experience .community-market .market-query { min-width:0; }
 #root .market-experience .community-market .customer-search-field { min-height:36px; height:auto; border-radius:9px; padding:0 8px; gap:5px; background:var(--ui-surface); border-color:var(--ui-line); }
 #root .market-experience .community-market .customer-search-field input { min-width:0; min-height:34px!important; padding:4px 0; font-size:.875rem; background:transparent; color:var(--ui-ink); border:0; }
