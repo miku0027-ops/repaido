@@ -5,6 +5,7 @@ import {approveContractPayment,checkContractPayment,contractBankInstructions,con
 import {downloadContractReport,privateContractBlob,rupeesToPaise,uploadContractEvidence} from '../services/customContractsService';
 import {ContractError,ContractRefresh,contractDate,contractMoney,contractStatus,useCustomContractAction,useCustomContractResource} from './customContractUI';
 import ContractCalendar from './ContractCalendar';
+import './custom-contracts.css';
 import {loadCheckout} from './PaymentPanel';
 
 export function ContractRecordsPanel({projectId,accountKey,mode}:{projectId:string;accountKey:string;mode:'customer'|'contractor'|'agent'}){
