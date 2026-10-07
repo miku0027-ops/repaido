@@ -578,3 +578,86 @@ def test_shared_signed_webhook_fetches_provider_truth_refunds_and_replays(operat
     assert refunded['financials']['confirmed_paid_paise'] == refunded['financials']['pending_reserved_paise'] == 0
     assert refunded['payments'][0]['status'] == 'refunded'
     assert len(main.operations_store.run(lambda u: u.all('contract_reports'))) == 2
+
+
+def purchase_body(api, **changes):
+    return dict(request_id=str(uuid.uuid4()), expected_version=snapshot(api, 'contractor')['version'],
+                title='Electrical cable', vendor='Recorded supplier', amount_paise=25000,
+                purchased_at=int(time.time()) - 60, receipt_reference='INV-EXAMPLE-1', note='For the recorded wiring milestone', **changes)
+
+
+def test_purchase_log_is_private_scoped_idempotent_and_does_not_change_the_price(api):
+    body = purchase_body(api)
+    before = snapshot(api)['financials']
+    for actor in ('customer', 'teammate', 'stranger'):
+        assert api.post(BASE + '/purchases', headers=auth(actor), json=body).status_code == (403 if actor == 'customer' else 404)
+    created = api.post(BASE + '/purchases', headers=auth('contractor'), json=body)
+    assert created.status_code == 200, created.text
+    result = created.json(); row = result['purchases'][0]
+    assert row['status'] == 'reported' and not row['actions']['can_review']
+    assert result['financials'] == before
+    repeated = api.post(BASE + '/purchases', headers=auth('contractor'), json=body)
+    assert repeated.status_code == 200 and repeated.json()['version'] == result['version']
+    assert len(repeated.json()['purchases']) == 1
+    changed = {**body, 'amount_paise':30000}
+    assert api.post(BASE + '/purchases', headers=auth('contractor'), json=changed).status_code == 409
+    assert api.get(BASE + '/records', headers=auth('stranger')).status_code == 404
+    customer = snapshot(api)
+    assert customer['purchases'][0]['actions']['can_review']
+    assert not customer['actions']['can_record_purchase']
+
+
+def test_purchase_review_uses_current_version_and_never_approves_an_extra_charge(api, gateway):
+    added = api.post(BASE + '/purchases', headers=auth('contractor'), json=purchase_body(api))
+    row = added.json()['purchases'][0]
+    before = snapshot(api)['financials']
+    review = dict(request_id=str(uuid.uuid4()), expected_version=added.json()['version'], approved=True, note='Receipt checked')
+    assert api.post(BASE + '/purchases/' + row['id'] + '/review', headers=auth('contractor'), json=review).status_code == 403
+    stale = {**review, 'expected_version':1}
+    assert api.post(BASE + '/purchases/' + row['id'] + '/review', headers=auth(), json=stale).status_code == 409
+    reviewed = api.post(BASE + '/purchases/' + row['id'] + '/review', headers=auth(), json=review)
+    assert reviewed.status_code == 200, reviewed.text
+    assert reviewed.json()['purchases'][0]['status'] == 'customer_confirmed'
+    assert reviewed.json()['financials'] == before
+    assert api.post(BASE + '/purchases/' + row['id'] + '/review', headers=auth(), json=review).json()['version'] == reviewed.json()['version']
+    assert api.post(BASE + '/purchases/' + row['id'] + '/review', headers=auth(), json={**review,'request_id':str(uuid.uuid4()),'expected_version':reviewed.json()['version']}).status_code == 409
+    # Purchases do not expand the canonical customer payment ceiling.
+    _, _, _ = request(api, 100000)
+    blocked = api.post(BASE + '/payments', headers=auth('contractor'), json=dict(request_id=str(uuid.uuid4()), expected_version=snapshot(api)['version'], amount_paise=1, method='gateway'))
+    assert blocked.status_code == 409 and blocked.json()['detail']['code'] == 'DEAL_CEILING'
+
+
+def test_purchase_validation_and_evidence_cannot_cross_projects_or_purposes(api):
+    body = purchase_body(api)
+    for changes in ({'purchased_at':int(time.time())+86400},{'amount_paise':-1},{'amount_paise':1.1},{'receipt_reference':'   '},{'evidence_ids':['not-authorized']}):
+        response = api.post(BASE + '/purchases', headers=auth('contractor'), json={**body, **changes})
+        assert response.status_code == 422, response.text
+    def seed(u):
+        u.put('contract_attachments','other-receipt',dict(id='other-receipt',project_id='another-project',uploaded_by='contractor',purpose='purchase',status='ready',mime='image/png'))
+        u.put('contract_attachments','bank-proof',dict(id='bank-proof',project_id='project-one',uploaded_by='contractor',purpose='payment',status='ready',mime='image/png'))
+        u.put('contract_purchases','other-purchase',dict(id='other-purchase',project_id='another-project',status='reported'))
+    api.core.operations_store.run(seed)
+    for evidence in ('other-receipt','bank-proof'):
+        assert api.post(BASE + '/purchases', headers=auth('contractor'), json={**body,'evidence_ids':[evidence]}).status_code == 422
+    review = dict(request_id=str(uuid.uuid4()),expected_version=1,approved=True)
+    assert api.post(BASE + '/purchases/other-purchase/review', headers=auth(), json=review).status_code == 409
+    assert not snapshot(api)['purchases']
+
+
+def test_actual_purchase_receipts_and_calendar_records_are_in_private_reports(api):
+    image = io.BytesIO(); Image.new('RGB',(10,10),'blue').save(image,format='PNG')
+    upload = api.post(BASE + '/attachments?purpose=purchase',headers={**auth('contractor'),'Content-Type':'image/png'},content=image.getvalue())
+    assert upload.status_code == 200, upload.text
+    assert api.post(BASE + '/attachments?purpose=purchase&share_public=true',headers={**auth('contractor'),'Content-Type':'image/png'},content=image.getvalue()).status_code == 422
+    body = purchase_body(api); body['evidence_ids']=[upload.json()['id']]
+    added = api.post(BASE + '/purchases',headers=auth('contractor'),json=body)
+    assert added.status_code == 200, added.text
+    def seed(u):
+        p=u.get('contract_projects','project-one');p['attendance']=[dict(worker_id='teammate',in_at=1000,out_at=2000,source='member_reported',private_lat=20)];p['events']=[dict(action='goal_submitted',at=3000,note='Inspection submitted')];u.put('contract_projects',p['id'],p)
+    api.core.operations_store.run(seed)
+    current=snapshot(api);assert current['attendance'][0]['in_at']==1000 and 'private_lat' not in str(current['attendance'])
+    assert current['timeline'][0]['note']=='Inspection submitted'
+    record=api.core.operations_store.run(lambda u:records._snapshot(u,u.get('contract_projects','project-one'),u.get('contract_project_records','project-one')))
+    assert record['purchases'][0]['receipt_reference']=='INV-EXAMPLE-1'
+    pdf=api.get(BASE+'/report.pdf',headers=auth());assert pdf.status_code==200 and pdf.content.startswith(b'%PDF')
+    assert api.get(BASE+'/report.pdf',headers=auth('teammate')).status_code==404

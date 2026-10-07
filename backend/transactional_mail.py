@@ -49,6 +49,8 @@ _KINDS = {
     'support_updated': ('Your Repaido support request has an update', 'Your support request has a saved update. Sign in to review the current status.'),
     'contract_progress': ('Your Repaido contract has a progress report', 'A contractor progress report has been saved. Sign in to review the reported progress, calendar and supporting media.'),
     'contract_progress_reviewed': ('Your Repaido progress report has been reviewed', 'A customer review decision has been recorded. Sign in to view the decision and next steps.'),
+    'contract_purchase_reported': ('A project purchase has been recorded', 'A contractor-reported purchase is ready for review in your private contract workspace.'),
+    'contract_purchase_reviewed': ('A project purchase has been reviewed', 'A customer review decision has been recorded in your private contract purchase log.'),
     'contract_payment_requested': ('A Repaido contract payment request is ready', 'A payment request is awaiting its saved decision. Sign in to review the request before any payment.'),
     'contract_payment_decided': ('Your Repaido payment request has a decision', 'A decision has been recorded for a payment request. Sign in to view the actual status; approval alone does not confirm payment.'),
     'contract_transfer_reported': ('Your Repaido transfer report is pending review', 'An external transfer reference has been reported. It remains unverified until independent review. Sign in to view its status.'),

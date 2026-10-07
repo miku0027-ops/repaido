@@ -136,8 +136,9 @@ import { B2BMarketplace } from './components/B2BMarketplace';
 import { CompanyAdminPortal } from './components/CompanyAdminPortal';
 import { LocationPickerModal } from './components/LocationPickerModal';
 import PartnerRegistration from './components/PartnerRegistration';
-import { HomeServicesGrid } from './components/HomeServicesGrid';
-import { recordCustomerBrowse } from './services/customerBrowseTracker';
+import {HomeServiceDiscovery} from './components/HomeServiceDiscovery';
+import BrandTabTransition from './components/BrandTabTransition';
+import { listenCustomerVisits } from './services/customerBrowseTracker';
 import './reference.css';
 
 const RepaidiansModal=lazy(()=>import('./components/repaidians/RepaidiansModal'));
@@ -210,8 +211,9 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 
 export default function App() {
   const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
-  const [quickHireOpen,setQuickHireOpen]=useState(false),[customContractOpen,setCustomContractOpen]=useState(()=>new URLSearchParams(location.search).has('custom-contract')||new URLSearchParams(location.search).get('view')==='contracts');
+  const [quickHireOpen,setQuickHireOpen]=useState(false);
   const [customContractId,setCustomContractId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-contract')||undefined);
+  const [customProjectId,setCustomProjectId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('project_id')||undefined);
   const [customProposalId,setCustomProposalId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-proposal')||undefined);
   const [communityProfileId,setCommunityProfileId]=useState<string>(),[communityContractReturn,setCommunityContractReturn]=useState(false);
   const [communityJobId,setCommunityJobId]=useState<string>();
@@ -219,12 +221,13 @@ export default function App() {
   const [communityReturn,setCommunityReturn]=useState(false),[communityNative,setCommunityNative]=useState<{kind:'career';card:CommunityOpportunity}|{kind:'applications'}|{kind:'workspace';tab:'Tenders'|'Hiring';tenderId?:string;projectId?:string;agent?:boolean}|null>(null);
   const [communityTenderId,setCommunityTenderId]=useState<string>(),[communityRouteBusy,setCommunityRouteBusy]=useState(false),[communityRouteError,setCommunityRouteError]=useState('');
   const [homePreferred,setHomePreferred]=useState<{id:string;name:string}>();
+  const [contractBookings,setContractBookings]=useState(()=>new URLSearchParams(location.search).has('custom-contract')||new URLSearchParams(location.search).get('view')==='contracts');
   const [hireBookings,setHireBookings]=useState(new URLSearchParams(location.search).has('hiring'));
   const [homeHub,setHomeHub]=useState<string|null>(null),[homePlans,setHomePlans]=useState(new URLSearchParams(location.search).has('home-plan'));
   const [tab,setTab]=useSavedTab<Tab>('repaido.customer.tab',['Explore','Services','Bookings','ShopSpares','You','Hire'],'Explore',(()=>{
     const sp = new URLSearchParams(location.search);
     if(sp.get('view')==='account'||sp.get('view')==='support_case')return 'You';
-    if (sp.has('booking') || sp.has('home-plan') || sp.has('hiring')) return 'Bookings';
+    if (sp.has('booking') || sp.has('home-plan') || sp.has('hiring') || sp.has('custom-contract') || sp.get('view')==='contracts') return 'Bookings';
     const t = sp.get('tab')?.toLowerCase();
     if (t === 'hire') return 'Hire';
     if (t === 'shop' || t === 'shopspares' || t === 'marketplace' || t === 'market') return 'ShopSpares';
@@ -265,8 +268,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    recordCustomerBrowse(`tab:${tab}`);
-  }, [tab]);
+    if(location.pathname==='/'||location.pathname==='')return listenCustomerVisits();
+  }, []);
 
   const openStoreSection = (sec: 'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned') => {
     setMarketQuick({});
@@ -329,8 +332,7 @@ export default function App() {
       else if (path.includes('shop-admin') || qPortal === 'shop-admin') setPortal('shop-admin');
       else if (path.includes('company-admin') || qPortal === 'company-admin') setPortal('company-admin');
       else setPortal('customer');
-      if(params.has('custom-contract')){setCustomContractId(params.get('custom-contract')||undefined);setCustomProposalId(params.get('custom-proposal')||undefined);setCustomContractOpen(true);}
-      else setCustomContractOpen(false);
+      if(params.has('custom-contract')||params.get('view')==='contracts'){setCustomContractId(params.get('custom-contract')||undefined);setCustomProjectId(params.get('project_id')||undefined);setCustomProposalId(params.get('custom-proposal')||undefined);setContractBookings(true);setTab('Bookings');}
     };
     window.addEventListener('popstate', handleUrlChange);
     return () => window.removeEventListener('popstate', handleUrlChange);
@@ -391,7 +393,7 @@ export default function App() {
   }),[]);
   const communityActor=useRef(user?.id||'guest');communityActor.current=user?.id||'guest';
   const customContractActor=useRef(user?.id);
-  useEffect(()=>{if(customContractActor.current&&customContractActor.current!==user?.id){setCustomContractOpen(false);setCustomContractId(undefined);setCustomProposalId(undefined);setCommunityProfileId(undefined);setCommunityContractReturn(false);}customContractActor.current=user?.id;},[user?.id]);
+  useEffect(()=>{if(customContractActor.current&&customContractActor.current!==user?.id){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);setCommunityProfileId(undefined);setCommunityContractReturn(false);}customContractActor.current=user?.id;},[user?.id]);
   useEffect(()=>{setCommunityNative(null);setCommunityReference(undefined);setCommunityJobId(undefined);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityRouteError('');},[user?.id]);
   const customerIdentity=useCustomerIdentity(user,portal);
   const accountProfile=useAccountProfile(user?.id);
@@ -691,10 +693,10 @@ export default function App() {
     else if(source==='inventory')navigatePortal('shop-admin');
     else{setMarketSubTab('spares');openStoreSection('preowned');setMarketQuick({sell:true});}
   };
-  const openCustomContract=(id?:string,proposalId?:string)=>{setCustomContractId(id);setCustomProposalId(proposalId);setCustomContractOpen(true);};
-  const openContractMember=(id:string,queryId?:string)=>{setCommunityJobId(undefined);if(queryId)setCustomContractId(queryId);setCustomContractOpen(false);setCommunityProfileId(id);setCommunityContractReturn(true);setCommunityStart('feed');setCommunityReference(undefined);setRepaidiansOpen(true);};
+  const openCustomContract=(id?:string,proposalId?:string)=>{setCustomProjectId(undefined);setCustomContractId(id);setCustomProposalId(proposalId);setContractBookings(true);setTab('Bookings');};
+  const openContractMember=(id:string,queryId?:string)=>{setCommunityJobId(undefined);if(queryId)setCustomContractId(queryId);setCommunityProfileId(id);setCommunityContractReturn(true);setCommunityStart('feed');setCommunityReference(undefined);setRepaidiansOpen(true);};
   const openCommunityJob=(id:string)=>{setCommunityRouteError('');setCommunityProfileId(undefined);setCommunityReference(undefined);setCommunityContractReturn(false);setCommunityNative(null);setCommunityStart('opportunities');setCommunityJobId(id);setRepaidiansOpen(true);};
-  const closeCommunity=()=>{setRepaidiansOpen(false);setCommunityProfileId(undefined);setCommunityJobId(undefined);if(communityContractReturn){setCommunityContractReturn(false);setCustomContractOpen(true);}};
+  const closeCommunity=()=>{setRepaidiansOpen(false);setCommunityProfileId(undefined);setCommunityJobId(undefined);if(communityContractReturn){setCommunityContractReturn(false);setContractBookings(true);setTab('Bookings');}};
   if (portal === 'worker') {
     return (
       <LiveWorkerPortal
@@ -716,6 +718,7 @@ export default function App() {
 
   return (
     <div className="repaido-customer-shell">
+      <BrandTabTransition tab={tab} reduced={reduce}/>
       {emailProfileOpen&&<AccountEmailAccess key={user?.id||'guest'} account={accountProfile} onClose={()=>setEmailProfileOpen(false)} onSignIn={()=>{setEmailProfileOpen(false);setSheet('auth');}}/>}
       <AccountEmailNotice account={accountProfile} onOpen={()=>setEmailProfileOpen(true)}/>
       {/* Invisible reCAPTCHA container for Phone Auth */}
@@ -954,15 +957,7 @@ export default function App() {
                   <div className="home-promotion-slot"><HomeEntry onOpen={()=>setHomeHub('')}/></div>
 
                   {/* 3-Column Service Category Grid with Modern Motion Graphics, 3D Option Slides, Offers & Depth Shadows */}
-                  <HomeServicesGrid
-                    activeCategory={activeCategory}
-                    onSelectCategory={catId => {
-                      setActiveCategory(catId);
-                      setTab('Services');
-                    }}
-                  />
-
-                  <div className="home-promotion-slot"><PromotionRail city={place.city} onOpen={openPromotion} onSignIn={()=>setSheet('auth')}/></div>
+                  <HomeServiceDiscovery key={place.city+':'+(user?.id||'guest')} city={place.city} activeCategory={activeCategory} onSelectCategory={catId=>{setActiveCategory(catId);setTab('Services');}} onOpen={openPromotion} onSignIn={()=>setSheet('auth')}/>
                   {/* Marketplace Sliding Notifier: Buy, Rent, Exchange, Sell */}
                   <div className="marketplace-sliding-notifier-container">
                     <div className="marketplace-sliding-header">
@@ -1086,7 +1081,7 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'Bookings' && <div className="customer-bookings-page"><div className="customer-home-plans-switch" role="group" aria-label="Booking service type"><button aria-pressed={!homePlans&&!hireBookings} onClick={()=>{setHomePlans(false);setHireBookings(false);}}><Wrench size={15} aria-hidden="true"/>Visits</button><button aria-pressed={homePlans} onClick={()=>{setHomePlans(true);setHireBookings(false);}}><CalendarDays size={15} aria-hidden="true"/>Home plans & calendar</button><button aria-pressed={hireBookings&&!homePlans} onClick={()=>{setHomePlans(false);setHireBookings(true);}}><BriefcaseBusiness size={15} aria-hidden="true"/>Hiring</button></div>{hireBookings&&!homePlans?<><HireRequests onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
+            {tab === 'Bookings' && <div className="customer-bookings-page"><div className="customer-home-plans-switch" role="group" aria-label="Booking service type"><button aria-pressed={!contractBookings&&!homePlans&&!hireBookings} onClick={()=>{setContractBookings(false);setHomePlans(false);setHireBookings(false);}}><Wrench size={15} aria-hidden="true"/>Visits</button><button aria-pressed={!contractBookings&&homePlans} onClick={()=>{setContractBookings(false);setHomePlans(true);setHireBookings(false);}}><CalendarDays size={15} aria-hidden="true"/>Home plans</button><button aria-pressed={!contractBookings&&hireBookings&&!homePlans} onClick={()=>{setContractBookings(false);setHomePlans(false);setHireBookings(true);}}><BriefcaseBusiness size={15} aria-hidden="true"/>Hiring</button><button aria-pressed={contractBookings} onClick={()=>{setContractBookings(true);setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}><FileText size={15} aria-hidden="true"/>Contracts</button></div>{contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
@@ -1126,7 +1121,7 @@ export default function App() {
             )}
 
             {/* 5. YOU / PROFILE TAB (Includes Partner Registration underneath at the bottom) */}
-            {tab === 'Hire' && <Hiring services={servicesList} onService={id=>{const service=servicesList.find(item=>item.id===id);if(service){setSelectedPromotion(undefined);setSelectedService(service);}else setError('This service is no longer listed. Refresh the catalogue.');}} onRequests={()=>{setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} city={place.city} onSignIn={()=>setSheet('auth')} onBooking={id=>{setNotificationJob(id);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/>}
+            {tab === 'Hire' && <Hiring services={servicesList} onService={id=>{const service=servicesList.find(item=>item.id===id);if(service){setSelectedPromotion(undefined);setSelectedService(service);}else setError('This service is no longer listed. Refresh the catalogue.');}} onRequests={()=>{setContractBookings(false);setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} city={place.city} onSignIn={()=>setSheet('auth')} onBooking={id=>{setNotificationJob(id);setContractBookings(false);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/>}
             {tab === 'You' && (
               <>
                 <AccountHub
@@ -1141,9 +1136,9 @@ export default function App() {
                     catch (problem) { setError((problem as Error).message); throw problem; }
                     setUser(null); setToken('');
                   }}
-                  onBookings={() => { setHomePlans(false); setHireBookings(false); navigate('Bookings'); }}
-                  onHomePlans={() => { setHomePlans(true); setHireBookings(false); navigate('Bookings'); }}
-                  onHiring={() => { setHomePlans(false); setHireBookings(true); navigate('Bookings'); }}
+                  onBookings={() => { setContractBookings(false); setHomePlans(false); setHireBookings(false); navigate('Bookings'); }}
+                  onHomePlans={() => { setContractBookings(false); setHomePlans(true); setHireBookings(false); navigate('Bookings'); }}
+                  onHiring={() => { setContractBookings(false); setHomePlans(false); setHireBookings(true); navigate('Bookings'); }}
                   onContracts={() => openCustomContract()}
                   onCommunity={() => { setCommunityJobId(undefined); setCommunityProfileId(undefined); setCommunityContractReturn(false); setCommunityStart('feed'); setCommunityReference(undefined); setRepaidiansOpen(true); }}
                   onMarket={() => navigate('ShopSpares')}
@@ -1264,16 +1259,15 @@ export default function App() {
       {communityRouteError&&<Modal title="Listing unavailable" onClose={()=>setCommunityRouteError('')}><p role="alert">{communityRouteError}</p><button className="btn-outline" onClick={()=>setCommunityRouteError('')}>Back to opportunities</button></Modal>}
       {communityNative&&<Modal title={communityNative.kind==='career'?'Project opportunity':communityNative.kind==='applications'?'My applications':'Business workspace'} className="work-network-sheet" onClose={backToCommunity}>{communityNative.kind==='career'?<ProjectDetail project={communityNative.card.details!} uid={user?.id} onApplied={()=>setCommunityNative({kind:'applications'})}/>:communityNative.kind==='applications'?<Applications uid={user?.id}/>:<ContractorPortal initialTab={communityNative.tab} initialTenderId={communityNative.tenderId} initialProjectId={communityNative.projectId} agent={communityNative.agent} onBackToCustomer={backToCommunity} onPartnerProfile={()=>{setCommunityNative(null);setTab('You');}}/>}</Modal>}
       {tab==='Explore'&&<CompactActionLauncher onCommunity={()=>setRepaidiansOpen(true)} onCustomContract={()=>openCustomContract()} onQuickHire={()=>setQuickHireOpen(true)}/>}
-      {quickHireOpen&&<Modal title="Quick Hire" className="quick-hire-modal" onClose={()=>setQuickHireOpen(false)}><Hiring services={servicesList} city={place.city} onSignIn={()=>{setQuickHireOpen(false);setSheet('auth');}} onService={id=>{const service=servicesList.find(item=>item.id===id);if(service){setQuickHireOpen(false);setSelectedPromotion(undefined);setSelectedService(service);}else setError('This service is no longer listed. Refresh the catalogue.');}} onRequests={()=>{setQuickHireOpen(false);setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setQuickHireOpen(false);setHomePreferred(professional);setHomeHub(service);}} onBooking={id=>{setQuickHireOpen(false);setNotificationJob(id);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/></Modal>}
-      {customContractOpen&&<Modal title="Custom contract queries" className="custom-contract-modal" onClose={()=>setCustomContractOpen(false)}><Suspense fallback={<p role="status">Opening your contract requests…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>{setCustomContractOpen(false);setSheet('auth');}}/></Suspense></Modal>}
+      {quickHireOpen&&<Modal title="Quick Hire" className="quick-hire-modal" onClose={()=>setQuickHireOpen(false)}><Hiring services={servicesList} city={place.city} onSignIn={()=>{setQuickHireOpen(false);setSheet('auth');}} onService={id=>{const service=servicesList.find(item=>item.id===id);if(service){setQuickHireOpen(false);setSelectedPromotion(undefined);setSelectedService(service);}else setError('This service is no longer listed. Refresh the catalogue.');}} onRequests={()=>{setQuickHireOpen(false);setContractBookings(false);setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setQuickHireOpen(false);setHomePreferred(professional);setHomeHub(service);}} onBooking={id=>{setQuickHireOpen(false);setNotificationJob(id);setContractBookings(false);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/></Modal>}
       {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={closeCommunity}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} initialTab={communityStart} initialProfileId={communityProfileId} initialReference={communityReference} initialJobId={communityJobId} onDestination={card=>void openCommunityListing(card)} onManage={manageCommunity} onProject={id=>{setCommunityRouteError('');setCommunityReturn(true);setRepaidiansOpen(false);setCommunityNative({kind:'workspace',tab:'Hiring',projectId:id,agent:true});}} initialPublicationId={communityStart==='feed'?new URLSearchParams(location.search).get('repaidians')||undefined:undefined} onSignIn={()=>{setRepaidiansOpen(false);setCommunityJobId(undefined);setCommunityContractReturn(false);setCommunityProfileId(undefined);setAuthMode('signin');setSheet('auth');setError('');}} onClose={closeCommunity} onBook={trade=>{setRepaidiansOpen(false);setCommunityJobId(undefined);setCommunityContractReturn(false);setCommunityProfileId(undefined);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
       {myRentalsOpen&&<Modal title="My rentals" className="rental-modal" onClose={()=>setMyRentalsOpen(false)}><RentalManager onSignIn={()=>setSheet('auth')}/></Modal>}
       {discoveryOpen && <SearchDiscovery onHomeService={id=>{setDiscoveryOpen(false);setQuery('');setHomeHub(id);}} onEvent={hydration.event} onPreferencesChange={hydration.refresh} query={query} onQuery={setQuery} place={place} signedIn={hydration.signedIn} onClose={()=>{setDiscoveryOpen(false);setQuery('');}} onLocation={()=>{setDiscoveryOpen(false);setCityModalOpen(true);}} onSignIn={()=>{setDiscoveryOpen(false);setSheet('auth');}} onBook={service=>{setDiscoveryOpen(false);setQuery('');setSelectedService(service);}}/>}
       {homeDetail&&<HomeServiceDetails service={homeDetail} onClose={()=>setHomeDetail(null)} onBook={()=>{setSelectedService(homeDetail);setHomeDetail(null);}}/>}
       {marketProfile&&<Modal title={marketProfile==='exchange'?'Let’s exchange':'My used items'} className="market-manager-modal" onClose={()=>setMarketProfile(null)}><Marketplace mode={marketProfile} manage onShare={shareNative} onSignIn={()=>setSheet('auth')}/></Modal>}
-      {homeHub!==null&&<HomeHub preferredWorker={homePreferred} onEvent={hydration.event} city={place.city} initialService={homeHub||undefined} onClose={()=>{setHomeHub(null);setHomePreferred(undefined);}} onSignIn={()=>setSheet('auth')} onPlans={()=>{setHomeHub(null);setHomePreferred(undefined);setHomePlans(true);setTab('Bookings');}}/>}
+      {homeHub!==null&&<HomeHub preferredWorker={homePreferred} onEvent={hydration.event} city={place.city} initialService={homeHub||undefined} onClose={()=>{setHomeHub(null);setHomePreferred(undefined);}} onSignIn={()=>setSheet('auth')} onPlans={()=>{setHomeHub(null);setHomePreferred(undefined);setContractBookings(false);setHomePlans(true);setTab('Bookings');}}/>}
       <CouponWelcome onExplore={scope=>{if(scope==='rental')openStoreSection('rentals');else if(scope==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else setTab('Services');}}/>
-      {selectedService && <LiveBooking service={selectedService} city={place.city} promotionId={selectedPromotion} onRemovePromotion={()=>setSelectedPromotion(undefined)} onPromotion={openPromotion} onClose={() => {setSelectedService(null);setSelectedPromotion(undefined);}} onSignIn={() => setSheet('auth')} onBooked={() => { setSelectedService(null);setSelectedPromotion(undefined); setTab('Bookings'); }} />}
+      {selectedService && <LiveBooking service={selectedService} city={place.city} promotionId={selectedPromotion} onRemovePromotion={()=>setSelectedPromotion(undefined)} onPromotion={openPromotion} onClose={() => {setSelectedService(null);setSelectedPromotion(undefined);}} onSignIn={() => setSheet('auth')} onBooked={() => { setSelectedService(null);setSelectedPromotion(undefined);setContractBookings(false);setHomePlans(false);setHireBookings(false); setTab('Bookings'); }} />}
 
       {/* Customer Service Location Selector */}
       {cityModalOpen && (
@@ -2479,7 +2473,7 @@ export default function App() {
             const cached=operationSnapshot<{jobs:Job[]}>('/jobs')?.jobs.find(job=>job.id===id);
             const job=cached||await operation<Job>(`/jobs/${encodeURIComponent(id)}`,{}, {background:true});
             setHomePlans(false);setHireBookings(job.service_id?.startsWith('day-hire-')||false);
-            setNotificationJob(id);setTab('Bookings');
+            setContractBookings(false);setNotificationJob(id);setTab('Bookings');
           }catch(e){setError((e as Error).message);}
         }}
         onOpenQuotationModal={quote => {

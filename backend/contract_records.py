@@ -30,7 +30,7 @@ MAX_ATTACHMENTS = 20000
 REPORT_DOCUMENT_BYTES = 600 * 1024
 REPORT_CHUNK_BYTES = 100 * 1024
 REPORT_TRANSACTION_BYTES = 6 * 1024 * 1024
-REPORT_SECTIONS = ('progress', 'payments', 'team', 'milestones', 'attendance', 'timeline')
+REPORT_SECTIONS = ('progress', 'payments', 'purchases', 'team', 'milestones', 'attendance', 'timeline')
 PENDING = {'requested', 'approved', 'gateway_creating', 'gateway_pending', 'reported_pending'}
 IST = ZoneInfo('Asia/Kolkata')
 
@@ -75,6 +75,16 @@ class ProgressReview(Change):
     note: str = Field(default='', max_length=1000)
 
 
+class Purchase(Change):
+    title: str = Field(min_length=3, max_length=150)
+    vendor: str = Field(default='', max_length=150)
+    amount_paise: int = Field(gt=0, le=50000000000, strict=True)
+    purchased_at: int = Field(ge=946684800, strict=True)
+    receipt_reference: str = Field(min_length=3, max_length=150)
+    note: str = Field(default='', max_length=1000)
+    evidence_ids: list[str] = Field(default_factory=list, max_length=5)
+
+
 class PaymentCheck(Input):
     payment_id: str = Field(pattern=r'^pay_[A-Za-z0-9]+$')
 
@@ -90,7 +100,7 @@ def initialize(core):
     if core.USE_FIRESTORE:
         return
     with core.db() as conn:
-        for kind in ('contract_payments', 'contract_progress'):
+        for kind in ('contract_payments', 'contract_progress', 'contract_purchases'):
             conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{kind}_project ON operation_records(json_extract(body,'$.project_id'),id) WHERE kind='{kind}'")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_contract_records_contractor ON operation_records(json_extract(body,'$.contractor_id'),id) WHERE kind='contract_project_records'")
 
@@ -195,7 +205,8 @@ def _save(u, ledger, action, actor, **fields):
         from transactional_mail import enqueue
         kinds={'ContractProgressReported':'contract_progress','ContractProgressReviewed':'contract_progress_reviewed',
                'ContractPaymentRequested':'contract_payment_requested','ContractPaymentRequestDecided':'contract_payment_decided',
-               'ContractExternalTransferReported':'contract_transfer_reported','ContractExternalTransferReviewed':'contract_transfer_reviewed'}
+               'ContractExternalTransferReported':'contract_transfer_reported','ContractExternalTransferReviewed':'contract_transfer_reviewed',
+               'ContractPurchaseReported':'contract_purchase_reported','ContractPurchaseReviewed':'contract_purchase_reviewed'}
         if action in kinds:
             enqueue(u,'contract-record:'+ledger['id']+':'+str(ledger['version']),kinds[action],[project['client_id'],project['owner_id']],
                     {'record_type':'contract_project','record_id':ledger['id'],'path':'/?view=contracts&project_id='+ledger['id']})
@@ -301,17 +312,22 @@ def records(u, p, user):
     progress = _rows(u, 'contract_progress', p['id'])
     for row in progress:
         row['actions'] = dict(can_review=customer and writable and row['status'] == 'reported')
+    purchases = _rows(u, 'contract_purchases', p['id'])
+    for row in purchases:
+        row['actions'] = dict(can_review=customer and writable and row['status'] == 'reported')
     return dict(project={k: p.get(k) for k in ('id', 'title', 'scope', 'site', 'status', 'starts_at', 'ends_at', 'awarded_at')}
                 | dict(customer_id=p['client_id'], contractor_id=p['owner_id'], agreed_deal_paise=p['contract_value_paise']),
                 version=ledger['version'], financials=_financials(ledger), payments=payments, progress=progress,
-                milestones=p.get('goals', []), payment_methods=methods,
+                milestones=p.get('goals', []), payment_methods=methods, purchases=purchases,
+                attendance=[{k: a.get(k) for k in ('worker_id', 'in_at', 'out_at', 'source')} for a in p.get('attendance', [])][-500:],
+                timeline=[{k: e.get(k) for k in ('action', 'note', 'at', 'actor', 'event_type', 'occurred_at_server_time')} for e in p.get('events', [])][-200:],
                 team=[{k: m.get(k) for k in ('worker_id', 'name', 'role', 'status')}
                       | dict(accepted_at=m.get('accepted_at') or m.get('responded_at')) for m in accepted_team(p)],
                 team_count=len(accepted_team(p)),
                 public_progress=dict(enabled=_public_consent(tender, ledger), source='customer_owner_consent',
                                      url=f'/api/operations/contracts/public/projects/{p["id"]}/progress'),
                 actions=dict(can_request=writable, can_approve=customer and writable, can_pay=customer and writable and methods['gateway']['available'],
-                             can_report=customer and writable, can_progress=contractor and writable, can_read_report=True, can_manage_public_progress=customer and writable),
+                             can_report=customer and writable, can_progress=contractor and writable, can_record_purchase=contractor and writable, can_read_report=True, can_manage_public_progress=customer and writable),
                 report_url=f'/api/operations/contracts/projects/{p["id"]}/report.pdf', server_time=time.time())
 
 
@@ -324,6 +340,7 @@ def _snapshot(u, p, ledger, payment_id=None):
     return dict(project={k: p.get(k) for k in ('id', 'title', 'scope', 'site', 'status', 'starts_at', 'ends_at', 'awarded_at', 'contract_value_paise')},
                 customer_id=p['client_id'], contractor_id=p['owner_id'], team=team, milestones=p.get('goals', []),
                 progress=[{k: v for k, v in row.items() if k != 'actions'} for row in progress],
+                purchases=[{k: v for k, v in row.items() if k != 'actions'} for row in _rows(u, 'contract_purchases', p['id'])],
                 payments=[{k: row.get(k) for k in ('id', 'amount_paise', 'method', 'status', 'created_at', 'confirmed_at', 'source', 'reference', 'payment_id', 'amount_refunded', 'report_id')} for row in payments],
                 financials=_financials(ledger), version=ledger['version'], generated_at=time.time(), payment_id=payment_id,
                 attendance=[{k: a.get(k) for k in ('worker_id', 'in_at', 'out_at', 'source')} for a in p.get('attendance', [])][-500:],
@@ -396,6 +413,9 @@ def _seal_report(saved):
     content while preserving the review state recorded at payment time.
     """
     record = saved['record']
+    # Existing payment snapshots predate the purchase log.
+    for section in REPORT_SECTIONS:
+        record.setdefault(section, [])
     counts = {section: len(record[section]) for section in REPORT_SECTIONS}
     record['history_snapshot_status'] = 'complete'
     record['history_counts'] = counts
@@ -605,6 +625,8 @@ def report_pdf(record, photos=()):
             blocks.append(Spacer(1, 8))
         blocks.append(text('Up to ten recent authorized progress photos are previewed. All recorded photo and video references remain listed above; videos can be opened in the private contract timeline.'))
     section('Payment timeline', [(date(x.get('confirmed_at') or x['created_at']), f"{money(x['amount_paise'])} | {x['method']} | {x['status']} | {x.get('source') or 'pending'} | Reference {x.get('reference') or x.get('payment_id') or x['id']}") for x in record['payments']] or [('Payments', 'No payment requests recorded')])
+    section('Purchase log', [(date(x['purchased_at']), f"{x['title']} | {money(x['amount_paise'])} | {x['status']} | Vendor {x.get('vendor') or 'Not supplied'} | Receipt {x['receipt_reference']} | {x.get('note') or ''}") for x in record.get('purchases', [])] or [('Purchases', 'No purchases recorded')])
+    blocks.append(text('Purchases are contractor-reported expenses, with customer review shown separately. They do not increase the agreed price, confirm a payment or create an extra payment request.'))
     section('Contract timeline', [(date(x.get('at') or x.get('occurred_at_server_time')), x.get('action') or x.get('event_type') or 'Recorded event') for x in record['timeline']] or [('Timeline', 'Awarded contract; no additional status events recorded')])
     blocks.append(text(record['location_source']))
     out = io.BytesIO()
@@ -671,6 +693,55 @@ def install(core):
             u.put('contract_progress', key, row); ledger['progress_count'] += 1
             _save(u, ledger, 'ContractProgressReported', user['id'], progress_id=key)
             _remember(u, key, fingerprint, key)
+            return response(u, p, user)
+        return store.run(save)
+
+    @router.post('/projects/{pid}/purchases')
+    def record_purchase(pid: str, body: Purchase, user=Depends(core.current_user)):
+        def save(u):
+            p, _ = _access(u, pid, user, True)
+            if user['id'] != p['owner_id']:
+                fail('CONTRACTOR_REQUIRED', 'Only the awarded contractor records project purchases.', 403)
+            key, fingerprint, replay = _replay(u, pid, user['id'], 'purchase', body)
+            if replay:
+                return response(u, p, user)
+            ledger = _ledger(u, p); _version(ledger, body.expected_version)
+            if ledger.get('purchase_count', 0) >= LIMIT:
+                fail('RECORD_LIMIT', 'This contract has reached its purchase log limit.', 409)
+            if body.purchased_at > time.time():
+                fail('PURCHASE_DATE_REQUIRED', 'Record the actual purchase date, not a future date.', 422)
+            if not body.title.strip() or not body.receipt_reference.strip():
+                fail('PURCHASE_DETAILS_REQUIRED', 'Provide a purchase description and actual receipt reference.', 422)
+            row = dict(id=key, project_id=pid, title=body.title.strip(), vendor=body.vendor.strip(),
+                       amount_paise=body.amount_paise, purchased_at=body.purchased_at,
+                       receipt_reference=body.receipt_reference.strip(), note=body.note,
+                       evidence=_evidence(u, p, body.evidence_ids, user['id'], 'purchase'),
+                       status='reported', source='contractor_reported', actor_id=user['id'], created_at=time.time())
+            u.put('contract_purchases', key, row)
+            ledger['purchase_count'] = ledger.get('purchase_count', 0) + 1
+            _save(u, ledger, 'ContractPurchaseReported', user['id'], purchase_id=key)
+            _remember(u, key, fingerprint, key)
+            return response(u, p, user)
+        return store.run(save)
+
+    @router.post('/projects/{pid}/purchases/{purchase_id}/review')
+    def review_purchase(pid: str, purchase_id: str, body: Approval, user=Depends(core.current_user)):
+        def save(u):
+            p, _ = _access(u, pid, user, True)
+            if user['id'] != p['client_id']:
+                fail('CUSTOMER_REQUIRED', 'Only the customer reviews project purchases.', 403)
+            key, fingerprint, replay = _replay(u, pid, user['id'], 'purchase_review:' + purchase_id, body)
+            if replay:
+                return response(u, p, user)
+            ledger = _ledger(u, p); _version(ledger, body.expected_version)
+            row = u.get('contract_purchases', purchase_id)
+            if not row or row['project_id'] != pid or row['status'] != 'reported':
+                fail('PURCHASE_REVIEW', 'Choose an unreviewed purchase from this contract.', 409)
+            row.update(status='customer_confirmed' if body.approved else 'changes_requested', review_note=body.note,
+                       reviewed_by=user['id'], reviewed_at=time.time())
+            u.put('contract_purchases', purchase_id, row)
+            _save(u, ledger, 'ContractPurchaseReviewed', user['id'], purchase_id=purchase_id)
+            _remember(u, key, fingerprint, purchase_id)
             return response(u, p, user)
         return store.run(save)
 
@@ -881,7 +952,7 @@ def install(core):
         return dict(account_holder=account.get('name'), account_number=str(account['account_number']), ifsc=account['ifsc'], bank_name=account.get('bank_name'), last4=bank.get('bank_last4'), source='provider_verified_contractor_bank', guidance='Follow your bank displayed limits, fees and settlement instructions. A reported transfer remains pending until independent verification.')
 
     @router.post('/projects/{pid}/attachments')
-    async def upload(pid: str, request: Request, purpose: Literal['progress', 'payment'] = Query(), share_public: bool = Query(default=False), user=Depends(core.current_user)):
+    async def upload(pid: str, request: Request, purpose: Literal['progress', 'payment', 'purchase'] = Query(), share_public: bool = Query(default=False), user=Depends(core.current_user)):
         from repaidians_media import MAX_BYTES, prepare, read, write
         store.run(lambda u: _access(u, pid, user, True))
         data = bytearray()
@@ -894,8 +965,8 @@ def install(core):
         if mime not in accepted:
             fail('EVIDENCE_TYPE_REQUIRED', 'Choose a JPEG, PNG or WebP photo; progress also accepts MP4 and WebM video.', 422)
         cleaned, mime, kind = prepare(bytes(data), mime)
-        if purpose == 'payment' and share_public:
-            fail('PRIVATE_PAYMENT_EVIDENCE', 'Bank transfer evidence remains private.', 422)
+        if purpose != 'progress' and share_public:
+            fail('PRIVATE_PAYMENT_EVIDENCE', 'Payment and purchase evidence remains private.', 422)
         sha = hashlib.sha256(cleaned).hexdigest(); key = _id(pid, user['id'], purpose, sha, str(share_public))
         def reserve(u):
             p, _ = _access(u, pid, user, True)

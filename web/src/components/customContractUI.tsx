@@ -6,7 +6,7 @@ import {RepaidianBadge} from './RepaidianBadge';
 import {apiAssetUrl} from '../services/api';
 
 export const contractMoney=(value:number)=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(value/100);
-export function contractDate(value:number,time=false){return Number.isFinite(value)&&value>0?new Date(value>1e12?value:value*1000).toLocaleString('en-IN',time?{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}:{day:'numeric',month:'short',year:'numeric'}):'Not shared';}
+export function contractDate(value:number,time=false){return Number.isFinite(value)&&value>0?new Date(value>1e12?value:value*1000).toLocaleString('en-IN',time?{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}:{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric'}):'Not shared';}
 export function contractLocalDate(value:number){const date=new Date(value*1000);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);}
 export const contractStatus=(value:string)=>({open:'Awaiting contract award',awarded:'Contract awarded',closed:'Query closed',planning:'Award accepted · planning',active:'Work in progress',paused:'Work paused',completed:'Completed',cancelled:'Cancelled',submitted:'Proposal submitted',requested:'Payment requested',approved:'Approved for payment',reported_pending:'Transfer reported · verification pending',confirmed:'Payment confirmed',rejected:'Declined',expired:'Expired'}[value]||value.replaceAll('_',' '));
 

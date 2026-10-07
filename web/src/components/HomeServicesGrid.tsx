@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import type {Promotion} from './Promotions';
 import type { CategoryId } from '../types';
 import { useCustomerBrowseHydration } from '../services/customerBrowseTracker';
 import './home-services-grid.css';
@@ -784,18 +785,35 @@ function ServiceGraphicArt({ graphicKey }: { graphicKey?: string }) {
 function ServiceMotionCardItem({
   service,
   isActive,
-  onSelect
+  onSelect,
+  initialIndex=0, motionPaused=false, onOffer
 }: {
+  motionPaused?:boolean;
+  onOffer?:(id:string)=>void;
+  initialIndex?:number;
   service: HomeServiceConfig;
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [isShining, setIsShining] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(initialIndex);
   const isHoveredRef = useRef(false);
+  const cardRef=useRef<HTMLButtonElement>(null);
+  const [visible,setVisible]=useState(false),[reduced,setReduced]=useState(false),[paused,setPaused]=useState(false);
+  const [pageVisible,setPageVisible]=useState(!document.hidden);
+  const isShining=visible&&pageVisible&&!reduced&&!paused&&!motionPaused;
+  useEffect(()=>{
+    const media=matchMedia('(prefers-reduced-motion: reduce)');
+    const sync=()=>setReduced(media.matches||document.documentElement.classList.contains('reduce-motion'));
+    sync();media.addEventListener('change',sync);const mutation=new MutationObserver(sync);mutation.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
+    const observer=new IntersectionObserver(rows=>setVisible(rows[0]?.isIntersecting||false));if(cardRef.current)observer.observe(cardRef.current);
+    const page=()=>setPageVisible(!document.hidden);document.addEventListener('visibilitychange',page);
+    return()=>{observer.disconnect();media.removeEventListener('change',sync);mutation.disconnect();document.removeEventListener('visibilitychange',page);};
+  },[]);
+  useEffect(()=>setSlideIndex(initialIndex),[initialIndex,service]);
 
   // Independent Non-Uniform Sliding Loop with Organic Staggering
   useEffect(() => {
+    if(reduced||paused||motionPaused||!visible||!pageVisible||service.slides.length<2)return;
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const scheduleNextSlide = () => {
@@ -804,7 +822,7 @@ function ServiceMotionCardItem({
       const delay = Math.max(2800, service.intervalMs + jitter);
 
       timeoutId = setTimeout(() => {
-        if (!isHoveredRef.current) {
+        if (!isHoveredRef.current && !document.hidden) {
           setSlideIndex(prev => (prev + 1) % service.slides.length);
         }
         scheduleNextSlide();
@@ -820,29 +838,16 @@ function ServiceMotionCardItem({
       clearTimeout(initialTimer);
       clearTimeout(timeoutId);
     };
-  }, [service]);
+  }, [service,reduced,paused,motionPaused,visible,pageVisible]);
 
-  // Periodic Shimmer Shine Sweep (Randomized Every 9 to 14 seconds)
-  useEffect(() => {
-    let shineTimer: ReturnType<typeof setTimeout>;
-    const triggerShine = () => {
-      const delay = 9000 + Math.random() * 5000;
-      shineTimer = setTimeout(() => {
-        setIsShining(true);
-        setTimeout(() => setIsShining(false), 1700);
-        triggerShine();
-      }, delay);
-    };
-    triggerShine();
-    return () => clearTimeout(shineTimer);
-  }, []);
-
-  const currentSlide = service.slides[slideIndex];
+  const currentSlide = service.slides[slideIndex % service.slides.length];
   const isOfferSlide = currentSlide.isOffer;
 
   return (
     <button
+      ref={cardRef}
       type="button"
+      onFocus={()=>setPaused(true)} onBlur={()=>setPaused(false)}
       className={`repaido-service-motion-card ${isActive ? 'is-active' : ''} ${isShining ? 'is-shining' : ''}`}
       style={{
         // Dynamic CSS variables for high-level glow & accents
@@ -851,7 +856,7 @@ function ServiceMotionCardItem({
         ['--card-accent-glow' as any]: isOfferSlide ? 'rgba(245, 158, 11, 0.35)' : service.glowColor,
         ['--offer-glow-color' as any]: isOfferSlide ? 'rgba(245, 158, 11, 0.4)' : 'rgba(5, 150, 105, 0.25)'
       }}
-      onClick={onSelect}
+      onClick={()=>isOfferSlide&&onOffer?onOffer(currentSlide.id):onSelect()}
       onMouseEnter={() => { isHoveredRef.current = true; }}
       onMouseLeave={() => { isHoveredRef.current = false; }}
       aria-label={`${service.name} - ${currentSlide.subLabel}`}
@@ -923,7 +928,7 @@ function ServiceMotionCardItem({
   );
 }
 
-// Static Service Card (Rendered for first-time / casual visitors with < 3 browse events in 1 hour)
+// Static service card for the first two device visits.
 export function ServiceStaticCardItem({
   service,
   isActive,
@@ -993,18 +998,35 @@ export function ServiceStaticCardItem({
   );
 }
 
-// Master Home Services Grid with Event-Driven Behavioral Hydration
+// Service discovery starts rotating on the third device visit.
 export function HomeServicesGrid({
   activeCategory,
   onSelectCategory,
-  forceHydrated
+  forceHydrated, city, offers=[], onOffer
 }: {
+  city?:string;
+  offers?:Promotion[];
+  onOffer?:(card:Promotion)=>void;
   activeCategory: CategoryId;
   onSelectCategory: (cat: CategoryId) => void;
   forceHydrated?: boolean;
 }) {
   const { isHydrated, browseCount } = useCustomerBrowseHydration();
   const shouldHydrate = forceHydrated !== undefined ? forceHydrated : isHydrated;
+
+  const [paused,setPaused]=useState(false),[offerTime,setOfferTime]=useState(()=>Date.now()/1000);
+  useEffect(()=>{
+    const now=Date.now()/1000;
+    const expiry=Math.min(...offers.map(card=>card.ends_at).filter(at=>at>now));
+    if(!Number.isFinite(expiry))return;
+    const timer=setTimeout(()=>setOfferTime(Date.now()/1000),Math.min(2147483647,Math.max(1,(expiry-now)*1000)));
+    return()=>clearTimeout(timer);
+  },[offers,offerTime]);
+  const regionServices=useMemo(()=>homeServicesData.map(service=>{
+    const regular=service.slides.filter(slide=>!slide.isOffer).map(slide=>({...slide,badge:slide.type==='base'?'Explore service':slide.badge,subLabel:slide.type==='base'?service.slides[0].subLabel:slide.subLabel}));
+    const regional=offers.filter(card=>card.service?.category===service.categoryId&&card.discount_paise>0&&card.ends_at>Math.max(offerTime,Date.now()/1000)).slice(0,3).map(card=>({id:card.id,type:'offer' as const,title:card.title,badge:'Local offer',badgeTheme:'amber' as const,image:service.slides[0].image,subLabel:card.title,isOffer:true}));
+    return {...service,slides:[...regular,...regional]};
+  }),[offers,offerTime]);
 
   return (
     <div
@@ -1013,18 +1035,23 @@ export function HomeServicesGrid({
       aria-label="Home Services Category Grid"
       data-browse-count={browseCount}
       data-hydrated={shouldHydrate}
+      data-city={city}
     >
-      <div className="repaido-services-3col-grid">
+      {shouldHydrate&&<div className="service-grid-toolbar"><small>{city?`Discover ${city}`:'Discover services'}</small><button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?'Play':'Pause'}</button></div>}
+      <div className={`repaido-services-3col-grid ${paused?'service-grid-paused':''}`}>
         {shouldHydrate
-          ? homeServicesData.map(service => (
+          ? regionServices.map((service,index) => (
               <ServiceMotionCardItem
                 key={service.id}
+                initialIndex={(Math.max(0,browseCount-3)+index)%service.slides.length}
                 service={service}
+                motionPaused={paused}
+                onOffer={id=>{const card=offers.find(card=>card.id===id&&card.ends_at>Date.now()/1000);if(card&&onOffer)onOffer(card);else onSelectCategory(service.categoryId);}}
                 isActive={activeCategory === service.categoryId}
                 onSelect={() => onSelectCategory(service.categoryId)}
               />
             ))
-          : homeServicesData.map(service => (
+          : regionServices.map((service,index) => (
               <ServiceStaticCardItem
                 key={service.id}
                 service={service}

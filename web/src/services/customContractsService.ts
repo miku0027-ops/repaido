@@ -47,10 +47,10 @@ export function rupeesToPaise(value:string){if(!/^\d+(\.\d{1,2})?$/.test(value.t
 
 // Provider commands have their own server idempotency and accept no browser request ID.
 export async function contractRawCommand<T>(path:string,body:Record<string,unknown>={}):Promise<T>{const owner=await capturedIdentity();const result=await request<T>(path,{method:'POST',body:JSON.stringify(body)},owner);invalidateCustomContractReads();window.dispatchEvent(new Event('repaido:operations-updated'));return result;}
-export async function uploadContractEvidence(projectId:string,file:File,purpose:'progress'|'payment',sharePublic=false){
+export async function uploadContractEvidence(projectId:string,file:File,purpose:'progress'|'payment'|'purchase',sharePublic=false){
   if(!(purpose==='progress'?['image/jpeg','image/png','image/webp','video/mp4','video/webm']:['image/jpeg','image/png','image/webp']).includes(file.type))throw new Error(purpose==='progress'?'Choose a JPEG, PNG, WebP, MP4 or WebM file.':'Choose a JPEG, PNG or WebP photo.');
   if(file.size<=0||file.size>8*1024*1024)throw new Error('Choose a contract evidence file up to 8 MB.');
-  if(purpose==='payment'&&sharePublic)throw new Error('Payment evidence stays private.');
+  if(purpose!=='progress'&&sharePublic)throw new Error('Payment and purchase evidence stays private.');
   const owner=await capturedIdentity(),path='/contracts/projects/'+encodeURIComponent(projectId)+'/attachments?'+new URLSearchParams({purpose,share_public:String(sharePublic)});
   const result=await request<{id:string;url:string;mime:string;purpose:string}>(path,{method:'POST',body:file,headers:{'Content-Type':file.type}},owner);
   return result;
