@@ -402,8 +402,11 @@ def install(core):
     @router.get('/notifications')
     def notifications(user=Depends(core.current_user)):
         def read(u):
+            from repaidians_work import notification_visible, prefetch_notification_targets
             onboarding_note(u,user['id'])
-            return {'notifications':sorted(u.find('notifications','user_id',user['id']),key=lambda n:n['created_at'],reverse=True)[:100]}
+            rows=sorted(u.find('notifications','user_id',user['id']),key=lambda n:n['created_at'],reverse=True)[:100]
+            prefetch_notification_targets(u,rows,user['id'])
+            return {'notifications':[row for row in rows if notification_visible(u,row,user['id'])]}
         return store.run(read)
 
     @router.get('/jobs/{job_id}/tracking')

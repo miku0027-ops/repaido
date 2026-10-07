@@ -260,7 +260,7 @@ def test_scheduler_bounded_backfill_and_no_hot_scans(work_api, monkeypatch):
     monkeypatch.setattr(operations.Unit, 'all', lambda *args: (_ for _ in ()).throw(AssertionError('Worker collection scan')))
     assert work.backfill(main, 1)['processed'] <= 5
     result = work.process_updates(main, 1)
-    assert set(result) == {'placementsIndexed', 'placementNotifications', 'contractNotifications'}
+    assert set(result) == {'placementsIndexed', 'placementNotifications', 'contractNotifications', 'jobNotifications'}
 
 
 def test_guest_and_filter_validation(work_api):
@@ -384,7 +384,7 @@ def test_cursor_rejects_profile_lane_or_personalization_revision_changes(work_ap
 def test_expired_members_can_revoke_work_privacy_without_new_entitlement(work_api):
     approve_follower()
     onboard(work_api, 'worker2'); profile('worker2'); seed_job(); seed_tender()
-    enabled = {'personalizedDiscovery': True, 'contractUpdates': True, 'sharePlacements': True, 'shareSalary': True}
+    enabled = {'personalizedDiscovery': True, 'contractUpdates': True, 'jobDiscovery': False, 'sharePlacements': True, 'shareSalary': True}
     assert work_api.patch('/repaidians/work/preferences', headers=auth('worker2'), json=enabled).status_code == 200
     work_api.put('/repaidians/follow/worker2', headers=auth('customer'), json={'active': True})
     work_api.put('/repaidians/work/contracts/tender1/watch', headers=auth('worker2'), json={'active': True})

@@ -1,7 +1,7 @@
 import type {CommunityMember,Trade} from './repaidians';
 
 export interface WorkPreferences {
-  personalizedDiscovery:boolean;contractUpdates:boolean;sharePlacements:boolean;shareSalary:boolean;
+  personalizedDiscovery:boolean;contractUpdates:boolean;jobDiscovery:boolean;sharePlacements:boolean;shareSalary:boolean;
 }
 export interface WorkInterest {trade:Trade;weight:number;reason:string;}
 export interface WorkInterests {trades:WorkInterest[];personalized:boolean;}

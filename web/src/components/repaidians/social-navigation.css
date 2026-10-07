@@ -1,4 +1,11 @@
 /* Community navigation shares the Repaido palette while keeping a quiet social surface. */
+.rp-shell .rp-header-actions .rp-top-create{background:var(--ui-primary);color:var(--ui-surface);border:1px solid var(--ui-control);padding:8px 12px;gap:6px;font-size:.875rem;min-height:48px!important;white-space:normal;}
+.rp-shell .rp-header-actions .rp-top-create:hover:not(:disabled){background:var(--ui-primary-hover);color:var(--ui-surface);}
+.rp-top-create>svg{flex:none;}
+.rp-bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;}
+.rp-shell .rp-bottom-nav>button{min-width:0!important;min-height:56px!important;justify-content:center;padding:8px 2px;}
+.rp-bottom-nav>button>svg{flex:none;}
+.rp-bottom-nav>button>span{display:none;}
 .rp-avatar-frame{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;vertical-align:middle;line-height:0;max-width:max-content;}
 .rp-avatar-ready .rp-avatar{border-color:var(--ui-success);box-shadow:0 0 0 2px var(--ui-surface),0 0 0 3px var(--ui-success);}
 .rp-ready-badge{position:absolute;right:-1px;bottom:-2px;display:grid;place-items:center;width:16px;height:16px;border:2px solid var(--ui-surface);border-radius:50%;background:var(--ui-success);color:var(--ui-success-surface);z-index:1;}

@@ -4,7 +4,7 @@ import {operation} from './operations';
 import {createReadCache} from './readCache.mjs';
 import {syncWorkPushAccount} from './repaidiansPushService';
 import type {Trade} from '../types/repaidians';
-import type {WorkApplication,WorkApplicationsPage,WorkCompaniesPage,WorkCompanyDetails,WorkCongratulations,WorkInterests,WorkJobFilters,WorkJobsPage,WorkPlacement,WorkPreferences} from '../types/repaidiansWork';
+import type {WorkApplication,WorkApplicationsPage,WorkCompaniesPage,WorkCompanyDetails,WorkCongratulations,WorkInterests,WorkJob,WorkJobFilters,WorkJobsPage,WorkPlacement,WorkPreferences} from '../types/repaidiansWork';
 
 // Responses remain in bounded process memory. An account switch retires both
 // fulfilled entries and in-flight generations; private work data is never persisted.
@@ -38,6 +38,7 @@ async function read<T>(account:string,path:string,force=false,signal?:AbortSigna
 function jobsPath(filters:WorkJobFilters={}){return '/work/jobs?'+queryString({...filters,limit:Math.min(30,Math.max(1,filters.limit||20))});}
 export const peekWorkJobs=(account:string,filters:WorkJobFilters={})=>peek<WorkJobsPage>(account,jobsPath(filters));
 export const workJobs=(account:string,filters:WorkJobFilters={},force=false,signal?:AbortSignal)=>read<WorkJobsPage>(account,jobsPath(filters),force,signal);
+export const workJob=(account:string,id:string,force=false,signal?:AbortSignal)=>read<WorkJob>(account,'/work/jobs/'+encodeURIComponent(id),force,signal);
 export const peekWorkInterests=(account:string)=>peek<WorkInterests>(account,'/work/interests');
 export const workInterests=(account:string,force=false,signal?:AbortSignal)=>read<WorkInterests>(account,'/work/interests',force,signal);
 const applicationsPath=(cursor='')=>'/contractor/hiring/applications?'+queryString({scope:'mine',limit:24,cursor});

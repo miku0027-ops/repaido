@@ -52,3 +52,10 @@ test('offer responses and withdrawals carry optimistic concurrency guards',async
   await service.withdrawWorkApplication('application-one',4);assert.deepEqual(JSON.parse(calls[1].init.body),{expected_version:4});
   await service.workApplication('a','old/application',true);assert.equal(calls[2].path,'/contractor/hiring/applications/old%2Fapplication');
 });
+test('a discovery target refreshes the exact job and preserves an unavailable response',async()=>{
+  transport=async()=>({id:'project/one',title:'Electrical work'});
+  assert.equal((await service.workJob('a','project/one')).title,'Electrical work');
+  transport=async()=>{throw Error('This job is no longer available.');};
+  await assert.rejects(service.workJob('a','project/one',true),/no longer available/);
+  assert.deepEqual(calls.map(call=>call.path),['/work/jobs/project%2Fone','/work/jobs/project%2Fone']);
+});

@@ -79,6 +79,6 @@ export interface PublicationDraft {
   reference?:OpportunityReference;
 }
 export interface CommunityPage<T> {items: T[]; members: CommunityMember[]; nextCursor: string | null;}
-export interface CommunityNotification {id: string; type: string; actorId?: string; authorId?: string; targetId?: string; placementId?:string;projectId?:string;applicationId?:string;contractId?:string;queryId?:string;bidId?:string;title?:string;body?:string;text?: string; createdAt: number; read?: boolean;}
+export interface CommunityNotification {id: string; type: string; actorId?: string; authorId?: string; targetId?: string; placementId?:string;projectId?:string;jobId?:string;applicationId?:string;contractId?:string;queryId?:string;bidId?:string;title?:string;body?:string;text?: string; createdAt: number; read?: boolean;}
 export interface CommunityThread {id: string; memberId?: string; recipientId?: string; lastMessage?: string; text?: string; updatedAt?: number; unreadCount?: number;}
 export interface SubscriptionStatus {active: boolean; subscription: CommunitySubscription | null; trial:CommunityTrial|null; serverNow:number; paymentsReady: boolean; amount: number; currency: string; paymentStatus?: string;}

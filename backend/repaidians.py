@@ -617,6 +617,7 @@ def install(core):
     @r.get('/state')
     def state(a=Depends(actor)):
         def read(u):
+            from repaidians_work import notification_visible, prefetch_notification_targets
             user = a['user']
             current = member_ensure(u, user) if user else {'id': 'guest', 'name': 'Guest', 'handle': 'guest', 'trade': 'cleaning', 'role': 'Guest', 'avatarUrl': '', 'bio': ''}
             bill = subscription_state(u, (user or {}).get('id'))
@@ -630,6 +631,8 @@ def install(core):
                 all_members[user['id']] = public_current
             notes = query(u, lane('rp_notifications', user['id']), 200) if user and remaining else []
             prefetch_blocks(u, a, [row['authorId'] for row in notes])
+            if user:
+                prefetch_notification_targets(u, notes, user['id'])
             return {'data': {'version': 1, 'members': list(all_members.values()),
                              'posts': pages.get('post', {}).get('items', []), 'stories': pages.get('story', {}).get('items', []),
                              'reels': pages.get('reel', {}).get('items', []), 'tenders': pages.get('tender', {}).get('items', []),
@@ -639,7 +642,7 @@ def install(core):
                     'authenticated': bool(user), 'capabilities': capabilities(u, a), 'paymentsReady': bill['paymentsReady'], 'mediaReady': storage.ready(core),
                     'storage': 'firestore' if core.USE_FIRESTORE else 'sqlite',
                     'cursors': {k: p['nextCursor'] for k, p in pages.items()},
-                    'unreadCount': sum(not row.get('read') for row in notes if not blocked(u, user['id'], row['authorId'])) if user else 0}
+                    'unreadCount': sum(not row.get('read') for row in notes if not blocked(u, user['id'], row['authorId']) and notification_visible(u, row, user['id'])) if user else 0}
         return store.run(read)
 
     @r.post('/usage')
@@ -1100,10 +1103,12 @@ def install(core):
         if not 1 <= limit <= 50:
             fail('INVALID_LIMIT', 'Choose a page size between 1 and 50.', 422)
         def read(u):
+            from repaidians_work import notification_visible, prefetch_notification_targets
             browse(u, a)
             rows = query(u, lane('rp_notifications', user['id']), limit + 1, cursor_decode(cursor))
             prefetch_blocks(u, a, [row['authorId'] for row in rows])
-            chosen = [row for row in rows[:limit] if not blocked(u, user['id'], row['authorId'])]
+            prefetch_notification_targets(u, rows[:limit], user['id'])
+            chosen = [row for row in rows[:limit] if not blocked(u, user['id'], row['authorId']) and notification_visible(u, row, user['id'])]
             return {'notifications': [{k: v for k, v in row.items() if k != 'sortKey'} for row in chosen],
                     'members': members_for(u, [row['authorId'] for row in chosen], a),
                     'nextCursor': cursor_encode(rows[limit - 1]['sortKey']) if len(rows) > limit else None}
@@ -1120,6 +1125,11 @@ def install(core):
                 if row:
                     row['read'] = True
                     u.put(collection, key, row)
+                    if row.get('type') == 'job_discovery':
+                        native = u.get('notifications', key)
+                        if native and native.get('user_id') == user['id'] and native.get('kind') == 'job_discovery' and row.get('jobId') and row['jobId'] == (native.get('community_job_id') or native.get('project_id')):
+                            native['read_at'] = native.get('read_at') or time.time()
+                            u.put('notifications', key, native)
             return {'ok': True}
         return store.run(save)
 

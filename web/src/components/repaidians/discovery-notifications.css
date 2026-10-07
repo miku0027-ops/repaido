@@ -1,0 +1,4 @@
+.rp-notifications .rp-job-discovery{border:1px solid var(--ui-line);border-radius:18px;background:linear-gradient(130deg,var(--ui-surface),var(--ui-subtle));padding:16px;align-items:flex-start;}
+.rp-job-discovery .rp-discovery-icon{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:14px;background:color-mix(in srgb,var(--ui-link) 10%,var(--ui-surface));color:var(--ui-link);}
+.rp-job-discovery .rp-discovery-action{display:block;margin-top:8px;color:var(--ui-link);font-size:.75rem;font-weight:700;}
+.rp-job-discovery time{display:block;margin-top:6px;}

@@ -1,11 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
-import {Bell,ChevronRight,MessageCircle,Search,Send,SlidersHorizontal} from 'lucide-react';
+import {Bell,BriefcaseBusiness,ChevronRight,MessageCircle,Search,Send,SlidersHorizontal} from 'lucide-react';
 import type {CommunityMember,CommunityNotification,CommunityThread,ProfessionalFilters,Trade} from '../../types/repaidians';
 import {notificationsPage,readNotifications,searchMembers,threadsPage} from '../../services/repaidiansService';
 import {Avatar,EmptyState,timeAgo,tradeName} from './common';
 import {professionalTypes,professionalTypeName,workStatuses,workStatusName} from './Profile';
 import {trades} from '../../services/repaidiansService';
 import {PlacementDetails} from './WorkHub';
+import './discovery-notifications.css';
 
 export function PeopleSearch({onProfile,onMembers}:{onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void}) {
   const [query,setQuery]=useState(''),[members,setMembers]=useState<CommunityMember[]>([]),[busy,setBusy]=useState(true),[moreBusy,setMoreBusy]=useState(false),[error,setError]=useState(''),[cursor,setCursor]=useState<string|null>(null);
@@ -42,7 +43,7 @@ export function CommunityInbox({selfId,onOpen,onMembers}:{selfId:string;onOpen:(
     {!busy&&!error&&!threads.length&&<EmptyState title="Good work begins with a hello.">Visit a profile to start a conversation. New messages will appear here.</EmptyState>}
   </section>;
 }
-export function CommunityNotifications({accountKey,onProfile,onMembers,onApplications,onContract,onPublication,onCustomContract}:{accountKey:string;onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void;onApplications:(id?:string)=>void;onContract:(id:string)=>void;onPublication?:(id:string)=>void;onCustomContract?:(id:string)=>void}) {
+export function CommunityNotifications({accountKey,onProfile,onMembers,onApplications,onContract,onPublication,onCustomContract,onJob}:{accountKey:string;onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void;onApplications:(id?:string)=>void;onContract:(id:string)=>void;onPublication?:(id:string)=>void;onCustomContract?:(id:string)=>void;onJob?:(id:string)=>void}) {
   const [items,setItems]=useState<CommunityNotification[]>([]),[members,setMembers]=useState<CommunityMember[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState(''),[placement,setPlacement]=useState<string|null>(null),[cursor,setCursor]=useState<string|null>(null),[moreBusy,setMoreBusy]=useState(false),[retry,setRetry]=useState(0);
   const epoch=useRef(0);
   useEffect(()=>{
@@ -50,13 +51,17 @@ export function CommunityNotifications({accountKey,onProfile,onMembers,onApplica
     setItems([]);setMembers([]);setCursor(null);setPlacement(null);setBusy(true);setMoreBusy(false);setError('');
     const refresh=()=>{if(document.hidden||pending)return;pending=true;void notificationsPage().then(data=>{if(!active||generation!==epoch.current)return;setItems(data.notifications);setMembers(data.members);setCursor(data.nextCursor);onMembers(data.members);setError('');}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{pending=false;if(active)setBusy(false);});};
     refresh();const timer=setInterval(refresh,30000);document.addEventListener('visibilitychange',refresh);
-    return()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+    return()=>{active=false;epoch.current++;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
   },[accountKey,retry]);
   const more=async()=>{if(!cursor||moreBusy)return;const generation=epoch.current;setMoreBusy(true);try{const data=await notificationsPage(cursor);if(generation!==epoch.current)return;setItems(old=>[...new Map([...old,...data.notifications].map(item=>[item.id,item])).values()]);setMembers(old=>[...new Map([...old,...data.members].map(member=>[member.id,member])).values()]);setCursor(data.nextCursor);onMembers(data.members);}catch(e){if(generation===epoch.current)setError((e as Error).message);}finally{if(generation===epoch.current)setMoreBusy(false);}};
-  const open=(item:CommunityNotification)=>{
+  const open=async(item:CommunityNotification)=>{
     const generation=epoch.current;
-    if(!item.read)void readNotifications([item.id]).then(()=>{if(generation===epoch.current)setItems(old=>old.map(row=>row.id===item.id?{...row,read:true}:row));}).catch(()=>{});
+    // Settle the acknowledgement's cache invalidation before opening private
+    // work details; otherwise the read can invalidate the new detail request.
+    if(!item.read){try{await readNotifications([item.id]);if(generation===epoch.current)setItems(old=>old.map(row=>row.id===item.id?{...row,read:true}:row));}catch{/* Opening an update remains possible if read acknowledgement fails. */}}
+    if(generation!==epoch.current)return;
     if(item.queryId&&onCustomContract)onCustomContract(item.queryId);
+    else if(item.type==='job_discovery'&&onJob){const id=item.jobId||item.projectId||item.targetId;if(id)onJob(id);}
     else if(item.placementId||item.type==='placement'||item.type==='congratulation')setPlacement(item.placementId||item.targetId||null);
     else if(item.applicationId||item.type==='application_update')onApplications(item.applicationId||item.targetId);
     else if(item.contractId||item.type==='contract_update'){const id=item.contractId||item.targetId;if(id)onContract(id);}
@@ -65,9 +70,9 @@ export function CommunityNotifications({accountKey,onProfile,onMembers,onApplica
   };
   const text=(item:CommunityNotification)=>item.text||item.body||({like:'liked your publication',comment:'commented on your publication',follow:'started following you',message:'sent you a message',bid:'submitted interest in your tender'}[item.type]||'shared an update');
   return <section className="rp-notifications"><div className="rp-section-heading"><h2>Notifications</h2><Bell size={22}/></div>{busy&&<p role="status">Checking your latest activity…</p>}{error&&<div className="rp-error" role="alert"><p>{error}</p><button className="rp-secondary" onClick={()=>setRetry(value=>value+1)}>Retry</button></div>}
-    {items.map(item=>{const member=members.find(m=>m.id===(item.actorId||item.authorId));return <button className="rp-member-row rp-notification-row" data-unread={!item.read} key={item.id} onClick={()=>open(item)}>{member?<Avatar member={member}/>:<MessageCircle size={24}/>}<span><strong>{item.title||member?.name||'Repaidians'}</strong><small>{text(item)}</small><time>{timeAgo(item.createdAt)}</time></span><ChevronRight size={16} aria-hidden="true"/></button>;})}
+    {items.map(item=>{const member=members.find(m=>m.id===(item.actorId||item.authorId)),discovery=item.type==='job_discovery';return <button className={'rp-member-row rp-notification-row'+(discovery?' rp-job-discovery':'')} data-unread={!item.read} data-notification-type={item.type} key={item.id} onClick={()=>void open(item)}>{discovery?<span className="rp-discovery-icon"><BriefcaseBusiness size={22} aria-hidden="true"/></span>:member?<Avatar member={member}/>:<MessageCircle size={24}/>}<span><strong>{item.title||member?.name||'Repaidians'}</strong><small>{text(item)}</small>{discovery&&<span className="rp-discovery-action">View matching job</span>}<time>{timeAgo(item.createdAt)}</time></span><ChevronRight size={16} aria-hidden="true"/></button>;})}
     {cursor&&<button className="rp-secondary" disabled={moreBusy} onClick={()=>void more()}>{moreBusy?'Loading updates…':'Earlier updates'}</button>}
-    {!busy&&!error&&!items.length&&<EmptyState title="Your work will start conversations.">Your interactions, applications and chosen contract updates will appear here.</EmptyState>}
+    {!busy&&!error&&!items.length&&<EmptyState title="Your latest activity, in one place.">Interactions, applications and chosen discoveries will appear here. Manage discovery alerts in Work &amp; market.</EmptyState>}
     {placement&&<PlacementDetails accountKey={accountKey} placementId={placement} onClose={()=>setPlacement(null)} onOpenMember={id=>{setPlacement(null);onProfile(id);}}/>}
   </section>;
 }

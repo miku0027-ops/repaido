@@ -67,6 +67,17 @@ class MetricCorrection(Input):
 
 
 def identify(user,*parts):return hashlib.sha256(':'.join([user,*parts]).encode()).hexdigest()
+def read_community_discovery(u, notification, uid):
+    """Acknowledge the matching discovery in this account's community lane."""
+    if notification.get('kind') != 'job_discovery' or notification.get('destination') != 'repaidians':
+        return
+    from repaidians import lane
+    row = u.get(lane('rp_notifications', uid), notification['id'])
+    project_id = notification.get('community_job_id') or notification.get('project_id')
+    if row and row.get('type') == 'job_discovery' and project_id and row.get('jobId') == project_id and not row.get('read'):
+        row['read'] = True
+        u.put(lane('rp_notifications', uid), row['id'], row)
+
 def scoped_job(u,jid,uid):
     j=u.get('jobs',jid)
     if not j or uid not in (j['customer_id'],j.get('worker_id')):fail('NOT_FOUND','Booking not found.',404)
@@ -336,7 +347,9 @@ def install(core):
         def save(u):
             n=u.get('notifications',notification_id)
             if not n or n['user_id']!=user['id']:fail('NOT_FOUND','Notification not found.',404)
-            n['read_at']=n.get('read_at') or time.time();u.put('notifications',notification_id,n);return {'status':'read','read_at':n['read_at']}
+            n['read_at']=n.get('read_at') or time.time();u.put('notifications',notification_id,n)
+            read_community_discovery(u,n,user['id'])
+            return {'status':'read','read_at':n['read_at']}
         return store.run(save)
     @r.post('/notifications/read-all')
     def read_notifications(user=Depends(core.current_user)):
@@ -348,6 +361,7 @@ def install(core):
             for n in rows:
                 if not n.get('read_at'):
                     n['read_at']=stamp;u.put('notifications',n['id'],n)
+                read_community_discovery(u,n,user['id'])
             return {'status':'read','read_at':stamp}
         return store.run(save)
     @r.get('/admin/review-reports',dependencies=[Depends(core.operator)])

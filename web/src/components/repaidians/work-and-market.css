@@ -1,0 +1,48 @@
+.rp-work-market{width:100%;max-width:960px;min-width:0;box-sizing:border-box;margin-inline:auto;padding:18px 18px 28px;color:var(--ui-ink);background:var(--ui-surface);font-size:1rem;line-height:1.5;}
+.rp-work-market-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;}
+.rp-work-market-heading>div{min-width:0;}
+.rp-work-market-heading>svg{flex:none;color:var(--ui-link);margin-top:4px;}
+.rp-work-market-heading h2{font-size:1.375rem;line-height:1.35;letter-spacing:-.025em;overflow-wrap:anywhere;}
+.rp-work-market-heading p{font-size:.9375rem;line-height:1.6;color:var(--ui-muted);margin-top:6px;max-width:62ch;overflow-wrap:anywhere;}
+.rp-work-market-navigation{border:1px solid var(--ui-line);border-radius:14px;margin-bottom:22px;background:var(--ui-surface);min-width:0;overflow:hidden;}
+.rp-work-market-categories{display:flex;flex-wrap:wrap;align-items:stretch;gap:4px;padding:5px;min-width:0;}
+.rp-work-market button.rp-work-market-category{display:flex;flex:1 1 0;align-items:center;justify-content:flex-start;gap:8px;min-width:var(--ui-target,48px);padding:10px;border:1px solid transparent;background:transparent;color:var(--ui-muted);font-size:.875rem;font-weight:650;line-height:1.45;text-align:left;}
+.rp-work-market-category>span{flex:1;min-width:0;overflow-wrap:anywhere;}
+.rp-work-market-category>svg{flex:none;}
+.rp-work-market button.rp-work-market-category[data-active=true]{color:var(--ui-ink);}
+.rp-work-market button.rp-work-market-category[aria-expanded=true]{border-color:var(--ui-control);background:var(--ui-subtle);color:var(--ui-ink);}
+.rp-work-market-category[aria-expanded=true]>svg:last-child{transform:rotate(180deg);}
+.rp-work-market-destinations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px;border-top:1px solid var(--ui-line);background:var(--ui-subtle);min-width:0;}
+.rp-work-market-destinations[hidden]{display:none;}
+.rp-work-market-destinations>button{justify-content:flex-start;padding:10px 12px;border:1px solid var(--ui-line);background:var(--ui-surface);font-size:.875rem;font-weight:650;line-height:1.5;text-align:left;min-width:0;}
+.rp-work-market-destinations>button>svg{flex:none;}
+.rp-work-market-destinations>button>span{min-width:0;overflow-wrap:anywhere;}
+.rp-work-market-destinations>button[aria-current=page]{border-color:var(--ui-link);color:var(--ui-link);background:color-mix(in srgb,var(--ui-link) 7%,var(--ui-surface));}
+.rp-work-market-content,.rp-work-market-tool{min-width:0;max-width:100%;}
+.rp-work-market-content>:is(.rp-opportunities,.rp-work-hub,.rp-professional-network,.cc-hub){max-width:none;margin:0;padding:0;}
+.rp-work-market-tool>.rp-professional-profile{margin-top:16px;margin-bottom:0;}
+.rp-work-market-panel-heading{display:grid;gap:8px;min-width:0;margin-bottom:16px;}
+.rp-work-market-panel-heading h3{font-size:1.125rem;line-height:1.4;overflow-wrap:anywhere;}
+.rp-work-market-panel-heading p{font-size:.9375rem;line-height:1.6;color:var(--ui-muted);overflow-wrap:anywhere;}
+.rp-work-market button.rp-work-market-privacy{justify-self:start;border:1px solid var(--ui-control);background:var(--ui-subtle);font-size:.875rem;}
+.rp-work-market :is(button,summary){min-height:var(--ui-target,48px);min-width:var(--ui-target,48px);max-width:100%;white-space:normal;overflow-wrap:anywhere;box-sizing:border-box;}
+.rp-work-market :is(button,summary):focus-visible{outline:2px solid var(--ui-focus);outline-offset:-3px;}
+.rp-work-market :is(input:not([type=checkbox]):not([type=radio]),select,textarea){min-height:var(--ui-target,48px);max-width:100%;min-width:0;box-sizing:border-box;}
+.rp-work-market :is(.rp-fine,.rp-work-heading p,.rp-work-result-note,.rp-work-loading,.rp-work-note,.rp-work-empty p,.rp-work-error,.rp-network-heading p,.rp-network-note,.rp-network-empty,.rp-network-error,.rp-work-preference small,.public-contract-note,.public-contract-history-heading p,.cc-note,.cc-heading p){font-size:.875rem;line-height:1.6;}
+.rp-work-market :is(.rp-work-eyebrow,.rp-network-eyebrow,.cc-eyebrow,.public-contract-history-heading>div>span){font-size:.75rem;line-height:1.5;}
+.rp-work-market .public-contract-history{margin:0;}
+@media(max-width:540px){
+  .rp-work-market{padding:16px 12px 24px;}
+  .rp-work-market-categories{gap:2px;padding:4px;}
+  .rp-work-market button.rp-work-market-category{flex-direction:column;justify-content:center;gap:4px;padding:8px 4px;text-align:center;}
+  .rp-work-market-category>svg:first-child{display:none;}
+  .rp-work-market-category>span{flex:none;}
+  .rp-work-market-category>svg:last-child{width:14px;height:14px;}
+  .rp-work-market-destinations>button{padding:10px 8px;gap:6px;}
+}
+@media(max-width:380px){
+  .rp-work-market-destinations{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(prefers-reduced-motion:reduce){
+  .rp-work-market *, .rp-work-market *::before, .rp-work-market *::after{scroll-behavior:auto;transition:none;animation:none;}
+}

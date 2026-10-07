@@ -22,7 +22,7 @@ from repaidians import TRADES, IST, blocked, browse, digest, lane, member_ensure
 from repaidians_opportunities import native_scan, trade_for
 
 PAGE_SCAN = 64
-DEFAULTS = {'personalizedDiscovery': False, 'contractUpdates': False, 'sharePlacements': False, 'shareSalary': False}
+DEFAULTS = {'personalizedDiscovery': False, 'contractUpdates': False, 'jobDiscovery': False, 'sharePlacements': False, 'shareSalary': False}
 EVENT_WEIGHTS = {'search': 1.0, 'view': .25, 'save': 2.0, 'apply': 3.0}
 HALF_LIFE_MS = 14 * 86400000
 ID = r'^[A-Za-z0-9_-]{1,100}$'
@@ -34,6 +34,7 @@ WORK_TRADE_INDEX_VERSION = 'work-trade-v2'
 class Preferences(Input):
     personalizedDiscovery: bool | None = Field(default=None, strict=True)
     contractUpdates: bool | None = Field(default=None, strict=True)
+    jobDiscovery: bool | None = Field(default=None, strict=True)
     sharePlacements: bool | None = Field(default=None, strict=True)
     shareSalary: bool | None = Field(default=None, strict=True)
 
@@ -193,6 +194,12 @@ def index_record(u, kind, key, row):
             u.put('rp_work_update_recipients', key, {'id': key, 'sortKey': key, 'active': True})
         elif u.get('rp_work_update_recipients', key):
             u.put('rp_work_update_recipients', key, {'id': key, 'sortKey': key, 'active': False})
+        recipient = u.get('rp_work_job_recipients', key)
+        if preferences(u, key)['jobDiscovery']:
+            if not recipient or not recipient.get('active'):
+                u.put('rp_work_job_recipients', key, {'id': key, 'sortKey': key, 'active': True})
+        elif recipient and recipient.get('active'):
+            u.put('rp_work_job_recipients', key, {**recipient, 'active': False})
         previous_preferences = u.get('rp_work_member_preferences', key) or {}
         sharing = preferences(u, key)['sharePlacements']
         if sharing and not previous_preferences.get('sharePlacements'):
@@ -307,7 +314,7 @@ def job(u, key, uid, member=None, filters=None):
         return None
     years = filters.get('experience')
     if years is None:
-        years = member.get('experienceYears', 0)
+        years = member.get('experienceYears') or 0
     if h.get('minimum_experience', 0) > years:
         return None
     worker = u.get('workers', uid) or {}
@@ -395,6 +402,87 @@ def jobs_page(u, uid, filters, cursor=None, limit=20):
     pref = preferences(u, uid)
     return {'items': selected, 'nextCursor': _next(examined, binding) if more else None,
             'personalized': pref['personalizedDiscovery'], 'preferences': pref, 'rankingScope': 'page', 'rankingVersion': RANK_VERSION}
+
+
+def _job_discovery_recipient(u, uid):
+    """Saved consent and canonical professional eligibility; never enroll on read."""
+    member = u.get('rp_members', uid) or {}
+    worker = u.get('workers', uid) or {}
+    if (not preferences(u, uid)['jobDiscovery'] or worker.get('status') != 'approved'
+            or worker.get('role') not in ('technician', 'specialist')
+            or (u.get('network_suspensions', uid) or {}).get('active')
+            or member.get('workStatus') not in ('available', 'open_to_work')
+            or member.get('trade') not in TRADES or not normalized(member.get('city'))):
+        return None
+    from repaidians_billing import _current_period, _legacy_trial, TRIAL_MS
+    stamp = time.time()
+    trial = u.get('rp_trials', uid) or {}
+    ends = trial.get('startsAt', 0) + TRIAL_MS if _legacy_trial(trial) else trial.get('endsAt', 0)
+    if not (trial.get('startsAt', 0) <= stamp * 1000 < ends or _current_period(u.get('rp_subscriptions', uid), stamp)):
+        return None
+    return member, worker
+
+
+def matching_job(u, key, uid, recipient=None):
+    """An alert is stricter than an exploratory search and never promises a place."""
+    if not re.fullmatch(ID, str(key)):
+        return None
+    recipient = recipient or _job_discovery_recipient(u, uid)
+    if not recipient:
+        return None
+    member, worker = recipient
+    from contract_work import application_fit, hiring_trade
+    project = u.get('contract_projects', key) or {}
+    hiring = project.get('hiring') or {}
+    trade = hiring_trade(hiring, project.get('title', ''))
+    registered_trades = {trade_for(value) for value in worker.get('categories', [])}
+    if (trade != member['trade'] or trade not in registered_trades
+            or normalized(hiring.get('city')) != normalized(member.get('city'))
+            or normalized(hiring.get('city')) != normalized(worker.get('city'))
+            or not application_fit(worker, hiring)['eligible']
+            or any(seat.get('worker_id') == uid and seat.get('status') in ('pending', 'accepted') for seat in project.get('team', []))):
+        return None
+    card = job(u, key, uid, member, {'city': member['city'], 'experience': max(0, worker.get('experience_years') or 0)})
+    if not card or card.get('application'):
+        return None
+    return card
+
+
+def _notification_job_id(row):
+    return row.get('jobId') or row.get('community_job_id') or row.get('projectId') or row.get('project_id') or row.get('targetId')
+
+
+def prefetch_notification_targets(u, rows, uid=None):
+    """Batch the bounded bell page's source/authorization references, never scan."""
+    from contract_work import identifier
+    chosen = [row for row in rows if row.get('type', row.get('kind')) == 'job_discovery'][:200]
+    keys = {_notification_job_id(row) for row in chosen if re.fullmatch(ID, str(_notification_job_id(row)))}
+    u.prefetch([('contract_projects', key) for key in keys])
+    projects = [project for key in keys if (project := u.get('contract_projects', key))]
+    pairs = [('workers', p['owner_id']) for p in projects] + [('network_suspensions', p['owner_id']) for p in projects]
+    pairs += [('contract_tenders', p['tender_id']) for p in projects if p.get('source_kind') == 'customer_custom_query' and p.get('tender_id')]
+    for row in chosen:
+        recipient = uid or row.get('user_id')
+        project = u.get('contract_projects', _notification_job_id(row)) if _notification_job_id(row) in keys else None
+        if recipient and project:
+            pairs.extend([('project_applications', identifier('application', recipient, project['id'])),
+                          ('workers', recipient), ('rp_members', recipient), ('network_suspensions', recipient),
+                          ('rp_trials', recipient), ('rp_subscriptions', recipient)])
+            for left, right in ((recipient, project['owner_id']), (project['owner_id'], recipient)):
+                pairs.extend([('rp_blocks', digest(left + ':' + right)), ('network_blocks', left + ':' + right)])
+    u.prefetch(pairs)
+
+
+def notification_visible(u, row, uid):
+    """Shared bell/push predicate for both durable job-discovery projections."""
+    if row.get('type', row.get('kind')) != 'job_discovery':
+        return True
+    if row.get('user_id', uid) != uid:
+        return False
+    key = _notification_job_id(row)
+    card = matching_job(u, key, uid)
+    sender = row.get('authorId') or row.get('sender_id')
+    return bool(card and (not sender or card['ownerId'] == sender))
 
 
 def contract(u, tid, uid):
@@ -497,8 +585,10 @@ def emit(u, recipient, sender, event, target, title, body, event_key):
     if recipient == sender or blocked(u, recipient, sender):
         return False
     member = u.get('rp_members', recipient) or {}
-    setting = 'contractUpdates' if event == 'contract_update' else 'applicationNotifications' if event == 'application_update' else 'placementNotifications'
+    setting = 'contractUpdates' if event == 'contract_update' else 'jobDiscovery' if event == 'job_discovery' else 'applicationNotifications' if event == 'application_update' else 'placementNotifications'
     if event == 'contract_update' and not preferences(u, recipient)['contractUpdates']:
+        return False
+    if event == 'job_discovery' and not matching_job(u, target, recipient):
         return False
     if not (member.get('settings') or {}).get(setting, True):
         return False
@@ -513,10 +603,16 @@ def emit(u, recipient, sender, event, target, title, body, event_key):
         note['placementId'] = target
     elif event == 'contract_update':
         note['contractId'] = target
+    elif event == 'job_discovery':
+        note.update(jobId=target, projectId=target)
     u.put(collection, key, note)
     u.put('rp_work_delivery', key, {'id': key, 'sortKey': key, 'recipient_id': recipient, 'sender_id': sender,
                                   'event': event, 'type': event, 'target_id': target, 'notification_id': key, 'delivery_status': 'pending',
                                   'created_at': time.time(), 'title': title[:120], 'body': body[:240]})
+    if event == 'job_discovery':
+        u.put('notifications', key, {'id': key, 'user_id': recipient, 'kind': event, 'community_job_id': target,
+                                    'project_id': target, 'destination': 'repaidians', 'created_at': stamp / 1000,
+                                    'title': title[:120], 'body': body[:240], 'read': False})
     return True
 
 
@@ -550,6 +646,8 @@ def delivery_allowed(u, row):
     if not uid or not sender or blocked(u, uid, sender):
         return False
     event = row.get('event', row.get('type'))
+    if event == 'job_discovery':
+        return notification_visible(u, {'type': event, 'jobId': row.get('target_id'), 'authorId': sender}, uid)
     if event == 'contract_update':
         return bool(preferences(u, uid)['contractUpdates'] and contract(u, row.get('target_id', ''), uid))
     if event in ('placement', 'congratulation'):
@@ -630,6 +728,44 @@ def deliver_contract_updates(u, uid, now=None):
             u.put(lane('rp_work_contract_seen', uid), card['id'], {'signature': signature, 'day': day})
     if delivered:
         u.put('rp_work_daily', key, quota)
+    return delivered
+
+
+def deliver_job_discoveries(u, uid, now=None):
+    """Bounded worker-only discovery, three new jobs/day and one notice/job ever."""
+    recipient = _job_discovery_recipient(u, uid)
+    if not recipient:
+        return 0
+    stamp = time.time() if now is None else now
+    day = datetime.fromtimestamp(stamp, IST).date().isoformat()
+    quota_key = digest('jobs:' + uid + ':' + day)
+    quota = u.get('rp_work_daily', quota_key) or {'day': day, 'jobs': []}
+    if len(quota['jobs']) >= 3:
+        return 0
+    member, _ = recipient
+    source = channel('jobs', member['trade'], member['city'])
+    checkpoint = u.get('rp_work_job_cursors', uid) or {}
+    after = checkpoint.get('after', '') if checkpoint.get('source') == source else ''
+    rows = active_query(u, source, 32, after)
+    prefetch_notification_targets(u, [{'type': 'job_discovery', 'jobId': row['id']} for row in rows], uid)
+    u.prefetch([(lane('rp_work_job_seen', uid), row['id']) for row in rows])
+    candidates = []
+    for row in rows:
+        if u.get(lane('rp_work_job_seen', uid), row['id']):
+            continue
+        card = matching_job(u, row['id'], uid, recipient)
+        if card:
+            candidates.append(card)
+    candidates.sort(key=lambda card: (-card['match']['score'], card['deadline'], card['id']))
+    delivered = 0
+    for card in candidates[:3 - len(quota['jobs'])]:
+        if emit(u, uid, card['ownerId'], 'job_discovery', card['id'], 'A matching job is open',
+                card['title'] + ' · ' + card['city'], 'job-discovery:' + uid + ':' + card['id']):
+            quota['jobs'].append(card['id']); delivered += 1
+            u.put(lane('rp_work_job_seen', uid), card['id'], {'id': card['id'], 'createdAt': now_ms()})
+    if delivered:
+        u.put('rp_work_daily', quota_key, quota)
+    u.put('rp_work_job_cursors', uid, {'source': source, 'after': rows[-1]['sortKey'] if len(rows) == 32 else ''})
     return delivered
 
 
@@ -752,7 +888,8 @@ def process_updates(core, limit=20):
     _worker_batch(core, 'rp_work_member_share_queue', _member_shares, limit)
     announcements = _worker_batch(core, 'rp_work_announcement_queue', _announcement, limit)
     contracts = _worker_batch(core, 'rp_work_update_recipients', lambda u, row: deliver_contract_updates(u, row['id']), limit)
-    return {'placementsIndexed': projects, 'placementNotifications': announcements, 'contractNotifications': contracts}
+    jobs = _worker_batch(core, 'rp_work_job_recipients', lambda u, row: deliver_job_discoveries(u, row['id']), limit)
+    return {'placementsIndexed': projects, 'placementNotifications': announcements, 'contractNotifications': contracts, 'jobNotifications': jobs}
 
 
 def backfill(core, limit=10):
@@ -871,6 +1008,20 @@ def install(core):
         filters = {'trade': trade, 'city': normalized(city), 'sector': normalized(sector), 'query': normalized(query_text), 'minimumPayPaise': minimumPayPaise,
                    'experience': experience, 'workType': workType, 'closesWithinDays': closesWithinDays}
         return store.run(lambda u: jobs_page(u, account['id'], filters, cursor, limit))
+
+    @r.get('/work/jobs/{jid}')
+    def job_detail(jid: str, response: Response, account=Depends(user)):
+        response.headers['Cache-Control'] = 'private, no-store'
+        def read(u):
+            worker = u.get('workers', account['id']) or {}
+            if worker.get('status') != 'approved' or worker.get('role') not in ('technician', 'specialist') or (u.get('network_suspensions', account['id']) or {}).get('active'):
+                fail('PROFESSIONAL_REQUIRED', 'Use an approved professional account to open this job.', 403)
+            card = job(u, jid, account['id'], filters={'experience': max(0, worker.get('experience_years') or 0)}) if re.fullmatch(ID, jid) else None
+            from contract_work import application_fit
+            if not card or not application_fit(worker, card['details']['hiring'])['eligible']:
+                fail('NOT_FOUND', 'This matching job is no longer available.', 404)
+            return card
+        return store.run(read)
 
     @r.get('/work/contracts')
     def get_contracts(response: Response, trade: str = 'all', city: str = Query(default='', max_length=80), sector: str = Query(default='', max_length=80), query_text: str = Query(default='', alias='query', max_length=120),
