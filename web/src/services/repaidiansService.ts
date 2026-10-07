@@ -38,8 +38,11 @@ export function suggestProfileHandle(value:string):string {
 }
 async function identity() {
   await auth.authStateReady();
-  const token = auth.currentUser ? await auth.currentUser.getIdToken() : localStorage.getItem('repaido.token');
-  return {token, key: auth.currentUser?.uid || token || 'guest'};
+  const user=auth.currentUser;
+  const token = user ? await user.getIdToken() : localStorage.getItem('repaido.token');
+  if(auth.currentUser?.uid!==user?.uid||(!user&&localStorage.getItem('repaido.token')!==token))
+    throw new CommunityError('Your account changed. Reopen this view.',409,'ACCOUNT_CHANGED');
+  return {token, key: user?.uid || token || 'guest'};
 }
 export async function communityRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!path.startsWith('/') || path.startsWith('//') || /[?#].*https?:/i.test(path)) throw new Error('Expected a Repaidians API path.');
@@ -126,14 +129,15 @@ export const updateProfile = async (_account:string,name:string,trade:Trade,bio:
   }
   return mutate('/profile','PATCH',{name,trade,bio,...fields});
 };
-export interface CommunitySettings {messagePrivacy:'everyone'|'following'|'nobody';likeNotifications:boolean;commentNotifications:boolean;followNotifications:boolean;messageNotifications:boolean;}
+export interface CommunitySettings {messagePrivacy:'everyone'|'following'|'nobody';likeNotifications:boolean;commentNotifications:boolean;followNotifications:boolean;messageNotifications:boolean;placementNotifications:boolean;applicationNotifications:boolean;}
+export const updatePartialProfile = (fields:ProfessionalFields) => mutate<{member:CommunityMember}>('/profile','PATCH',fields);
 export const profileSettings=()=>communityRequest<{settings:CommunitySettings}>('/settings');
 export const updateSettings=(settings:Partial<CommunitySettings>)=>mutate<{settings:CommunitySettings}>('/settings','PATCH',settings);
 export const blockedMembers=()=>communityRequest<{members:{id:string;name:string}[]}>('/blocks');
 export const updateAvatar = (avatarUrl: string) => mutate('/profile', 'PATCH', {avatarUrl});
 export const publish = (_account: string, draft: PublicationDraft) => command<{item:{id:string}}>('/publications', draft as unknown as Record<string,unknown>);
 export const deletePublication = (id: string) => mutate('/publications/'+encodeURIComponent(id), 'DELETE');
-export const notificationsPage = () => communityRequest<{notifications:CommunityNotification[];members:CommunityMember[];nextCursor:string|null;unreadCount?:number}>('/notifications?limit=30');
+export const notificationsPage = (cursor='') => communityRequest<{notifications:CommunityNotification[];members:CommunityMember[];nextCursor:string|null;unreadCount?:number}>('/notifications?limit=30'+(cursor?'&cursor='+encodeURIComponent(cursor):''));
 export const readNotifications = (ids: string[]) => mutate('/notifications/read', 'POST', {ids});
 export const reportPublication = (targetId: string, reason: string, details = '') => mutate('/reports', 'POST', {targetId,reason,details});
 export const blockMember = (id: string, active = true) => mutate('/blocks/'+encodeURIComponent(id), 'PUT', {active});

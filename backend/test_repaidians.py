@@ -192,6 +192,34 @@ def test_transactional_likes_follow_comments_notifications_and_retry(api):
     assert api.put(path, headers=auth('bob'), json={'active': False}).json()['likeCount'] == 0
 
 
+def test_interests_require_identity_and_recheck_activity_privacy_and_blocks(api):
+    profile(api)
+    profile(api, 'bob')
+    item = post(api, visibility='trade')
+    path = '/repaidians/activity/likes/' + item['id']
+    assert api.get('/repaidians/feed?mode=liked').status_code == 401
+    assert api.put(path, headers=auth('bob'), json={'active': True}).status_code == 200
+    assert api.get('/repaidians/feed?mode=liked', headers=auth('bob')).json()['items'][0]['id'] == item['id']
+    # Interest never overrides a later trade change or member block.
+    profile(api, 'bob', 'plumber')
+    assert api.get('/repaidians/feed?mode=liked', headers=auth('bob')).json()['items'] == []
+    profile(api, 'bob')
+    assert api.put('/repaidians/blocks/alice', headers=auth('bob'), json={'active': True}).status_code == 200
+    assert api.get('/repaidians/feed?mode=liked', headers=auth('bob')).json()['items'] == []
+
+
+def test_ready_status_partial_patch_preserves_identity_and_professional_fields(api):
+    initial = api.patch('/repaidians/profile', headers=auth(), json={
+        'name': 'Alice Electrical', 'handle': 'alice.electrical', 'trade': 'electrician',
+        'city': 'Balasore', 'skills': ['Wiring'], 'headline': 'Electrical installations',
+    }).json()['member']
+    changed = api.patch('/repaidians/profile', headers=auth(), json={'workStatus': 'open_to_work'}).json()['member']
+    assert changed['workStatus'] == 'open_to_work'
+    for field in ('name', 'handle', 'trade', 'city', 'skills', 'headline'):
+        assert changed[field] == initial[field]
+    assert api.get('/repaidians/members?workStatus=open_to_work').json()['members'][0]['id'] == 'alice'
+
+
 def test_real_two_sided_messages_pro_send_thread_isolation_and_blocks(api):
     grant(api)
     profile(api)

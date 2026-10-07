@@ -79,7 +79,8 @@ def install(core):
             projects=[]
             for p in u.all('contract_projects'):
                 owner=u.get('workers',p['owner_id']) or {};h=p.get('hiring')
-                if not h or owner.get('status')!='approved' or not owner.get('contractor_verified') or blocked(u,uid,p['owner_id']) or (u.get('network_suspensions',p['owner_id']) or {}).get('active'):continue
+                from contract_work import hiring_source_authorized
+                if not h or not hiring_source_authorized(u,p) or blocked(u,uid,p['owner_id']) or (u.get('network_suspensions',p['owner_id']) or {}).get('active'):continue
                 if city and city.casefold() not in h['city'].casefold():continue
                 if skill and skill.casefold() not in ' '.join(h['skills']).casefold():continue
                 if matches([p['title'],p['owner_name'],h['summary'],h['city'],h['area'],h['sector'],*h['skills']]):projects.append(public_hiring(p))

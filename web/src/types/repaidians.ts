@@ -1,7 +1,7 @@
 export type Trade = 'cleaning' | 'electrician' | 'plumber' | 'ac' | 'pest' | 'carpenter' | 'civil' | 'spares';
 export type Visibility = 'public' | 'trade';
 export type StudioKind = 'post' | 'reel' | 'story' | 'tender';
-export type CommunityTab = 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications';
+export type CommunityTab = 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications' | 'jobs' | 'applications' | 'companies';
 export type WorkStatus = 'available' | 'open_to_work' | 'hiring' | 'not_looking';
 export type ProfessionalType = 'agent' | 'specialist' | 'contractor' | 'shop_owner' | 'member';
 export interface ProfessionalFields {
@@ -75,6 +75,6 @@ export interface PublicationDraft {
   reference?:OpportunityReference;
 }
 export interface CommunityPage<T> {items: T[]; members: CommunityMember[]; nextCursor: string | null;}
-export interface CommunityNotification {id: string; type: string; actorId?: string; authorId?: string; targetId?: string; text?: string; createdAt: number; read?: boolean;}
+export interface CommunityNotification {id: string; type: string; actorId?: string; authorId?: string; targetId?: string; placementId?:string;projectId?:string;applicationId?:string;contractId?:string;title?:string;body?:string;text?: string; createdAt: number; read?: boolean;}
 export interface CommunityThread {id: string; memberId?: string; recipientId?: string; lastMessage?: string; text?: string; updatedAt?: number; unreadCount?: number;}
 export interface SubscriptionStatus {active: boolean; subscription: CommunitySubscription | null; trial:CommunityTrial|null; serverNow:number; paymentsReady: boolean; amount: number; currency: string; paymentStatus?: string;}

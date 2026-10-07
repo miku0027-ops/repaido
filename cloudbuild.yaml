@@ -56,8 +56,9 @@ steps:
                             '--no-traffic', '--tag=' + tag, '--quiet', '--format=json'],
                            stdout=output, check=True)
         service = json.load(open('/workspace/candidate.json'))
-        url = next(t['url'] for t in service['status']['traffic'] if t.get('tag') == tag)
-        token = subprocess.check_output(['gcloud', 'auth', 'print-identity-token'], text=True).strip()
+        tagged = next(t for t in service['status']['traffic'] if t.get('tag') == tag)
+        url = tagged['url']
+        token = subprocess.check_output(['gcloud', 'auth', 'print-identity-token', '--audiences=' + service['status']['url']], text=True).strip()
         for attempt in range(12):
             try:
                 request = urllib.request.Request(url + '/health', headers={'Authorization': 'Bearer ' + token})
@@ -74,6 +75,8 @@ steps:
                     assert state['mediaReady'], 'Community media needs a durable private bucket'
                     assert state['authenticated'] is False and state['remainingMs'] > 0
                 print('Cloud Run candidate health, Firestore and media configuration passed; production traffic unchanged.')
+                with open('/workspace/candidate.json', 'w') as output:
+                    json.dump({'verifiedRevision': tagged['revisionName']}, output)
                 break
             except Exception:
                 if attempt == 11:
@@ -81,14 +84,15 @@ steps:
                 time.sleep(5)
         PY
 
-  - id: deploy-firebase-hosting
-    name: node:24-bookworm-slim
-    entrypoint: bash
-    args:
-      - -ceu
-      - |
-        npm install --global firebase-tools@15.32.1
-        firebase deploy --project='$PROJECT_ID' --only hosting --non-interactive
+  - id: await-release-turn
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args: ['scripts/deploy-work-services.py', 'await-release', '--project=$PROJECT_ID', '--build=$BUILD_ID']
+
+  - id: deploy-work-services
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args: ['scripts/deploy-work-services.py', 'deploy', '--project=$PROJECT_ID', '--region=${_REGION}', '--parent=${_SERVICE}', '--image=${_IMAGE}:$BUILD_ID', '--build=$BUILD_ID']
 
   - id: promote-backend
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -98,10 +102,24 @@ steps:
       - |
         import json, subprocess
         service = json.load(open('/workspace/candidate.json'))
-        revision = service['status']['latestReadyRevisionName']
+        revision = service['verifiedRevision']
         subprocess.run(['gcloud', 'run', 'services', 'update-traffic', '${_SERVICE}',
                         '--project=$PROJECT_ID', '--region=${_REGION}',
                         '--to-revisions=' + revision + '=100', '--quiet'], check=True)
+
+  - id: promote-work-services
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args: ['scripts/deploy-work-services.py', 'promote', '--project=$PROJECT_ID', '--region=${_REGION}']
+
+  - id: deploy-firebase-hosting
+    name: node:24-bookworm-slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        npm install --global firebase-tools@15.32.1
+        firebase deploy --project='$PROJECT_ID' --only hosting --non-interactive
 
   - id: verify-hosting-release
     name: python:3.12-slim
@@ -118,7 +136,10 @@ steps:
                 with urllib.request.urlopen(base + '/api/health?build=$BUILD_ID', timeout=20) as response:
                     health = json.load(response)
                     assert health['status'] == 'ok' and health['build_id'] == '$BUILD_ID'
-                print('Firebase Hosting and backend are serving build $BUILD_ID')
+                with urllib.request.urlopen(base + '/api/repaidians/work/health?build=$BUILD_ID', timeout=20) as response:
+                    work = json.load(response)
+                    assert work['status'] == 'ok' and work['storage'] == 'firestore' and work['build_id'] == '$BUILD_ID'
+                print('Firebase Hosting, backend and independent work API are serving build $BUILD_ID')
                 break
             except Exception:
                 if attempt == 11:

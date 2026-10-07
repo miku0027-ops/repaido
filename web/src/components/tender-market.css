@@ -85,3 +85,70 @@
 .tender-section-heading{flex-wrap:wrap}
 .tender-section-heading>div{flex:1 1 180px;min-width:0}
 @media(max-width:520px){.tender-quick-actions button{flex:1 1 10rem}}
+
+/* Compact contract identity: navy, soft teal and a restrained copper edge. */
+#root .market-experience .tender-market{gap:14px;background:var(--ui-subtle);padding:10px 12px 16px}
+#root .market-experience .tender-market>.business-page-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 12px;margin:0;border-radius:12px;border:1px solid var(--ui-line);border-inline-start:3px solid var(--ui-warning-line);background:linear-gradient(115deg,var(--ui-surface),color-mix(in srgb,var(--ui-success-surface) 56%,var(--ui-surface)));box-shadow:0 2px 8px rgb(11 19 43 / .035)}
+#root .market-experience .tender-market>.business-page-header .business-header-copy{flex:1 1 180px;min-width:0}
+#root .market-experience .tender-market>.business-page-header .business-eyebrow{font-size:.6875rem;line-height:1.35;letter-spacing:.065em;color:var(--ui-link);gap:5px}
+#root .market-experience .tender-market>.business-page-header h1{font-size:1rem;line-height:1.35;letter-spacing:-.015em;margin:3px 0 0}
+#root .market-experience .tender-market>.business-page-header .business-header-actions{margin:0;flex:0 1 auto;align-self:center}
+#root .market-experience .tender-market>.business-page-header button{font-size:.75rem!important;padding:5px 10px!important;min-height:36px!important;gap:5px}
+#root .market-experience .tender-market .tender-quick-actions{margin:0;gap:6px}
+#root .market-experience .tender-market .tender-quick-actions button{font-size:.75rem;flex:0 1 auto;min-height:36px!important;padding:5px 8px;gap:5px}
+#root .market-experience .tender-market .tender-discovery{gap:12px}
+#root .market-experience .tender-market h2{font-size:1rem}
+#root .market-experience .tender-market .tender-section-heading p,#root .market-experience .tender-market .tender-sector-note{font-size:.75rem}
+#root .market-experience .tender-market .tender-sector-note{margin-top:-6px}
+#root .market-experience .tender-market .tender-results-heading{min-height:30px;font-size:.75rem}
+#root .market-experience .tender-market .tender-opportunity{padding:14px;border-radius:14px;border-block-start:2px solid var(--ui-success-line);gap:7px}
+#root .market-experience .tender-market .tender-category-icon{width:32px;height:32px;border-radius:9px}
+#root .market-experience .tender-market .tender-budget{margin-block:2px;padding:9px 11px}
+#root .market-experience .tender-market .tender-budget strong{font-size:1.125rem}
+.contract-recommendations{min-width:0;padding:10px 12px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface)}
+.contract-recommendations>p,.contract-recommendations-error p{font-size:.75rem;color:var(--ui-muted);margin:6px 0 0}
+.contract-recommendations .tender-section-heading h2{font-size:.8125rem!important}
+#root .market-experience .contract-recommendations .tender-section-heading>button{min-width:36px!important;min-height:36px!important;padding:6px;border:0;background:transparent}
+.contract-recommendation-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+#root .market-experience .tender-market button.contract-recommendation{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px;padding:9px!important;min-width:0!important;background:var(--ui-subtle);border:1px solid var(--ui-line)}
+.contract-recommendation>span{flex:1;min-width:0}
+.contract-recommendation strong{display:block;font-size:.8125rem;line-height:1.45;overflow-wrap:anywhere}
+.contract-recommendation small{display:block;font-size:.6875rem;color:var(--ui-muted);font-weight:400;margin-top:3px}
+.contract-recommendation svg{flex-shrink:0}
+.contract-recommendations-error{font-size:.75rem;color:var(--ui-muted);padding:6px}
+.contract-recommendations-error summary{cursor:pointer}
+.contract-watch{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--ui-success-surface);border:1px solid var(--ui-success-line);border-radius:12px;padding:10px 12px}
+.contract-watch>div:first-child{display:flex;align-items:flex-start;gap:8px;flex:1 1 210px;min-width:0;color:var(--ui-success)}
+.contract-watch strong{display:block;font-size:.8125rem;color:var(--ui-ink)}
+.contract-watch small{display:block;font-size:.75rem;color:var(--ui-muted);margin-top:3px;line-height:1.5}
+.contract-watch .business-notice{flex-basis:100%}
+.contract-watch button{font-size:.75rem!important;min-height:36px!important;padding:6px 10px!important}
+.contract-preferences .contract-consent{align-items:flex-start;gap:10px;background:var(--ui-subtle);border:1px solid var(--ui-line);padding:12px;border-radius:12px;min-width:0}
+.contract-preferences .contract-consent small{display:block;font-size:.8125rem;font-weight:400;color:var(--ui-muted);margin-top:5px}
+.contract-preferences .contract-consent input{flex-shrink:0;margin-top:3px}
+.tender-dates ol{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+.tender-dates li{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-inline-start:2px solid var(--ui-warning-line);padding-inline-start:10px}
+.tender-dates strong{font-size:.8125rem}.tender-dates time{font-size:.8125rem;color:var(--ui-muted)}
+.private-work-intro{display:flex;gap:8px;font-size:.8125rem!important;color:var(--ui-muted);align-items:flex-start}
+.private-work-intro svg{flex-shrink:0;margin-top:3px}
+.private-work-dialog .contract-form label small{font-weight:400;font-size:.75rem;color:var(--ui-muted)}
+@media(max-width:700px){.contract-recommendation-list{grid-template-columns:1fr}}
+@media(max-width:360px){#root .market-experience .tender-market>.business-page-header .business-header-copy{flex-basis:150px}#root .market-experience .tender-market>.business-page-header .business-header-actions{margin-inline-start:auto}}
+@media(prefers-reduced-motion:no-preference){.contract-recommendation{transition:background 150ms ease,border-color 150ms ease}.contract-recommendation:active{transform:translateY(1px)}}
+@media(prefers-reduced-motion:reduce){.contract-recommendation{transition:none!important;transform:none!important}}
+.reduce-motion .contract-recommendation{transition:none!important;transform:none!important}
+
+.contract-private-opportunities{padding:12px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-surface);min-width:0}
+.contract-private-opportunities>p,.contract-private-opportunities details{font-size:.75rem;color:var(--ui-muted);margin:8px 0 0}
+.contract-private-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.contract-private-cards article{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-subtle)}
+.contract-private-cards h3{font-size:.9375rem!important}.contract-private-cards p{display:flex;gap:5px;align-items:center;margin:0;font-size:.75rem;color:var(--ui-muted)}
+.contract-private-cards strong{font-size:1rem}.contract-private-cards strong small{display:block;font-size:.6875rem;font-weight:400}
+.contract-private-cards small{font-size:.75rem;color:var(--ui-muted)}
+#root .market-experience .tender-market .contract-private-cards button{margin-top:auto;justify-content:space-between;font-size:.75rem;min-height:36px!important;padding:6px 9px}
+.contract-private-pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.contract-private-pages:empty{display:none}
+@media(max-width:550px){.contract-private-cards{grid-template-columns:1fr}}
+
+.contract-recommendations-options{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+#root .market-experience .contract-recommendations-options>button{font-size:.75rem!important;min-height:32px!important;padding:5px 8px!important;border:1px solid var(--ui-line);background:var(--ui-surface)}
+.contract-recommendations-options>small{font-size:.6875rem;color:var(--ui-muted)}

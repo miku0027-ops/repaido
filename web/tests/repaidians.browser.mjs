@@ -65,6 +65,8 @@ async function publication(account,draft){
 }
 async function newPage(account,width=390,clockMs){
   const context=await browser.newContext({viewport:{width,height:850},reducedMotion:'reduce'});
+  // Shared workspace edits must not restart a running browser scenario.
+  await context.routeWebSocket('**',socket=>socket.close());
   await context.addInitScript(({token,clockMs})=>{
     if(clockMs)Date.now=()=>clockMs;
     if(token)localStorage.setItem('repaido.token',token);
@@ -110,6 +112,10 @@ async function nav(page,label){
   if(await mobile.count())return mobile.click();
   return shell(page).locator('.rp-desktop-sidebar').getByRole('button',{name:label,exact:true}).click();
 }
+async function openWork(page){
+  await nav(page,'My profile');
+  await shell(page).getByRole('button',{name:'Open Work and market business suite',exact:true}).click();
+}
 async function layout(page){
   const issues=await shell(page).evaluate(root=>{
     const issues=[];
@@ -144,6 +150,7 @@ async function mediaLayout(page){
   assert.ok(bounds,'A shared photo has its own padded media region.');
   assert.equal(bounds.fit,'contain','Community photos preserve their original composition.');
   assert.ok(bounds.left>=8&&bounds.right>=8,'Photos keep visible gutters inside the feed card: '+JSON.stringify(bounds));
+  assert.ok(Math.abs(bounds.left-bounds.right)<2,'Media frame is centered within its feed card: '+JSON.stringify(bounds));
   assert.equal(bounds.contained,true,'Photo contents stay within the padded card region.');
 }
 
@@ -287,15 +294,15 @@ try{
   assert.ok((await api('/repaidians/feed?kind=post',bob)).items.some(p=>p.id===alicePost.id));
   await nav(page,'Home');
   await shell(page).getByRole('button',{name:'Create',exact:true}).click();studio=page.getByRole('dialog',{name:'Publishing studio',exact:true});
-  await studio.getByRole('button',{name:'Reel',exact:true}).click();
+  await studio.getByRole('button',{name:'Work video',exact:true}).click();
   await studio.getByLabel('Upload publication media',{exact:true}).setInputFiles(clip);
   await studio.getByLabel('Caption & visual description',{exact:true}).fill('A work reel stored on the server.');
   await studio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await studio.waitFor({state:'hidden'});await shell(page).locator('.rp-reel video').waitFor();
   await page.waitForFunction(()=>document.querySelector('.rp-reel video')?.readyState>=2);
   assert.equal(await shell(page).locator('.rp-reel video').evaluate(video=>video.paused),true,'Reduced motion starts reels paused.');
-  await shell(page).getByRole('button',{name:'Play reel',exact:true}).click();await shell(page).getByRole('button',{name:'Pause reel',exact:true}).waitFor();
-  await shell(page).getByRole('button',{name:'Pause reel',exact:true}).click();
-  await page.reload();await nav(page,'Reels');await shell(page).locator('.rp-reel video').waitFor();
+  await shell(page).getByRole('button',{name:'Play work video',exact:true}).click();await shell(page).getByRole('button',{name:'Pause work video',exact:true}).waitFor();
+  await shell(page).getByRole('button',{name:'Pause work video',exact:true}).click();
+  await page.reload();await nav(page,'Works');await shell(page).locator('.rp-reel video').waitFor();
   await page.waitForFunction(()=>document.querySelector('.rp-reel video')?.readyState>=2);
   assert.equal((await api('/repaidians/feed?kind=reel',bob)).items[0].caption,'A work reel stored on the server.');
   await shell(page).getByRole('button',{name:'Book a service',exact:true}).click();await page.getByLabel('Home search',{exact:true}).waitFor();
@@ -339,18 +346,21 @@ try{
   await handleField.fill('alice.electrical');
   await shell(page).getByRole('button',{name:'Save profile',exact:true}).click();
   await shell(page).locator('.rp-profile').getByText('@alice.electrical',{exact:true}).waitFor();
-  await shell(page).getByText('Privacy & notifications',{exact:true}).click();
-  await shell(page).getByLabel('Allow messages from',{exact:true}).selectOption('following');
-  await shell(page).getByLabel('Likes on my publications',{exact:true}).uncheck();
-  await shell(page).getByRole('button',{name:'Save settings',exact:true}).click();
-  await shell(page).getByText('Privacy and notification settings saved.',{exact:true}).waitFor();
+  await shell(page).getByRole('button',{name:'Open profile tools and settings',exact:true}).click();
+  await page.getByRole('dialog',{name:'Profile tools and settings',exact:true}).getByRole('button',{name:/^Privacy & notifications/}).click();
+  const settingsDrawer=page.getByRole('dialog',{name:'Privacy and notifications',exact:true});
+  await settingsDrawer.getByLabel('Allow messages from',{exact:true}).selectOption('following');
+  await settingsDrawer.getByLabel('Likes on my publications',{exact:true}).uncheck();
+  await settingsDrawer.getByRole('button',{name:'Save settings',exact:true}).click();
+  await settingsDrawer.getByText('Privacy and notification settings saved.',{exact:true}).waitFor();
   const settings=(await api('/repaidians/settings',alice)).settings;
   assert.equal(settings.messagePrivacy,'following');assert.equal(settings.likeNotifications,false);
   // Restore the default so later message/reply tests remain independent.
-  await shell(page).getByLabel('Allow messages from',{exact:true}).selectOption('everyone');
-  await shell(page).getByLabel('Likes on my publications',{exact:true}).check();
-  await shell(page).getByRole('button',{name:'Save settings',exact:true}).click();
-  await shell(page).getByText('Privacy and notification settings saved.',{exact:true}).waitFor();
+  await settingsDrawer.getByLabel('Allow messages from',{exact:true}).selectOption('everyone');
+  await settingsDrawer.getByLabel('Likes on my publications',{exact:true}).check();
+  await settingsDrawer.getByRole('button',{name:'Save settings',exact:true}).click();
+  await settingsDrawer.getByText('Privacy and notification settings saved.',{exact:true}).waitFor();
+  await settingsDrawer.getByRole('button',{name:'Close profile tools',exact:true}).click();
   await shell(page).getByLabel('Profile photo',{exact:true}).setInputFiles(resolve(web,'public/images/electrical.jpg'));
   await page.waitForFunction(()=>!document.querySelector('.rp-profile input[type="file"]')?.disabled);
   const uploadedProfile=(await api('/repaidians/members/'+alice.user.id,bob)).member;
@@ -363,7 +373,8 @@ try{
   assert.equal(editedProfile.headline,'Electrical specialist available for project teams');assert.equal(editedProfile.experienceYears,8);
   await page.reload();await nav(page,'My profile');
   await shell(page).getByText('Electrical specialist available for project teams',{exact:true}).waitFor();
-  await shell(page).getByText('Professional details shared by this member.',{exact:true}).waitFor();
+  assert.equal(await shell(page).getByText('Professional details shared by this member.',{exact:true}).count(),0);
+  await shell(page).locator('.rp-portfolio-tabs').getByRole('button',{name:'Works',exact:true}).click();
   const selectedReel=(await api('/repaidians/feed?kind=reel',bob)).items[0];
   await shell(page).getByRole('button',{name:'Open video by Alice Electrician: '+selectedReel.caption,exact:true}).click();
   const reelPublication=page.getByRole('dialog',{name:'Publication',exact:true});await reelPublication.waitFor();
@@ -494,7 +505,7 @@ try{
   nativeFixture('contract_tenders',nativeTender.id,nativeTender);
 
   const opportunityPage=await newPage(alice);
-  await shell(opportunityPage).getByRole('button',{name:'Work & market',exact:true}).first().click();
+  await openWork(opportunityPage);
   const board=shell(opportunityPage).getByRole('region',{name:'Professional opportunities',exact:true});
   await board.getByText(nativeTender.title,{exact:true}).waitFor();
   await board.getByText(nativeCareer.title,{exact:true}).waitFor();
@@ -527,7 +538,7 @@ try{
   assert.equal(await destination.textContent(),'Opened inventory:'+nativeProduct.id+' · '+nativeProduct.name);
   assert.equal(await shell(opportunityPage).count(),0,'Opening a native product hands off its actual source and record to Repaido.');
   await opportunityPage.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(opportunityPage).waitFor();
-  await shell(opportunityPage).getByRole('button',{name:'Work & market',exact:true}).first().click();
+  await openWork(opportunityPage);
   await board.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Products',exact:true}).click();
   await productCard.getByRole('button',{name:'Share opportunity with Repaidians',exact:true}).click();
   const attachedStudio=opportunityPage.getByRole('dialog',{name:'Publishing studio',exact:true});await attachedStudio.waitFor();
@@ -561,7 +572,7 @@ try{
   const appPage=await newPage(alice);
   await appPage.goto(origin+'/?noSplash=1&tab=explore');
   await appPage.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(appPage).waitFor();
-  await shell(appPage).getByRole('button',{name:'Work & market',exact:true}).first().click();
+  await openWork(appPage);
   const appBoard=shell(appPage).getByRole('region',{name:'Professional opportunities',exact:true});
   await appBoard.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Products',exact:true}).click();
   await appBoard.locator('.rp-opportunity-card').filter({hasText:nativeProduct.name}).getByRole('button',{name:'View product',exact:true}).click();

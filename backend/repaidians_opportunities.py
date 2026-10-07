@@ -196,10 +196,10 @@ def resolve(u, source, key, actor):
                     budgetPaise=row.get('budget_paise'), deadline=int(row['deadline'] * 1000), ownerName=row.get('owner_name', ''),
                     manpowerNeeded=row.get('manpower_needed'))
     elif source == 'career':
-        from contract_work import public_hiring
+        from contract_work import public_hiring, hiring_source_authorized
         hiring = row.get('hiring') or {}
         worker = u.get('workers', owner) or {}
-        if (worker.get('status') != 'approved' or not worker.get('contractor_verified')
+        if (not hiring_source_authorized(u, row)
                 or row.get('status') not in ('planning', 'active') or row.get('ends_at', 0) <= now
                 or hiring.get('status') != 'open' or hiring.get('deadline', 0) <= now
                 or hiring.get('openings', 0) <= sum(m.get('status') in ('accepted', 'pending') for m in row.get('team', []))):

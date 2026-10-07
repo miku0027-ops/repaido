@@ -365,7 +365,7 @@ def install(core):
     def register_device(body: Device,user=Depends(core.current_user)):
         did=digest(body.token)
         store.run(lambda u:u.put('devices',did,dict(id=did,user_id=user['id'],token=body.token,platform=body.platform,audience=body.audience,promotional_capable=body.promotional_capable,updated_at=time.time(),active=True)))
-        return {'id':did}
+        return {'id':did,'user_id':user['id']}
 
     @router.delete('/devices/{device_id}')
     def remove_device(device_id: str,user=Depends(core.current_user)):

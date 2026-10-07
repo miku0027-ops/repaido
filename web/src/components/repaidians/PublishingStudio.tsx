@@ -43,7 +43,7 @@ export function PublishingStudio({account,initialKind,defaultTrade,city,onClose,
   };
   return <Modal title="Publishing studio" className="rp-dialog rp-studio" onClose={onClose}>
     <p className="rp-fine">Share your craft, a real opportunity or a purchase update. Choose who can see it before publishing.</p>
-    <div className="rp-studio-kinds" role="group" aria-label="Publication type">{([{id:'post',name:'Post',icon:Layers},{id:'reel',name:'Reel',icon:Clapperboard},{id:'story',name:'Story',icon:Camera},{id:'tender',name:'Tender',icon:BriefcaseBusiness}] as const).map(item=><button key={item.id} disabled={busy} aria-pressed={kind===item.id} onClick={()=>changeKind(item.id)}><item.icon size={19}/>{item.name}</button>)}</div>
+    <div className="rp-studio-kinds" role="group" aria-label="Publication type">{([{id:'post',name:'Post',icon:Layers},{id:'reel',name:'Work video',icon:Clapperboard},{id:'story',name:'Story',icon:Camera},{id:'tender',name:'Tender',icon:BriefcaseBusiness}] as const).map(item=><button key={item.id} disabled={busy} aria-pressed={kind===item.id} onClick={()=>changeKind(item.id)}><item.icon size={19}/>{item.name}</button>)}</div>
     {kind==='post'&&<section className="rp-studio-attachment" aria-label="Opportunity attachment">
       <button className="rp-studio-attachment-toggle" disabled={busy} aria-label="Attach an opportunity" aria-expanded={pickerOpen} onClick={()=>setPickerOpen(value=>!value)}><Link2 size={18}/>Attach an opportunity<span>{pickerOpen?'Hide listings':'Choose a listing'}</span></button>
       {referenceBusy&&<p role="status">Checking your listing…</p>}{referenceError&&<p className="rp-error" role="alert">{referenceError}</p>}

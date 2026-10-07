@@ -35,6 +35,20 @@ test('API identity comes from the verified session, never a caller supplied acco
   assert.deepEqual([...values.keys()],['repaido.token']);
 });
 
+test('an account switch while resolving a Firebase token never sends the previous credential',async()=>{
+  let release,started;
+  const entered=new Promise(resolve=>{started=resolve;});
+  globalThis.__communityAuth.currentUser={uid:'member-a',getIdToken:()=>{started();return new Promise(resolve=>{release=resolve;});}};
+  const pending=service.updatePartialProfile({workStatus:'open_to_work'});
+  await entered;
+  globalThis.__communityAuth.currentUser={uid:'member-b',getIdToken:async()=>'token-b'};
+  release('token-a');
+  await assert.rejects(pending,error=>error.code==='ACCOUNT_CHANGED');
+  assert.equal(calls.length,0);
+  await service.snapshot();
+  assert.equal(calls[0].init.headers.get('Authorization'),'Bearer token-b');
+});
+
 test('requests never forward session credentials to external API paths',async()=>{
   for(const path of ['https://other.example/state','//other.example/state','/feed?target=https://other.example'])
     await assert.rejects(service.communityRequest(path),/Expected a Repaidians API path/);

@@ -11,6 +11,12 @@
       "**/node_modules/**"
     ],
     "rewrites": [
+      {"source":"/api/repaidians/work","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
+      {"source":"/api/repaidians/work/**","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
+      {"source":"/api/repaidians/companies","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
+      {"source":"/api/repaidians/companies/**","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
+      {"source":"/api/repaidians/placements","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
+      {"source":"/api/repaidians/placements/**","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
       {
         "source": "/api/**",
         "run": {
@@ -59,6 +65,10 @@
             "value": "max-age=3600"
           }
         ]
+      },
+      {
+        "source": "repaidians-work-push-sw.js",
+        "headers": [{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]
       }
     ]
   }

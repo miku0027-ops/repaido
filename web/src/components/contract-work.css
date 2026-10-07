@@ -159,3 +159,20 @@
 .contract-desk .contractor-hiring .wn-muted{font-size:.875rem!important;color:var(--ui-muted)!important}
 .contract-desk .contractor-hiring>p{font-size:.9375rem!important}
 .modal.contract-hiring-dialog .wn-notice{font-size:.875rem!important;color:var(--ui-muted);background:var(--ui-subtle);border-color:var(--ui-line)}
+
+/* Explicit recruitment stages and explainable, bounded applicant comparisons. */
+.contract-hiring-stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));list-style:none;margin:10px 0 14px;padding:0;gap:6px}
+.contract-hiring-stages li{display:flex;gap:6px;align-items:center;min-width:0;font-size:.75rem;color:var(--ui-muted);border:1px solid var(--ui-line);background:var(--ui-surface);padding:8px;border-radius:10px}
+.contract-hiring-stages li>span{display:grid;place-items:center;width:20px;height:20px;flex-shrink:0;background:var(--ui-primary);color:#fff;border-radius:50%;font-size:.6875rem;font-weight:750}
+.contract-fit{padding:9px 10px;border:1px solid var(--ui-success-line);background:var(--ui-success-surface);border-radius:10px;font-size:.75rem;color:var(--ui-ink)}
+.contract-fit>span{font-weight:650}.contract-fit ul,.contract-fit-reasons{font-size:.75rem;line-height:1.5;padding-inline-start:18px;margin:5px 0;color:var(--ui-muted)}
+.contract-fit small{font-size:.75rem!important}
+.contract-desk .contractor-hiring .wn-project .wn-actions{gap:6px}
+.contract-desk .contractor-hiring .wn-project button,.modal.contract-hiring-dialog .work-network button{min-height:36px!important;font-size:.75rem!important;padding:6px 9px!important;min-width:36px!important;gap:5px}
+.contract-desk .contractor-hiring .wn-stats>span{padding:10px 12px;font-size:.75rem}
+.contract-desk .contractor-hiring .wn-stats strong{font-size:1.25rem}
+.contract-desk .contractor-hiring .wn-project{padding:14px;border-radius:14px}
+.contract-desk .contractor-hiring .wn-project h3{font-size:1rem}
+.contract-desk .contractor-hiring .wn-project p{font-size:.8125rem}
+.contract-desk .contractor-hiring .wn-project small{font-size:.75rem}
+@media(max-width:600px){.contract-hiring-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -66,13 +66,15 @@ class ProfilePatch(Input):
     professionalType: ProfessionalType | None = None
 
 
-SETTINGS_DEFAULTS={'messagePrivacy':'everyone','likeNotifications':True,'commentNotifications':True,'followNotifications':True,'messageNotifications':True}
+SETTINGS_DEFAULTS={'messagePrivacy':'everyone','likeNotifications':True,'commentNotifications':True,'followNotifications':True,'messageNotifications':True,'placementNotifications':True,'applicationNotifications':True}
 class SettingsPatch(Input):
     messagePrivacy: Literal['everyone','following','nobody'] | None = None
     likeNotifications: bool | None = Field(default=None,strict=True)
     commentNotifications: bool | None = Field(default=None,strict=True)
     followNotifications: bool | None = Field(default=None,strict=True)
     messageNotifications: bool | None = Field(default=None,strict=True)
+    placementNotifications: bool | None = Field(default=None,strict=True)
+    applicationNotifications: bool | None = Field(default=None,strict=True)
 
 
 class Media(Input):
@@ -443,10 +445,12 @@ def feed_page(u, actor, kind='post', trade='all', mode='all', cursor=None, limit
     sources = []
     if author:
         sources = [lane('rp_author_' + kind, author)]
-    elif mode == 'saved':
+    elif mode in ('saved', 'liked'):
+        if mode == 'liked':
+            signed(actor)
         if not uid:
             return {'items': [], 'members': [], 'nextCursor': None}
-        sources = [lane('rp_saved', uid)]
+        sources = [lane('rp_saved' if mode == 'saved' else 'rp_likes', uid)]
     else:
         sources = ['rp_timeline_' + kind + '_public_' + trade]
         if member and trade in ('all', member['trade']):
@@ -629,7 +633,7 @@ def install(core):
         return store.run(save)
 
     @r.get('/feed')
-    def feed(kind: Kind = 'post', trade: str = 'all', mode: Literal['all', 'following', 'saved'] = 'all', cursor: str | None = None,
+    def feed(kind: Kind = 'post', trade: str = 'all', mode: Literal['all', 'following', 'saved', 'liked'] = 'all', cursor: str | None = None,
              limit: int = 20, a=Depends(actor)):
         if trade != 'all' and trade not in TRADES or not 1 <= limit <= 50:
             fail('INVALID_FILTER', 'Choose a supported trade and a page size between 1 and 50.', 422)

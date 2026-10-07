@@ -1,10 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
-import {Bell,MessageCircle,Search,Send,SlidersHorizontal} from 'lucide-react';
+import {Bell,ChevronRight,MessageCircle,Search,Send,SlidersHorizontal} from 'lucide-react';
 import type {CommunityMember,CommunityNotification,CommunityThread,ProfessionalFilters,Trade} from '../../types/repaidians';
 import {notificationsPage,readNotifications,searchMembers,threadsPage} from '../../services/repaidiansService';
 import {Avatar,EmptyState,timeAgo,tradeName} from './common';
 import {professionalTypes,professionalTypeName,workStatuses,workStatusName} from './Profile';
 import {trades} from '../../services/repaidiansService';
+import {PlacementDetails} from './WorkHub';
 
 export function PeopleSearch({onProfile,onMembers}:{onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void}) {
   const [query,setQuery]=useState(''),[members,setMembers]=useState<CommunityMember[]>([]),[busy,setBusy]=useState(true),[moreBusy,setMoreBusy]=useState(false),[error,setError]=useState(''),[cursor,setCursor]=useState<string|null>(null);
@@ -41,14 +42,31 @@ export function CommunityInbox({selfId,onOpen,onMembers}:{selfId:string;onOpen:(
     {!busy&&!error&&!threads.length&&<EmptyState title="Good work begins with a hello.">Visit a profile to start a conversation. New messages will appear here.</EmptyState>}
   </section>;
 }
-export function CommunityNotifications({onProfile,onMembers}:{onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void}) {
-  const [items,setItems]=useState<CommunityNotification[]>([]),[members,setMembers]=useState<CommunityMember[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState('');
+export function CommunityNotifications({accountKey,onProfile,onMembers,onApplications,onContract,onPublication}:{accountKey:string;onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void;onApplications:(id?:string)=>void;onContract:(id:string)=>void;onPublication?:(id:string)=>void}) {
+  const [items,setItems]=useState<CommunityNotification[]>([]),[members,setMembers]=useState<CommunityMember[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState(''),[placement,setPlacement]=useState<string|null>(null),[cursor,setCursor]=useState<string|null>(null),[moreBusy,setMoreBusy]=useState(false),[retry,setRetry]=useState(0);
+  const epoch=useRef(0);
   useEffect(()=>{
-    let active=true;void notificationsPage().then(data=>{if(!active)return;setItems(data.notifications);setMembers(data.members);onMembers(data.members);const unread=data.notifications.filter(n=>!n.read).map(n=>n.id);if(unread.length)void readNotifications(unread).catch(()=>{});}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{if(active)setBusy(false);});return()=>{active=false;};
-  },[]);
-  const text=(item:CommunityNotification)=>item.text||({like:'liked your publication',comment:'commented on your publication',follow:'started following you',message:'sent you a message',bid:'submitted interest in your tender'}[item.type]||'shared an update');
-  return <section className="rp-notifications"><div className="rp-section-heading"><h2>Your activity</h2><Bell size={22}/></div>{busy&&<p role="status">Checking your latest activity…</p>}{error&&<p className="rp-error" role="alert">{error}</p>}
-    {items.map(item=>{const member=members.find(m=>m.id===(item.actorId||item.authorId));return <article className="rp-member-row" key={item.id}>{member?<button aria-label={'View '+member.name} onClick={()=>onProfile(member.id)}><Avatar member={member}/></button>:<MessageCircle size={24}/>}<span><strong>{member?.name||'Repaidians'}</strong><small>{text(item)}</small></span><time>{timeAgo(item.createdAt)}</time></article>;})}
-    {!busy&&!error&&!items.length&&<EmptyState title="Your work will start conversations.">Likes, comments, follows and tender interest will appear here.</EmptyState>}
+    let active=true,pending=false;const generation=++epoch.current;
+    setItems([]);setMembers([]);setCursor(null);setPlacement(null);setBusy(true);setMoreBusy(false);setError('');
+    const refresh=()=>{if(document.hidden||pending)return;pending=true;void notificationsPage().then(data=>{if(!active||generation!==epoch.current)return;setItems(data.notifications);setMembers(data.members);setCursor(data.nextCursor);onMembers(data.members);setError('');}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{pending=false;if(active)setBusy(false);});};
+    refresh();const timer=setInterval(refresh,30000);document.addEventListener('visibilitychange',refresh);
+    return()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+  },[accountKey,retry]);
+  const more=async()=>{if(!cursor||moreBusy)return;const generation=epoch.current;setMoreBusy(true);try{const data=await notificationsPage(cursor);if(generation!==epoch.current)return;setItems(old=>[...new Map([...old,...data.notifications].map(item=>[item.id,item])).values()]);setMembers(old=>[...new Map([...old,...data.members].map(member=>[member.id,member])).values()]);setCursor(data.nextCursor);onMembers(data.members);}catch(e){if(generation===epoch.current)setError((e as Error).message);}finally{if(generation===epoch.current)setMoreBusy(false);}};
+  const open=(item:CommunityNotification)=>{
+    const generation=epoch.current;
+    if(!item.read)void readNotifications([item.id]).then(()=>{if(generation===epoch.current)setItems(old=>old.map(row=>row.id===item.id?{...row,read:true}:row));}).catch(()=>{});
+    if(item.placementId||item.type==='placement'||item.type==='congratulation')setPlacement(item.placementId||item.targetId||null);
+    else if(item.applicationId||item.type==='application_update')onApplications(item.applicationId||item.targetId);
+    else if(item.contractId||item.type==='contract_update'){const id=item.contractId||item.targetId;if(id)onContract(id);}
+    else if(['like','comment','bid'].includes(item.type)&&item.targetId&&onPublication)onPublication(item.targetId);
+    else if(item.actorId||item.authorId)onProfile((item.actorId||item.authorId)!);
+  };
+  const text=(item:CommunityNotification)=>item.text||item.body||({like:'liked your publication',comment:'commented on your publication',follow:'started following you',message:'sent you a message',bid:'submitted interest in your tender'}[item.type]||'shared an update');
+  return <section className="rp-notifications"><div className="rp-section-heading"><h2>Notifications</h2><Bell size={22}/></div>{busy&&<p role="status">Checking your latest activity…</p>}{error&&<div className="rp-error" role="alert"><p>{error}</p><button className="rp-secondary" onClick={()=>setRetry(value=>value+1)}>Retry</button></div>}
+    {items.map(item=>{const member=members.find(m=>m.id===(item.actorId||item.authorId));return <button className="rp-member-row rp-notification-row" data-unread={!item.read} key={item.id} onClick={()=>open(item)}>{member?<Avatar member={member}/>:<MessageCircle size={24}/>}<span><strong>{item.title||member?.name||'Repaidians'}</strong><small>{text(item)}</small><time>{timeAgo(item.createdAt)}</time></span><ChevronRight size={16} aria-hidden="true"/></button>;})}
+    {cursor&&<button className="rp-secondary" disabled={moreBusy} onClick={()=>void more()}>{moreBusy?'Loading updates…':'Earlier updates'}</button>}
+    {!busy&&!error&&!items.length&&<EmptyState title="Your work will start conversations.">Your interactions, applications and chosen contract updates will appear here.</EmptyState>}
+    {placement&&<PlacementDetails accountKey={accountKey} placementId={placement} onClose={()=>setPlacement(null)} onOpenMember={id=>{setPlacement(null);onProfile(id);}}/>}
   </section>;
 }

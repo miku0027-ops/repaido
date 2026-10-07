@@ -263,6 +263,12 @@ class Unit:
         if kind in ('contract_tenders', 'contract_projects', 'inventory', 'market_listings', 'retail_orders'):
             from repaidians_opportunities import index_record
             index_record(self, kind, key, value)
+        if kind in ('contract_projects', 'contract_tenders', 'contract_profiles', 'rp_members', 'workers', 'rp_follows'):
+            from repaidians_work import index_record as index_work_record
+            index_work_record(self, kind, key, value)
+        if kind in ('devices', 'rp_work_delivery'):
+            from work_push import index_record as index_push_record
+            index_push_record(self, kind, key, value)
 
     def flush(self):
         for (kind, key), value in self.pending.items():
