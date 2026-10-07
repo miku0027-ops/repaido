@@ -87,6 +87,10 @@
         "regex": "^/(|index\\.html|worker(/.*)?|shop-admin(/.*)?|company-admin(/.*)?)$",
         "headers": [
           {
+            "key": "Cache-Control",
+            "value": "no-cache, must-revalidate"
+          },
+          {
             "key": "X-Frame-Options",
             "value": "DENY"
           },
