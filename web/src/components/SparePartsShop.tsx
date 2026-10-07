@@ -476,7 +476,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       {/* 4. Flipkart-Style Product Grid ("more alligned cards with shadowed back") */}
       <main className="max-w-7xl mx-auto p-2 sm:p-4 pt-1 sm:pt-2">
         {catalogLoading?<p role="status" className="prime-placement-note">Loading shop inventory…</p>:catalogError?null:sortedProducts.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-md max-w-lg mx-auto space-y-3">
+          <div className="spare-catalog-empty bg-white rounded-xl border border-slate-200 p-12 text-center shadow-md max-w-lg mx-auto space-y-3">
             <Package className="w-12 h-12 text-slate-300 mx-auto" />
             <h3 className="text-sm font-bold text-slate-900">{section==='refurbished'?'No refurbished products available':'No new parts available'}</h3>
             <p className="text-xs text-slate-500">

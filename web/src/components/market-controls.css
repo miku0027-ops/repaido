@@ -95,3 +95,10 @@ html.reduce-motion #root .market-experience button,html.reduce-motion #root .mar
 #root .market-experience .tender-sector-rail button { padding:6px 10px; font-size:var(--market-label); gap:5px; }
 
 #root .market-experience .community-market .market-card-img-wrap { background:var(--ui-subtle); }
+#root .market-experience :is(.prime-placement-note,.rentals .ops-heading p,.rentals .rental-result-count) { color:var(--ui-muted); font-size:var(--market-meta); }
+#root .market-experience :is(.spare-catalog-empty,.rental-product) { background:var(--ui-surface); color:var(--ui-ink); border-color:var(--ui-line); }
+#root .market-experience :is(.spare-catalog-empty h3,.rental-product h3,.rental-product strong) { color:var(--ui-ink); }
+#root .market-experience :is(.spare-catalog-empty p,.rental-product p) { color:var(--ui-muted); }
+#root .market-experience .spare-catalog-empty button { background:var(--ui-primary); color:#fff; }
+#root .market-experience .rental-price-tags>span { background:var(--ui-subtle); color:var(--ui-ink); }
+#root .market-experience .rental-product-art { background:var(--ui-subtle); color:var(--ui-link); }
