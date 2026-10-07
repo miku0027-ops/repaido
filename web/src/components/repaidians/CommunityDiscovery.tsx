@@ -32,15 +32,46 @@ export function PeopleSearch({onProfile,onMembers}:{onProfile:(id:string)=>void;
   </section>;
 }
 export function CommunityInbox({selfId,onOpen,onMembers}:{selfId:string;onOpen:(id:string)=>void;onMembers:(members:CommunityMember[])=>void}) {
-  const [threads,setThreads]=useState<CommunityThread[]>([]),[members,setMembers]=useState<CommunityMember[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(true);
+  const [threads,setThreads]=useState<CommunityThread[]>([]),[members,setMembers]=useState<CommunityMember[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(true),[cursor,setCursor]=useState<string|null>(null),[moreBusy,setMoreBusy]=useState(false),[retry,setRetry]=useState(0);
+  const epoch=useRef(0),pending=useRef(false),pageCount=useRef(1);
   useEffect(()=>{
-    let active=true;
-    const refresh=()=>{if(document.hidden)return;void threadsPage().then(data=>{if(active){setThreads(data.threads);setMembers(data.members);onMembers(data.members);setError('');}}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{if(active)setBusy(false);});};
-    refresh();const timer=setInterval(refresh,15000);return()=>{active=false;clearInterval(timer);};
-  },[selfId]);
-  return <section className="rp-inbox"><div className="rp-section-heading"><h2>Messages</h2><Send size={22}/></div><p className="rp-fine">Your private conversations with the people behind the work.</p>{busy&&<p role="status">Opening your inbox…</p>}{error&&<p role="alert" className="rp-error">{error}</p>}
+    let active=true;const generation=++epoch.current;
+    pending.current=false;pageCount.current=1;setThreads([]);setMembers([]);setCursor(null);setMoreBusy(false);setBusy(true);setError('');
+    const refresh=()=>{
+      if(document.hidden||pending.current)return;pending.current=true;
+      // Refresh every page the member opened. Replacing the window with the
+      // server's current result also removes unavailable or blocked peers.
+      void (async()=>{
+        let next:string|null=null,loaded=0;const items:CommunityThread[]=[],people:CommunityMember[]=[];
+        do{
+          const data=await threadsPage(next||'');if(!active||generation!==epoch.current)return null;
+          items.push(...data.threads);people.push(...data.members);next=data.nextCursor;loaded++;
+        }while(next&&loaded<pageCount.current);
+        return {threads:items,members:people,nextCursor:next,loaded};
+      })().then(data=>{
+        if(!data||!active||generation!==epoch.current)return;
+        pageCount.current=data.loaded;
+        setThreads([...new Map(data.threads.map(thread=>[thread.id,thread])).values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)));
+        setMembers([...new Map(data.members.map(member=>[member.id,member])).values()]);setCursor(data.nextCursor);
+        onMembers(data.members);setError('');
+      }).catch(e=>{if(active&&generation===epoch.current){if([401,402,403,404].includes((e as {status?:number}).status||0)){setThreads([]);setMembers([]);setCursor(null);}setError((e as Error).message);}}).finally(()=>{if(active&&generation===epoch.current){pending.current=false;setBusy(false);}});
+    };
+    refresh();const timer=setInterval(refresh,15000);document.addEventListener('visibilitychange',refresh);
+    return()=>{active=false;epoch.current++;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+  },[selfId,retry]);
+  const more=async()=>{
+    if(!cursor||pending.current)return;const generation=epoch.current;pending.current=true;setMoreBusy(true);setError('');
+    try{
+      const data=await threadsPage(cursor);if(generation!==epoch.current)return;
+      pageCount.current++;setThreads(old=>[...new Map([...old,...data.threads].map(thread=>[thread.id,thread])).values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)));
+      setMembers(old=>[...new Map([...old,...data.members].map(member=>[member.id,member])).values()]);setCursor(data.nextCursor);onMembers(data.members);
+    }catch(e){if(generation===epoch.current){if([401,402,403,404].includes((e as {status?:number}).status||0)){setThreads([]);setMembers([]);setCursor(null);}setError((e as Error).message);}}
+    finally{if(generation===epoch.current){pending.current=false;setMoreBusy(false);}}
+  };
+  return <section className="rp-inbox"><div className="rp-section-heading"><h2>Messages</h2><Send size={22}/></div><p className="rp-fine">Your private conversations with the people behind the work.</p>{busy&&<p role="status">Opening your inbox…</p>}{error&&<div role="alert" className="rp-error"><p>{error}</p><button className="rp-secondary" onClick={()=>setRetry(value=>value+1)}>Retry inbox</button></div>}
     {threads.map(thread=>{const id=thread.memberId||thread.recipientId||thread.id;const member=members.find(m=>m.id===id);return <button className="rp-member-row" key={thread.id} onClick={()=>onOpen(id)}>{member&&<Avatar member={member}/>}<span><strong>{member?.name||'Community member'}</strong><small>{thread.lastMessage||thread.text||'Open conversation'}</small></span>{thread.updatedAt&&<time>{timeAgo(thread.updatedAt)}</time>}{!!thread.unreadCount&&<b className="rp-unread-dot" aria-label={thread.unreadCount+' unread messages'}>{thread.unreadCount}</b>}</button>;})}
-    {!busy&&!error&&!threads.length&&<EmptyState title="Good work begins with a hello.">Visit a profile to start a conversation. New messages will appear here.</EmptyState>}
+    {cursor&&<button className="rp-load-more" disabled={moreBusy} onClick={()=>void more()}>{moreBusy?'Opening earlier conversations…':'Earlier conversations'}</button>}
+    {!busy&&!error&&!threads.length&&!cursor&&<EmptyState title="Good work begins with a hello.">Visit a profile to start a conversation. New messages will appear here.</EmptyState>}
   </section>;
 }
 export function CommunityNotifications({accountKey,onProfile,onMembers,onApplications,onContract,onPublication,onCustomContract,onJob}:{accountKey:string;onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void;onApplications:(id?:string)=>void;onContract:(id:string)=>void;onPublication?:(id:string)=>void;onCustomContract?:(id:string)=>void;onJob?:(id:string)=>void}) {

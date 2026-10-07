@@ -164,6 +164,22 @@ test('retried message commands reuse their idempotency key and notify only after
   assert.deepEqual(JSON.parse(calls.at(-1).init.body),{active:true});
 });
 
+test('private conversation pages preserve the selected member and the server cursor',async()=>{
+  values.set('repaido.token','signed-professional');
+  const thread={id:'peer/a',recipientId:'peer/a',lastMessage:'Confirmed work scope',updatedAt:42};
+  const message={id:'server-message',senderId:'peer/a',recipientId:'signed-owner',text:'Confirmed work scope',createdAt:42};
+  globalThis.fetch=async(path,init)=>{
+    calls.push({path,init});
+    return ok(path.includes('/threads')?{threads:[thread],members:[],nextCursor:'older/threads+cursor'}:{messages:[message],members:[],nextCursor:'older/messages+cursor'});
+  };
+  assert.deepEqual((await service.threadsPage('older/threads+cursor')).threads,[thread]);
+  assert.deepEqual((await service.messagesPage(thread.recipientId,'older/messages+cursor')).messages,[message]);
+  const inbox=new URL(calls[0].path,'https://repaido.test'),conversation=new URL(calls[1].path,'https://repaido.test');
+  assert.equal(inbox.pathname,'/api/repaidians/threads');assert.equal(inbox.searchParams.get('cursor'),'older/threads+cursor');
+  assert.equal(conversation.pathname,'/api/repaidians/messages/peer%2Fa');assert.equal(conversation.searchParams.get('cursor'),'older/messages+cursor');
+  assert.ok(calls.every(call=>call.init.headers.get('Authorization')==='Bearer signed-professional'));
+});
+
 test('uploads validate limits before transport and private media caches are scoped to identity',async()=>{
   await assert.rejects(service.storeMedia([]),/one to four/);
   await assert.rejects(service.storeMedia([new File(['<svg/>'],'unsafe.svg',{type:'image/svg+xml'})]),/8 MB/);

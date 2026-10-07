@@ -967,18 +967,25 @@ def install(core):
     def thread_key(uid, other):
         return digest(':'.join(sorted((uid, other))))
 
+    def thread_peer_available(u, uid, other):
+        # The inbox and opened conversation must agree on participant access.
+        # An old thread remains stored when approval is revoked or a profile is
+        # removed, but it must not become a visible link to an unavailable chat.
+        return bool(isinstance(other, str) and other and uid != other
+                    and capabilities(u, {'user': {'id': other}})['professional']
+                    and u.get('rp_members', other) and not blocked(u, uid, other))
+
     def thread_access(u, a, other):
         user = signed(a)
         professional(u, a)
-        if not capabilities(u, {'user': {'id': other}})['professional']:
-            fail('NOT_FOUND', 'Conversation unavailable.', 404)
         browse(u, a)
-        if user['id'] == other or not u.get('rp_members', other) or blocked(u, user['id'], other):
+        if not thread_peer_available(u, user['id'], other):
             fail('NOT_FOUND', 'Conversation unavailable.', 404)
         return user
 
     @r.get('/messages/{recipient_id}')
-    def messages(recipient_id: str, cursor: str | None = None, limit: int = 30, a=Depends(actor)):
+    def messages(recipient_id: str, response: Response, cursor: str | None = None, limit: int = 30, a=Depends(actor)):
+        response.headers['Cache-Control'] = 'private, no-store'
         if not 1 <= limit <= 50:
             fail('INVALID_LIMIT', 'Choose a page size between 1 and 50.', 422)
         def read(u):
@@ -1007,7 +1014,7 @@ def install(core):
                 from repaidians_network import accepted
                 if not accepted(u, user['id'], recipient_id):
                     fail('NEARBY_OPENING_REQUIRED', 'Open a matching nearby contract to message its contractor during your free trial, or use an accepted professional connection.', 403)
-            privacy=recipient.get('settings',{}).get('messagePrivacy','everyone')
+            privacy=(recipient.get('settings') or {}).get('messagePrivacy','everyone')
             if privacy=='nobody' or privacy=='following' and not (u.get('rp_follows',digest(recipient_id+':'+user['id'])) or {}).get('active'):
                 fail('MESSAGES_RESTRICTED','This member is not accepting messages from you.',403)
             member_ensure(u, user)
@@ -1025,19 +1032,35 @@ def install(core):
         return store.run(save)
 
     @r.get('/threads')
-    def threads(cursor: str | None = None, limit: int = 30, a=Depends(actor)):
+    def threads(response: Response, cursor: str | None = None, limit: int = 30, a=Depends(actor)):
+        response.headers['Cache-Control'] = 'private, no-store'
         user = signed(a)
         if not 1 <= limit <= 50:
             fail('INVALID_LIMIT', 'Choose a page size between 1 and 50.', 422)
         def read(u):
             professional(u, a)
             browse(u, a)
-            rows = query(u, lane('rp_threads', user['id']), limit + 1, cursor_decode(cursor))
-            prefetch_blocks(u, a, [row['id'] for row in rows])
-            chosen = [row for row in rows[:limit] if not blocked(u, user['id'], row['id'])]
+            # Scan one bounded native page before projecting display rows. A
+            # removed or blocked recent peer should not conceal older valid
+            # conversations in the requested display slots.
+            scan = 64
+            rows = query(u, lane('rp_threads', user['id']), scan, cursor_decode(cursor))
+            peers = [row['id'] for row in rows if isinstance(row.get('id'), str)]
+            prefetch_blocks(u, a, peers)
+            u.prefetch([(kind, peer) for peer in peers for kind in ('workers', 'rp_members')])
+            chosen, examined, lookahead = [], None, False
+            for row in rows:
+                examined = row['sortKey']
+                if not thread_peer_available(u, user['id'], row.get('id')):
+                    continue
+                if len(chosen) == limit:
+                    lookahead = True
+                    break
+                chosen.append(row)
+            next_key = chosen[-1]['sortKey'] if lookahead else examined if len(rows) == scan else None
             return {'threads': [{k: v for k, v in row.items() if k != 'sortKey'} for row in chosen],
                     'members': members_for(u, [row['id'] for row in chosen], a),
-                    'nextCursor': cursor_encode(rows[limit - 1]['sortKey']) if len(rows) > limit else None}
+                    'nextCursor': cursor_encode(next_key)}
         return store.run(read)
 
     @r.post('/bids/{tender_id}', status_code=201)

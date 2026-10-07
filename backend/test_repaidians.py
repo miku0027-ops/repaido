@@ -252,6 +252,72 @@ def test_real_two_sided_messages_pro_send_thread_isolation_and_blocks(api):
     assert api.get('/repaidians/members/alice', headers=auth('bob')).status_code == 404
 
 
+def test_inbox_skips_unavailable_participants_without_hiding_older_conversations(api, monkeypatch):
+    profile(api)
+    profile(api, 'bob')
+    profile(api, 'carol')
+    stamp = social.now_ms()
+    monkeypatch.setattr(social, 'now_ms', lambda: stamp)
+    assert api.post('/repaidians/messages/bob', headers=auth(), json={'text': 'Older available conversation'}).status_code == 201
+    monkeypatch.setattr(social, 'now_ms', lambda: stamp + 1000)
+    assert api.post('/repaidians/messages/carol', headers=auth(), json={'text': 'Recent unavailable conversation'}).status_code == 201
+    api.core.operations_store.run(lambda u: u.put('workers', 'carol', {**u.get('workers', 'carol'), 'status': 'pending'}))
+
+    # A removed approval must not leave a visible inbox that opens a 404, nor
+    # consume the first display slot and conceal an older available peer.
+    assert api.get('/repaidians/messages/carol', headers=auth()).status_code == 404
+    response = api.get('/repaidians/threads?limit=1', headers=auth())
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert [thread['recipientId'] for thread in data['threads']] == ['bob']
+    assert [member['id'] for member in data['members']] == ['bob']
+    assert data['nextCursor'] is None
+    assert response.headers['cache-control'] == 'private, no-store'
+    conversation = api.get('/repaidians/messages/bob', headers=auth())
+    assert conversation.headers['cache-control'] == 'private, no-store'
+    assert conversation.json()['messages'][0]['text'] == 'Older available conversation'
+
+    # Filtering the list never deletes the private conversation. Reapproval
+    # restores the same messages; another signed identity cannot read them.
+    api.core.operations_store.run(lambda u: u.put('workers', 'carol', {**u.get('workers', 'carol'), 'status': 'approved'}))
+    restored = api.get('/repaidians/threads?limit=1', headers=auth()).json()
+    assert [thread['recipientId'] for thread in restored['threads']] == ['carol']
+    assert restored['nextCursor']
+    second = api.get('/repaidians/threads?limit=1&cursor=' + restored['nextCursor'], headers=auth()).json()
+    assert [thread['recipientId'] for thread in second['threads']] == ['bob']
+    assert api.get('/repaidians/messages/carol', headers=auth()).json()['messages'][0]['text'] == 'Recent unavailable conversation'
+    assert api.get('/repaidians/messages/alice', headers=auth('bob')).json()['messages'][0]['text'] == 'Older available conversation'
+    assert api.get('/repaidians/messages/bob', headers=auth('carol')).json()['messages'] == []
+
+
+def test_legacy_customer_inbox_rows_never_open_generic_customer_messages(api):
+    profile(api)
+    profile(api, 'bob')
+    assert api.get('/repaidians/state', headers=auth('customer')).status_code == 200
+    assert api.post('/repaidians/messages/bob', headers=auth(), json={'text': 'Available professional message'}).status_code == 201
+    stamp = social.now_ms() + 1000
+    def legacy(u):
+        # Launch-era memberships allowed customer DMs. Keeping such a durable
+        # summary after the professional-role policy changed cannot authorize it.
+        u.put(social.lane('rp_threads', 'alice'), 'customer', {
+            'id': 'customer', 'recipientId': 'customer', 'lastMessage': 'Legacy private customer message',
+            'lastSenderId': 'customer', 'updatedAt': stamp, 'sortKey': social.sort_key(stamp, 'customer'),
+        })
+        bob = u.get('rp_members', 'bob')
+        bob['settings'] = None
+        u.put('rp_members', 'bob', bob)
+    api.core.operations_store.run(legacy)
+    response = api.get('/repaidians/threads', headers=auth())
+    assert [row['recipientId'] for row in response.json()['threads']] == ['bob']
+    assert 'Legacy private customer message' not in response.text
+    assert all(member['id'] != 'customer' for member in response.json()['members'])
+    assert api.get('/repaidians/messages/customer', headers=auth()).status_code == 404
+    assert api.post('/repaidians/messages/customer', headers=auth(), json={'text': 'Forbidden generic DM'}).status_code == 404
+    # Old profile settings omitted or stored as null use the established default
+    # privacy policy instead of causing a server error in a valid conversation.
+    assert api.post('/repaidians/messages/bob', headers=auth(), json={'text': 'A real professional reply'}).status_code == 201
+
+
 def test_tender_contact_never_in_public_snapshot_bids_durable_owner_only(api):
     grant(api)
     profile(api)

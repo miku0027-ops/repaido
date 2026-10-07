@@ -78,8 +78,23 @@ async function assertNavigation(page,role){
   assert.deepEqual(layout,{shellOverflow:false,contentOverflow:false,headerOverflow:false},role+' has no horizontal overflow.');
   const create=shell(page).locator('.rp-header').getByRole('button',{name:'Create publication',exact:true});
   assert.equal(await create.count(),role==='professional'?1:0,'Top creation follows the canonical professional role.');
-  if(role==='professional')assert.equal(await shell(page).getByRole('button',{name:/^Create(?: publication)?$/,exact:true}).count(),1,'There is one primary creation action in the community shell.');
-  return navState;
+  if(role==='professional'){
+    assert.equal(await shell(page).getByRole('button',{name:/^Create(?: publication)?$/,exact:true}).count(),1,'There is one primary creation action in the community shell.');
+    assert.equal((await create.textContent()).trim(),'','The top create action is an icon-only plus with its accessible name retained.');
+  }
+  const headerState=await shell(page).locator('.rp-header').evaluate(header=>{
+    const bounds=element=>{const rect=element.getBoundingClientRect();return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,width:rect.width,height:rect.height,centerY:rect.top+rect.height/2};};
+    const title=header.querySelector('.rp-wordmark h1'),text=document.createRange();text.selectNodeContents(title);
+    return {header:bounds(header),title:bounds(title),titleText:bounds(text),actions:[...header.querySelectorAll('.rp-header-actions button')].filter(button=>button.getClientRects().length).map(button=>({label:button.getAttribute('aria-label'),...bounds(button)}))};
+  });
+  assert.ok(headerState.actions.length>0,'The header contains its visible controls.');
+  const centers=[headerState.title.centerY,...headerState.actions.map(action=>action.centerY)];
+  assert.ok(Math.max(...centers)-Math.min(...centers)<=2,role+' title and top actions stay on one horizontal header line: '+JSON.stringify(headerState));
+  const boxes=[headerState.titleText,...headerState.actions];
+  for(const box of boxes)assert.ok(box.left>=headerState.header.left-.5&&box.right<=headerState.header.right+.5,'Header content fits inside the viewport: '+JSON.stringify(headerState));
+  for(let index=1;index<boxes.length;index++)assert.ok(boxes[index-1].right<=boxes[index].left+.5,'Header title and controls do not overlap: '+JSON.stringify(headerState));
+  for(const action of headerState.actions)assert.ok(action.width>=44&&action.height>=44,'Icon-only header actions retain touch targets: '+JSON.stringify(action));
+  return {...navState,headerState};
 }
 async function audit(page,variant=''){
   await page.addScriptTag({path:require.resolve('axe-core')});
@@ -91,7 +106,7 @@ async function variantsFor(page,role,view){
     await page.setViewportSize({width,height:850});
     await page.evaluate(({theme,text})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=text+'%';},{theme,text});
     const state=await assertNavigation(page,role);await audit(page,[role,view,width,theme,text].join(' / '));
-    variants.push({role,view,width,theme,text,labels:state.buttons.map(button=>button.label),navHeight:state.height});
+    variants.push({role,view,width,theme,text,labels:state.buttons.map(button=>button.label),navHeight:state.height,header:state.headerState});
   }
   await page.setViewportSize({width:509,height:850});
   await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});
@@ -144,7 +159,7 @@ try{
   await variantsFor(contractorPage,'professional','contractor-feed');
   await variantsFor(customerPage,'customer','feed');
   await variantsFor(guestPage,'guest','feed');
-  checks.push('32 agent, contractor, customer and guest feed variants retain five touchable bottom actions on one row without horizontal overflow');
+  checks.push('32 agent, contractor, customer and guest feed variants retain five bottom actions and keep the Repaidians title and icon-only top controls on one line without overlap or horizontal overflow');
   await shell(agentPage).locator('.rp-header').getByRole('button',{name:'Create publication',exact:true}).click();
   const studio=agentPage.getByRole('dialog',{name:'Publishing studio',exact:true});await studio.waitFor();
   await studio.getByRole('button',{name:'Close dialog',exact:true}).click();

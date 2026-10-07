@@ -115,9 +115,9 @@ export const toggleActivity = (_account: string, kind: 'likes'|'saved', id: stri
 export const follow = (_account: string, id: string, active: boolean) => mutate('/follow/'+encodeURIComponent(id), 'PUT', {active});
 export const comment = (_account: string, id: string, text: string) => command('/comments/'+encodeURIComponent(id), {text:text.trim()});
 export const commentsPage = (id: string, cursor = '') => communityRequest<{comments:CommunityComment[];members:CommunityMember[];nextCursor:string|null}>('/comments/'+encodeURIComponent(id)+'?limit=30&cursor='+encodeURIComponent(cursor));
-export const sendMessage = (_account: string, id: string, text: string) => command('/messages/'+encodeURIComponent(id), {text:text.trim()});
+export const sendMessage = (_account: string, id: string, text: string) => command<{message:CommunityMessage}>('/messages/'+encodeURIComponent(id), {text:text.trim()});
 export const messagesPage = (id: string, cursor = '') => communityRequest<{messages:CommunityMessage[];members:CommunityMember[];nextCursor:string|null}>('/messages/'+encodeURIComponent(id)+'?limit=30&cursor='+encodeURIComponent(cursor));
-export const threadsPage = () => communityRequest<{threads:CommunityThread[];members:CommunityMember[];nextCursor:string|null}>('/threads?limit=30');
+export const threadsPage = (cursor = '') => communityRequest<{threads:CommunityThread[];members:CommunityMember[];nextCursor:string|null}>('/threads?limit=30'+(cursor?'&cursor='+encodeURIComponent(cursor):''));
 export const bid = (_account: string, id: string) => command('/bids/'+encodeURIComponent(id), {});
 export const tenderContact = (id: string) => communityRequest<{contact:string;tenderId:string}>('/tenders/'+encodeURIComponent(id)+'/contact');
 export const updateProfile = async (_account:string,name:string,trade:Trade,bio:string,professional:ProfessionalFields&{handle?:string}={})=>{
