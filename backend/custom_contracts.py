@@ -392,6 +392,10 @@ def notification(u, recipient, actor, query, kind, bid_id=None, project_id=None,
     if bid_id: community['bidId'] = bid_id
     if project_id: community['projectId'] = project_id
     u.put(social.lane('rp_notifications', recipient), key, community)
+    if kind in ('custom_contract_bid', 'custom_contract_awarded'):
+        from transactional_mail import enqueue
+        enqueue(u,key,'contract_proposal_submitted' if kind=='custom_contract_bid' else 'contract_awarded',
+                [recipient,actor],{'record_type':'contract','record_id':query['id'],'path':'/'})
 
 
 def prefetch_queries(u, queries, uid):
@@ -530,6 +534,8 @@ def install(core):
             uid=user['id']; key=identifier('custom-query',uid,body.request_id)
             receipt_key, signature, old=receipt(u,uid,body,'create-query')
             if old: return details(u,get_query(u,key),user)
+            from account_profile import require_email
+            require_email(u,user)
             social.rate(u,uid,'custom-query-create',limit=10)
             stamp=time.time(); payload=body.model_dump(mode='json',exclude={'request_id','public_progress','cta_label','cta_enabled'})
             row=dict(**payload,id=key,source_kind=SOURCE,owner_id=uid,owner_name=user.get('name','Customer'),owner_phone_verified=True,
@@ -540,6 +546,8 @@ def install(core):
                 work_trade=body.work_trade,city=normalized(body.city),skill_terms=words(body.skills),minimum_experience=body.minimum_experience,
                 workforce_requirements=payload['workforce_requirements'],source_query_id=key))
             u.put('custom_contract_match_queue',key,{'id':key,'sortKey':key,'active':True,'after':''})
+            from transactional_mail import enqueue
+            enqueue(u,receipt_key,'contract_posted',[uid],{'record_type':'contract','record_id':key,'path':'/'})
             remember(u,receipt_key,signature,key);return details(u,row,user)
         return store.run(save)
 
@@ -583,6 +591,8 @@ def install(core):
             uid=user['id'];worker=professional(u,user,contractor=True);row=get_query(u,qid);access(u,row,user)
             rk,sig,old=receipt(u,uid,body,'bid',qid)
             if old:return details(u,row,user)
+            from account_profile import require_email
+            require_email(u,user)
             version(row,body.expected_version)
             if row['owner_id']==uid:fail('SELF_BID','A customer cannot propose to their own contract.',403)
             if row['status']!='open' or time.time()>=row['deadline']:fail('BIDDING_CLOSED','Bidding is closed.',409)
@@ -643,6 +653,10 @@ def install(core):
                     row['controls']['public_progress']=body.public_progress
             row['version']+=1;row['events'].append({'action':body.action,'actor':uid,'at':time.time()});row['events']=row['events'][-64:]
             u.put('contract_tenders',qid,row)
+            if body.action in ('close','withdraw_bid'):
+                from transactional_mail import enqueue
+                enqueue(u,rk,'contract_closed' if body.action=='close' else 'contract_proposal_withdrawn',
+                        [uid,row['owner_id']],{'record_type':'contract','record_id':qid,'path':'/'})
             if body.action in ('award','public_progress') and row.get('winning_project_id'):
                 from contract_records import set_public_consent
                 set_public_consent(u,u.get('contract_projects',row['winning_project_id']),uid,row['controls']['public_progress'])
@@ -783,6 +797,8 @@ def install(core):
             if body.worker_type not in required:fail('WORKER_TYPE_UNAVAILABLE','Choose a worker type requested by this customer.',422)
             rk,sig,old=receipt(u,uid,body,'interest',qid);key=social.digest(qid+':'+uid)
             if old:return {'interest':u.get('custom_contract_interests',key)}
+            from account_profile import require_email
+            require_email(u,user)
             previous=u.get('custom_contract_interests',key);social.rate(u,uid,'custom-contract-interest',limit=30)
             record=dict(id=key,query_id=qid,worker_id=uid,worker_type=body.worker_type,note=body.note,status='pending_award',available=True,
                 created_at=previous['created_at'] if previous else time.time(),updated_at=time.time(),approx_distance_km=distance)

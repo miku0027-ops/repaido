@@ -64,11 +64,14 @@ def task_record(u,j):
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def profile_progress(u, w):
+    from account_profile import actual_email
+    contact = u.get('account_contacts', w['id']) or {}
     p = u.get('worker_profiles', w['id']) or {}
     v = u.get('verification', w['id']) or {}
     portrait = u.get('worker_media', p['portrait_id']) if p.get('portrait_id') else None
     checks = [
         ('name', 'Legal name', bool(w.get('name')), 'application'),
+        ('email', 'Private email address', bool(actual_email(contact.get('email'))), 'email'),
         ('dob', 'Date of birth', bool(w.get('dob')), 'application'),
         ('address', 'Service address', bool(w.get('city') and w.get('home_address') and w.get('location')), 'application'),
         ('skills', 'Skills & categories', bool(w.get('skills') and w.get('categories')), 'application'),

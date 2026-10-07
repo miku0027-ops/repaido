@@ -240,7 +240,7 @@ def index_record(u, kind, key, row):
         u.put('rp_work_index', name + ':' + key, {'channels': sorted(channels), 'active': active})
     if kind == 'contract_projects':
         # One queue record per changed project, not one synchronous write per follower.
-        fingerprint = digest(json.dumps([[m.get('id'), m.get('worker_id'), m.get('status')] for m in row.get('team', [])], sort_keys=True))
+        fingerprint = digest(json.dumps([row.get('status'),[[m.get('id'),m.get('worker_id'),m.get('status')] for m in row.get('team',[])]],sort_keys=True))
         state = u.get('rp_work_project_queue', key) or {}
         if state.get('fingerprint') != fingerprint:
             u.put('rp_work_project_queue', key, {'id': key, 'sortKey': key, 'fingerprint': fingerprint, 'offset': 0, 'active': True})
@@ -359,7 +359,8 @@ def job(u, key, uid, member=None, filters=None):
             'match': {'score': round(min(1, score), 4), 'reasons': reasons}, 'details': public_hiring(p)}
     application = u.get('project_applications', identifier('application', uid, key))
     if application and application.get('worker_id') == uid and application.get('project_id') == key:
-        card['application'] = {'id': application['id'], 'status': application.get('status', '')}
+        from contract_work import application_projection
+        card['application'] = {'id': application['id'], 'status': application_projection(application,p).get('status', '')}
     return card
 
 
@@ -482,6 +483,8 @@ def _connections(u, cid, uid):
         card = placement(u, row['id'], uid)
         if not card:
             continue
+        project=u.get('contract_projects',card['projectId']) or {}
+        if project.get('status') in ('completed','cancelled') or project.get('ends_at',0)<=time.time():continue
         member_id = card['member']['id']
         connected = member_id == uid or (u.get('rp_follows', digest(uid + ':' + member_id)) or {}).get('active') or (u.get('rp_follows', digest(member_id + ':' + uid)) or {}).get('active')
         if connected:
@@ -536,7 +539,7 @@ def application_event(u, application, project, event):
         row.update(applicationId=aid, projectId=project['id'], status=application.get('status'), event=event)
         u.put(lane('rp_notifications', uid), key, row)
         envelope = u.get('rp_work_delivery', key)
-        envelope.update(application_id=aid, project_id=project['id'])
+        envelope.update(application_id=aid,project_id=project['id'],status=application.get('status'))
         u.put('rp_work_delivery', key, envelope)
     return emitted
 
@@ -561,6 +564,12 @@ def delivery_allowed(u, row):
             return False
         application = u.get('project_applications', row.get('application_id', row.get('target_id', '')))
         project = u.get('contract_projects', (application or {}).get('project_id', ''))
+        if application and project:
+            from contract_work import application_projection
+            effective=application_projection(application,project).get('status')
+            if effective in ('completed','cancelled'):
+                notification=u.get(lane('rp_notifications',uid),row.get('notification_id','')) or {}
+                if notification.get('status')!=effective or notification.get('event')!=('complete' if effective=='completed' else 'cancel'):return False
         return bool(application and project and application.get('worker_id') == uid and project.get('owner_id') == sender)
     return False
 
@@ -624,23 +633,56 @@ def deliver_contract_updates(u, uid, now=None):
     return delivered
 
 
-def _project_placements(u, entry, batch=10):
+def _project_terminal_notice(u,project,seat):
+    """Relay the actual terminal project event; the source never copies its crew."""
+    from contract_work import application_projection
+    action='complete' if project['status']=='completed' else 'cancel'
+    event=next((item for item in reversed(project.get('events',[])) if item.get('action')==action),None)
+    if not event or not event.get('id'):return 0
+    uid=seat.get('worker_id');aid=seat.get('application_id')
+    application=u.get('project_applications',aid) if aid else None
+    if aid:
+        if not application or application.get('worker_id')!=uid or application.get('invitation_id')!=seat.get('id'):return 0
+        if application.get('status') in ('completed','cancelled'):return 0
+        projected=application_projection(application,project)
+        if projected.get('status')!=project['status']:return 0
+        application_event(u,projected,project,action)
+    key=digest('project-end:'+project['id']+':'+event['id']+':'+str(uid))
+    if u.get('notifications',key):return 0
+    note=dict(id=key,user_id=uid,title='Project '+project['status'],body=project.get('title',''),
+        destination='repaidians' if aid else 'contractor',created_at=event.get('at',project.get('updated_at',0)),project_id=project['id'])
+    if aid:note.update(application_id=aid,kind='application_update')
+    u.put('notifications',key,note)
+    return 1
+
+
+def _project_placements(u, entry, batch=20):
     project = u.get('contract_projects', entry['id'])
     if not project:
         entry['active'] = False; u.put('rp_work_project_queue', entry['id'], entry); return 0
-    accepted = [seat for seat in project.get('team', []) if seat.get('status') == 'accepted']
+    from contract_work import accepted_team
+    terminal=project.get('status') in ('completed','cancelled')
+    accepted=accepted_team(project)
+    if terminal:
+        selected={seat['worker_id']:seat for seat in accepted}
+        for seat in project.get('team',[]):
+            if seat.get('status')=='pending' and seat.get('worker_id'):selected.setdefault(seat['worker_id'],seat)
+        accepted=list(selected.values())
     offset = entry.get('offset', 0)
     count = 0
     for seat in accepted[offset:offset + batch]:
         uid = seat.get('worker_id'); sid = seat.get('id')
         if not uid or not sid:
             continue
+        if terminal:_project_terminal_notice(u,project,seat)
+        if seat.get('status')!='accepted' or project.get('status')=='cancelled':
+            count+=1;continue
         pid = digest(project['id'] + ':' + sid)
         ref = {'id': pid, 'sortKey': pid, 'projectId': project['id'], 'seatId': sid, 'memberId': uid}
         u.put('rp_work_placements', pid, ref)
         u.put(lane('rp_work_company_placements', project['owner_id']), pid, ref)
         u.put(lane('rp_work_member_placements', uid), pid, ref)
-        if placement(u, pid, uid) and not u.get('rp_work_announcements', pid):
+        if not terminal and placement(u, pid, uid) and not u.get('rp_work_announcements', pid):
             u.put('rp_work_announcement_queue', pid, {**ref, 'active': True, 'after': ''})
         count += 1
     entry['offset'] = offset + batch

@@ -1,3 +1,4 @@
+import './services/emailVerificationLink.mjs';
 import {AppExperience} from './components/AppExperience';
 import React from 'react';
 import ReactDOM from 'react-dom/client';

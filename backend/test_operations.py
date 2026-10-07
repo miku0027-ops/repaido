@@ -21,7 +21,7 @@ def api(tmp_path, monkeypatch):
     def actor(authorization: str = Header(default='')):
         uid = authorization.removeprefix('Bearer ')
         if uid not in ('customer', 'worker', 'worker2', 'stranger', 'shop'): raise HTTPException(401)
-        return {'id': uid, 'name': uid, 'phone': '+919876543210', 'phone_verified': uid.startswith('worker') or uid=='shop', 'phone_authenticated': uid.startswith('worker') or uid=='shop'}
+        return {'id': uid, 'name': uid, 'email': uid+'@example.com', 'phone': '+919876543210', 'phone_verified': uid.startswith('worker') or uid=='shop', 'phone_authenticated': uid.startswith('worker') or uid=='shop'}
     main.app.dependency_overrides[main.current_user] = actor
     with TestClient(main.app) as client:
         yield client

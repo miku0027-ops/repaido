@@ -195,6 +195,23 @@ def accepted_team(p):
             rows[row['worker_id']]=row
     return list(rows.values())
 
+def application_projection(a,p):
+    """A terminal project ends its saved joining offer without copying its crew."""
+    row={k:v for k,v in a.items() if k!='command_receipts'}
+    if not p or a.get('project_id')!=p.get('id'):return row
+    row['project_status']=p.get('status')
+    if p.get('status') not in ('completed','cancelled') or a.get('status') not in ('offered','hired'):return row
+    invitation=next((item for item in p.get('team',[]) if item.get('id')==a.get('invitation_id')
+        and item.get('application_id')==a.get('id') and item.get('worker_id')==a.get('worker_id')),None)
+    if not invitation:return row
+    row['status']=p['status']
+    action='complete' if p['status']=='completed' else 'cancel'
+    terminal=next((event for event in reversed(p.get('events',[])) if event.get('action')==action),None)
+    if terminal:
+        row['events']=[*a.get('events',[]),{**terminal,'status':p['status'],'source':'project'}]
+        row['updated_at']=max(a.get('updated_at',0),terminal.get('at',0))
+    return row
+
 def team_capacity(p,exclude_invitation=None):
     """Accepted workers fill vacancies; pending offers reserve remaining places."""
     hiring=p.get('hiring') or {}
@@ -419,7 +436,7 @@ def install(core):
         key=str(uuid.uuid4());row=dict(id=key,user_id=uid,title=title,body=body,destination='repaidians' if application_id else 'contractor',created_at=time.time())
         if application_id:row.update(application_id=application_id,project_id=project_id,kind='application_update')
         u.put('notifications',key,row)
-    def application_event(u,a,user,action,status=None,note='',request_id=None):
+    def application_event(u,a,user,action,status=None,note='',request_id=None,send_mail=True):
         now=time.time();a['version']+=1;a['updated_at']=now
         if status:a['status']=status
         e=dict(id=str(uuid.uuid4()),action=action,status=a['status'],at=now,actor=user['id'])
@@ -434,27 +451,42 @@ def install(core):
         from repaidians_work import application_event as social_application_event
         project=u.get('contract_projects',a['project_id'])
         if project:social_application_event(u,a,project,{'hold':'held','shortlist':'shortlisted','offer':'offered','accept':'accepted','reject':'rejected','reviewed':'reviewing'}.get(action,action))
+        if send_mail and action not in ('profile_viewed','application_viewed','reviewed'):
+            from transactional_mail import enqueue
+            enqueue(u,e['id'],'hiring_application_'+action,[a['owner_id'],a['worker_id']],
+                    {'record_type':'contract','record_id':a['project_id'],'path':'/worker?mode=contractor'})
     def application_replay(a,request_id,action,body=None):
         receipt=(a.get('command_receipts') or {}).get(request_id) if request_id else None
         digest=hashlib.sha256(json.dumps(body.model_dump(),sort_keys=True).encode()).hexdigest() if body else None
         if receipt and (receipt['action']!=action or (receipt.get('request_hash') and receipt['request_hash']!=digest)):fail('REQUEST_REUSED','Use a new request for changed details.',409)
         return bool(receipt)
-    def application_view(a):
-        return {k:v for k,v in a.items() if k not in ('command_receipts',)}
+    def application_view(a,u):
+        return application_projection(a,u.get('contract_projects',a['project_id']))
     def application_details(u,a,uid):
         from worker_network import person_card
         if uid not in (a['owner_id'],a['worker_id']):fail('NOT_FOUND','Application unavailable.',404)
         p=get(u,'contract_projects',a['project_id'])
         invitation=next((m for m in p['team'] if m.get('id')==a.get('invitation_id')),None)
-        row={**application_view(a),'project_title':p['title'],'project_version':p['version'],'project_status':p['status'],'source_kind':p.get('source_kind','commercial_project'),'invitation_status':invitation.get('status') if invitation else None,'applicant':person_card(u,u.get('workers',a['worker_id']) or {})}
+        row={**application_view(a,u),'project_title':p['title'],'project_version':p['version'],'project_status':p['status'],'source_kind':p.get('source_kind','commercial_project'),'invitation_status':invitation.get('status') if invitation else None,'applicant':person_card(u,u.get('workers',a['worker_id']) or {})}
         row.update(capacity=team_capacity(p),work_stage=work_stage(p))
         if invitation:row['invitation']={k:invitation.get(k) for k in ('id','worker_id','role','worker_type','status','daily_rate_paise','terms','invited_at','responded_at','accepted_at')}
         if uid==a['owner_id']:row['fit']=application_fit(u.get('workers',a['worker_id']) or {},p.get('hiring') or {})
         return row
-    def event(u,p,user,action,note=''):
+    def event(u,p,user,action,note='',recipient_ids=None,send_mail=True):
         if 'team' in p:sync_team_capacity(p)
         p['version']+=1;p['updated_at']=time.time();p['events'].append(dict(id=str(uuid.uuid4()),action=action,actor=user['id'],at=time.time(),note=note))
         audit(u,'ContractWorkChanged',user['id'],record_id=p['id'],command=action,version=p['version'])
+        if send_mail and action in ('bid_submitted','contract_awarded','agent_invited','hiring_open','accept','decline','start','complete','cancel','goal_submit','goal_approve','leave_team','remove','leave_request','leave_approve','leave_decline'):
+            from transactional_mail import enqueue,enqueue_fanout
+            recipients=[p['owner_id'],user['id'],*(recipient_ids or [])]
+            if action in ('contract_awarded','start','complete','cancel','goal_submit','goal_approve') and p.get('client_id'):recipients.append(p['client_id'])
+            if action in ('contract_awarded','start','complete','cancel'):
+                recipients.extend(row['worker_id'] for row in accepted_team(p))
+                if action in ('complete','cancel'):recipients.extend(row['worker_id'] for row in p.get('team',[]) if row.get('status')=='pending')
+            recipients=list(dict.fromkeys(uid for uid in recipients if uid))
+            queue=enqueue_fanout if len(recipients)>50 else enqueue
+            queue(u,p['events'][-1]['id'],'contract_'+action,recipients,
+                  {'record_type':'contract','record_id':p['id'],'path':'/worker?mode=contractor'})
     def free(u,worker,p):
         from home_plans import conflict
         if conflict(u,worker,p['starts_at'],(p['ends_at']-p['starts_at'])/60,exclude_contract=p['id']):fail('SCHEDULE_CONFLICT','An accepted project, home plan or booked service overlaps these dates.',409)
@@ -562,6 +594,8 @@ def install(core):
             if private and body.tender_id:fail('PRIVATE_TENDER','A private request cannot bid for a commercial tender.',422)
             key=identifier('private-project' if private else 'project',user['id'],body.request_id);old=u.get('contract_projects',key);digest=same_create(old,body)
             if old:return old
+            from account_profile import require_email
+            require_email(u,user)
             if body.ends_at<=time.time():fail('DATES','Choose future work dates.',422)
             if body.tender_id:
                 t=get(u,'contract_tenders',body.tender_id)
@@ -569,7 +603,10 @@ def install(core):
                 if t['status']!='open' or t['deadline']<=time.time():fail('CLOSED','This tender is closed.',409)
                 if body.starts_at!=t['starts_at'] or body.ends_at!=t['ends_at']:fail('DATES','Use the tender work dates for its team plan.',422)
             p=dict(**body.model_dump(exclude={'request_id'}),id=key,request_hash=digest,owner_id=user['id'],owner_name=(u.get('contract_profiles',user['id']) or {}).get('name',user['name']),source_kind='private_request' if private else 'commercial_project',owner_phone_verified=bool(user.get('phone_verified')),status='planning',team=[],goals=[],attendance=[],leave=[],events=[],version=1,created_at=time.time())
-            u.put('contract_projects',key,p);audit(u,'ContractProjectCreated',user['id'],project_id=key);return p
+            u.put('contract_projects',key,p);audit(u,'ContractProjectCreated',user['id'],project_id=key)
+            from transactional_mail import enqueue
+            enqueue(u,key,'contract_project_created',[user['id']],{'record_type':'contract','record_id':key,'path':'/worker?mode=contractor'})
+            return p
         return store.run(execute)
     @r.post('/projects')
     def create_project(body:Project,user=Depends(core.current_user)):
@@ -583,11 +620,16 @@ def install(core):
         def execute(u):
             key=identifier('tender',user['id'],body.request_id);old=u.get('contract_tenders',key);digest=same_create(old,body)
             if old:return tender_view(old,user['id'])
+            from account_profile import require_email
+            require_email(u,user)
             if body.deadline<=time.time():fail('DATES','Bidding deadline must be in the future.',422)
             if body.tender_id:fail('INVALID','A tender cannot link to another tender.',422)
             t=dict(**body.model_dump(exclude={'request_id','tender_id'}),id=key,request_hash=digest,owner_id=user['id'],owner_name=(u.get('contract_profiles',user['id']) or {}).get('name',user['name']),status='open',bids=[],registrations=[],events=[],version=1,created_at=time.time())
             t['sector']=save_sector(u,t['sector'],user['id'])
-            u.put('contract_tenders',key,t);return tender_view(t,user['id'])
+            u.put('contract_tenders',key,t)
+            from transactional_mail import enqueue
+            enqueue(u,key,'contract_posted',[user['id']],{'record_type':'contract','record_id':key,'path':'/worker?mode=contractor'})
+            return tender_view(t,user['id'])
         return store.run(execute)
     @r.post('/tenders/{tid}/bid')
     def bid(tid:str,body:Bid,user=Depends(core.current_user)):
@@ -596,6 +638,8 @@ def install(core):
             if t.get('source_kind')=='customer_custom_query':fail('SCOPED_QUERY','Submit through the matched customer query.',403)
             uid=user['id'];key=identifier('bid',uid,body.request_id);old=next((b for b in t['bids'] if b['id']==key),None);digest=same_create(old,body)
             if old:return tender_view(t,uid)
+            from account_profile import require_email
+            require_email(u,user)
             version(t,body.expected_version)
             if t['owner_id']==uid:fail('SELF_BID','You cannot bid on your own tender.',403)
             if t['status']!='open' or not t['opens_at']<=time.time()<t['deadline']:fail('CLOSED','Bidding is not open.',409)
@@ -640,7 +684,7 @@ def install(core):
                     event(u,p,user,'contract_awarded');u.put('contract_projects',p['id'],p);notify(u,p['owner_id'],'Tender awarded',t['title'])
             event(u,t,user,action);u.put('contract_tenders',tid,t);return tender_view(t,uid)
         return store.run(execute)
-    def add_invitation(u,pid,body,user):
+    def add_invitation(u,pid,body,user,send_mail=True):
         p=get(u,'contract_projects',pid);project_owner(u,p,user);version(p,body.expected_version)
         if p['owner_id']!=user['id']:fail('FORBIDDEN','Only the contractor can invite or set reporting roles.',403)
         if p['status'] in ('completed','cancelled') or p['ends_at']<=time.time():fail('CLOSED','Project is closed.',409)
@@ -653,7 +697,7 @@ def install(core):
         if body.reports_to and not any(m['worker_id']==body.reports_to and m['status']=='accepted' and m['role']=='supervisor' for m in p['team']):fail('HIERARCHY','Choose an accepted supervisor.',422)
         free(u,body.worker_id,p)
         m=dict(**body.model_dump(exclude={'expected_version'}),id=str(uuid.uuid4()),name=w['name'],status='pending',invited_at=time.time());p['team'].append(m)
-        event(u,p,user,'agent_invited',w['name']);u.put('contract_projects',pid,p);notify(u,body.worker_id,'Project team invitation',p['title']);return p
+        event(u,p,user,'agent_invited',w['name'],[body.worker_id],send_mail=send_mail);u.put('contract_projects',pid,p);notify(u,body.worker_id,'Project team invitation',p['title']);return p
     @r.post('/projects/{pid}/invitations')
     def invite(pid:str,body:Invite,user=Depends(core.current_user)):
         return store.run(lambda u:project_view(add_invitation(u,pid,body,user),user['id']))
@@ -664,6 +708,9 @@ def install(core):
             p=get(u,'contract_projects',pid);project_owner(u,p,user)
             version(p,body.expected_version)
             if p['status'] in ('completed','cancelled') or p['ends_at']<=time.time():fail('CLOSED','This project has ended.',409)
+            if body.status=='open' and (p.get('hiring') or {}).get('status')!='open':
+                from account_profile import require_email
+                require_email(u,user)
             if body.status=='open' and not time.time()<body.deadline<=p['ends_at']:fail('DEADLINE','Set a future application deadline within the project dates.',422)
             h={**body.model_dump(exclude={'expected_version'}),'version':(p.get('hiring') or {}).get('version',0)+1,'updated_at':time.time()}
             work_trade=hiring_trade(h,p['title'])
@@ -705,15 +752,22 @@ def install(core):
                 if interest.get('query_id')==p.get('tender_id') and interest.get('worker_id')==uid and interest.get('worker_type')==worker_type and interest.get('status')=='pending_award' and interest.get('available') is True and isinstance(stamp,(int,float)) and not isinstance(stamp,bool) and 0<stamp<=time.time():first_interest_at=stamp
             key=identifier('application',uid,pid);old=u.get('project_applications',key)
             if old and old['status'] in ('applied','shortlisted','on_hold') and (old.get('notice_snapshot') or {}).get('version')!=h['version']:
+                from account_profile import require_email
+                require_email(u,user)
                 old.update(notice_snapshot=h,note=body.note,worker_type=worker_type,first_interest_at=first_interest_at)
-                application_event(u,old,user,'reconfirmed','applied');return application_view(old)
-            if old and old['status'] not in ('withdrawn','rejected','declined','offer_withdrawn'):return application_view(old)
+                application_event(u,old,user,'reconfirmed','applied');return application_view(old,u)
+            if old and old['status'] not in ('withdrawn','rejected','declined','offer_withdrawn'):return application_view(old,u)
             if old and old['status']=='rejected':fail('REVIEWED','This application was reviewed. Contact the contractor through a connection for future openings.',409)
+            from account_profile import require_email
+            require_email(u,user)
             throttle(u,uid,'application',20,86400)
             row=dict(id=key,project_id=pid,worker_id=uid,worker_name=w['name'],owner_id=p['owner_id'],note=body.note,worker_type=worker_type,first_interest_at=first_interest_at,notice_snapshot=h,source_kind=p.get('source_kind','commercial_project'),starts_at=p['starts_at'],ends_at=p['ends_at'],status='applied',version=(old or {}).get('version',0)+1,created_at=time.time(),updated_at=time.time(),events=[*((old or {}).get('events',[])),dict(id=str(uuid.uuid4()),action='applied',status='applied',actor=uid,at=time.time())])
             u.put('project_applications',key,row)
+            from transactional_mail import enqueue
+            enqueue(u,row['events'][-1]['id'],'hiring_application_applied',[uid,p['owner_id']],
+                    {'record_type':'contract','record_id':pid,'path':'/worker?mode=contractor'})
             from repaidians_work import application_event as social_application_event
-            social_application_event(u,row,p,'applied');notify(u,p['owner_id'],'New joining request',p['title']);return application_view(row)
+            social_application_event(u,row,p,'applied');notify(u,p['owner_id'],'New joining request',p['title']);return application_view(row,u)
         return store.run(save)
     @r.get('/projects/{pid}/candidates')
     def project_candidates(pid:str,cursor:str=Query(default='',max_length=1024),limit:int=Query(default=24,ge=1,le=APPLICATION_SCAN),user=Depends(core.current_user)):
@@ -774,28 +828,28 @@ def install(core):
     def record_application_view(aid:str,body:ApplicationView,user=Depends(core.current_user)):
         def save(u):
             a=get(u,'project_applications',aid);p=get(u,'contract_projects',a['project_id']);project_owner(u,p,user)
-            if application_replay(a,body.request_id,body.action,body):return application_view(a)
+            if application_replay(a,body.request_id,body.action,body):return application_view(a,u)
             # First meaningful action is recorded once; rerenders/opening the same view cannot spam candidates.
-            if a.get(body.action+'_at'):return application_view(a)
+            if a.get(body.action+'_at'):return application_view(a,u)
             version(a,body.expected_version);a[body.action+'_at']=time.time()
             application_event(u,a,user,body.action,request_id=body.request_id)
             if body.request_id:
                 a['command_receipts'][body.request_id]['request_hash']=hashlib.sha256(json.dumps(body.model_dump(),sort_keys=True).encode()).hexdigest();u.put('project_applications',a['id'],a)
             labels={'profile_viewed':'Your profile was viewed','application_viewed':'Your application was opened','reviewed':'Your application was reviewed'}
-            notify(u,a['worker_id'],labels[body.action],p['title'],a['id'],p['id']);return application_view(a)
+            notify(u,a['worker_id'],labels[body.action],p['title'],a['id'],p['id']);return application_view(a,u)
         return store.run(save)
     @r.post('/hiring/applications/{aid}/withdraw')
     def withdraw_application(aid:str,body:ApplicationWithdraw|None=None,user=Depends(core.current_user)):
         def save(u):
             phone(user);a=get(u,'project_applications',aid)
             if a['worker_id']!=user['id']:fail('NOT_FOUND','Application unavailable.',404)
-            if a['status']=='withdrawn' or (body and application_replay(a,body.request_id,'withdrawn',body)):return application_view(a)
+            if a['status']=='withdrawn' or (body and application_replay(a,body.request_id,'withdrawn',body)):return application_view(a,u)
             if body:version(a,body.expected_version)
             if a['status'] not in ('applied','shortlisted','on_hold','offer_withdrawn'):fail('STATE','Respond to an existing offer from Project teams.',409)
             application_event(u,a,user,'withdrawn','withdrawn',request_id=body.request_id if body else None)
             if body and body.request_id:
                 a['command_receipts'][body.request_id]['request_hash']=hashlib.sha256(json.dumps(body.model_dump(),sort_keys=True).encode()).hexdigest();u.put('project_applications',a['id'],a)
-            notify(u,a['owner_id'],'Application withdrawn',a.get('worker_name','An applicant'),a['id'],a['project_id']);return application_view(a)
+            notify(u,a['owner_id'],'Application withdrawn',a.get('worker_name','An applicant'),a['id'],a['project_id']);return application_view(a,u)
         return store.run(save)
     @r.post('/hiring/applications/{aid}/decision')
     def decide_application(aid:str,body:ApplicationDecision,user=Depends(core.current_user)):
@@ -803,7 +857,7 @@ def install(core):
             from worker_network import blocked
             from repaidians import blocked as social_blocked
             a=get(u,'project_applications',aid);p=get(u,'contract_projects',a['project_id']);project_owner(u,p,user)
-            if application_replay(a,body.request_id,body.action,body):return application_view(a)
+            if application_replay(a,body.request_id,body.action,body):return application_view(a,u)
             version(a,body.expected_version);version(p,body.project_version)
             if p['status'] in ('completed','cancelled') or p['ends_at']<=time.time():fail('CLOSED','This project has ended.',409)
             if a['status'] not in ('applied','shortlisted','on_hold','offer_withdrawn'):fail('STATE','This application is no longer pending.',409)
@@ -819,7 +873,7 @@ def install(core):
                 if a.get('worker_type') and worker_type!=a['worker_type']:fail('WORKER_TYPE_CHANGED','Send joining terms for the worker type the applicant selected.',409)
                 require_team_place(p,worker_type)
                 if not body.daily_rate_paise or len(body.terms.strip())<20:fail('TERMS','Set the offered daily rate and full joining terms.',422)
-                p=add_invitation(u,p['id'],Invite(expected_version=p['version'],worker_id=a['worker_id'],role=body.role,worker_type=worker_type,daily_rate_paise=body.daily_rate_paise,terms=body.terms),user)
+                p=add_invitation(u,p['id'],Invite(expected_version=p['version'],worker_id=a['worker_id'],role=body.role,worker_type=worker_type,daily_rate_paise=body.daily_rate_paise,terms=body.terms),user,send_mail=False)
                 invitation=p['team'][-1];invitation.update(application_id=a['id'],hiring_version=h['version'])
                 u.put('contract_projects',p['id'],p);a['invitation_id']=invitation['id']
                 a['offer_snapshot']={k:invitation.get(k) for k in ('daily_rate_paise','terms','role','worker_type','invited_at','hiring_version')}
@@ -828,7 +882,7 @@ def install(core):
             application_event(u,a,user,body.action,{'offer':'offered','shortlist':'shortlisted','reject':'rejected','hold':'on_hold'}[body.action],body.note,body.request_id)
             if body.request_id:
                 a['command_receipts'][body.request_id]['request_hash']=hashlib.sha256(json.dumps(body.model_dump(),sort_keys=True).encode()).hexdigest();u.put('project_applications',a['id'],a)
-            notify(u,a['worker_id'],'Application '+a['status'].replace('_',' '),p['title'],a['id'],p['id']);return application_view(a)
+            notify(u,a['worker_id'],'Application '+a['status'].replace('_',' '),p['title'],a['id'],p['id']);return application_view(a,u)
         return store.run(save)
     @r.post('/projects/{pid}/commands')
     def command(pid:str,body:Command,user=Depends(core.current_user)):
@@ -888,12 +942,6 @@ def install(core):
                         if now<p['starts_at'] or now>=p['ends_at']:fail('DATES','Start within the agreed work dates.',409)
                     if a=='complete' and (not p['goals'] or any(g['status']!='approved' for g in p['goals'])):fail('GOALS','Approve all project goals before completing.',409)
                     p['status']=after
-                if p['status'] in ('completed','cancelled'):
-                    for teammate in p['team']:
-                        linked=u.get('project_applications',teammate['application_id']) if teammate.get('application_id') else None
-                        if linked and linked.get('invitation_id')==teammate['id'] and linked.get('status') in ('offered','hired'):
-                            application_event(u,linked,user,a,p['status'],body.note)
-                            notify(u,linked['worker_id'],'Project '+p['status'],p['title'],linked['id'],p['id'])
                 if p['status'] in ('completed','cancelled','paused'):
                     for att in p['attendance']:
                         if not att.get('out_at'):att.update(out_at=now,closure_reason=a)
@@ -936,7 +984,16 @@ def install(core):
                 if not l or l['status']!='pending':fail('LEAVE','Leave request already decided or missing.',409)
                 l.update(status='approved' if a=='leave_approve' else 'declined',decided_at=now)
                 notify(u,l['worker_id'],'Leave '+l['status'],p['title'])
-            event(u,p,user,a,body.note);u.put('contract_projects',pid,p)
+            mail_targets=[]
+            if a=='remove':mail_targets=[body.target_id]
+            elif a in ('goal_submit','goal_approve'):
+                goal=next((g for g in p['goals'] if g['id']==body.target_id),{})
+                if goal.get('assignee_id'):mail_targets=[goal['assignee_id']]
+            elif a in ('leave_approve','leave_decline'):
+                leave=next((item for item in p['leave'] if item['id']==body.target_id),{})
+                if leave.get('worker_id'):mail_targets=[leave['worker_id']]
+            duplicate_joining_mail=a in ('accept','decline') and bool(application)
+            event(u,p,user,a,body.note,mail_targets,send_mail=not duplicate_joining_mail);u.put('contract_projects',pid,p)
             if not can_access(p,uid):
                 # A self-revoking command still commits and returns its receipt,
                 # without returning the private project after permission ends.

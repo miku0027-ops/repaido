@@ -124,6 +124,8 @@ def install(core):
             if j and body.category in ('warranty','payment','penalty','safety'):
                 j['financial_hold']=True;j['payout_status']='held';u.put('jobs',j['id'],j)
             audit(u,'SupportCaseOpened',user['id'],case_id=key,job_id=body.job_id)
+            from transactional_mail import enqueue
+            enqueue(u,'support-opened:'+key,'support_opened',[t['customer_id']],{'record_type':'support_case','record_id':key,'path':'/?view=account&section=support'})
             return t
         return store.run(save)
     @r.get('/support')
@@ -155,6 +157,9 @@ def install(core):
             if t['state']=='resolved':fail('CASE_CLOSED','Reopen the case before replying.')
             m=dict(id=key,case_id=case_id,actor_id=user['id'],actor_role='support' if admin else 'requester',message=body.message,created_at=time.time())
             u.put('support_messages',key,m);t.update(updated_at=time.time(),version=t['version']+1);u.put('support_cases',case_id,t)
+            if admin:
+                from transactional_mail import enqueue
+                enqueue(u,'support-reply:'+key,'support_reply',[t['customer_id']],{'record_type':'support_case','record_id':case_id,'path':'/?view=account&section=support'})
             return m
         return store.run(save)
     @r.post('/support/{case_id}/messages')
@@ -173,7 +178,10 @@ def install(core):
                 other=any(c['job_id']==j['id'] and c['id']!=case_id and c['state']!='resolved' and c['category'] in ('warranty','payment','penalty','safety') for c in u.all('support_cases'))
                 j['financial_hold']=other or (t['state']!='resolved' and t['category'] in ('warranty','payment','penalty','safety'))
                 u.put('jobs',j['id'],j)
-            audit(u,'SupportCase'+body.action,user['id'],case_id=case_id,reason=body.reason);return t
+            audit(u,'SupportCase'+body.action,user['id'],case_id=case_id,reason=body.reason)
+            from transactional_mail import enqueue
+            enqueue(u,'support-state:'+case_id+':'+str(t['version']),'support_updated',[t['customer_id']],{'record_type':'support_case','record_id':case_id,'path':'/?view=account&section=support'})
+            return t
         return store.run(save)
     @r.post('/support/{case_id}/actions')
     def customer_action(case_id:str,body:TicketAction,user=Depends(core.current_user)):return case_action(case_id,body,user)

@@ -55,7 +55,9 @@ def create_app(core=None):
 
     @application.get('/health')
     def service_health():
+        import transactional_mail
         return {**health(core, 'repaido-work-worker'),
+                'transactional_email_ready': transactional_mail.readiness()['ready'],
                 'push_enabled': os.getenv('REPAIDO_PUSH_ENABLED', '').lower() == 'true',
                 'scheduler_configured': bool(os.getenv('REPAIDO_WORK_WORKER_AUDIENCE', '').startswith('https://')
                     and os.getenv('REPAIDO_WORK_SCHEDULER_EMAIL', '').endswith('.iam.gserviceaccount.com'))}
@@ -68,11 +70,13 @@ def create_app(core=None):
             import repaidians_work
             import work_push
             import custom_contracts
+            import transactional_mail
             result = {'indexing': repaidians_work.backfill(core, limit=min(body.limit, 20)),
                       'devices': work_push.backfill_devices(core, limit=min(body.limit, 20)),
                       'contracts': custom_contracts.process_notifications(core, limit=min(body.limit, 16)),
                       'updates': repaidians_work.process_updates(core, limit=body.limit),
-                      'push': work_push.process_deliveries(core, limit=body.limit)}
+                      'push': work_push.process_deliveries(core, limit=body.limit),
+                      'email': transactional_mail.dispatch(core, limit=min(body.limit, 20))}
             logger.info('work_dispatch completed indexing=%s updates=%s push=%s',
                         result['indexing'], result['updates'], result['push'])
             return result

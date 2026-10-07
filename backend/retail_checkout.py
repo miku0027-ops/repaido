@@ -24,6 +24,20 @@ class Order(Basket):
     request_id:str=Field(min_length=16,max_length=100)
 class Verify(Input):
     payment_id:str=Field(min_length=5,max_length=100)
+def mail_order(u,row,action,suppliers=False):
+    """Bind confirmations to saved customer/shop owners, without order contents."""
+    from transactional_mail import enqueue,enqueue_fanout
+    recipients=[row['customer_id']]
+    if suppliers:
+        shops=sorted({item['shop_id'] for item in row['items']})
+        u.prefetch([('shops',key) for key in shops])
+        recipients.extend((u.get('shops',key) or {}).get('owner_id') for key in shops)
+    recipients=list(dict.fromkeys(uid for uid in recipients if uid))
+    # The source keeps one bounded receipt. Private workers expand supplier
+    # deliveries separately so inventory indexing cannot exceed the write cap.
+    queue=enqueue_fanout if suppliers else enqueue
+    queue(u,'retail:'+row['id']+':'+action,'shop_order_'+action,recipients,
+          {'record_type':'shop','record_id':row['id'],'path':'/'})
 def quote(u,body,uid):
     rows=[];seen=set()
     for line in body.items:
@@ -52,6 +66,8 @@ def install(core):
             if old:
                 if old['fingerprint']!=fp:fail('KEY_REUSED','This retry differs from the original order.',409)
                 return old,False
+            from account_profile import require_email
+            require_email(u,user)
             q=quote(u,body,user['id'])
             if q['total_paise']!=body.expected_total_paise:fail('PRICE_CHANGED','Review the refreshed checkout total before paying.',409)
             q['coupon']=reserve(u,user['id'],body.coupon_code,'refurbished',q['eligible_base_paise'],'retail:'+key) if body.coupon_code else None
@@ -60,7 +76,7 @@ def install(core):
                 amount=(remaining if item is eligible[-1] else q['discount_paise']*item['base_paise']//q['eligible_base_paise']) if item in eligible else 0
                 item['discount_paise']=amount;remaining-=amount;p=u.get('inventory',item['product_id']);p['stock']-=item['quantity'];p['reserved']=p.get('reserved',0)+item['quantity'];p['version']=p.get('version',0)+1;u.put('inventory',p['id'],p)
             row=dict(**q,id=key,customer_id=user['id'],fingerprint=fp,state='creating',receipt='rt-'+key[:32],created_at=time.time(),recipient_name=body.recipient_name,recipient_phone=body.recipient_phone,delivery_address=body.delivery_address)
-            u.put('retail_orders',key,row);return row,True
+            u.put('retail_orders',key,row);mail_order(u,row,'saved');return row,True
         row,new=store.run(save)
         if row.get('order_id'):return {**row,'key_id':__import__('os').getenv('RAZORPAY_KEY_ID','')}
         if not new:
@@ -87,7 +103,7 @@ def install(core):
             for item in saved['items']:
                 amount=item['total_paise']-item['discount_paise'];pid=oid+':'+item['product_id'];u.put('shop_payables',pid,dict(id=pid,retail_order_id=oid,job_id='',shop_id=item['shop_id'],amount_paise=amount,status='awaiting_fulfillment',weekly_due_at=next_weekly(time.time())))
             post(u,'retail:'+oid,[{'account':'payment_clearing','debit':saved['total_paise'],'credit':0},{'account':'parts_payable','debit':0,'credit':saved['total_paise']}],retail_order_id=oid)
-            u.put('retail_orders',oid,saved);return saved
+            u.put('retail_orders',oid,saved);mail_order(u,saved,'paid',suppliers=True);return saved
         return store.run(finish)
     @r.post('/orders/{oid}/payment')
     def resume(oid:str,user=Depends(core.current_user)):
@@ -128,6 +144,6 @@ def install(core):
                 p=u.get('inventory',item['product_id']);p['reserved']=max(0,p.get('reserved',0)-item['quantity']);u.put('inventory',p['id'],p)
                 pid=oid+':'+item['product_id'];payable=u.get('shop_payables',pid)
                 if payable and payable['status']=='awaiting_fulfillment':payable['status']='retail_receipt_review';u.put('shop_payables',pid,payable)
-            u.put('retail_orders',oid,row);return row
+            u.put('retail_orders',oid,row);mail_order(u,row,'received',suppliers=True);return row
         return store.run(save)
     core.app.include_router(r)

@@ -2,6 +2,11 @@ import {CouponWelcome} from './components/Coupons';
 import OpportunityCarousel,{CustomerContractMatches,opportunities} from './components/OpportunityCarousel';
 import HomeQuickActions,{type QuickMarket} from './components/HomeQuickActions';
 import {CompactActionLauncher} from './components/CompactActionLauncher';
+import {AccountHub} from './components/AccountHub';
+import {AccountEmailAccess,AccountEmailNotice} from './components/AccountEmailAccess';
+import {useAccountProfile} from './hooks/useAccountProfile';
+import {accountEmailError} from './services/accountProfileService';
+import {emailVerificationLink} from './services/emailVerificationLink.mjs';
 import './services/repaidiansPushService';
 import HomeServiceFinder from './components/HomeServiceFinder';
 import {ServiceAccordion} from './components/ServiceAccordion';
@@ -204,7 +209,7 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 
 export default function App() {
   const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
-  const [quickHireOpen,setQuickHireOpen]=useState(false),[customContractOpen,setCustomContractOpen]=useState(()=>new URLSearchParams(location.search).has('custom-contract'));
+  const [quickHireOpen,setQuickHireOpen]=useState(false),[customContractOpen,setCustomContractOpen]=useState(()=>new URLSearchParams(location.search).has('custom-contract')||new URLSearchParams(location.search).get('view')==='contracts');
   const [customContractId,setCustomContractId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-contract')||undefined);
   const [customProposalId,setCustomProposalId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-proposal')||undefined);
   const [communityProfileId,setCommunityProfileId]=useState<string>(),[communityContractReturn,setCommunityContractReturn]=useState(false);
@@ -216,6 +221,7 @@ export default function App() {
   const [homeHub,setHomeHub]=useState<string|null>(null),[homePlans,setHomePlans]=useState(new URLSearchParams(location.search).has('home-plan'));
   const [tab,setTab]=useSavedTab<Tab>('repaido.customer.tab',['Explore','Services','Bookings','ShopSpares','You','Hire'],'Explore',(()=>{
     const sp = new URLSearchParams(location.search);
+    if(sp.get('view')==='account'||sp.get('view')==='support_case')return 'You';
     if (sp.has('booking') || sp.has('home-plan') || sp.has('hiring')) return 'Bookings';
     const t = sp.get('tab')?.toLowerCase();
     if (t === 'hire') return 'Hire';
@@ -348,7 +354,7 @@ export default function App() {
   const [bookingNotes, setBookingNotes] = useState('');
   const [receiptBooking, setReceiptBooking] = useState<BookingRecord | null>(null);
 
-  const [sheet, setSheet] = useState('');
+  const [sheet, setSheet] = useState(()=>new URLSearchParams(location.search).get('section')==='support'?'support_ticket':'');
   const [message, setMessage] = useState('');
   const [workerSession, setWorkerSession] = useState(() => readWorkerSession());
   const [workerPhone, setWorkerPhone] = useState('');
@@ -386,6 +392,9 @@ export default function App() {
   useEffect(()=>{if(customContractActor.current&&customContractActor.current!==user?.id){setCustomContractOpen(false);setCustomContractId(undefined);setCustomProposalId(undefined);setCommunityProfileId(undefined);setCommunityContractReturn(false);}customContractActor.current=user?.id;},[user?.id]);
   useEffect(()=>{setCommunityNative(null);setCommunityReference(undefined);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityRouteError('');},[user?.id]);
   const customerIdentity=useCustomerIdentity(user,portal);
+  const accountProfile=useAccountProfile(user?.id);
+  const [emailProfileOpen,setEmailProfileOpen]=useState(()=>!!emailVerificationLink());
+  useEffect(()=>{setEmailProfileOpen(!!emailVerificationLink());},[user?.id]);
   const [offerSettings,setOfferSettings]=useState(false);
   useEffect(()=>{const campaign=new URLSearchParams(location.search).get('campaign');if(!campaign)return;let alive=true;const body=JSON.stringify({city:place.city,placement:'push'});const load=async()=>{try{await auth.authStateReady();const r=auth.currentUser?await operation<{cards:Promotion[]}>('/campaigns/feed/personal',{method:'POST',body}):await apiFetch('/api/operations/campaigns/feed',{method:'POST',headers:{'Content-Type':'application/json'},body}).then(r=>r.json());const match=r.cards.find((c:Promotion)=>c.id===campaign);if(alive&&match)openPromotion(match);else if(alive)setError('This offer is no longer available. You can still browse regular services.');}catch{if(alive)setError('Offer could not load. Please retry from notifications.');}};void load();return()=>{alive=false;};},[place.city]);
   const [finderSlot] = useState(()=>2+Math.floor(Math.random()*3));
@@ -397,6 +406,7 @@ export default function App() {
   const [otpCode, setOtpCode] = useState('');
   const [otpStep, setOtpStep] = useState<'phone' | 'code'>('phone');
   const [otpUserName, setOtpUserName] = useState('');
+  const [otpEmail,setOtpEmail]=useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [bookingError, setBookingError] = useState('');
@@ -691,7 +701,7 @@ export default function App() {
     );
   }
   if (portal === 'shop-admin') {
-    return <OperationsAdmin shop onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} />;
+    return <><AccountEmailNotice account={accountProfile} onOpen={()=>setEmailProfileOpen(true)}/><OperationsAdmin shop onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} />{emailProfileOpen&&<AccountEmailAccess key={user?.id||'guest'} account={accountProfile} onClose={()=>setEmailProfileOpen(false)} onSignIn={()=>{setEmailProfileOpen(false);navigatePortal('customer');setSheet('auth');}}/>}</>;
   }
   if (portal === 'company-admin') {
     return <OperationsAdmin onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} />;
@@ -699,6 +709,8 @@ export default function App() {
 
   return (
     <div className="repaido-customer-shell">
+      {emailProfileOpen&&<AccountEmailAccess key={user?.id||'guest'} account={accountProfile} onClose={()=>setEmailProfileOpen(false)} onSignIn={()=>{setEmailProfileOpen(false);setSheet('auth');}}/>}
+      <AccountEmailNotice account={accountProfile} onOpen={()=>setEmailProfileOpen(true)}/>
       {/* Invisible reCAPTCHA container for Phone Auth */}
       <div id="recaptcha-container" />
 
@@ -1109,88 +1121,44 @@ export default function App() {
             {/* 5. YOU / PROFILE TAB (Includes Partner Registration underneath at the bottom) */}
             {tab === 'Hire' && <Hiring services={servicesList} onService={id=>{const service=servicesList.find(item=>item.id===id);if(service){setSelectedPromotion(undefined);setSelectedService(service);}else setError('This service is no longer listed. Refresh the catalogue.');}} onRequests={()=>{setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} city={place.city} onSignIn={()=>setSheet('auth')} onBooking={id=>{setNotificationJob(id);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/>}
             {tab === 'You' && (
-              <div className="android-you-screen">
-                <div className="android-screen-header">
-                  <span className="android-eyebrow">A LITTLE SPACE FOR YOU</span>
-                  <h1 className="android-title-large">{user ? customerIdentity.name?`Hello, ${customerIdentity.name}.`:'Hello there!' : 'Make yourself at home.'}</h1>
-                </div>
-
-                {user ? (
-                  <div className="android-user-card flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="user-avatar-circle">{customerIdentity.name?customerIdentity.name.charAt(0).toUpperCase():<User size={22} aria-hidden="true"/>}</div>
-                      <div>
-                        <strong>{customerIdentity.accountLabel}</strong>
-                        {customerIdentity.agentLabel&&<span className="customer-agent-badge"><BriefcaseBusiness size={13} aria-hidden="true"/>{customerIdentity.agentLabel}</span>}
-                        <p className="text-xs text-muted">{user.email}</p>
-                      </div>
-                    </div>
-                    <button
-                      className="action-btn danger text-xs py-1 px-3"
-                      onClick={async () => {
-                        try{await stopNativeSession();await logoutUser();}catch(e){setError((e as Error).message);return;}
-                        setUser(null);
-                        setToken('');
-                      }}
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                ) : (
-                  <div className="android-auth-prompt">
-                    <p className="text-sm text-muted mb-3">Save your bookings and keep your home’s to-do list in one place.</p>
-                    <button className="navy-button w-full" onClick={() => setSheet('auth')}>
-                      Sign in or create account
-                    </button>
-                  </div>
-                )}
-
-                <div className="android-menu-list"><button className="android-menu-item" onClick={()=>setMarketProfile('exchange')}><Package size={20}/><span>Let’s exchange</span><ChevronRight size={18}/></button><button className="android-menu-item" onClick={()=>setMarketProfile('second_hand')}><Package size={20}/><span>Sell a used item</span><ChevronRight size={18}/></button>
-                  <button className="android-menu-item" onClick={()=>setMyRentalsOpen(true)}><Package size={20}/><span className="flex-1 text-left">My rentals</span><ChevronRight size={18}/></button>
-                  <button className="android-menu-item" onClick={() => setCityModalOpen(true)}>
-                    <MapPin size={20} className="text-accent" />
-                    <span className="flex-1 text-left">Service location</span>
-                    <span className="text-xs text-muted">{place.city}</span>
-                  </button>
-
-                  <button className="android-menu-item" onClick={() => navigate('ShopSpares')}>
-                    <ShoppingBag size={20} className="text-accent" />
-                    <span className="flex-1 text-left">Market · Buy & rent</span>
-                    <span className="text-sm bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold">Store</span>
-                  </button>
-
-                  <button className={`android-menu-item ${hasSpareOrders ? 'my-orders-glow' : ''}`} onClick={() => {
-                    const orders = read<Array<{ id?: string; status?: string; createdAt?: string; totalPaise?: number; deliveryAddress?: string }>>('repaido.spare_orders', []);
-                    setSpareOrders(orders);
-                    setHasSpareOrders(orders.length > 0);
-                    setSpareOrdersOpen(true);
-                    navigate('ShopSpares');
-                  }}>
-                    <Receipt size={20} className="text-accent" />
-                    <span className="flex-1 text-left">My Orders / Track order</span>
-                    {hasSpareOrders && <span className="text-sm bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold">Live</span>}
-                  </button>
-
-                  <button className="android-menu-item" onClick={() => { setSheet('support_ticket'); setError(''); }}>
-                    <Headphones size={20} className="text-accent" />
-                    <span className="flex-1 text-left">Help & Support Desk</span>
-                  </button>
-                  <button className="android-menu-item" onClick={()=>setOfferSettings(true)}><Bell size={20}/><span className="flex-1 text-left">Notifications & offers</span><ChevronRight size={18}/></button>
-                  <button className="android-menu-item" onClick={() => navigatePortal('worker')}><span className="flex-1 text-left">Agent / specialist account</span><span className="text-xs">Register or switch →</span></button>
-                  <button className="android-menu-item" onClick={() => navigatePortal('shop-admin')}><Store size={20} className="text-accent"/><span className="flex-1 text-left">Shop Partner / B2B Merchant Portal</span><span className="text-xs">Manage & switch →</span></button>
-                </div>
-
-                <fieldset className="ui-preferences">
-                  <legend>Reading & motion</legend>
-                  <label><input type="checkbox" checked={large} onChange={e => setLarge(e.target.checked)} />Larger text</label>
-                  <label><input type="checkbox" checked={reduce} onChange={e => setReduce(e.target.checked)} />Reduce animations</label>
-                  <p>Your choices are saved on this device. Your device’s reduced-motion setting is always respected.</p>
-                </fieldset>
-
-                {offerSettings&&<Modal title="Notifications & offers" className="customer-offer-settings" onClose={()=>setOfferSettings(false)}><PromotionPreferences city={place.city} onSignIn={()=>{setOfferSettings(false);setSheet('auth');}}/></Modal>}
-
-
-              </div>
+              <>
+                <AccountHub
+                  key={user?.id || 'guest'}
+                  identity={user ? {name:customerIdentity.name,label:customerIdentity.accountLabel,email:accountProfile.profile?.email||undefined,phone:user.phone,photoURL:user.photoURL,agentLabel:customerIdentity.agentLabel} : null}
+                  emailStatus={accountProfile.profile?.verification_status}
+                  onCompleteEmail={user?()=>setEmailProfileOpen(true):undefined}
+                  city={place.city}
+                  onSignIn={() => setSheet('auth')}
+                  onSignOut={async () => {
+                    try { await stopNativeSession(); await logoutUser(); }
+                    catch (problem) { setError((problem as Error).message); throw problem; }
+                    setUser(null); setToken('');
+                  }}
+                  onBookings={() => { setHomePlans(false); setHireBookings(false); navigate('Bookings'); }}
+                  onHomePlans={() => { setHomePlans(true); setHireBookings(false); navigate('Bookings'); }}
+                  onHiring={() => { setHomePlans(false); setHireBookings(true); navigate('Bookings'); }}
+                  onContracts={() => openCustomContract()}
+                  onCommunity={() => { setCommunityProfileId(undefined); setCommunityContractReturn(false); setCommunityStart('feed'); setCommunityReference(undefined); setRepaidiansOpen(true); }}
+                  onMarket={() => navigate('ShopSpares')}
+                  onOrders={() => {
+                    const orders = read<Array<{id?:string;status?:string;createdAt?:string;totalPaise?:number;deliveryAddress?:string}>>('repaido.spare_orders', []);
+                    setSpareOrders(orders); setHasSpareOrders(orders.length > 0); setSpareOrdersOpen(true); navigate('ShopSpares');
+                  }}
+                  onExchange={() => setMarketProfile('exchange')}
+                  onSellUsed={() => setMarketProfile('second_hand')}
+                  onRentals={() => setMyRentalsOpen(true)}
+                  onLocation={() => setCityModalOpen(true)}
+                  onOffers={() => setOfferSettings(true)}
+                  onAgentAccount={() => navigatePortal('worker')}
+                  onShopAccount={() => navigatePortal('shop-admin')}
+                  onSupport={() => { setSheet('support_ticket'); setError(''); }}
+                  largerText={large}
+                  reducedMotion={reduce}
+                  onLargerText={setLarge}
+                  onReducedMotion={setReduce}
+                />
+                {offerSettings && <Modal title="Notifications & offers" className="customer-offer-settings" onClose={() => setOfferSettings(false)}><PromotionPreferences city={place.city} onSignIn={() => { setOfferSettings(false); setSheet('auth'); }}/></Modal>}
+              </>
             )}
           </div> {/* end desktop-main-content */}
           </main>
@@ -2268,10 +2236,12 @@ export default function App() {
               setBusy(true);
               setError('');
               try {
-                const res = await signInWithGoogle();
+                const res = await signInWithGoogle(authMode==='create'?'register':'login');
+                if(auth.currentUser?.uid!==res.user.id)throw Error('Your account changed. Sign in again to continue.');
                 setToken(res.token);
                 setUser(res.user);
                 setSheet('');
+                if(res.profileError){setError(res.profileError);setEmailProfileOpen(true);}else void accountProfile.refresh().catch(()=>{});
               } catch (err: any) {
                 setError(err.message || 'Google sign-in failed. Please try Phone OTP.');
               } finally {
@@ -2302,6 +2272,7 @@ export default function App() {
                 setBusy(true);
                 setError('');
                 try {
+                  if(authMode==='create'&&accountEmailError(otpEmail))throw Error(accountEmailError(otpEmail));
                   await sendPhoneOtp(otpPhone, 'recaptcha-container');
                   setOtpStep('code');
                 } catch (err: any) {
@@ -2326,6 +2297,8 @@ export default function App() {
                   />
                 </div>
               )}
+
+              {authMode==='create'&&<div className="field-group mb-3"><label htmlFor="auth-email" className="field-label text-xs font-semibold text-ink">Email address <span aria-hidden="true">*</span></label><input id="auth-email" type="email" autoComplete="email" inputMode="email" value={otpEmail} onChange={e=>setOtpEmail(e.target.value)} required maxLength={254} aria-describedby="auth-email-help" className="field w-full mt-1"/><p id="auth-email-help" className="text-sm text-muted mt-1.5">Required for account updates and confirmations. Your email stays private.</p></div>}
 
               <div className="field-group mb-4">
                 <label htmlFor="auth-phone" className="field-label text-xs font-semibold text-ink">Mobile number</label>
@@ -2394,12 +2367,15 @@ export default function App() {
                 setBusy(true);
                 setError('');
                 try {
-                  const res = await confirmPhoneOtp(otpCode, otpUserName);
+                  const res = await confirmPhoneOtp(otpCode, authMode==='create'?otpUserName:undefined, authMode==='create'?otpEmail:undefined);
+                  if(auth.currentUser?.uid!==res.user.id)throw Error('Your account changed. Sign in again to continue.');
                   setToken(res.token);
                   setUser(res.user);
                   setSheet('');
                   setOtpCode('');
                   setOtpStep('phone');
+                  setOtpEmail('');setOtpUserName('');
+                  if(res.profileError){setError(res.profileError);setEmailProfileOpen(true);}else {setEmailProfileOpen(true);void accountProfile.refresh().catch(()=>{});}
                 } catch (err: any) {
                   setError(err.message || 'Invalid verification code.');
                 } finally {

@@ -190,6 +190,15 @@ def _save(u, ledger, action, actor, **fields):
         fail('DEAL_CEILING', 'Verified payments and pending requests cannot exceed the agreed deal price.', 409)
     u.put('contract_project_records', ledger['id'], ledger)
     audit(u, action, actor, project_id=ledger['id'], **fields)
+    project=u.get('contract_projects',ledger['id'])
+    if project and project.get('client_id') and project.get('owner_id'):
+        from transactional_mail import enqueue
+        kinds={'ContractProgressReported':'contract_progress','ContractProgressReviewed':'contract_progress_reviewed',
+               'ContractPaymentRequested':'contract_payment_requested','ContractPaymentRequestDecided':'contract_payment_decided',
+               'ContractExternalTransferReported':'contract_transfer_reported','ContractExternalTransferReviewed':'contract_transfer_reviewed'}
+        if action in kinds:
+            enqueue(u,'contract-record:'+ledger['id']+':'+str(ledger['version']),kinds[action],[project['client_id'],project['owner_id']],
+                    {'record_type':'contract_project','record_id':ledger['id'],'path':'/?view=contracts&project_id='+ledger['id']})
 
 
 def _public_consent(tender, ledger):
@@ -467,6 +476,9 @@ def _report(u, p, ledger, row):
     for chunk in chunks:
         u.put('contract_report_pages', chunk['id'], chunk)
     u.put('contract_reports', rid, saved)
+    from transactional_mail import enqueue
+    enqueue(u,'contract-report:'+rid,'payment_confirmed',[p['client_id'],p['owner_id']],
+            {'record_type':'contract_report','record_id':rid,'path':'/?view=contracts&project_id='+p['id']})
     return rid
 
 

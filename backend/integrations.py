@@ -106,16 +106,23 @@ def apply_payment(u, payment):
     if payment.get('currency') != 'INR' or payment.get('amount') != a['amount_paise']:
         fail('AMOUNT_MISMATCH', 'Payment needs reconciliation. No settlement was released.')
     j = u.get('jobs', a['job_id'])
+    recipients=list(filter(None,[j.get('customer_id'),j.get('worker_id')]))
     pid = payment['id']
     existing = u.get('receipts', pid)
     if existing and existing['job_id'] != j['id']: fail('PAYMENT_ALREADY_USED', 'Payment already linked.')
-    refund = max(int(payment.get('amount_refunded') or 0), a.get('amount_refunded', 0))
+    previous_refund=a.get('amount_refunded',0)
+    refund = max(int(payment.get('amount_refunded') or 0), previous_refund)
     a['amount_refunded'] = refund
     if refund or payment.get('status') == 'refunded':
         a.update(status='refunded' if refund >= a['amount_paise'] else 'partially_refunded', payment_id=pid)
         j.update(payment_status=a['status'], payout_status='held')
         j.setdefault('invoice', {})['status'] = a['status']
         audit(u, 'RefundReconciled', 'razorpay', job_id=j['id'], payment_id=pid, refunded_paise=refund)
+        if refund>previous_refund and recipients:
+            from transactional_mail import enqueue
+            enqueue(u,digest('booking-refund:'+pid+':'+str(refund)),'booking_refund_recorded',
+                    recipients,
+                    {'record_type':'payment','record_id':j['id'],'path':'/'})
     elif payment.get('status') == 'captured' and payment.get('captured') is True:
         # A stale captured notification cannot roll back a refund already observed.
         if a.get('status') in ('refunded','partially_refunded'): return a
@@ -127,6 +134,10 @@ def apply_payment(u, payment):
         if not existing:
             u.put('receipts', pid, dict(id=pid, job_id=j['id'], amount_paise=a['amount_paise'], currency='INR', verified_at=time.time()))
             audit(u, 'PaymentCaptured', 'razorpay', job_id=j['id'], payment_id=pid)
+            if recipients:
+                from transactional_mail import enqueue
+                enqueue(u,pid,'booking_payment_recorded',recipients,
+                        {'record_type':'payment','record_id':j['id'],'path':'/'})
     elif a.get('status') not in ('captured','refunded','partially_refunded'):
         # Failed attempts do not close an order; the same order can have a later success.
         a['last_attempt_status'] = payment.get('status', 'unknown')
@@ -255,6 +266,9 @@ def install(core):
             w.update(status='pending_verification',online=False)
             u.put('verification',user['id'],v);u.put('workers',user['id'],w)
             audit(u,'OnboardingSubmittedForReview',user['id'],document_ids=ids)
+            from transactional_mail import enqueue
+            enqueue(u,'worker-review-submit:'+user['id']+':'+str(v['submitted_at']),'worker_review_submitted',[user['id']],
+                    {'record_type':'account','record_id':user['id'],'path':'/worker'})
             return {'status':'in_review','submitted_at':v['submitted_at']}
         return store.run(save)
 
@@ -292,6 +306,9 @@ def install(core):
         def finish(u):
             d['status']='pending_review'
             u.put('documents',d['id'],d)
+            from transactional_mail import enqueue
+            enqueue(u,d['id'],'verification_document_saved',[user['id']],
+                    {'record_type':'account','record_id':user['id'],'path':'/worker'})
             v=u.get('verification',user['id']) or {'bank_status':'not_verified'}
             v['identity_status']='pending_review';u.put('verification',user['id'],v)
             audit(u,'PrivateDocumentUploaded',user['id'],document_id=d['id'],kind=kind)
@@ -337,6 +354,9 @@ def install(core):
             if body.decision=='rejected':
                 w.update(status='rejected',online=False);u.put('workers',worker_id,w)
             audit(u,'IdentityManuallyReviewed',admin['id'],worker_id=worker_id,**body.model_dump())
+            from transactional_mail import enqueue
+            enqueue(u,'identity-review:'+worker_id+':'+str(v['identity_reviewed_at']),'worker_identity_'+body.decision,[worker_id],
+                    {'record_type':'account','record_id':worker_id,'path':'/worker'})
             return {'identity_status':body.decision}
         return store.run(save)
 

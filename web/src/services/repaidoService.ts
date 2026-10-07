@@ -2,6 +2,7 @@ import {categoryMetadata,saveHireCategories} from './hireCategories.mjs';
 import {beginLoading} from './loading';
 import {createPhoneAccountRecovery} from './phoneAccountRecovery.mjs';
 import { apiFetch } from './api';
+import {AccountProfileError,establishAccountSession} from './accountProfileService';
 import { auth, db } from '../firebase';
 import {
   GoogleAuthProvider,
@@ -177,11 +178,18 @@ const phoneAccountRecovery = createPhoneAccountRecovery({
 });
 export const canContinueWithPhoneAccount = () => phoneAccountRecovery.available();
 export function clearPhoneAccountRecovery() { phoneAccountRecovery.clear(); }
+function assertAuthIdentity(uid:string) {
+  if(auth.currentUser?.uid!==uid)throw new AccountProfileError('Your account changed. Sign in again to continue.',409,'ACCOUNT_CHANGED');
+}
 export async function continueWithPhoneAccount(): Promise<void> {
   const result = await phoneAccountRecovery.continue();
-  await result.user.getIdToken(true);
+  assertAuthIdentity(result.user.uid);
+  const token=await result.user.getIdToken(true);
+  assertAuthIdentity(result.user.uid);
   writeLocal(KEYS.USER, {id:result.user.uid,name:result.user.displayName || 'Repaido Member',phone:result.user.phoneNumber || undefined,email:result.user.email || undefined});
-  writeLocal(KEYS.TOKEN, await result.user.getIdToken());
+  writeLocal(KEYS.TOKEN, token);
+  await establishAccountSession(result.user.uid);
+  assertAuthIdentity(result.user.uid);
 }
 let confirmationResultRef: ConfirmationResult | null = null;
 let recaptchaVerifierRef: RecaptchaVerifier | null = null;
@@ -212,7 +220,7 @@ function ensureRecaptchaContainer(containerId: string): HTMLElement | null {
 /**
  * One-click Google Sign-In / Sign-Up
  */
-export async function signInWithGoogle(): Promise<{ token: string; user: RepaidoUser }> {
+export async function signInWithGoogle(mode:'login'|'register'='login'): Promise<{ token: string; user: RepaidoUser; profileError?:string }> {
   try {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
@@ -225,10 +233,13 @@ export async function signInWithGoogle(): Promise<{ token: string; user: Repaido
       photoURL: cred.user.photoURL || undefined
     };
     const token = await cred.user.getIdToken();
+    assertAuthIdentity(user.id);
     writeLocal(KEYS.USER, user);
     writeLocal(KEYS.TOKEN, token);
-    return { token, user };
+    try{await establishAccountSession(user.id,mode);assertAuthIdentity(user.id);return {token,user};}
+    catch(problem){assertAuthIdentity(user.id);if(problem instanceof AccountProfileError&&problem.code==='ACCOUNT_CHANGED')throw problem;return {token,user,profileError:problem instanceof Error?problem.message:'Signed in. Open account details to complete your email.'};}
   } catch (err: any) {
+    if(err?.code==='ACCOUNT_CHANGED')throw err;
     if (err?.code === 'auth/popup-closed-by-user') {
       throw new Error('Sign in was cancelled. Please try again.');
     }
@@ -314,8 +325,9 @@ export async function sendPhoneOtp(
  */
 export async function confirmPhoneOtp(
   otpCode: string,
-  customerName?: string
-): Promise<{ token: string; user: RepaidoUser }> {
+  customerName?: string,
+  registrationEmail?:string
+): Promise<{ token: string; user: RepaidoUser; profileError?:string }> {
   if (!confirmationResultRef) {
     throw new Error('Request a verification code first.');
   }
@@ -326,6 +338,7 @@ export async function confirmPhoneOtp(
 
   try {
     const cred = await confirmationResultRef.confirm(code);
+    assertAuthIdentity(cred.user.uid);
     if (customerName && customerName.trim().length >= 2 && cred.user) {
       try {
         await updateProfile(cred.user, { displayName: customerName.trim() });
@@ -339,10 +352,13 @@ export async function confirmPhoneOtp(
       email: cred.user.email || undefined
     };
     const token = await cred.user.getIdToken();
+    assertAuthIdentity(user.id);
     writeLocal(KEYS.USER, user);
     writeLocal(KEYS.TOKEN, token);
-    return { token, user };
+    try{await establishAccountSession(user.id,registrationEmail?'register':'login',registrationEmail);assertAuthIdentity(user.id);return {token,user};}
+    catch(problem){assertAuthIdentity(user.id);if(problem instanceof AccountProfileError&&problem.code==='ACCOUNT_CHANGED')throw problem;return {token,user,profileError:problem instanceof Error?problem.message:'Signed in. Open account details to complete your email.'};}
   } catch (err: any) {
+    if(err?.code==='ACCOUNT_CHANGED')throw err;
     if (err?.code === 'auth/invalid-verification-code') {
       throw new Error('The code does not match. Enter the latest 6-digit code from your messages.');
     }

@@ -1,0 +1,46 @@
+.app-policies-dialog.modal{width:min(940px,calc(100% - 24px));max-width:940px;max-height:calc(100dvh - 24px);padding:0;overflow:hidden;border:1px solid var(--ui-line);border-radius:24px;background:var(--ui-surface);color:var(--ui-ink);font-family:var(--ui-font);box-shadow:0 24px 90px #0b132b35}
+.app-policies-dialog::backdrop{background:#08132f99;backdrop-filter:blur(6px)}
+.app-policies-shell{display:flex;flex-direction:column;max-height:calc(100dvh - 26px);min-width:0}
+.app-policies-shell *{box-sizing:border-box}
+.app-policies-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 28px;border-bottom:1px solid var(--ui-line);flex:none;background:var(--ui-surface)}
+.app-policies-eyebrow{font-size:.6875rem;font-weight:750;letter-spacing:.09em;color:var(--ui-link)}
+.app-policies-header h2{margin:6px 0 0;font-size:1.25rem;line-height:1.3;letter-spacing:-.025em}
+.app-policies-close{display:grid;place-items:center;flex:none;width:48px;height:48px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-subtle);color:var(--ui-ink);cursor:pointer}
+.app-policies-layout{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:0;overflow:hidden}
+.app-policies-nav{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:20px 12px;background:var(--ui-subtle);border-right:1px solid var(--ui-line);overflow-y:auto;min-width:0}
+.app-policies-nav button{display:flex;align-items:center;gap:10px;min-height:52px;flex:none;padding:12px;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--ui-muted);text-align:left;font:inherit;font-size:.8125rem;font-weight:650;line-height:1.45;cursor:pointer;transition:background-color 160ms,color 160ms,border-color 160ms}
+.app-policies-nav svg{flex:none}
+.app-policies-nav button span{flex:1;min-width:0;overflow-wrap:anywhere}
+.app-policies-nav button[aria-current=page]{background:var(--ui-surface);color:var(--ui-link);border-color:var(--ui-line);box-shadow:0 2px 6px #0b132b06}
+.app-policies-nav-arrow{opacity:0}
+.app-policies-nav [aria-current=page] .app-policies-nav-arrow{opacity:1}
+.app-policies-scroll{overflow-y:auto;overscroll-behavior:contain;min-width:0;min-height:0;scrollbar-gutter:stable}
+.app-policies-content{padding:30px;max-width:720px;margin-inline:auto;animation:app-policy-enter 170ms ease-out}
+.app-policies-title-icon{display:grid;place-items:center;width:56px;height:56px;border-radius:18px;border:1px solid var(--ui-line);background:var(--ui-subtle);color:var(--ui-link);margin-bottom:16px}
+.app-policies-category{margin:0 0 8px;color:var(--ui-link);font-size:.75rem;font-weight:750}
+.app-policies-content h3{margin:0;font-size:1.5625rem;line-height:1.3;font-weight:750;letter-spacing:-.03em;overflow-wrap:anywhere}
+.app-policies-intro{font-size:.9375rem;line-height:1.65;color:var(--ui-muted);margin:12px 0 20px}
+.app-policies-summary{display:grid;gap:9px;list-style:none;padding:16px;margin:0 0 28px;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-subtle)}
+.app-policies-summary li{display:flex;align-items:flex-start;gap:9px;font-size:.8125rem;line-height:1.5;font-weight:650}
+.app-policies-summary svg{color:var(--ui-link);flex:none;margin-top:2px}
+.app-policies-sections{display:grid;gap:24px}
+.app-policies-sections h4{margin:0 0 8px;font-size:.9375rem;line-height:1.45;font-weight:750}
+.app-policies-sections p{margin:0;color:var(--ui-muted);font-size:.875rem;line-height:1.8;overflow-wrap:anywhere}
+.app-policies-sections p+p{margin-top:10px}
+.app-policies-dialog a{color:var(--ui-link);text-decoration:underline;text-underline-offset:3px;font-weight:650;overflow-wrap:anywhere}
+.app-policies-support{display:flex;align-items:flex-start;gap:12px;margin-top:32px;padding:18px;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-subtle)}
+.app-policies-support-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:11px;background:var(--ui-surface);color:var(--ui-link)}
+.app-policies-support>div{min-width:0}
+.app-policies-support strong{display:block;font-size:.875rem;line-height:1.5}
+.app-policies-support p{margin:5px 0;color:var(--ui-muted);font-size:.8125rem;line-height:1.5}
+.app-policies-support a,.app-policies-support button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 0;color:var(--ui-link);font:inherit;font-size:.8125rem;font-weight:750;line-height:1.5}
+.app-policies-support button{border:0;background:transparent;text-align:left;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.app-policies-support a svg,.app-policies-support button svg{flex:none}
+.app-policies-dialog button:focus-visible,.app-policies-dialog a:focus-visible,.app-policies-content h3:focus-visible{outline:3px solid var(--ui-focus);outline-offset:3px}
+@media(hover:hover){.app-policies-nav button:hover{color:var(--ui-link);background:var(--ui-surface)}.app-policies-close:hover{border-color:var(--ui-control)}}
+@media(max-width:699px){.app-policies-dialog.modal{width:calc(100% - 16px);max-height:calc(100dvh - 16px);border-radius:20px}.app-policies-shell{max-height:calc(100dvh - 18px)}.app-policies-header{padding:18px}.app-policies-header h2{font-size:1.125rem}.app-policies-layout{display:flex;flex-direction:column}.app-policies-nav{flex-direction:row;gap:6px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--ui-line);overflow-x:auto;overflow-y:hidden;max-height:144px;scrollbar-width:thin;flex:none}.app-policies-nav button{min-height:48px;max-width:180px;padding:9px 11px;gap:7px;font-size:.75rem}.app-policies-nav button span{max-width:120px}.app-policies-nav-arrow{display:none}.app-policies-content{padding:22px 18px}.app-policies-content h3{font-size:1.3125rem}.app-policies-summary{padding:14px;margin-bottom:24px}.app-policies-support{padding:14px}.app-policies-title-icon{width:48px;height:48px;border-radius:15px;margin-bottom:12px}}
+@media(max-width:359px){.app-policies-header{padding:14px;gap:10px}.app-policies-eyebrow{font-size:.625rem}.app-policies-content{padding:20px 14px}.app-policies-support{gap:9px}.app-policies-support-icon{width:28px;height:28px}}
+@media(prefers-reduced-motion:reduce){.app-policies-content{animation:none}.app-policies-nav button{transition:none}}
+html.reduce-motion .app-policies-content{animation:none}
+html.reduce-motion .app-policies-nav button{transition:none}
+@keyframes app-policy-enter{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}

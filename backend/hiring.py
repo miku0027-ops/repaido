@@ -121,6 +121,9 @@ def notify(u,h,uid,title,body,urgent=False):
     nid=hashlib.sha256(f"hire:{h['id']}:{h['version']}:{uid}:{title}".encode()).hexdigest()
     n=dict(id=nid,user_id=uid,hire_id=h['id'],destination='hire',title=title,body=body,created_at=time.time(),alert_kind='hiring' if urgent else 'update',offer_expires_at=h.get('offer_expires_at',0))
     u.put('notifications',nid,n)
+    from transactional_mail import enqueue
+    enqueue(u,nid,'hire_request_'+h['state'],[uid],
+            {'record_type':'booking','record_id':h['id'],'path':'/worker' if uid==h['worker_id'] else '/'})
     for d in u.all('devices'):
         if d['user_id']==uid and d['active']:
             did=hashlib.sha256((nid+d['id']).encode()).hexdigest();u.put('deliveries',did,dict(id=did,notification_id=nid,device_id=d['id'],status='pending'))
@@ -242,6 +245,8 @@ def install(core):
             if old:
                 if old['fingerprint']!=fingerprint:fail('KEY_REUSED','This retry key belongs to another request.')
                 return safe(u.get('hires',old['id']),user['id'])
+            from account_profile import require_email
+            require_email(u,user)
             p=available(u)
             if p['version']!=body.policy_version:fail('POLICY_CHANGED','Review the current hiring terms.')
             if len([h for h in u.all('hires') if h['customer_id']==user['id'] and h['state'] not in ('booked','cancelled')])>=3:fail('OPEN_REQUESTS','Finish or cancel an existing hire request first.')
@@ -252,7 +257,10 @@ def install(core):
             if body.coupon_code:
                 from coupons import reserve
                 h['coupon']=reserve(u,user['id'],body.coupon_code,'hire',p['base_paise'],'hire:'+h['id'])
-            u.put('hires',h['id'],h);u.put('hire_keys',key,{'id':h['id'],'fingerprint':fingerprint});notify(u,h,body.worker_id,'New day-hire request','Respond within five minutes. Review scope and earnings before accepting.',True);return safe(h,user['id'])
+            u.put('hires',h['id'],h);u.put('hire_keys',key,{'id':h['id'],'fingerprint':fingerprint});notify(u,h,body.worker_id,'New day-hire request','Respond within five minutes. Review scope and earnings before accepting.',True)
+            from transactional_mail import enqueue
+            enqueue(u,h['id'],'hire_request_saved',[h['customer_id']],{'record_type':'booking','record_id':h['id'],'path':'/'})
+            return safe(h,user['id'])
         return store.run(save)
     @r.get('/hiring/requests')
     def requests(user=Depends(core.current_user)):
@@ -316,7 +324,12 @@ def install(core):
                 ep=j.get('settlement_policy')
                 if not ep or p['base_paise']*(10000-ep['worker_share_bps']-ep.get('bonus_reserve_bps',0))//10000<h['bonus_paise']:fail('EARNINGS_POLICY','Agent must accept an earnings policy that funds the promised bonus before confirmation.')
                 event(u,j,'HireBookingConfirmed',user['id']);u.put('jobs',jid,j);h.update(state='booked',job_id=jid)
-            h['version']+=1;u.put('hires',h['id'],h);return h
+            h['version']+=1;u.put('hires',h['id'],h)
+            if a=='cancel':
+                from transactional_mail import enqueue
+                enqueue(u,'hire-cancel:'+h['id']+':'+str(h['version']),'hire_request_cancelled',[h['customer_id'],h['worker_id']],
+                        {'record_type':'booking','record_id':h['id'],'path':'/'})
+            return h
         h=store.run(save)
         if h['state']=='quoting' and body.action=='accept':
             try:

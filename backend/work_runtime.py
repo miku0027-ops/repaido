@@ -45,6 +45,10 @@ def initialize(core):
     work_push.initialize(core)
     import custom_contracts
     custom_contracts.initialize(core)
+    import account_profile
+    import transactional_mail
+    account_profile.initialize(core)
+    transactional_mail.initialize(core)
 
 
 def health(core, service):

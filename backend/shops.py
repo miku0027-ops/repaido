@@ -46,8 +46,15 @@ def install(core):
             if old and old['status']=='pending_verification':
                 if all(old.get(k)==v for k,v in values.items()):return {'shop':old}
                 fail('APPLICATION_PENDING','Your application is already awaiting review. Contact the team for corrections.')
+            if not old:
+                from account_profile import require_email
+                require_email(u,user)
             s=dict(values,id=old['id'] if old else 'application_'+user['id'],owner_id=user['id'],phone=user['phone'],status='pending_verification',version=(old or {}).get('version',0)+1,created_at=(old or {}).get('created_at',time.time()),submitted_at=time.time())
-            u.put('shops',s['id'],s);audit(u,'ShopApplicationSubmitted',user['id'],shop_id=s['id'],version=s['version']);return {'shop':s}
+            u.put('shops',s['id'],s);audit(u,'ShopApplicationSubmitted',user['id'],shop_id=s['id'],version=s['version'])
+            from transactional_mail import enqueue
+            enqueue(u,'shop-application:'+s['id']+':'+str(s['version']),'shop_application_saved',[user['id']],
+                    {'record_type':'shop','record_id':s['id'],'path':'/shop-admin'})
+            return {'shop':s}
         return store.run(save)
     @r.get('/admin/shops')
     def queue(admin=Depends(core.operator)):
@@ -65,6 +72,10 @@ def install(core):
             if body.decision=='suspended' and s['status']!='approved':fail('INVALID_STATE','Only approved shops can be suspended.')
             if body.decision=='rejected' and s['status']!='pending_verification':fail('INVALID_STATE','Only pending applications can be rejected.')
             s.update(status=body.decision,version=body.expected_version+1,review_reason=body.reason,reviewed_at=time.time(),reviewed_by=admin['id'],verification=body.model_dump())
-            u.put('shops',shop_id,s);audit(u,'ShopReviewed',admin['id'],shop_id=shop_id,decision=body.model_dump());return {'shop':s}
+            u.put('shops',shop_id,s);audit(u,'ShopReviewed',admin['id'],shop_id=shop_id,decision=body.model_dump())
+            from transactional_mail import enqueue
+            enqueue(u,'shop-review:'+shop_id+':'+str(s['version']),'shop_application_'+body.decision,[s['owner_id']],
+                    {'record_type':'shop','record_id':shop_id,'path':'/shop-admin'})
+            return {'shop':s}
         return store.run(save)
     core.app.include_router(r)

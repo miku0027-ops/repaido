@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # Firebase Admin SDK Initialization
 fb_db = None
@@ -228,6 +228,8 @@ async def lifespan(app):
     repaidians_work.initialize(sys.modules[__name__])
     custom_contracts.initialize(sys.modules[__name__])
     contract_records.initialize(sys.modules[__name__])
+    account_profile.initialize(sys.modules[__name__])
+    transactional_mail.initialize(sys.modules[__name__])
     async def run_scheduler():
         while True:
             try:
@@ -292,25 +294,35 @@ def current_user(authorization: str = Header(default='')):
     raw_token = authorization[7:].strip()
 
     # 1. Try Firebase Auth verification if Firebase Admin is available
+    decoded = None
     if fb_auth_module:
         try:
             decoded = fb_auth_module.verify_id_token(raw_token, check_revoked=True)
-            uid = decoded['uid']
-            name = decoded.get('name', 'Repaido Member')
-            email = decoded.get('email', f"{uid}@repaido.user")
-            if USE_FIRESTORE:
-                ref = fs_doc('users', uid)
-                if not ref.get().exists:
-                    ref.set({'id': uid, 'name': name, 'email': email, 'created_at': fs_now()})
-            else:
-                with db() as c:
-                    c.execute('INSERT OR IGNORE INTO users VALUES(?,?,?,?,?)', (uid, name, email, 'firebase_auth_token', int(time.time())))
-            return {'id': uid, 'name': name, 'email': email,
-                    'phone': decoded.get('phone_number'),
-                    'phone_verified': bool(decoded.get('phone_number')),
-                    'phone_authenticated': bool(decoded.get('phone_number')) and decoded.get('firebase', {}).get('sign_in_provider') == 'phone'}
         except Exception:
-            pass
+            decoded = None
+    if decoded:
+        from account_profile import actual_email, ensure
+        uid = decoded['uid']; name = decoded.get('name', 'Repaido Member')
+        provider_email = actual_email(decoded.get('email'))
+        # The legacy users table needs an internal unique identifier for phone
+        # identities. It is never presented as a real account email.
+        internal_email = provider_email or f'{uid}@repaido.user'
+        if USE_FIRESTORE:
+            ref = fs_doc('users', uid)
+            if not ref.get().exists:
+                ref.set({'id': uid, 'name': name, 'email': internal_email, 'created_at': fs_now()})
+        else:
+            with db() as c:
+                c.execute('INSERT OR IGNORE INTO users VALUES(?,?,?,?,?)', (uid, name, internal_email, 'firebase_auth_token', int(time.time())))
+                if not c.execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone():
+                    c.execute('INSERT INTO users VALUES(?,?,?,?,?)',(uid,name,f'{uid}@repaido.user','firebase_auth_token',int(time.time())))
+        actor = {'id': uid, 'name': name, 'auth_provider': 'firebase', 'auth_email': provider_email,
+            'auth_email_verified': decoded.get('email_verified') is True, 'auth_time': decoded.get('auth_time'),
+            'phone': decoded.get('phone_number'), 'phone_verified': bool(decoded.get('phone_number')),
+            'phone_authenticated': bool(decoded.get('phone_number')) and decoded.get('firebase', {}).get('sign_in_provider') == 'phone'}
+        contact = operations_store.run(lambda u: ensure(u,actor))
+        actor.update(email=actual_email(contact.get('email')),email_verified=bool(contact.get('email_verified')),email_required=not bool(actual_email(contact.get('email'))))
+        return actor
 
     # 2. Fall back to local SQLite session tokens
     if USE_FIRESTORE:
@@ -320,15 +332,26 @@ def current_user(authorization: str = Header(default='')):
         user = c.execute('SELECT u.id,u.name,u.email FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?', (digest, int(time.time()))).fetchone()
     if not user:
         raise HTTPException(401, 'Your session has expired. Please sign in again.')
-    return dict(user)
+    from account_profile import ensure, actual_email
+    actor = {**dict(user), 'auth_provider': 'local', 'auth_email': user['email'], 'auth_email_verified': False}
+    contact = operations_store.run(lambda u: ensure(u,actor))
+    actor.update(email=actual_email(contact.get('email')),email_verified=bool(contact.get('email_verified')),email_required=not bool(actual_email(contact.get('email'))))
+    return actor
 
 
-def issue_session(user):
+def issue_session(user,event_kind='login'):
     token = secrets.token_urlsafe(32)
     with db() as c:
         c.execute('DELETE FROM sessions WHERE expires_at <= ?', (int(time.time()),))
         c.execute('INSERT INTO sessions VALUES(?,?,?)', (hashlib.sha256(token.encode()).hexdigest(), user['id'], int(time.time()) + 7*86400))
-    return {'token': token, 'user': {k:user[k] for k in ('id','name','email')}}
+    from account_profile import ensure
+    from transactional_mail import enqueue
+    def record(u):
+        actor={k:user[k] for k in ('id','name','email')};actor.update(auth_provider='local',auth_email=user['email'],auth_email_verified=False)
+        contact=ensure(u,actor)
+        enqueue(u,'account-session-'+hashlib.sha256(token.encode()).hexdigest(),event_kind,[user['id']],{})
+        return {**{k:user[k] for k in ('id','name')},'email':contact.get('email'),'email_verified':bool(contact.get('email_verified')),'email_required':not bool(contact.get('email'))}
+    return {'token': token, 'user': operations_store.run(record)}
 
 class Credentials(BaseModel):
     email: str = Field(min_length=5, max_length=254)
@@ -339,10 +362,9 @@ class Registration(Credentials):
 
 
 def valid_email(email):
-    email = email.strip().lower()
-    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
-        raise HTTPException(422, 'Enter a valid email address.')
-    return email
+    from account_profile import normalize_email
+    try:return normalize_email(email)
+    except ValueError as exc:raise HTTPException(422,str(exc)) from None
 
 @app.get('/health')
 def health():
@@ -360,7 +382,7 @@ def register(body: Registration, request: Request):
             c.execute('INSERT INTO users VALUES(?,?,?,?,?)', (user['id'], user['name'], email, hash_password(body.password), int(time.time())))
     except sqlite3.IntegrityError:
         raise HTTPException(409, 'An account with this email already exists. Please sign in.')
-    return issue_session(user)
+    return issue_session(user,'registration')
 
 @app.post('/auth/login')
 def login(body: Credentials, request: Request):
@@ -373,7 +395,19 @@ def login(body: Credentials, request: Request):
 
 @app.get('/auth/me')
 def me(user=Depends(current_user)):
-    return user
+    from account_profile import profile
+    account=operations_store.run(lambda u:profile(u,user))
+    return {k:user.get(k) for k in ('id','name','phone','phone_verified','phone_authenticated')} | {
+        'email':account['email'],'email_verified':account['email_verified'],'email_required':account['email_required'],'account_profile':account}
+
+from account_profile import Session as AccountSession
+
+@app.post('/auth/session')
+def establish_authenticated_session(body: AccountSession, user=Depends(current_user)):
+    from account_profile import establish_session
+    account=operations_store.run(lambda u:establish_session(u,user,body))
+    return {'user':{k:user.get(k) for k in ('id','name','phone','phone_verified','phone_authenticated')} |
+        {'email':account['email'],'email_verified':account['email_verified'],'email_required':account['email_required']},'account_profile':account}
 
 @app.post('/auth/logout', status_code=204)
 def logout(authorization: str = Header(default=''), user=Depends(current_user)):
@@ -812,7 +846,7 @@ class PartnerApplicationInput(BaseModel):
     role: str = 'Technician'
     name: str = Field(min_length=2, max_length=80)
     phone: str = Field(pattern=r'^[0-9+ ]{10,15}$')
-    email: str = ''
+    email: str = Field(min_length=3,max_length=254)
     dob: str = ''
     gender: str = 'Male'
     home_address: str = ''
@@ -829,6 +863,12 @@ class PartnerApplicationInput(BaseModel):
     specialist_plan: Literal['monthly', 'yearly'] | None = None
     razorpay_payment_id: str | None = None
 
+    @field_validator('email')
+    @classmethod
+    def email_clean(cls,value):
+        from account_profile import normalize_email
+        return normalize_email(value)
+
 @app.post('/partner-applications', status_code=201)
 def submit_partner_application(body: PartnerApplicationInput, user=Depends(current_user)):
     raise HTTPException(409, 'Use phone-verified worker onboarding at /operations/worker/onboarding. Private document verification is not yet connected.')
@@ -836,7 +876,7 @@ def submit_partner_application(body: PartnerApplicationInput, user=Depends(curre
 class ShopApplicationInput(BaseModel):
     owner_name: str = Field(min_length=2, max_length=80)
     phone: str = Field(pattern=r'^[0-9+ ]{10,15}$')
-    email: str = ''
+    email: str = Field(min_length=3,max_length=254)
     shop_name: str = Field(min_length=2, max_length=120)
     shop_tagline: str = ''
     gstin: str = ''
@@ -854,6 +894,12 @@ class ShopApplicationInput(BaseModel):
     upi_id: str = ''
     aadhaar_number: str = Field(min_length=12, max_length=14)
     pan_number: str = Field(min_length=10, max_length=10)
+
+    @field_validator('email')
+    @classmethod
+    def email_clean(cls,value):
+        from account_profile import normalize_email
+        return normalize_email(value)
 
 @app.post('/shop-applications', status_code=201)
 def submit_shop_application(body: ShopApplicationInput, user=Depends(current_user)):
@@ -1006,50 +1052,90 @@ def get_partner_applications():
         rows = c.execute("SELECT * FROM partner_applications ORDER BY created_at DESC").fetchall()
         return {'applications': [dict(r) for r in rows]}
 
+from fastapi import Response as SupportTicketResponse
+
+
 class SupportTicketInput(BaseModel):
+    model_config = {'extra': 'forbid'}
     name: str = Field(min_length=2, max_length=80)
     phone: str = Field(pattern=r'^[0-9+ ]{10,15}$')
-    subject: str = 'Service Query'
+    subject: str = Field(default='Service Query', min_length=2, max_length=120)
     message: str = Field(min_length=5, max_length=1000)
+    request_id: str | None = Field(default=None, min_length=16, max_length=100, pattern=r'^[A-Za-z0-9_-]+$')
+
+    @field_validator('name', 'subject', 'message')
+    @classmethod
+    def meaningful(cls, value, info):
+        value = value.strip()
+        if len(value) < (5 if info.field_name == 'message' else 2):
+            raise ValueError('Enter the support details before submitting.')
+        return value
 
 @app.post('/support-tickets', status_code=201)
 def create_support_ticket(body: SupportTicketInput, user=Depends(current_user)):
-    """Create customer care support ticket"""
-    ticket_id = f"REP-TICKET-{secrets.token_hex(4).upper()}"
-    now = int(time.time())
-    if USE_FIRESTORE:
-        fs_doc('support_tickets', ticket_id).set({'id': ticket_id, 'user_id': user['id'], **body.model_dump(), 'status': 'open', 'created_at': now})
+    """Legacy DTO, canonical private support case and atomic email intent."""
+    from integrations import audit
+    from operations import fail
+    from transactional_mail import enqueue
+    import repaidians
+    request_id = body.request_id or secrets.token_urlsafe(24)
+    key = hashlib.sha256((user['id'] + ':' + request_id).encode()).hexdigest()
+    ticket_id = 'REP-TICKET-' + key[:24].upper()
+    details = body.model_dump(exclude={'request_id'})
+    fingerprint = hashlib.sha256(json.dumps(details, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    def save(u):
+        old = u.get('legacy_support_ticket_commands', key)
+        if old:
+            if old['fingerprint'] != fingerprint:
+                fail('KEY_REUSED', 'Use a new request ID for a different support issue.', 409)
+            case = u.get('support_cases', ticket_id)
+            return {'ticket_id': ticket_id, 'status': case['state']}
+        now = time.time()
+        case = dict(id=ticket_id, customer_id=user['id'], job_id=None, category='general', state='open',
+                    version=1, created_at=now, updated_at=now, fingerprint=fingerprint, source='legacy_support_ticket')
+        u.put('support_cases', ticket_id, case)
+        u.put('support_messages', ticket_id, dict(id=ticket_id, case_id=ticket_id, actor_id=user['id'],
+              actor_role='requester', message=details['subject'] + '\n\n' + details['message'], created_at=now))
+        row = dict(id=ticket_id, user_id=user['id'], **details, status='open', created_at=int(now),
+                   sortKey=repaidians.sort_key(int(now * 1000), ticket_id))
+        u.put('legacy_support_tickets_' + repaidians.digest(user['id']), ticket_id, row)
+        u.put('legacy_support_ticket_commands', key, dict(fingerprint=fingerprint, ticket_id=ticket_id))
+        audit(u, 'SupportCaseOpened', user['id'], case_id=ticket_id, job_id=None)
+        enqueue(u, 'support-opened:' + ticket_id, 'support_opened', [user['id']],
+                {'record_type': 'support_case', 'record_id': ticket_id, 'path': '/?view=account&section=support'})
         return {'ticket_id': ticket_id, 'status': 'open'}
-    with db() as c:
-        c.execute('''
-        INSERT INTO support_tickets VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            ticket_id, user['id'], body.name.strip(), body.phone.strip(),
-            body.subject.strip(), body.message.strip(), 'open', now
-        ))
-    if fb_db:
-        try:
-            fb_db.collection('support_tickets').document(ticket_id).set({
-                'id': ticket_id,
-                'user_id': user['id'],
-                **body.model_dump(),
-                'status': 'open',
-                'created_at': firestore.SERVER_TIMESTAMP
-            })
-        except Exception as e:
-            print(f"Firestore support ticket sync notice: {e}")
-    return {'ticket_id': ticket_id, 'status': 'open'}
+    return operations_store.run(save)
 
 @app.get('/support-tickets')
-def get_support_tickets(user=Depends(current_user)):
-    """Retrieve customer's support tickets"""
+def get_support_tickets(response: SupportTicketResponse, user=Depends(current_user)):
+    """Private compatibility view; retained legacy records plus new cases."""
+    response.headers['Cache-Control'] = 'private, no-store'
     if USE_FIRESTORE:
         rows = [doc.to_dict() for doc in fs_collection('support_tickets').where('user_id', '==', user['id']).stream()]
-        rows.sort(key=lambda item: item.get('created_at', 0), reverse=True)
-        return {'tickets': rows}
-    with db() as c:
-        rows = c.execute("SELECT * FROM support_tickets WHERE user_id=? ORDER BY created_at DESC", (user['id'],)).fetchall()
-        return {'tickets': [dict(r) for r in rows]}
+    else:
+        with db() as c:
+            rows = [dict(r) for r in c.execute("SELECT * FROM support_tickets WHERE user_id=? ORDER BY created_at DESC", (user['id'],)).fetchall()]
+    import repaidians
+    def current(u):
+        tickets = repaidians.query(u, 'legacy_support_tickets_' + repaidians.digest(user['id']), limit=100)
+        u.prefetch([('support_cases', ticket['id']) for ticket in tickets])
+        return [{**{k: v for k, v in ticket.items() if k != 'sortKey'},
+                 'status': (u.get('support_cases', ticket['id']) or {}).get('state', ticket['status'])}
+                for ticket in tickets if ticket['user_id'] == user['id']]
+    merged = {row['id']: row for row in rows}
+    merged.update({row['id']: row for row in operations_store.run(current)})
+    def created_at(item):
+        value = item.get('created_at', 0)
+        # Historical Firestore copies may use a server Timestamp while the
+        # canonical compatibility records retain the original integer DTO.
+        try:
+            return value.timestamp() if isinstance(value, datetime) else float(value)
+        except (TypeError, ValueError):
+            try:
+                return datetime.fromisoformat(str(value).replace('Z', '+00:00')).timestamp()
+            except (TypeError, ValueError):
+                return 0
+    return {'tickets': sorted(merged.values(), key=created_at, reverse=True)}
 
 # Install after authentication/operator dependencies have been declared.
 from operations import install as install_operations
@@ -1152,3 +1238,6 @@ import custom_contracts
 custom_contracts.install(sys.modules[__name__])
 import contract_records
 contract_records.install(sys.modules[__name__])
+import account_profile
+account_profile.install(sys.modules[__name__])
+import transactional_mail

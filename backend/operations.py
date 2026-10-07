@@ -291,6 +291,29 @@ def event(u, job, kind, actor, payload=None):
     # Kept atomically with the aggregate; a relay must mark delivery separately.
     u.put('outbox', eid, {**envelope, 'delivery_status': 'pending', 'recipient_ids': list(filter(None, [job['customer_id'], job.get('worker_id')]))})
     job['events'].append({k: envelope[k] for k in ('event_id', 'event_type', 'occurred_at_server_time', 'aggregate_version')})
+    mail_kinds = {
+        'BookingRequested': 'booking_requested', 'AssignmentOffered': 'task_assignment',
+        'HireBookingConfirmed': 'booking_confirmed', 'accept': 'booking_confirmed',
+        'cancel': 'booking_cancelled', 'reschedule': 'booking_rescheduled',
+        'depart': 'task_travel_started', 'start': 'task_started',
+        'submit_completion': 'completion_review_requested', 'accept_completion': 'task_completed',
+        'dispute': 'booking_disputed', 'FollowUpScheduled': 'follow_up_scheduled',
+        'PartsOrderRequested': 'shop_order_requested', 'PartsOrderCancelled': 'shop_order_cancelled',
+        'ShopOrderAccepted': 'shop_order_accepted', 'ShopHandoverConfirmed': 'shop_handover_confirmed',
+        'VerifiedShopPickupCompleted': 'shop_pickup_confirmed', 'PartsPaymentCaptured': 'parts_payment_confirmed',
+        'VisitEvidenceUploaded': 'work_proof_recorded',
+    }
+    if kind in mail_kinds:
+        from transactional_mail import enqueue
+        recipients = [job.get('worker_id')] if kind == 'AssignmentOffered' else [job['customer_id']] if kind == 'BookingRequested' else [job['customer_id'], job.get('worker_id')]
+        if kind in ('PartsOrderRequested', 'PartsOrderCancelled', 'ShopOrderAccepted', 'VerifiedShopPickupCompleted'):
+            order = u.get('parts_orders', (payload or {}).get('order_id', '')) or {}
+            shop = u.get('shops', order.get('shop_id', '')) or {}
+            recipients.append(shop.get('owner_id'))
+        elif kind == 'ShopHandoverConfirmed':
+            recipients.append(actor)
+        enqueue(u, eid, mail_kinds[kind], list(filter(None, recipients)),
+                {'record_type': 'booking', 'record_id': job['id'], 'path': '/'})
 
 
 def monitor_worksite(u,j,now,actor):
@@ -532,6 +555,9 @@ def install(core):
         def save(u):
             old = u.get('workers', user['id'])
             if old and old['status'] == 'approved': fail('ALREADY_APPROVED', 'Your account is already onboarded.')
+            if not old:
+                from account_profile import require_email
+                require_email(u, user)
             from partner_program import accept
             accept(u,user['id'],body.partner_policy_version,body.partner_policy_sections)
             worker = dict(body.model_dump(), id=user['id'], phone=user['phone'], role='technician',
@@ -548,6 +574,10 @@ def install(core):
                 if old.get('name')!=body.name:v['bank_status']='not_verified'
                 u.put('verification',user['id'],v)
             u.put('workers', user['id'], worker)
+            if not old:
+                from transactional_mail import enqueue
+                enqueue(u, 'worker-application:'+worker['id']+':'+str(worker['created_at']), 'worker_application_saved', [user['id']],
+                        {'record_type': 'account', 'record_id': worker['id'], 'path': '/worker'})
             return {'worker': worker, 'message': 'Profile saved. Continue with identity, PAN, address and tools uploads, then submit for review.'}
         return store.run(save)
 
@@ -604,6 +634,9 @@ def install(core):
             u.put('workers', worker_id, w)
             aid = str(uuid.uuid4())
             u.put('audit', aid, {'id': aid, 'action': 'WorkerReviewed', 'actor_id': admin['id'], 'worker_id': worker_id, 'decision': body.model_dump(), 'at': time.time()})
+            from transactional_mail import enqueue
+            enqueue(u, aid, 'worker_application_'+body.decision, [worker_id],
+                    {'record_type': 'account', 'record_id': worker_id, 'path': '/worker'})
             return {'worker': w}
         return store.run(save)
 
@@ -725,6 +758,8 @@ def install(core):
             if old:
                 if old['fingerprint'] != fingerprint: fail('KEY_REUSED', 'This retry key belongs to another booking.')
                 return public_job(u, u.get('jobs', old['id']), user['id'])
+            from account_profile import require_email
+            require_email(u, user)
             service_terms=u.get('service_terms',body.service_id) or {'version':0,'text':''}
             if service_terms['version'] and body.service_terms_version!=service_terms['version']:fail('TERMS_CHANGED','Service terms changed. Reopen the booking and review the latest terms.')
             jid = str(uuid.uuid4())

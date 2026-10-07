@@ -113,6 +113,13 @@ def deploy(args):
     for name, module, worker in [('repaido-work-api', 'work_service', False), ('repaido-work-worker', 'work_worker', True)]:
         previous = exists('run', 'services', 'describe', name, *common)
         values = dict(environment)
+        service_secrets=list(secrets)
+        if not worker:
+            # Only the scheduler worker sends email. The public discovery service
+            # needs neither the mailbox password nor email ownership signing key.
+            for key in ('REPAIDO_SMTP_PASSWORD','REPAIDO_EMAIL_CHALLENGE_SECRET'):
+                values.pop(key,None)
+            service_secrets=[binding for binding in service_secrets if not binding.startswith(('REPAIDO_SMTP_PASSWORD=', 'REPAIDO_EMAIL_CHALLENGE_SECRET='))]
         if worker:
             values['REPAIDO_WORK_SCHEDULER_EMAIL'] = caller
             values['REPAIDO_PUSH_ENABLED'] = 'true'
@@ -132,8 +139,10 @@ def deploy(args):
                        '--no-allow-unauthenticated' if worker else '--allow-unauthenticated', '--tag=' + tag]
             if previous:
                 command.append('--no-traffic')
-            if secrets:
-                command.append('--set-secrets=' + ','.join(secrets))
+            if service_secrets:
+                command.append('--set-secrets=' + ','.join(service_secrets))
+            else:
+                command.append('--clear-secrets')
             service = gcloud(*command, data=True)
         stable = service['status']['url'].rstrip('/')
         if worker and not previous:

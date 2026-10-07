@@ -18,7 +18,11 @@ def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path,
     def fake_gcloud(*args, data=False):
         commands.append(args)
         if args[:3] == ('run', 'services', 'describe'):
-            return {'spec': {'template': {'spec': {'serviceAccountName': 'runtime@repaido.iam.gserviceaccount.com', 'containers': [{'env': []}]}}}}
+            return {'spec': {'template': {'spec': {'serviceAccountName': 'runtime@repaido.iam.gserviceaccount.com', 'containers': [{'env': [
+                {'name':'REPAIDO_SMTP_PASSWORD','valueFrom':{'secretKeyRef':{'name':'smtp-password','key':'3'}}},
+                {'name':'REPAIDO_EMAIL_CHALLENGE_SECRET','valueFrom':{'secretKeyRef':{'name':'email-signing','key':'5'}}},
+                {'name':'REPAIDO_SMTP_HOST','value':'mail.example.com'},
+            ]}]}}}}
         if args[:2] == ('services', 'list'):
             return [{'config': {'name': service}} for service in deploy.REQUIRED_WORK_APIS]
         if args[:2] == ('run', 'deploy'):
@@ -48,6 +52,11 @@ def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path,
     assert other not in scheduler
     assert '--oidc-token-audience=https://repaido-work-worker.example.run.app' in scheduler
     assert services == ['repaido-work-api', 'repaido-work-worker']
+    run_deploys=[command for command in commands if command[:2]==('run','deploy')]
+    public,worker=run_deploys
+    assert '--clear-secrets' in public
+    assert not any('smtp-password' in arg or 'email-signing' in arg for arg in public)
+    assert '--set-secrets=REPAIDO_SMTP_PASSWORD=smtp-password:3,REPAIDO_EMAIL_CHALLENGE_SECRET=email-signing:5' in worker
     assert not any(command[:2] == ('services', 'enable') for command in commands)
     receipt = json.loads((tmp_path / 'receipt.json').read_text())
     assert [row['revision'] for row in receipt] == ['repaido-work-api-verified', 'repaido-work-worker-verified']
