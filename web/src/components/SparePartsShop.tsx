@@ -443,64 +443,6 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                 <span>{totalItemsCount}</span>
               </button>
             </div>
-
-            {/* Active Filter Summary Bar - Only shows if filters are applied */}
-            {activeFilterCount > 0 && (
-              <div className="spare-active-filters-bar" role="region" aria-label="Active filters">{maxPrice!==undefined&&<button className="spare-active-filter-pill" onClick={()=>setMaxPrice(undefined)}>Up to ₹{maxPrice} <X size={13}/></button>}
-                {refurbishedGrade !== 'all' && (
-                  <button
-                    type="button"
-                    className="spare-active-filter-pill"
-                    onClick={() => setRefurbishedGrade('all')}
-                    title="Remove grade filter"
-                  >
-                    <span>Grade {refurbishedGrade}</span>
-                    <X size={13} aria-hidden="true" />
-                  </button>
-                )}
-                {selectedCategory !== 'all' && (
-                  <button
-                    type="button"
-                    className="spare-active-filter-pill"
-                    onClick={() => setSelectedCategory('all')}
-                    title="Remove category filter"
-                  >
-                    <span>{categories.find(c => c.id === selectedCategory)?.label || selectedCategory}</span>
-                    <X size={13} aria-hidden="true" />
-                  </button>
-                )}
-                {sortBy !== 'popularity' && (
-                  <button
-                    type="button"
-                    className="spare-active-filter-pill"
-                    onClick={() => setSortBy('popularity')}
-                    title="Reset sort to Recommended"
-                  >
-                    <span>
-                      {sortBy === 'price_low' ? 'Price: Low-High' :
-                       sortBy === 'price_high' ? 'Price: High-Low' :
-                       sortBy === 'newest' ? 'Newest' : 'Discount'}
-                    </span>
-                    <X size={13} aria-hidden="true" />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="spare-clear-all-link"
-                  onClick={() => {
-                    setRefurbishedGrade('all');
-                    setMaxPrice(undefined);
-                    setSelectedCategory('all');
-                    setSortBy('popularity');
-                  }}
-                >
-                  Reset all
-                </button>
-                <span className="spare-results-count-pill">
-                  {sortedProducts.length} {sortedProducts.length === 1 ? 'part' : 'parts'}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* On-Screen Horizontal Category Rail */}
@@ -528,7 +470,6 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           {section==='refurbished'&&<section className="refurb-introduction" aria-labelledby="refurb-title">
             <div className="refurb-intro-icon"><RotateCcw size={26} aria-hidden="true"/></div>
             <div><span className="prime-eyebrow">A Repaido specialty</span><h2 id="refurb-title">A second life. The details first.</h2><p>Compare shop-declared condition, repairs, test results and cover before you choose.</p></div>
-            <div className="refurb-grade-options" role="group" aria-label="Shop-declared grade">{['all','A+','A','B'].map(grade=><button type="button" key={grade} aria-pressed={refurbishedGrade===grade} onClick={()=>setRefurbishedGrade(grade as typeof refurbishedGrade)}>{grade==='all'?'All grades':`Grade ${grade}`}</button>)}</div>
           </section>}
           {sortBy==='popularity'&&sortedProducts.some(p=>p.prime?.active)&&<p className="prime-placement-note">Prime shops receive paid priority in these results. Price and newest sorts follow your selection.</p>}
 
@@ -678,13 +619,14 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'all', label: 'All Grades' },
-                    { id: 'A+', label: '⭐ Grade A+ (Like New)' },
-                    { id: 'A', label: '✨ Grade A (Superb)' },
-                    { id: 'B', label: '👌 Grade B (Value)' }
+                    { id: 'A+', label: 'Grade A+' },
+                    { id: 'A', label: 'Grade A' },
+                    { id: 'B', label: 'Grade B' }
                   ].map(grade => (
                     <button
                       key={grade.id}
                       type="button"
+                      aria-pressed={refurbishedGrade === grade.id}
                       className={`spare-filter-choice-btn ${refurbishedGrade === grade.id ? 'is-selected' : ''}`}
                       onClick={() => setRefurbishedGrade(grade.id as any)}
                     >
@@ -706,6 +648,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                     <button
                       key={cat.id}
                       type="button"
+                      aria-pressed={isSelected}
                       className={`spare-filter-cat-btn ${isSelected ? 'is-selected' : ''}`}
                       onClick={() => setSelectedCategory(cat.id)}
                     >
@@ -716,6 +659,8 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                 })}
               </div>
             </div>
+
+            <label className="market-filter-budget">Maximum price (₹)<input type="number" min="1" max="1000000" step="1" inputMode="numeric" placeholder="Any price" value={maxPrice??''} onChange={e=>setMaxPrice(e.target.value?Number(e.target.value):undefined)}/></label>
 
             {/* Sort Group */}
             <div className="spare-filter-group">
@@ -731,6 +676,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                   <button
                     key={opt.id}
                     type="button"
+                    aria-pressed={sortBy === opt.id}
                     className={`spare-filter-sort-btn ${sortBy === opt.id ? 'is-selected' : ''}`}
                     onClick={() => setSortBy(opt.id as any)}
                   >
@@ -742,10 +688,10 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
+            <div className="market-filter-actions">
               <button
                 type="button"
-                className="w-1/3 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-xs text-center"
+                className="market-filter-reset"
                 onClick={() => {
                     setRefurbishedGrade('all');
                   setMaxPrice(undefined);
@@ -757,7 +703,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               </button>
               <button
                 type="button"
-                className="w-2/3 py-2.5 px-4 bg-[#2874f0] hover:bg-blue-600 text-white font-bold rounded-xl shadow-xs transition-colors text-xs text-center flex items-center justify-center gap-2"
+                className="ops-primary"
                 onClick={() => setShowFilterModal(false)}
               >
                 <span>Apply ({sortedProducts.length} Results)</span>

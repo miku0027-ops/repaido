@@ -1,0 +1,97 @@
+/* Small visual surfaces retain 44px tap space and respect text scaling. */
+#root .market-experience { --market-label:.75rem; --market-meta:.6875rem; }
+#root .market-experience :where(button:not(.market-card-open):not(.product-details-trigger)) { min-height:36px!important; height:auto; font-size:var(--market-label); line-height:1.5; }
+#root .market-experience .business-tabs { margin:6px 12px; padding:2px; gap:2px; }
+#root .market-experience .business-tabs button { min-height:36px!important; padding:6px 8px; font-size:var(--market-label); line-height:1.4; border-radius:9px; }
+#root .market-experience .stores-segmented-nav-wrap { padding:0 10px; }
+#root .market-experience .stores-segmented-nav { padding:0 2px; gap:4px; background:var(--ui-surface); border-radius:0; }
+#root .market-experience :is(.stores-nav-pill,.spare-category-rail-btn,.spare-filter-trigger,.spare-cart-button,.market-filter-trigger,.market-toggle-btn,.market-create-btn,.b2b-category-rail button) {
+ position:relative; isolation:isolate; min-height:44px!important; height:auto!important; min-width:44px; max-height:none; padding:10px!important;
+ border:0!important; border-radius:0!important; background:transparent!important; box-shadow:none!important; color:var(--ui-muted)!important; font-size:var(--market-label)!important; line-height:1.4; font-weight:650; gap:5px; transition:color 140ms ease;
+}
+#root .market-experience :is(.stores-nav-pill,.spare-category-rail-btn,.spare-filter-trigger,.spare-cart-button,.market-filter-trigger,.market-toggle-btn,.market-create-btn,.b2b-category-rail button)::before {
+ content:''; position:absolute; z-index:-1; inset:6px 0; border:1px solid var(--ui-line); border-radius:9px; background:var(--ui-surface); transition:background-color 140ms ease,border-color 140ms ease;
+}
+#root .market-experience :is(.stores-nav-pill,.spare-category-rail-btn,.spare-filter-trigger,.spare-cart-button,.market-filter-trigger,.market-toggle-btn,.market-create-btn,.b2b-category-rail button):hover::before { background:var(--ui-subtle); border-color:var(--ui-muted); }
+#root .market-experience :is(.stores-nav-pill.is-active,.spare-category-rail-btn.is-selected,.spare-filter-trigger.is-filtered,.market-filter-trigger.is-filtered,.market-create-btn,.b2b-category-rail button[aria-pressed=true]) { color:#fff!important; }
+#root .market-experience :is(.stores-nav-pill.is-active,.spare-category-rail-btn.is-selected,.spare-filter-trigger.is-filtered,.market-filter-trigger.is-filtered,.market-create-btn,.b2b-category-rail button[aria-pressed=true])::before { background:var(--ui-primary); border-color:var(--ui-primary); }
+#root .market-experience .stores-pill-label { font-size:var(--market-label); line-height:1.4; }
+#root .market-experience .stores-pill-tag { display:none; }
+#root .market-experience :is(.stores-pill-icon,.spare-category-rail-btn svg,.spare-filter-trigger svg,.spare-cart-button svg) { width:14px; height:14px; flex-shrink:0; }
+#root .market-experience .spare-category-rail-container { padding:0 10px; background:var(--ui-surface); }
+#root .market-experience .spare-category-rail { padding:0; gap:6px; background:transparent; }
+#root .market-experience .spare-category-rail-btn { flex:0 0 auto; white-space:nowrap; }
+#root .market-experience :is(.stores-module-container,.spare-discovery-dock,.community-market) { background:var(--ui-surface); }
+#root .market-experience .spare-discovery-dock { padding:4px 10px 0; border-color:var(--ui-line); }
+#root .market-experience .spare-search-row { gap:4px; }
+#root .market-experience .spare-scoped-search { min-width:0; min-height:36px; height:auto; border-radius:9px; background:var(--ui-surface); border-color:var(--ui-line); }
+#root .market-experience .spare-scoped-search input { min-width:0; min-height:34px; padding:4px 0; font-size:.875rem; color:var(--ui-ink); background:transparent; }
+#root .market-experience .spare-active-filters-bar { padding:0; }
+#root .market-experience .spare-active-filter-pill { min-height:28px!important; height:auto; padding:4px 8px; font-size:var(--market-meta); color:var(--ui-ink); background:var(--ui-subtle); border-color:var(--ui-line); }
+#root .market-experience .refurb-introduction { margin:6px 10px 10px; padding:10px; gap:10px; grid-template-columns:28px minmax(0,1fr); background:var(--ui-subtle); border-color:var(--ui-line); color:var(--ui-ink); }
+#root .market-experience .refurb-intro-icon { width:28px; height:28px; background:transparent; color:var(--ui-primary); }
+#root .market-experience .refurb-intro-icon svg { width:22px; height:22px; }
+#root .market-experience .refurb-introduction h2 { font-size:.875rem; line-height:1.4; margin:2px 0; color:var(--ui-ink); }
+#root .market-experience .refurb-introduction :is(p,.prime-eyebrow) { font-size:var(--market-meta); line-height:1.5; color:var(--ui-muted); margin:2px 0; }
+#root .market-experience .community-market { padding:6px 0 12px!important; }
+#root .market-experience .community-market .ops-heading h2 { font-size:1rem; color:var(--ui-ink); }
+#root .market-experience .community-market .ops-heading p { font-size:var(--market-meta); color:var(--ui-muted); }
+#root .market-experience .community-market .market-policy { padding:6px 8px; font-size:var(--market-meta); color:var(--ui-muted); background:var(--ui-subtle); border-color:var(--ui-line); font-weight:500; }
+#root .market-experience .community-market .market-policy svg { flex-shrink:0; }
+#root .market-experience .community-market .market-create-btn { width:auto; margin:0; }
+#root .market-experience .community-market .market-search-compact { display:grid; grid-template-columns:minmax(0,1fr) auto 44px; margin:2px 0 8px; gap:4px; }
+#root .market-experience .community-market .market-query { min-width:0; }
+#root .market-experience .community-market .customer-search-field { min-height:36px; height:auto; border-radius:9px; padding:0 8px; gap:5px; background:var(--ui-surface); border-color:var(--ui-line); }
+#root .market-experience .community-market .customer-search-field input { min-width:0; min-height:34px!important; padding:4px 0; font-size:.875rem; background:transparent; color:var(--ui-ink); border:0; }
+#root .market-experience .community-market .customer-search-field svg { width:15px; height:15px; flex-shrink:0; color:var(--ui-muted); }
+#root .market-experience .community-market .market-search-compact :is(.market-search-submit,.customer-search-field button) { min-width:32px; min-height:36px!important; height:auto; padding:6px; font-size:var(--market-label); border-radius:9px; background:var(--ui-primary); color:#fff; border-color:var(--ui-primary); }
+#root .market-experience .community-market .market-search-compact .customer-search-field button { background:transparent; border:0; color:var(--ui-muted); }
+#root .market-experience .community-market .market-search-compact .market-filter-trigger { min-height:44px!important; height:auto; background:transparent; color:var(--ui-muted); border:0; }
+#root .market-experience .community-market .market-search-compact .market-filter-trigger.is-filtered { color:#fff; }
+.market-filter-count { font-size:.6875rem; font-variant-numeric:tabular-nums; }
+#root .market-experience .community-market .market-card { background:var(--ui-surface); border-color:var(--ui-line); }
+#root .market-experience .community-market .market-card-body :is(strong,b) { color:var(--ui-ink); }
+#root .market-experience .community-market :is(.market-card-tag,.market-card-sub,.market-card-loc) { color:var(--ui-muted); }
+#root .market-experience .community-market .market-card-body strong { font-size:.8125rem; line-height:1.4; }
+#root .market-experience .community-market .market-card-body :is(.market-card-sub,.market-card-loc,.market-card-tag) { font-size:var(--market-meta); }
+#root .market-experience :is(.b2b-button,.b2b-status-button,.tender-quick-actions button,.tender-quick-actions a,.tender-access-prompt button,.rentals .ops-heading>button,.rentals .rental-discovery-toolbar button) { min-height:36px!important; height:auto; padding:6px 10px; font-size:var(--market-label); line-height:1.5; border-radius:9px; }
+#root .market-experience .tender-quick-actions button { flex:0 1 auto; }
+#root .market-experience .business-header-actions { gap:6px; }
+#root .market-experience .business-page-header h1 { font-size:1.125rem; line-height:1.35; }
+/* Filter dialogs share one restrained rhythm and native keyboard/focus handling. */
+#root :is(.market-filter-modal,.spare-filter-modal) { width:min(480px,calc(100vw - 24px)); max-height:calc(100dvh - 32px); padding:16px; border-radius:16px; background:var(--ui-surface); color:var(--ui-ink); border-color:var(--ui-line); }
+#root :is(.market-filter-modal,.spare-filter-modal) .app-modal-heading { margin-bottom:12px; align-items:center; gap:8px; }
+#root :is(.market-filter-modal,.spare-filter-modal) .app-modal-heading h2 { margin:0; padding:0; font-size:1.0625rem; line-height:1.4; }
+#root :is(.market-filter-modal,.spare-filter-modal) .app-modal-heading button { width:36px; min-width:36px; min-height:36px!important; padding:6px; border-radius:9px; }
+#root :is(.market-filter-form,.market-filter-budget) { display:grid; gap:14px; font-size:.75rem; }
+#root .market-filter-form label,#root .market-filter-budget { display:grid; gap:5px; color:var(--ui-ink); font-weight:650; font-size:.75rem; }
+#root :is(.market-filter-form,.market-filter-budget) :is(input,select) { width:100%; min-width:0; min-height:40px; padding:7px 9px; font-size:1rem; border:1px solid var(--ui-line); border-radius:9px; color:var(--ui-ink); background:var(--ui-surface); }
+.market-filter-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+#root .market-filter-location { min-width:0; margin:0; padding:10px; border:1px solid var(--ui-line); border-radius:10px; }
+#root .market-filter-location legend { padding:0 4px; font-weight:650; }
+#root .market-filter-location p { font-size:.75rem; color:var(--ui-muted); margin:0 0 8px; overflow-wrap:anywhere; }
+.market-filter-location>div { display:flex; gap:6px; flex-wrap:wrap; }
+#root :is(.market-filter-form,.spare-filter-modal) button { min-height:36px!important; height:auto; padding:7px 10px; font-size:.75rem; line-height:1.5; border-radius:9px; border:1px solid var(--ui-line); color:var(--ui-ink); background:var(--ui-subtle); }
+#root .spare-filter-modal .is-selected,#root .spare-filter-modal .ops-primary,#root .market-filter-form .ops-primary { background:var(--ui-primary); border-color:var(--ui-primary); color:#fff; }
+#root .spare-filter-modal .is-selected svg { color:inherit; }
+#root .spare-filter-modal .spare-filter-group-title { font-size:.75rem; color:var(--ui-ink); }
+#root .spare-filter-modal .spare-filter-cat-btn span { white-space:normal; overflow:visible; }
+.market-filter-actions { display:flex; justify-content:flex-end; gap:8px; padding-top:12px; border-top:1px solid var(--ui-line); }
+#root .market-experience button:focus-visible,#root :is(.market-filter-modal,.spare-filter-modal) :is(button,input,select):focus-visible { outline:2px solid var(--ui-focus); outline-offset:2px; }
+#root .market-experience button:active:not(:disabled) { transform:translateY(1px); }
+#root .market-experience button:disabled { cursor:not-allowed; }
+@media(max-width:359px) { #root .market-experience .stores-module-container { padding-inline:8px; } #root .market-experience .spare-filter-trigger { padding-inline:8px; } }
+@media(prefers-reduced-motion:reduce) { #root .market-experience button,#root .market-experience button::before { transition:none!important; transform:none!important; } }
+html.reduce-motion #root .market-experience button,html.reduce-motion #root .market-experience button::before { transition:none!important; transform:none!important; }
+
+#root .market-experience .business-page-header { padding:14px; margin-bottom:10px; gap:10px; border-radius:14px; }
+#root .market-experience .business-header-actions button { min-height:36px!important; padding:6px 10px; font-size:var(--market-label); flex:0 1 auto; }
+#root .market-experience :is(.spare-compact-card,.rental-product) button:not(.product-details-trigger) { padding:6px 8px; font-size:var(--market-label); }
+#root .market-experience .rental-search input { height:auto; min-height:36px!important; font-size:.875rem; }
+#root .market-experience .spare-scoped-search input { min-height:34px!important; }
+#root .market-experience .community-market .customer-search-field input { min-height:34px!important; }
+
+#root .market-experience .community-market .market-toggle-btn { text-decoration:none; }
+#root .market-experience .tender-sector-rail button { padding:6px 10px; font-size:var(--market-label); gap:5px; }
+
+#root .market-experience .community-market .market-card-img-wrap { background:var(--ui-subtle); }

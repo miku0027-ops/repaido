@@ -6,10 +6,10 @@ import {currentPosition} from '../services/operations';
 import './operations.css';
 
 interface Props {
-  isOpen:boolean;onClose:()=>void;initialLat?:number;initialLng?:number;title?:string;subtitle?:string;areaOnly?:boolean;
+  isOpen:boolean;onClose:()=>void;initialLat?:number;initialLng?:number;title?:string;subtitle?:string;areaOnly?:boolean;confirmLabel?:string;
   onConfirmLocation:(location:{lat:number;lng:number;address:string;city:string})=>void;
 }
-export function LocationPickerModal({isOpen,onClose,areaOnly=false,initialLat=21.4934,initialLng=86.9135,title='Confirm service location',subtitle='Tap the map, move the pin, or enter coordinates below.',onConfirmLocation}:Props) {
+export function LocationPickerModal({isOpen,onClose,areaOnly=false,confirmLabel,initialLat=21.4934,initialLng=86.9135,title='Confirm service location',subtitle='Tap the map, move the pin, or enter coordinates below.',onConfirmLocation}:Props) {
   const container=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null),marker=useRef<L.Marker|null>(null);
   const [lat,setLat]=useState(initialLat),[lng,setLng]=useState(initialLng),[address,setAddress]=useState(''),[city,setCity]=useState('');
   const [chosen,setChosen]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);
@@ -32,6 +32,6 @@ export function LocationPickerModal({isOpen,onClose,areaOnly=false,initialLat=21
     <div className="ops-grid"><label>Latitude<input type="number" step="any" min={-90} max={90} value={lat} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=90)move(n,lng);}}/></label><label>Longitude<input type="number" step="any" min={-180} max={180} value={lng} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=180)move(lat,n);}}/></label></div>
     {!areaOnly&&<><label>House, street and landmark<input value={address} onChange={e=>setAddress(e.target.value)} autoComplete="street-address"/></label><label>City<input value={city} onChange={e=>setCity(e.target.value)} autoComplete="address-level2"/></label></>}
     <label className="ops-check"><input type="checkbox" checked={chosen} onChange={e=>setChosen(e.target.checked)}/>{areaOnly?'Search around this selected point.':'I have checked that this pin marks my service entrance.'}</label>
-    {error&&<p role="status" className="ops-notice">{error}</p>}<button type="button" className="ops-primary" disabled={!chosen} onClick={()=>{onConfirmLocation({lat,lng,address:address.trim(),city:city.trim()});onClose();}}>{areaOnly?'Find nearby professionals':'Confirm this location'}</button>
+    {error&&<p role="status" className="ops-notice">{error}</p>}<button type="button" className="ops-primary" disabled={!chosen} onClick={()=>{onConfirmLocation({lat,lng,address:address.trim(),city:city.trim()});onClose();}}>{confirmLabel||(areaOnly?'Find nearby professionals':'Confirm this location')}</button>
   </div></Modal>;
 }

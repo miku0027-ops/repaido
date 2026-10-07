@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Plus,MapPin,Tag,Sparkles,Share2,PhoneCall} from 'lucide-react';
+import {Plus,MapPin,Tag,Sparkles,Share2,PhoneCall,SlidersHorizontal,Search} from 'lucide-react';
 import {operation,currentPosition,money} from '../services/operations';
 import {apiFetch,apiAssetUrl} from '../services/api';
 import {auth} from '../firebase';
@@ -40,16 +40,25 @@ type Item={
 type ListingReference={source:'second_hand';id:string};
 const published=(item:Item)=>item.status==='published'&&(!item.expires_at||item.expires_at>Date.now()/1000);
 async function publicMarketRequest<T>(path:string,init?:RequestInit):Promise<T>{
- const response=await apiFetch(`/api/operations/market${path}`,init);
+ const response=await apiFetch(`/api/operations/market${path}`,init,{background:true});
  const body=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(body.detail?.message||(typeof body.detail==='string'?body.detail:null)||(response.status===404?'This listing is no longer available.':'Unable to load listings. Check your connection and retry.'));
  return body as T;
 }
+type SearchFilters={pin:{lat:number;lng:number}|null;radius:number;category:string;budget:string;sort:string};
+const defaultFilters=(pin:SearchFilters['pin']):SearchFilters=>({pin,radius:10,category:'all',budget:'',sort:'nearby'});
 const types=['phone','computer','television','appliance','camera','audio','tools','other'];
 const typeLabels:Record<string,string>={all:'All Finds',phone:'Phones & Tablets',computer:'Laptops & PCs',television:'TVs & Screens',appliance:'Appliances',camera:'Cameras',audio:'Audio & Sound',tools:'Workshop Tools',other:'Other'};
 
 export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=false,initialListingId,initialLocation,initialSearch=''}:{mode:Mode;manage?:boolean;onSignIn?:()=>void;onShare?:(reference:ListingReference)=>void;initialCreate?:boolean;initialListingId?:string;initialLocation?:{lat:number;lng:number};initialSearch?:string}){
- const [mine,setMine]=useState(manage),[rows,setRows]=useState<Item[]>([]),[pin,setPin]=useState<{lat:number;lng:number}|null>(initialLocation||{lat:21.4934,lng:86.9135}),[radius,setRadius]=useState(10),[query,setQuery]=useState(initialSearch),[selectedType,setSelectedType]=useState('all'),[map,setMap]=useState(false),[form,setForm]=useState(false),[detail,setDetail]=useState<Item|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const [mine,setMine]=useState(manage),[rows,setRows]=useState<Item[]>([]),[query,setQuery]=useState(initialSearch),[map,setMap]=useState(false),[form,setForm]=useState(false),[detail,setDetail]=useState<Item|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const [filters,setFilters]=useState<SearchFilters>(()=>defaultFilters(initialLocation||{lat:21.4934,lng:86.9135}));
+ const [draft,setDraft]=useState(filters),[filterOpen,setFilterOpen]=useState(false),[locating,setLocating]=useState(false),[filterError,setFilterError]=useState('');
+ const searchSnapshot=useRef({filters,query:initialSearch});
+ const locationSequence=useRef(0);
+ const closeFilters=()=>{locationSequence.current++;setLocating(false);setMap(false);setFilterOpen(false);setFilterError('');};
+ useEffect(()=>()=>{locationSequence.current++;loadSequence.current++;},[]);
+ const activeFilters=Number(filters.category!=='all')+Number(filters.radius!==10)+Number(!!filters.budget)+Number(filters.sort!=='nearby');
  const [listingError,setListingError]=useState('');
  const [rowsAreMine,setRowsAreMine]=useState(false);
 
@@ -69,7 +78,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
    return()=>{detailSequence.current++;};
  },[initialListingId,mode]);
 
- const load=async(forMine=mine)=>{
+ const load=async(forMine=mine,snapshot=searchSnapshot.current)=>{
    const sequence=++loadSequence.current;
    setRowsAreMine(false);
    setBusy(true);
@@ -79,11 +88,11 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
      if(forMine){
        const d=await operation<{listings:Item[]}>('/market/mine');
        apiItems=d.listings.filter(x=>x.mode===mode);
-     } else if(pin){
+     } else if(snapshot.filters.pin){
        const d=await publicMarketRequest<{items:Item[]}>('/search',{
            method:'POST',
            headers:{'Content-Type':'application/json'},
-           body:JSON.stringify({mode,location:{lat:pin.lat,lng:pin.lng},radius_km:radius,query})
+           body:JSON.stringify({mode,location:{lat:snapshot.filters.pin.lat,lng:snapshot.filters.pin.lng},radius_km:snapshot.filters.radius,query:snapshot.query})
        });
        apiItems=d.items;
      }
@@ -97,11 +106,14 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
  };
 
  useEffect(()=>{void load();},[mine,mode]);
- useEffect(()=>{const id=window.setInterval(()=>{if(document.visibilityState==='visible')void load();},60000);return()=>clearInterval(id);},[mine,mode,pin,radius,query]);
+ useEffect(()=>{const id=window.setInterval(()=>{if(document.visibilityState==='visible')void load();},60000);return()=>clearInterval(id);},[mine,mode]);
  const run=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const pay=async(item:Item)=>{setBusy(true);setError('');try{const order=await operation<{key_id:string;order_id:string;amount:number;currency:string}>(`/market/${item.id}/payment-order`,{method:'POST'});await loadCheckout();const widget=new window.Razorpay!({key:order.key_id,order_id:order.order_id,amount:order.amount,currency:order.currency,name:'Repaido',description:`${mode==='exchange'?'Exchange':'Used item'} listing fee`,handler:()=>void run(()=>operation(`/market/${item.id}/payment-check`,{method:'POST'})),modal:{ondismiss:()=>setMessage('Checkout closed. If debited, use Check payment before retrying.')}});widget.on('payment.failed',()=>setError('Fee payment was not confirmed. Check payment before retrying.'));widget.open();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  
- const displayedRows=rows.filter(item=>selectedType==='all'||item.product_type===selectedType);
+ const displayedRows=mine?[...rows]:rows.filter(item=>(filters.category==='all'||item.product_type===filters.category)&&(!filters.budget||item.value_paise<=Number(filters.budget)*100));
+ if(filters.sort==='price_low')displayedRows.sort((a,b)=>a.value_paise-b.value_paise);
+ if(filters.sort==='price_high')displayedRows.sort((a,b)=>b.value_paise-a.value_paise);
+ if(filters.sort==='nearby')displayedRows.sort((a,b)=>(a.distance_km??Infinity)-(b.distance_km??Infinity));
 
  return <section className="operations community-market">
   <div className="ops-heading">
@@ -121,15 +133,28 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
     <Plus size={16}/> {mode==='exchange'?'List for exchange':'Sell a used item'}
   </button>
 
-  {!mine&&<form className="market-search" onSubmit={e=>{e.preventDefault();void load();}}>
-    <div className="market-query"><CustomerSearchField label="Find a product" value={query} onChange={value=>setQuery(value.slice(0,120))} placeholder="Search product, brand or model…"/></div>
-    <label>Within<select value={radius} onChange={e=>setRadius(Number(e.target.value))}>{[1,3,5,10,20,50,100].map(n=><option key={n} value={n}>{n} km</option>)}</select></label>
-    <button type="button" onClick={()=>setMap(true)}><MapPin size={15}/>{pin?'Area set':'Choose area'}</button>
-    <button type="button" disabled={busy} onClick={()=>void currentPosition(true).then(p=>{setPin(p);setMessage('Location set. Select Search nearby.');}).catch(e=>setError(e.message))}>Current location</button>
-    <button disabled={busy||!pin}>Search nearby</button>
+  {!mine&&<form className="market-search market-search-compact" onSubmit={e=>{e.preventDefault();searchSnapshot.current={filters,query};void load();}}>
+    <div className="market-query"><CustomerSearchField label="Find a product" value={query} onChange={value=>setQuery(value.slice(0,120))} placeholder="Product, brand or model…"/></div>
+    <button type="button" className={`market-filter-trigger ${activeFilters?'is-filtered':''}`} aria-haspopup="dialog" aria-label={`Open filters${activeFilters?`, ${activeFilters} active`:''}`} onClick={()=>{setDraft(filters);setFilterError('');setFilterOpen(true);}}><SlidersHorizontal size={15} aria-hidden="true"/><span>Filter</span>{activeFilters>0&&<span className="market-filter-count">{activeFilters}</span>}</button>
+    <button type="submit" className="market-search-submit" aria-label="Search nearby" disabled={busy||!filters.pin}><Search size={16} aria-hidden="true"/></button>
   </form>}
 
-  {!mine&&<div className="spare-category-rail-container"><div className="spare-category-rail market-category-rail" role="tablist" aria-label="Product categories">{['all',...types].map(t=>{const isSelected=selectedType===t;return <button key={t} type="button" role="tab" aria-selected={isSelected} className={`spare-category-rail-btn ${isSelected?'is-selected':''}`} onClick={()=>setSelectedType(t)}><span>{typeLabels[t]||t}</span></button>;})}</div></div>}
+  {filterOpen&&<Modal title={mode==='exchange'?'Swap filters':'Pre-owned filters'} className="market-filter-modal" onClose={closeFilters}>
+   <form className="market-filter-form" onSubmit={e=>{e.preventDefault();searchSnapshot.current={filters:draft,query};setFilters(draft);closeFilters();void load(mine,searchSnapshot.current);}}>
+    <label>Product category<select value={draft.category} onChange={e=>setDraft(v=>({...v,category:e.target.value}))}>{['all',...types].map(t=><option key={t} value={t}>{typeLabels[t]}</option>)}</select></label>
+    <div className="market-filter-fields">
+     <label>Search radius<select value={draft.radius} onChange={e=>setDraft(v=>({...v,radius:Number(e.target.value)}))}>{[1,3,5,10,20,50,100].map(n=><option key={n} value={n}>{n} km</option>)}</select></label>
+     <label>{mode==='exchange'?'Maximum item value (₹)':'Maximum price (₹)'}<input type="number" min="1" max="1000000" step="1" inputMode="numeric" placeholder="Any price" value={draft.budget} onChange={e=>setDraft(v=>({...v,budget:e.target.value}))}/></label>
+    </div>
+    <label>Sort results<select value={draft.sort} onChange={e=>setDraft(v=>({...v,sort:e.target.value}))}><option value="nearby">Nearest first</option><option value="price_low">Price: low to high</option><option value="price_high">Price: high to low</option></select></label>
+    <fieldset className="market-filter-location"><legend>Search area</legend><p>{draft.pin?`${draft.pin.lat.toFixed(4)}, ${draft.pin.lng.toFixed(4)} · ${draft.radius} km radius`:'Choose an area to find nearby listings.'}</p><div>
+     <button type="button" onClick={()=>setMap(true)}><MapPin size={14} aria-hidden="true"/>Choose area</button>
+     <button type="button" disabled={locating} onClick={async()=>{const sequence=++locationSequence.current;setLocating(true);setFilterError('');try{const pin=await currentPosition(true);if(sequence===locationSequence.current)setDraft(v=>({...v,pin}));}catch(e){if(sequence===locationSequence.current)setFilterError((e as Error).message);}finally{if(sequence===locationSequence.current)setLocating(false);}}}>{locating?'Locating…':'Use my location'}</button>
+    </div></fieldset>
+    {filterError&&<p role="alert" className="ops-error">{filterError}</p>}
+    <div className="market-filter-actions"><button type="button" onClick={()=>{locationSequence.current++;setLocating(false);setFilterError('');setDraft(defaultFilters(initialLocation||{lat:21.4934,lng:86.9135}));}}>Reset</button><button type="submit" className="ops-primary" disabled={locating||!draft.pin}>Apply filters</button></div>
+   </form>
+  </Modal>}
 
   {message&&<p role="status" className="market-status-msg">{message}</p>}
   {listingError&&<div className="ops-error" role="alert">{listingError}<button onClick={()=>void loadInitialListing()}>Retry listing</button></div>}
@@ -167,7 +192,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
   {loaded&&!busy&&!error&&!displayedRows.length&&<p className="ops-empty">{mine?'You have no listings in this section yet.':'No listings match this category and area. Try another category, search or radius.'}</p>}
   {detail&&<MarketDetails key={detail.id} item={detail} onShare={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)?onShare:undefined} onSignIn={onSignIn} onClose={()=>{detailSequence.current++;setDetail(null);}}/>}
   {form&&<ListingForm mode={mode} onSignIn={onSignIn} onClose={()=>setForm(false)} onSaved={item=>{setForm(false);setMine(true);setMessage(item.status==='published'?'Your listing was saved and published.':item.status==='awaiting_fee'?'Your listing was saved. Pay its listing fee to publish it.':`Your listing was saved with status: ${item.status.replaceAll('_',' ')}.`);void load(true);}}/>}
-  {map&&<LocationPickerModal isOpen onClose={()=>setMap(false)} onConfirmLocation={p=>{setPin(p);setMap(false);setMessage('Area set. Select Search nearby.');}}/>}
+  {map&&<LocationPickerModal isOpen areaOnly title="Choose search area" confirmLabel="Use this area" initialLat={draft.pin?.lat} initialLng={draft.pin?.lng} onClose={()=>setMap(false)} onConfirmLocation={pin=>{locationSequence.current++;setLocating(false);setFilterError('');setDraft(v=>({...v,pin}));setMap(false);}}/>}
  </section>;
 }
 

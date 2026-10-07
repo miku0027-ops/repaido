@@ -20,3 +20,4 @@ import './strokes.css';
 import './customer-layout.css';
 
 import "./components/compact-market.css";
+import "./components/market-controls.css";
