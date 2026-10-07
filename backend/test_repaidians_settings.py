@@ -3,7 +3,7 @@ from test_repaidians import api,auth,profile,post,expire
 
 def test_generated_handles_fit_limit_and_legacy_handles_do_not_block_other_edits(api):
     import re
-    api.core.operations_store.run(lambda u:u.put('workers','alice',{'id':'alice','name':'Paramesh Prasad Mohapatra','categories':['electrician']}))
+    api.core.operations_store.run(lambda u:u.put('workers','alice',{**u.get('workers','alice'),'name':'Paramesh Prasad Mohapatra','categories':['electrician']}))
     member=profile(api)
     assert re.fullmatch(r'[a-z0-9][a-z0-9._]{2,29}',member['handle'])
     assert len(member['handle'])==30

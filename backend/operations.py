@@ -268,6 +268,9 @@ class Unit:
         if kind in ('contract_projects', 'contract_tenders', 'contract_profiles', 'rp_members', 'workers', 'rp_follows'):
             from repaidians_work import index_record as index_work_record
             index_work_record(self, kind, key, value)
+        if kind in ('workers', 'contract_tenders'):
+            from custom_contracts import index_record as index_contract_record
+            index_contract_record(self, kind, key, value)
         if kind in ('devices', 'rp_work_delivery'):
             from work_push import index_record as index_push_record
             index_push_record(self, kind, key, value)

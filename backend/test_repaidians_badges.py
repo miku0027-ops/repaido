@@ -71,10 +71,14 @@ def test_pending_worker_and_self_declared_contractor_cannot_mint_public_badge(ap
     assert own['repaidianBadge'] is None
     assert main.operations_store.run(lambda u: u.get('rp_trials', 'worker')) is None
     declared = api.patch('/repaidians/profile', headers=auth('worker'), json={'professionalType': 'contractor'})
-    assert declared.status_code == 200, declared.text
-    assert declared.json()['member']['professionalType'] == 'contractor'
-    assert declared.json()['member']['reviewed'] is False
-    assert declared.json()['member']['repaidianBadge'] is None
+    assert declared.status_code == 403, declared.text
+    assert declared.json()['detail']['code'] == 'professional_required'
+    assert main.operations_store.run(lambda u: u.get('rp_trials', 'worker')) is None
+    # A legitimate community read can join an ordinary account, while the
+    # pending partner and rejected role claim remain ineligible for a badge.
+    member = api.get('/repaidians/state', headers=auth('worker')).json()['member']
+    assert member['professionalType'] != 'contractor'
+    assert member['reviewed'] is False and member['repaidianBadge'] is None
     assert api.get('/repaidians/members/worker').json()['member']['repaidianBadge'] is None
 
 

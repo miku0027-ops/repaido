@@ -193,13 +193,13 @@ def resolve(u, source, key, actor):
     card = dict(source=source, id=key, trade=trade, city=city, ownerId=owner, saved=False,
                 available=True, imageUrl='', action=dict(route='contracts' if source == 'contract' else 'careers' if source == 'career' else 'market', source=source, id=key))
     if source == 'contract':
-        if row.get('status') != 'open' or row.get('deadline', 0) <= now or row.get('ends_at', 0) <= now:
+        if row.get('source_kind') == 'customer_custom_query' or row.get('status') != 'open' or row.get('deadline', 0) <= now or row.get('ends_at', 0) <= now:
             return None
         card.update(kind='tender', status='open', title=row.get('title', ''), description=str(row.get('sector', ''))[:80],
                     budgetPaise=row.get('budget_paise'), deadline=int(row['deadline'] * 1000), ownerName=row.get('owner_name', ''),
                     manpowerNeeded=row.get('manpower_needed'))
     elif source == 'career':
-        from contract_work import public_hiring, hiring_source_authorized
+        from contract_work import public_hiring, hiring_source_authorized, team_capacity
         if not trade:
             return None
         hiring = row.get('hiring') or {}
@@ -207,11 +207,11 @@ def resolve(u, source, key, actor):
         if (not hiring_source_authorized(u, row)
                 or row.get('status') not in ('planning', 'active') or row.get('ends_at', 0) <= now
                 or hiring.get('status') != 'open' or hiring.get('deadline', 0) <= now
-                or hiring.get('openings', 0) <= sum(m.get('status') in ('accepted', 'pending') for m in row.get('team', []))):
+                or team_capacity(row)['vacancies'] <= 0):
             return None
         card.update(kind='job', status='open', title=row.get('title', ''), description=hiring.get('summary', '')[:3000],
                     pricePaise=hiring.get('daily_rate_paise'), deadline=int(hiring['deadline'] * 1000),
-                    skills=hiring.get('skills', [])[:20], ownerName=worker.get('name', ''), openings=hiring.get('openings'), rateUnit='day')
+                    skills=hiring.get('skills', [])[:20], ownerName=worker.get('name', ''), openings=team_capacity(row)['vacancies'], rateUnit='day')
         card['details'] = public_hiring(row)
     elif source == 'inventory':
         from procurement import live_product

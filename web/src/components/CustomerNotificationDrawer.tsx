@@ -8,11 +8,13 @@ import './customer-notifications.css';
 
 export interface RawNotification {
   id:string;title:string;body:string;job_id?:string;destination?:string;campaign_id?:string;plan_id?:string;
+  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;kind?:string;
   created_at?:number;read_at?:number|null;alert_kind?:string;event_type?:string;
 }
-type Filter='all'|'unread'|'bookings'|'offers';
+type Filter='all'|'unread'|'bookings'|'offers'|'contracts';
 interface Props {
   isOpen:boolean;onClose:()=>void;onOpenJob?:(id:string)=>void;
+  onOpenContract?:(queryId:string,proposalId?:string)=>void;
   onOpenQuotationModal?:(quotation:B2BQuotation)=>void;onNavigateTab?:(tab:string,sub?:string)=>void;
   onOpenPromotion?:(id?:string)=>void;onOpenHomePlan?:(id?:string)=>void;onUnreadCountChange?:(count:number)=>void;
 }
@@ -20,7 +22,7 @@ export function CustomerNotificationDrawer(props:Props){
   // Mount the actual dialog only while open: native modal focus and inert background.
   return props.isOpen?<NotificationPanel {...props}/>:null;
 }
-function NotificationPanel({onClose,onOpenJob,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
+function NotificationPanel({onClose,onOpenJob,onOpenContract,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
   const cached=operationSnapshot<{notifications:RawNotification[]}>('/notifications');
   const [notifications,setNotifications]=useState(cached?.notifications||[]);
   const [loading,setLoading]=useState(!cached),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState('');
@@ -43,7 +45,7 @@ function NotificationPanel({onClose,onOpenJob,onNavigateTab,onOpenPromotion,onOp
   },[]);
   const unread=notifications.filter(n=>!n.read_at).length;
   useEffect(()=>{if(!loading&&!error)onUnreadCountChange?.(unread);},[unread,loading,error,onUnreadCountChange]);
-  const filtered=useMemo(()=>notifications.filter(n=>filter==='all'||filter==='unread'&&!n.read_at||filter==='bookings'&&!!n.job_id||filter==='offers'&&!!n.campaign_id),[notifications,filter]);
+  const filtered=useMemo(()=>notifications.filter(n=>filter==='all'||filter==='unread'&&!n.read_at||filter==='bookings'&&!!n.job_id||filter==='offers'&&!!n.campaign_id||filter==='contracts'&&n.destination==='custom_contract'),[notifications,filter]);
   const mark=async(id?:string)=>{
     if(busy)return;setBusy(id||'all');setError('');
     try{
@@ -54,23 +56,26 @@ function NotificationPanel({onClose,onOpenJob,onNavigateTab,onOpenPromotion,onOp
   };
   const open=(n:RawNotification)=>{
     void mark(n.id);
-    if(n.job_id&&onOpenJob){onClose();onOpenJob(n.job_id);}
+    const queryId=n.query_id||n.queryId;
+    if(n.destination==='custom_contract'&&queryId&&onOpenContract){onClose();onOpenContract(queryId,n.bid_id);}
+    else if(n.job_id&&onOpenJob){onClose();onOpenJob(n.job_id);}
     else if(n.campaign_id&&onOpenPromotion){onClose();onOpenPromotion(n.campaign_id);}
     else if(n.plan_id&&onOpenHomePlan){onClose();onOpenHomePlan(n.plan_id);}
     else if(n.destination==='b2b_quotation'&&onNavigateTab){onClose();onNavigateTab('ShopSpares','b2b');}
   };
-  const label=(n:RawNotification)=>n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
-  const actionable=(n:RawNotification)=>!!((n.job_id&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
+  const label=(n:RawNotification)=>n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
+  const actionable=(n:RawNotification)=>!!((n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
+  const actionLabel=(n:RawNotification)=>n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
   const date=(n:RawNotification)=>n.created_at?new Date(n.created_at*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Date unavailable';
   return <Modal title="Notifications" className="customer-notification-dialog" frameless onClose={onClose}>
     <section className="repaido-notif-drawer-panel">
       <header className="notif-drawer-header"><div className="notif-drawer-brand"><span className="notif-drawer-brand-icon"><Bell size={21} aria-hidden="true"/></span><div><h2>Notifications</h2><p>{loading?'Checking updates…':error?'Last received updates':unread?`${unread} unread`:'You’re up to date'}</p></div></div><button className="notif-header-close-btn" onClick={onClose} aria-label="Close notification panel" data-autofocus><X size={22}/></button></header>
       <div className="notif-toolbar"><button className="notif-header-btn" disabled={!!busy||!unread} onClick={()=>void mark()}><CheckCheck size={18}/>Mark all read</button><button className="notif-header-btn" aria-label="Refresh notifications" disabled={refreshing} onClick={()=>void load(true)}><RefreshCw size={18} className={refreshing?'notif-refreshing':''}/></button></div>
-      <nav className="notif-filter-bar" aria-label="Filter notifications">{([{id:'all',label:'All'},{id:'unread',label:'Unread'},{id:'bookings',label:'Bookings'},{id:'offers',label:'Offers'}] as const).map(f=><button className={`notif-filter-chip${filter===f.id?' active':''}`} key={f.id} aria-pressed={filter===f.id} onClick={()=>setFilter(f.id)}>{f.label}</button>)}</nav>
+      <nav className="notif-filter-bar" aria-label="Filter notifications">{([{id:'all',label:'All'},{id:'unread',label:'Unread'},{id:'bookings',label:'Bookings'},{id:'offers',label:'Offers'},{id:'contracts',label:'Contracts'}] as const).map(f=><button className={`notif-filter-chip${filter===f.id?' active':''}`} key={f.id} aria-pressed={filter===f.id} onClick={()=>setFilter(f.id)}>{f.label}</button>)}</nav>
       {error&&<p className="notif-error" role="alert">{error} <button onClick={()=>void load(true)}>Retry</button></p>}
       {notice&&<p className="notif-status" role="status">{notice}</p>}
       <div className="notif-feed-container" aria-busy={loading}>
-        {loading?<p role="status">Loading your notifications…</p>:!filtered.length?<div className="notif-empty-state"><Bell size={32} aria-hidden="true"/><h3>{error?'Notifications unavailable':filter==='unread'?'All caught up':'No notifications here yet'}</h3><p>{error?'Retry when your connection is ready.':filter==='all'?'Updates from your bookings and account will appear here when something changes.':'Choose All to see your other updates.'}</p></div>:filtered.map(n=><article className={`notif-card${!n.read_at?' is-unread':''}`} key={n.id}><div className="notif-card-header"><span className="notif-micro-tag">{label(n)}</span>{!n.read_at&&<span className="notif-unread-dot" aria-label="Unread"/>}</div><h3 className="notif-card-title">{n.title}</h3><p className="notif-card-desc">{n.body}</p><time className="notif-time" dateTime={n.created_at?new Date(n.created_at*1000).toISOString():undefined}>{date(n)}</time><div className="notif-card-actions">{actionable(n)&&<button className="notif-action-btn" onClick={()=>open(n)}>View {n.job_id?'booking':'details'}<ChevronRight size={17}/></button>}{!n.read_at&&<button className="notif-mark-read-btn" disabled={!!busy} aria-label={`Mark ${n.title} as read`} onClick={()=>void mark(n.id)}><Check size={18}/>Mark read</button>}</div></article>)}
+        {loading?<p role="status">Loading your notifications…</p>:!filtered.length?<div className="notif-empty-state"><Bell size={32} aria-hidden="true"/><h3>{error?'Notifications unavailable':filter==='unread'?'All caught up':'No notifications here yet'}</h3><p>{error?'Retry when your connection is ready.':filter==='all'?'Updates from your bookings, contract requests and account will appear here when something changes.':'Choose All to see your other updates.'}</p></div>:filtered.map(n=><article className={`notif-card${!n.read_at?' is-unread':''}`} key={n.id}><div className="notif-card-header"><span className="notif-micro-tag">{label(n)}</span>{!n.read_at&&<span className="notif-unread-dot" role="img" aria-label="Unread"/>}</div><h3 className="notif-card-title">{n.title}</h3><p className="notif-card-desc">{n.body}</p><time className="notif-time" dateTime={n.created_at?new Date(n.created_at*1000).toISOString():undefined}>{date(n)}</time><div className="notif-card-actions">{actionable(n)&&<button className="notif-action-btn" onClick={()=>open(n)}>{actionLabel(n)}<ChevronRight size={17}/></button>}{!n.read_at&&<button className="notif-mark-read-btn" disabled={!!busy} aria-label={`Mark ${n.title} as read`} onClick={()=>void mark(n.id)}><Check size={18}/>Mark read</button>}</div></article>)}
       </div>
       <footer className="notif-drawer-footer"><p><ShieldCheck size={17} aria-hidden="true"/>Updates from your account</p>{nativeAvailable()&&<button className="notif-header-btn" onClick={async()=>{try{await enableNativePush();setNotice('Device notifications enabled.');}catch(e){setError((e as Error).message);}}}>Enable push</button>}</footer>
     </section>

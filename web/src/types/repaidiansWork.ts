@@ -14,23 +14,30 @@ export interface HiringNotice {
   version:number;status:string;city:string;area:string;sector:string;summary:string;
   skills:string[];worker_role:string;openings:number;minimum_experience:number;
   daily_rate_paise:number;hours_per_day:number;deadline:number;terms:string;benefits?:string;
+  work_trade?:Trade;role_requirements?:{worker_type:string;count:number}[];
+}
+export interface WorkCapacity {
+  required:number|null;accepted:number;vacancies:number|null;pendingOffers:number;availableToOffer:number|null;
+  roles:({worker_type:string}&Omit<WorkCapacity,'roles'>)[];
 }
 export interface WorkJob {
   id:string;title:string;trade:Trade;city:string;sourceKind:string;
   workType:'project'|'private_request';ownerId:string;ownerName:string;
   skills:string[];minimumExperience:number;dailyRatePaise:number;openings:number;
+  pendingOffers?:number;availableToOffer?:number;
   deadline:number;startsAt:number;endsAt:number;match:{score:number;reasons:string[]};
-  details:{id:string;title:string;status:string;hiring:HiringNotice;starts_at:number;ends_at:number;preparing_tender?:boolean};
+  details:{id:string;title:string;status:string;hiring:HiringNotice;starts_at:number;ends_at:number;preparing_tender?:boolean;capacity?:WorkCapacity;work_stage?:string};
   application?:{id:string;status:string}|null;
 }
 export interface WorkJobsPage {items:WorkJob[];nextCursor:string|null;personalized:boolean;preferences?:WorkPreferences;indexing?:boolean;}
 export type WorkApplicationStatus='applied'|'shortlisted'|'on_hold'|'offered'|'hired'|'declined'|'rejected'|'withdrawn'|'cancelled'|'completed'|'ended'|'offer_withdrawn';
 export interface WorkApplicationEvent {id?:string;action?:string;status:string;at:number;actor?:string;note?:string;}
-export interface WorkInvitation {id:string;role:string;daily_rate_paise:number;terms:string;status:string;}
+export interface WorkInvitation {id:string;role:string;worker_type?:string|null;daily_rate_paise:number;terms:string;status:string;}
 export interface WorkApplication {
   id:string;project_id:string;project_title:string;project_version:number;source_kind?:string;
   owner_id:string;worker_id:string;worker_name:string;version:number;status:WorkApplicationStatus;
   note:string;decision_note?:string;notice_snapshot:HiringNotice;starts_at:number;ends_at:number;
+  worker_type?:string|null;first_interest_at?:number|null;capacity?:WorkCapacity;work_stage?:string;
   created_at:number;updated_at:number;events:WorkApplicationEvent[];
   invitation_id?:string;invitation_status?:string|null;invitation?:WorkInvitation|null;
 }

@@ -6,6 +6,7 @@ import main, contract_work as cw
 from test_operations import api, auth
 from test_contract_work import seed, project, cmd
 from test_worker_network import notice, apply, decision, get, put
+from test_operations import onboard
 
 
 def view(api,a,action='profile_viewed',uid='worker',**extra):
@@ -27,6 +28,32 @@ def private_notice(api,p,uid='shop'):
     response=api.put('/operations/contractor/projects/'+p['id']+'/hiring',headers=auth(uid),json=body)
     assert response.status_code==200,response.text
     return response.json()
+
+
+def test_saved_pre_award_interest_only_breaks_equal_fit_after_real_application(api):
+    seed(api);onboard(api,'shop');p,_=project(api)
+    query_id='custom-query-interest-fixture';stamp=time.time()-600
+    p.update(source_kind='customer_custom_query',tender_id=query_id,awarded_at=time.time(),work_trade='electrician',workforce_requirements=[{'worker_type':'wiring','count':2}])
+    put('contract_projects',p['id'],p)
+    put('contract_tenders',query_id,dict(id=query_id,source_kind='customer_custom_query',status='awarded',winning_project_id=p['id'],awarded_contractor_id='worker',created_at=stamp,work_trade='electrician',city='Balasore',owner_id='customer'))
+    for uid in ('worker2','shop'):
+        worker=get('workers',uid);worker.update(city='Balasore',role='technician',experience_years=3,skills=['Electrical inspection'],categories=['electrician']);put('workers',uid,worker)
+    p,_=notice(api,p,openings=2,work_trade='electrician',skills=['Electrical inspection'],role_requirements=[{'worker_type':'wiring','count':2}])
+    import repaidians
+    # Availability is not an application or a filled place until the agent applies.
+    put('custom_contract_interests',repaidians.digest(query_id+':worker2'),dict(query_id=query_id,worker_id='worker2',worker_type='wiring',status='pending_award',available=True,created_at=stamp))
+    assert rows(api,'worker',scope='owned').json()['applications']==[]
+    assert cw.team_capacity(p)['accepted']==0
+    # An interest belonging to another worker cannot improve this applicant's order.
+    put('custom_contract_interests',repaidians.digest(query_id+':shop'),dict(query_id=query_id,worker_id='worker2',worker_type='wiring',status='pending_award',available=True,created_at=stamp-100))
+    first=apply(api,p,uid='shop',worker_type='wiring').json()
+    later=apply(api,p,uid='worker2',worker_type='wiring').json()
+    assert first['first_interest_at'] is None and later['first_interest_at']==stamp
+    ranked=rows(api,'worker',scope='owned').json()['applications']
+    assert ranked[0]['id']==later['id'] and ranked[0]['fit']['score']==ranked[1]['fit']['score']
+    assert ranked[0]['tie_break']=='recorded_interest_or_application'
+    assert ranked[0]['rank_scope']=='page'
+    assert get('project_applications',later['id'])['status']=='applied' and cw.team_capacity(get('contract_projects',p['id']))['accepted']==0
 
 
 def test_explicit_views_auth_retry_and_get_has_no_side_effect(api):

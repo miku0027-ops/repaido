@@ -221,11 +221,13 @@ def index_record(u, kind, key, row):
     previous = u.get('rp_work_index', name + ':' + key) or {}
     current_time = time.time()
     if kind == 'contract_projects':
+        from contract_work import team_capacity
         hiring = row.get('hiring') or {}
-        occupied = sum(seat.get('status') in ('pending', 'accepted') for seat in row.get('team', []))
-        active = trade in TRADES and row.get('status') in ('planning', 'active') and row.get('ends_at', 0) > current_time and hiring.get('status') == 'open' and hiring.get('deadline', 0) > current_time and hiring.get('openings', 0) > occupied
+        capacity = team_capacity(row)
+        awarded = not row.get('tender_id') or bool(row.get('awarded_at'))
+        active = trade in TRADES and awarded and row.get('status') in ('planning', 'active') and row.get('ends_at', 0) > current_time and hiring.get('status') == 'open' and hiring.get('deadline', 0) > current_time and bool(capacity['vacancies'])
     elif kind == 'contract_tenders':
-        active = row.get('status') == 'open' and row.get('ends_at', 0) > current_time
+        active = row.get('source_kind') != 'customer_custom_query' and row.get('status') == 'open' and row.get('ends_at', 0) > current_time
     else:
         worker = u.get('workers', key) or {}
         active = worker.get('status') == 'approved' and bool(worker.get('contractor_verified'))
@@ -275,7 +277,7 @@ def _safe_owner(u, uid, owner):
 
 
 def job(u, key, uid, member=None, filters=None):
-    from contract_work import public_hiring, identifier, hiring_trade
+    from contract_work import public_hiring, identifier, hiring_trade, team_capacity
     p = u.get('contract_projects', key)
     if not p or p.get('owner_id') == uid or not _safe_owner(u, uid, p.get('owner_id')):
         return None
@@ -284,9 +286,8 @@ def job(u, key, uid, member=None, filters=None):
         return None
     h = p.get('hiring') or {}
     now = time.time()
-    team = p.get('team') or []
-    occupied = sum(m.get('status') in ('pending', 'accepted') for m in team)
-    if p.get('status') not in ('planning', 'active') or p.get('ends_at', 0) <= now or h.get('status') != 'open' or h.get('deadline', 0) <= now or h.get('openings', 0) <= occupied:
+    capacity = team_capacity(p)
+    if (p.get('tender_id') and not p.get('awarded_at')) or p.get('status') not in ('planning', 'active') or p.get('ends_at', 0) <= now or h.get('status') != 'open' or h.get('deadline', 0) <= now or not capacity['vacancies']:
         return None
     member = member or u.get('rp_members', uid) or {}
     filters = filters or {}
@@ -353,7 +354,7 @@ def job(u, key, uid, member=None, filters=None):
     card = {'id': key, 'title': p.get('title', ''), 'trade': trade, 'city': h.get('city', ''), 'sourceKind': source,
             'workType': work_type, 'ownerId': p['owner_id'], 'ownerName': p.get('owner_name', ''), 'skills': skills,
             'minimumExperience': h.get('minimum_experience', 0), 'dailyRatePaise': h.get('daily_rate_paise'),
-            'openings': max(0, h.get('openings', 0) - occupied), 'deadline': int(h['deadline'] * 1000),
+            'openings': capacity['vacancies'], 'pendingOffers': capacity['pendingOffers'], 'availableToOffer': capacity['availableToOffer'], 'deadline': int(h['deadline'] * 1000),
             'startsAt': int(p.get('starts_at', 0) * 1000), 'endsAt': int(p['ends_at'] * 1000),
             'match': {'score': round(min(1, score), 4), 'reasons': reasons}, 'details': public_hiring(p)}
     application = u.get('project_applications', identifier('application', uid, key))

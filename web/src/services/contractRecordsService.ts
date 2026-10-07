@@ -1,0 +1,13 @@
+import type {ContractBankInstructions,ContractCheckoutOrder,ContractRecords} from '../types/contractRecords';
+import {contractMutation,contractRawCommand,contractRead} from './customContractsService';
+const root=(id:string)=>'/contracts/projects/'+encodeURIComponent(id);
+export const contractRecords=(id:string,force=false,signal?:AbortSignal)=>contractRead<ContractRecords>(root(id)+'/records',force,signal);
+export const requestContractPayment=(id:string,version:number,amount:number,method:'gateway'|'neft'|'rtgs',note:string,milestoneId?:string)=>contractMutation<ContractRecords>(root(id)+'/payments',{expected_version:version,amount_paise:amount,method,note,...(milestoneId?{milestone_id:milestoneId}:{})});
+export const approveContractPayment=(id:string,paymentId:string,version:number,approved:boolean,note='')=>contractMutation<ContractRecords>(root(id)+'/payments/'+encodeURIComponent(paymentId)+'/approve',{expected_version:version,approved,note});
+export const createContractPaymentOrder=(id:string,paymentId:string)=>contractRawCommand<ContractCheckoutOrder>(root(id)+'/payments/'+encodeURIComponent(paymentId)+'/order');
+export const checkContractPayment=(id:string,paymentId:string,providerId:string)=>contractRawCommand<ContractRecords>(root(id)+'/payments/'+encodeURIComponent(paymentId)+'/check',{payment_id:providerId});
+export const reportContractTransfer=(id:string,paymentId:string,version:number,reference:string,evidenceIds:string[],note:string)=>contractMutation<ContractRecords>(root(id)+'/payments/'+encodeURIComponent(paymentId)+'/reported',{expected_version:version,reference,evidence_ids:evidenceIds,note});
+export const contractBankInstructions=(id:string)=>contractRead<ContractBankInstructions>(root(id)+'/bank-instructions',true);
+export const reportContractProgress=(id:string,version:number,percent:number,note:string,evidenceIds:string[],publicConsent=false,milestoneId?:string)=>contractMutation<ContractRecords>(root(id)+'/progress',{expected_version:version,percent,note,evidence_ids:evidenceIds,public_share_consent:publicConsent,...(milestoneId?{milestone_id:milestoneId}:{})});
+export const reviewContractProgress=(id:string,progressId:string,version:number,approved:boolean,note='')=>contractMutation<ContractRecords>(root(id)+'/progress/'+encodeURIComponent(progressId)+'/review',{expected_version:version,approved,note});
+export const shareContractProgress=(id:string,version:number,enabled:boolean)=>contractMutation<ContractRecords>(root(id)+'/public-progress',{expected_version:version,enabled},'PUT');

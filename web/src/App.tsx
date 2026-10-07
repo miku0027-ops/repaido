@@ -1,7 +1,7 @@
 import {CouponWelcome} from './components/Coupons';
-import OpportunityCarousel,{opportunities} from './components/OpportunityCarousel';
+import OpportunityCarousel,{CustomerContractMatches,opportunities} from './components/OpportunityCarousel';
 import HomeQuickActions,{type QuickMarket} from './components/HomeQuickActions';
-import {RepaidiansFab} from './components/repaidians/RepaidiansFab';
+import {CompactActionLauncher} from './components/CompactActionLauncher';
 import './services/repaidiansPushService';
 import HomeServiceFinder from './components/HomeServiceFinder';
 import {ServiceAccordion} from './components/ServiceAccordion';
@@ -135,6 +135,7 @@ import { recordCustomerBrowse } from './services/customerBrowseTracker';
 import './reference.css';
 
 const RepaidiansModal=lazy(()=>import('./components/repaidians/RepaidiansModal'));
+const CustomContractHub=lazy(()=>import('./components/CustomContracts').then(module=>({default:module.CustomContractHub})));
 
 type Tab = 'Explore' | 'Services' | 'Bookings' | 'ShopSpares' | 'You' | 'Hire';
 type Place = { city: string; address: string; landmark: string; label: string; lat?: number; lng?: number; accuracy?: number; confirmed: boolean };
@@ -203,6 +204,10 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 
 export default function App() {
   const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
+  const [quickHireOpen,setQuickHireOpen]=useState(false),[customContractOpen,setCustomContractOpen]=useState(()=>new URLSearchParams(location.search).has('custom-contract'));
+  const [customContractId,setCustomContractId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-contract')||undefined);
+  const [customProposalId,setCustomProposalId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-proposal')||undefined);
+  const [communityProfileId,setCommunityProfileId]=useState<string>(),[communityContractReturn,setCommunityContractReturn]=useState(false);
   const [communityStart,setCommunityStart]=useState<CommunityTab>(()=>new URLSearchParams(location.search).get('community')==='notifications'?'notifications':'feed'),[communityReference,setCommunityReference]=useState<OpportunityReference>();
   const [communityReturn,setCommunityReturn]=useState(false),[communityNative,setCommunityNative]=useState<{kind:'career';card:CommunityOpportunity}|{kind:'applications'}|{kind:'workspace';tab:'Tenders'|'Hiring';tenderId?:string;projectId?:string;agent?:boolean}|null>(null);
   const [communityTenderId,setCommunityTenderId]=useState<string>(),[communityRouteBusy,setCommunityRouteBusy]=useState(false),[communityRouteError,setCommunityRouteError]=useState('');
@@ -316,6 +321,8 @@ export default function App() {
       else if (path.includes('shop-admin') || qPortal === 'shop-admin') setPortal('shop-admin');
       else if (path.includes('company-admin') || qPortal === 'company-admin') setPortal('company-admin');
       else setPortal('customer');
+      if(params.has('custom-contract')){setCustomContractId(params.get('custom-contract')||undefined);setCustomProposalId(params.get('custom-proposal')||undefined);setCustomContractOpen(true);}
+      else setCustomContractOpen(false);
     };
     window.addEventListener('popstate', handleUrlChange);
     return () => window.removeEventListener('popstate', handleUrlChange);
@@ -375,6 +382,8 @@ export default function App() {
     try{const fresh=await current.getIdToken();if(auth.currentUser?.uid===current.uid)setToken(fresh);}catch{setError('Connection interrupted. Your account is still signed in. Please retry.');}
   }),[]);
   const communityActor=useRef(user?.id||'guest');communityActor.current=user?.id||'guest';
+  const customContractActor=useRef(user?.id);
+  useEffect(()=>{if(customContractActor.current&&customContractActor.current!==user?.id){setCustomContractOpen(false);setCustomContractId(undefined);setCustomProposalId(undefined);setCommunityProfileId(undefined);setCommunityContractReturn(false);}customContractActor.current=user?.id;},[user?.id]);
   useEffect(()=>{setCommunityNative(null);setCommunityReference(undefined);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityRouteError('');},[user?.id]);
   const customerIdentity=useCustomerIdentity(user,portal);
   const [offerSettings,setOfferSettings]=useState(false);
@@ -666,6 +675,9 @@ export default function App() {
     else if(source==='inventory')navigatePortal('shop-admin');
     else{setMarketSubTab('spares');openStoreSection('preowned');setMarketQuick({sell:true});}
   };
+  const openCustomContract=(id?:string,proposalId?:string)=>{setCustomContractId(id);setCustomProposalId(proposalId);setCustomContractOpen(true);};
+  const openContractMember=(id:string,queryId?:string)=>{if(queryId)setCustomContractId(queryId);setCustomContractOpen(false);setCommunityProfileId(id);setCommunityContractReturn(true);setCommunityStart('feed');setCommunityReference(undefined);setRepaidiansOpen(true);};
+  const closeCommunity=()=>{setRepaidiansOpen(false);setCommunityProfileId(undefined);if(communityContractReturn){setCommunityContractReturn(false);setCustomContractOpen(true);}};
   if (portal === 'worker') {
     return (
       <LiveWorkerPortal
@@ -918,6 +930,7 @@ export default function App() {
                     </div>
 
                   </div>
+                  {user?.id&&<CustomerContractMatches key={user.id} accountKey={user.id} onOpen={openCustomContract}/>}
                   <HomeQuickActions city={place.city} location={place.confirmed&&typeof place.lat==='number'&&typeof place.lng==='number'?{lat:place.lat,lng:place.lng}:undefined} onLocation={()=>setCustomerMapModalOpen(true)} onMarket={(section,options)=>{openStoreSection(section);setMarketQuick(options||{});}} onHire={()=>setTab('Hire')} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} onService={handleOpenBooking} onCatalogue={()=>{setActiveCategory('all');setTab('Services');}} onOpenCart={()=>setShowCartDrawer(true)}/>
                   <div className="home-promotion-slot"><HomeEntry onOpen={()=>setHomeHub('')}/></div>
 
@@ -1275,8 +1288,10 @@ export default function App() {
       {communityRouteBusy&&<p className="community-route-status" role="status">Checking this listing’s latest details…</p>}
       {communityRouteError&&<Modal title="Listing unavailable" onClose={()=>setCommunityRouteError('')}><p role="alert">{communityRouteError}</p><button className="btn-outline" onClick={()=>setCommunityRouteError('')}>Back to opportunities</button></Modal>}
       {communityNative&&<Modal title={communityNative.kind==='career'?'Project opportunity':communityNative.kind==='applications'?'My applications':'Business workspace'} className="work-network-sheet" onClose={backToCommunity}>{communityNative.kind==='career'?<ProjectDetail project={communityNative.card.details!} uid={user?.id} onApplied={()=>setCommunityNative({kind:'applications'})}/>:communityNative.kind==='applications'?<Applications uid={user?.id}/>:<ContractorPortal initialTab={communityNative.tab} initialTenderId={communityNative.tenderId} initialProjectId={communityNative.projectId} agent={communityNative.agent} onBackToCustomer={backToCommunity} onPartnerProfile={()=>{setCommunityNative(null);setTab('You');}}/>}</Modal>}
-      {tab==='Explore'&&<RepaidiansFab onOpen={()=>setRepaidiansOpen(true)}/>}
-      {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={()=>setRepaidiansOpen(false)}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} initialTab={communityStart} initialReference={communityReference} onDestination={card=>void openCommunityListing(card)} onManage={manageCommunity} onProject={id=>{setCommunityRouteError('');setCommunityReturn(true);setRepaidiansOpen(false);setCommunityNative({kind:'workspace',tab:'Hiring',projectId:id,agent:true});}} initialPublicationId={communityStart==='feed'?new URLSearchParams(location.search).get('repaidians')||undefined:undefined} onSignIn={()=>{setRepaidiansOpen(false);setAuthMode('signin');setSheet('auth');setError('');}} onClose={()=>setRepaidiansOpen(false)} onBook={trade=>{setRepaidiansOpen(false);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
+      {tab==='Explore'&&<CompactActionLauncher onCommunity={()=>setRepaidiansOpen(true)} onCustomContract={()=>openCustomContract()} onQuickHire={()=>setQuickHireOpen(true)}/>}
+      {quickHireOpen&&<Modal title="Quick Hire" className="quick-hire-modal" onClose={()=>setQuickHireOpen(false)}><Hiring services={servicesList} city={place.city} onSignIn={()=>{setQuickHireOpen(false);setSheet('auth');}} onService={id=>{const service=servicesList.find(item=>item.id===id);if(service){setQuickHireOpen(false);setSelectedPromotion(undefined);setSelectedService(service);}else setError('This service is no longer listed. Refresh the catalogue.');}} onRequests={()=>{setQuickHireOpen(false);setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setQuickHireOpen(false);setHomePreferred(professional);setHomeHub(service);}} onBooking={id=>{setQuickHireOpen(false);setNotificationJob(id);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/></Modal>}
+      {customContractOpen&&<Modal title="Custom contract queries" className="custom-contract-modal" onClose={()=>setCustomContractOpen(false)}><Suspense fallback={<p role="status">Opening your contract requests…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>{setCustomContractOpen(false);setSheet('auth');}}/></Suspense></Modal>}
+      {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={closeCommunity}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} initialTab={communityStart} initialProfileId={communityProfileId} initialReference={communityReference} onDestination={card=>void openCommunityListing(card)} onManage={manageCommunity} onProject={id=>{setCommunityRouteError('');setCommunityReturn(true);setRepaidiansOpen(false);setCommunityNative({kind:'workspace',tab:'Hiring',projectId:id,agent:true});}} initialPublicationId={communityStart==='feed'?new URLSearchParams(location.search).get('repaidians')||undefined:undefined} onSignIn={()=>{setRepaidiansOpen(false);setCommunityContractReturn(false);setCommunityProfileId(undefined);setAuthMode('signin');setSheet('auth');setError('');}} onClose={closeCommunity} onBook={trade=>{setRepaidiansOpen(false);setCommunityContractReturn(false);setCommunityProfileId(undefined);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
       {myRentalsOpen&&<Modal title="My rentals" className="rental-modal" onClose={()=>setMyRentalsOpen(false)}><RentalManager onSignIn={()=>setSheet('auth')}/></Modal>}
       {discoveryOpen && <SearchDiscovery onHomeService={id=>{setDiscoveryOpen(false);setQuery('');setHomeHub(id);}} onEvent={hydration.event} onPreferencesChange={hydration.refresh} query={query} onQuery={setQuery} place={place} signedIn={hydration.signedIn} onClose={()=>{setDiscoveryOpen(false);setQuery('');}} onLocation={()=>{setDiscoveryOpen(false);setCityModalOpen(true);}} onSignIn={()=>{setDiscoveryOpen(false);setSheet('auth');}} onBook={service=>{setDiscoveryOpen(false);setQuery('');setSelectedService(service);}}/>}
       {homeDetail&&<HomeServiceDetails service={homeDetail} onClose={()=>setHomeDetail(null)} onBook={()=>{setSelectedService(homeDetail);setHomeDetail(null);}}/>}
@@ -2472,6 +2487,7 @@ export default function App() {
       <CustomerNotificationDrawer
         isOpen={showNotificationDrawer}
         onClose={() => setShowNotificationDrawer(false)}
+        onOpenContract={openCustomContract}
         onOpenJob={async id => {
           try{
             const cached=operationSnapshot<{jobs:Job[]}>('/jobs')?.jobs.find(job=>job.id===id);

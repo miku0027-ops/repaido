@@ -1,0 +1,50 @@
+.public-contract-history,.public-contract-progress{min-width:0;color:var(--ui-ink);font-family:var(--ui-font);overflow-wrap:anywhere}
+.public-contract-history{margin:18px 0;padding:16px;border:1px solid var(--ui-line);border-radius:18px;background:var(--ui-surface)}
+.public-contract-history-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.public-contract-history-heading>div{min-width:0}
+.public-contract-history-heading>div>span{font-size:.625rem;font-weight:750;line-height:1.5;letter-spacing:.08em;color:var(--ui-muted)}
+.public-contract-history-heading h2{font-size:1rem;line-height:1.4;margin:3px 0 0;font-weight:750}
+.public-contract-history button,.public-contract-progress button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 12px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface);color:var(--ui-link);font-size:.8125rem;font-weight:700;line-height:1.5;text-align:left}
+.public-contract-history-heading>button{padding:10px;flex:none}
+.public-contract-history button svg,.public-contract-progress button svg{flex:none}
+.public-contract-history-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr));gap:12px}
+.public-contract-history-grid>article{min-width:0;padding:14px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-subtle)}
+.public-contract-summary h3{margin:7px 0;font-size:.9375rem;line-height:1.45;font-weight:750}
+.public-contract-summary p{margin:4px 0;font-size:.8125rem;line-height:1.5;color:var(--ui-muted)}
+.public-contract-state{display:inline-block;font-size:.6875rem;font-weight:700;line-height:1.5;color:var(--ui-link)}
+.public-contract-dates,.public-contract-review-count{display:flex;align-items:flex-start;gap:7px;color:var(--ui-muted);font-size:.75rem;line-height:1.5}
+.public-contract-dates svg,.public-contract-review-count svg{flex:none;margin-top:2px}
+.public-contract-review-count{margin:12px 0}
+.public-contract-note{margin:8px 0 14px;color:var(--ui-muted);font-size:.8125rem;line-height:1.6}
+.public-contract-detail{min-width:0}
+.public-contract-refresh{display:flex;justify-content:flex-end;margin:8px 0}
+.public-contract-back{margin-bottom:12px}
+.public-contract-section{margin-top:18px;padding-top:14px;border-top:1px solid var(--ui-line);min-width:0}
+.public-contract-section h4{margin:0 0 12px;font-size:.875rem;font-weight:750;line-height:1.5}
+.public-contract-section ol,.public-contract-section ul{list-style:none;padding:0;margin:0}
+.public-contract-calendar,.public-contract-milestones{display:grid;gap:10px}
+.public-contract-calendar li,.public-contract-milestones li{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-subtle)}
+.public-contract-calendar li>svg,.public-contract-milestones li>svg{flex:none;color:var(--ui-link);margin-top:3px}
+.public-contract-calendar li>div,.public-contract-milestones li>div{display:grid;gap:4px;min-width:0}
+.public-contract-section time,.public-contract-calendar span,.public-contract-milestones span{font-size:.75rem;color:var(--ui-muted);line-height:1.5}
+.public-contract-calendar strong,.public-contract-milestones strong{font-size:.8125rem;line-height:1.5;font-weight:700}
+.public-contract-series{display:grid;gap:10px}
+.public-contract-series li{display:grid;grid-template-columns:minmax(0,1fr) 3rem;align-items:center;gap:5px 8px}
+.public-contract-series time,.public-contract-series li>span:last-child{grid-column:1/-1;font-size:.75rem;line-height:1.5;color:var(--ui-muted)}
+.public-contract-series strong{font-size:.8125rem;text-align:right}
+.public-contract-progress-bar{height:8px;border-radius:10px;overflow:hidden;background:var(--ui-subtle);border:1px solid var(--ui-line)}
+.public-contract-progress-bar>span{display:block;height:100%;background:var(--ui-link)}
+.public-contract-updates{display:grid;gap:12px}
+.public-contract-updates>li{padding:12px;border:1px solid var(--ui-line);border-radius:14px;min-width:0}
+.public-contract-update-heading{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px;margin-bottom:5px;font-size:.8125rem;line-height:1.5}
+.public-contract-update-heading>span{color:var(--ui-muted)}
+.public-contract-updates p{font-size:.8125rem;line-height:1.65;margin:10px 0;white-space:pre-wrap}
+.public-contract-photos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:10px;margin-top:12px}
+.public-contract-photos figure{margin:0;border:1px solid var(--ui-line);border-radius:12px;overflow:hidden;background:var(--ui-subtle)}
+.public-contract-photos img,.public-contract-photos video{display:block;width:100%;max-height:22rem;object-fit:contain}
+.public-contract-photos figcaption{padding:7px 9px;font-size:.6875rem;line-height:1.5;color:var(--ui-muted)}
+.public-contract-read-message{font-size:.8125rem;line-height:1.6;color:var(--ui-muted)}
+.public-contract-more{margin-top:12px}
+@media(max-width:360px){.public-contract-history{padding:12px}.public-contract-history-grid>article{padding:12px}}
+@media(prefers-reduced-motion:reduce){.public-contract-history *,.public-contract-progress *{animation:none!important;transition:none!important}}
+.reduce-motion .public-contract-history *,.reduce-motion .public-contract-progress *{animation:none!important;transition:none!important}

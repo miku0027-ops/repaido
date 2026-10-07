@@ -43,6 +43,16 @@ class Profile(Input):
     name:str=Field(min_length=2,max_length=120)
     city:str=Field(min_length=2,max_length=80)
     scope:str=Field(min_length=10,max_length=2000)
+def worker_type_name(value):
+    value='_'.join(unicodedata.normalize('NFKC',value).casefold().split())
+    if not re.fullmatch(r'[a-z][a-z0-9_]{1,59}',value):raise ValueError('Use a worker type such as mistri, rajmistri, labour, wiring or cleaning.')
+    return value
+class WorkforceRequirement(Input):
+    worker_type:str=Field(min_length=2,max_length=60)
+    count:int=Field(ge=1,le=500)
+    @field_validator('worker_type')
+    @classmethod
+    def clean_type(cls,v):return worker_type_name(v)
 class Project(Create):
     title:str=Field(min_length=3,max_length=150)
     scope:str=Field(min_length=10,max_length=4000)
@@ -86,6 +96,10 @@ class Invite(Input):
     reports_to:str|None=None
     daily_rate_paise:int=Field(ge=0,le=10000000)
     terms:str=Field(min_length=20,max_length=2000)
+    worker_type:str|None=Field(default=None,min_length=2,max_length=60)
+    @field_validator('worker_type')
+    @classmethod
+    def clean_type(cls,v):return worker_type_name(v) if v else None
 class Command(Input):
     expected_version:int=Field(ge=1)
     action:Literal['accept','decline','leave_team','remove','start','pause','resume','complete','cancel','goal_add','goal_submit','goal_approve','goal_reopen','check_in','check_out','leave_request','leave_approve','leave_decline']
@@ -109,6 +123,7 @@ class HiringNotice(Input):
     skills:list[str]=Field(min_length=1,max_length=20)
     worker_role:Literal['any','technician','specialist']='any'
     openings:int=Field(ge=1,le=500)
+    role_requirements:list[WorkforceRequirement]=Field(default_factory=list,max_length=20)
     minimum_experience:int=Field(ge=0,le=60,default=0)
     daily_rate_paise:int=Field(gt=0,le=10000000)
     hours_per_day:int=Field(ge=1,le=12)
@@ -121,10 +136,20 @@ class HiringNotice(Input):
         cleaned=list(dict.fromkeys(v.strip() for v in values))
         if any(not 2<=len(v)<=80 for v in cleaned):raise ValueError('Each skill must be 2–80 characters.')
         return cleaned
+    @model_validator(mode='after')
+    def role_counts(self):
+        roles=[r.worker_type for r in self.role_requirements]
+        if len(roles)!=len(set(roles)):raise ValueError('Combine each worker type into one required count.')
+        if roles and sum(r.count for r in self.role_requirements)!=self.openings:raise ValueError('Worker type counts must add up to total team places.')
+        return self
 class JoinApplication(Input):
     hiring_version:int=Field(ge=1)
     note:str=Field(min_length=20,max_length=2000)
     available:Literal[True]
+    worker_type:str|None=Field(default=None,min_length=2,max_length=60)
+    @field_validator('worker_type')
+    @classmethod
+    def clean_type(cls,v):return worker_type_name(v) if v else None
 class ApplicationDecision(Input):
     expected_version:int=Field(ge=1)
     project_version:int=Field(ge=1)
@@ -134,6 +159,10 @@ class ApplicationDecision(Input):
     role:Literal['member','supervisor']='member'
     daily_rate_paise:int|None=Field(default=None,gt=0,le=10000000)
     terms:str=Field(default='',max_length=2000)
+    worker_type:str|None=Field(default=None,min_length=2,max_length=60)
+    @field_validator('worker_type')
+    @classmethod
+    def clean_type(cls,v):return worker_type_name(v) if v else None
 
 class ApplicationView(Input):
     expected_version:int=Field(ge=1)
@@ -150,9 +179,75 @@ def hiring_source_authorized(u,p):
     if (u.get('network_suspensions',p.get('owner_id','')) or {}).get('active'):return False
     if p.get('source_kind')=='private_request':return bool(p.get('owner_phone_verified'))
     owner=u.get('workers',p.get('owner_id','')) or {}
-    return owner.get('status')=='approved' and bool(owner.get('contractor_verified'))
+    approved=owner.get('status')=='approved' and bool(owner.get('contractor_verified'))
+    if p.get('source_kind')=='customer_custom_query':
+        source=u.get('contract_tenders',p.get('tender_id','')) or {}
+        return approved and source.get('source_kind')=='customer_custom_query' and source.get('status')=='awarded' and source.get('winning_project_id')==p.get('id') and source.get('awarded_contractor_id')==p.get('owner_id')
+    return approved
 
 HIRING_TRADES=('cleaning','electrician','plumber','ac','pest','carpenter','civil','spares')
+
+def accepted_team(p):
+    """One active placement per registered worker, even for older duplicated rows."""
+    rows={}
+    for row in p.get('team') or []:
+        if row.get('status')=='accepted' and row.get('worker_id'):
+            rows[row['worker_id']]=row
+    return list(rows.values())
+
+def team_capacity(p,exclude_invitation=None):
+    """Accepted workers fill vacancies; pending offers reserve remaining places."""
+    hiring=p.get('hiring') or {}
+    requirements=hiring.get('role_requirements') or p.get('workforce_requirements') or []
+    required=hiring.get('openings') or p.get('manpower_needed') or (sum(r['count'] for r in requirements) if requirements else None)
+    accepted=accepted_team(p);joined={m['worker_id'] for m in accepted};pending={}
+    for row in p.get('team') or []:
+        if row.get('id')==exclude_invitation:continue
+        if row.get('status')=='pending' and row.get('worker_id') and row['worker_id'] not in joined:
+            pending[row['worker_id']]=row
+    def counts(target,filled,reserved):
+        return dict(required=target,accepted=filled,vacancies=max(0,target-filled) if target is not None else None,
+                    pendingOffers=reserved,availableToOffer=max(0,target-filled-reserved) if target is not None else None)
+    roles=[]
+    for requirement in requirements:
+        kind=requirement['worker_type'];filled=sum(m.get('worker_type')==kind for m in accepted)
+        reserved=sum(m.get('worker_type')==kind for m in pending.values())
+        roles.append(dict(worker_type=kind,**counts(requirement['count'],filled,reserved)))
+    return {**counts(required,len(accepted),len(pending)), 'roles':roles}
+
+def work_stage(p):
+    if p.get('status') in ('completed','cancelled','paused'):return p['status']
+    if p.get('status')=='active':return 'work_live'
+    if p.get('tender_id') and not p.get('awarded_at'):return 'preparing_bid'
+    capacity=team_capacity(p)
+    return 'team_ready' if capacity['required'] is not None and capacity['vacancies']==0 else 'recruiting' if p.get('hiring') else 'planning'
+
+def sync_team_capacity(p):
+    """Keep the canonical notice closed when accepted placements fill its team."""
+    capacity=team_capacity(p);hiring=p.get('hiring')
+    if hiring and capacity['required'] is not None and capacity['vacancies']==0 and hiring.get('status')=='open':
+        hiring.update(status='closed',closed_reason='team_full',closed_at=time.time())
+    return capacity
+
+def require_team_place(p,worker_type=None,exclude_invitation=None):
+    capacity=team_capacity(p,exclude_invitation)
+    if capacity['required'] is not None and capacity['availableToOffer']==0:fail('TEAM_FULL','Every team place is accepted or reserved by a pending offer.',409)
+    if capacity['roles']:
+        role=next((r for r in capacity['roles'] if r['worker_type']==worker_type),None)
+        if not role:fail('WORKER_TYPE_REQUIRED','Choose one of this project’s required worker types.',422)
+        if role['availableToOffer']==0:fail('ROLE_FULL','This worker type has no unreserved team places.',409)
+    return capacity
+
+def validate_capacity_update(p):
+    capacity=team_capacity(p)
+    if capacity['required'] is not None and capacity['accepted']+capacity['pendingOffers']>capacity['required']:
+        fail('TEAM_CAPACITY','Remove or resolve existing placements before reducing team places.',409)
+    required_types={r['worker_type'] for r in capacity['roles']}
+    if required_types and any(m.get('worker_type') not in required_types for m in p.get('team') or [] if m.get('status') in ('pending','accepted')):
+        fail('WORKER_TYPE_REQUIRED','Resolve untyped or changed team placements before changing worker type requirements.',409)
+    if any(r['accepted']+r['pendingOffers']>r['required'] for r in capacity['roles']):
+        fail('ROLE_CAPACITY','Resolve existing placements before reducing this worker type’s places.',409)
+    return capacity
 
 def hiring_trade(hiring,title=''):
     """Work category is independent of the customer's business/industry sector.
@@ -218,14 +313,16 @@ def application_keyset(u,uid,scope='all',project_id='',after='',limit=APPLICATIO
 def public_hiring(p):
     h=p.get('hiring')
     if not h:return None
-    team=[m for m in p['team'] if m['status']=='accepted']
+    team=accepted_team(p);capacity=team_capacity(p)
+    hiring={k:v for k,v in h.items() if k not in ('updated_by',)}
+    if capacity['required'] is not None and capacity['vacancies']==0 and hiring.get('status')=='open':hiring.update(status='closed',closed_reason='team_full')
     return dict(id=p['id'],title=p['title'],contractor_id=p['owner_id'],contractor_name=p['owner_name'],owner_id=p['owner_id'],owner_name=p['owner_name'],source_kind=p.get('source_kind','commercial_project'),work_type='private_request' if p.get('source_kind')=='private_request' else 'project',status=p['status'],
         starts_at=p['starts_at'],ends_at=p['ends_at'],preparing_tender=bool(p.get('tender_id') and not p.get('awarded_at')),
-        hiring={k:v for k,v in h.items() if k not in ('updated_by',)},
+        hiring=hiring,capacity=capacity,work_stage=work_stage(p),
         progress=dict(approved=sum(g['status']=='approved' for g in p['goals']),total=len(p['goals'])),
         team=dict(total=len(team),supervisors=sum(m['role']=='supervisor' for m in team),members=sum(m['role']=='member' for m in team)))
 
-PUBLIC_TENDER_FIELDS=('id','title','sector','city','budget_paise','manpower_needed','opens_at','deadline','starts_at','ends_at','status')
+PUBLIC_TENDER_FIELDS=('id','title','sector','city','budget_paise','manpower_needed','opens_at','deadline','starts_at','ends_at','status','source_kind')
 PUBLIC_TENDER_SCAN=64
 
 
@@ -238,7 +335,7 @@ def initialize(core):
 
 
 def public_tender(t,now):
-    if t.get('status')!='open' or t['ends_at']<=now:return None
+    if t.get('source_kind')=='customer_custom_query' or t.get('status')!='open' or t['ends_at']<=now:return None
     stage='upcoming' if now<t['opens_at'] else 'bidding' if now<t['deadline'] else 'decision'
     fields=('id','title','sector','city','budget_paise','manpower_needed','opens_at','deadline','starts_at','ends_at')
     return {**{key:t[key] for key in fields},'status':t['status'],'phase':stage}
@@ -350,10 +447,12 @@ def install(core):
         p=get(u,'contract_projects',a['project_id'])
         invitation=next((m for m in p['team'] if m.get('id')==a.get('invitation_id')),None)
         row={**application_view(a),'project_title':p['title'],'project_version':p['version'],'project_status':p['status'],'source_kind':p.get('source_kind','commercial_project'),'invitation_status':invitation.get('status') if invitation else None,'applicant':person_card(u,u.get('workers',a['worker_id']) or {})}
-        if invitation:row['invitation']={k:invitation.get(k) for k in ('id','worker_id','role','status','daily_rate_paise','terms','invited_at','responded_at')}
+        row.update(capacity=team_capacity(p),work_stage=work_stage(p))
+        if invitation:row['invitation']={k:invitation.get(k) for k in ('id','worker_id','role','worker_type','status','daily_rate_paise','terms','invited_at','responded_at','accepted_at')}
         if uid==a['owner_id']:row['fit']=application_fit(u.get('workers',a['worker_id']) or {},p.get('hiring') or {})
         return row
     def event(u,p,user,action,note=''):
+        if 'team' in p:sync_team_capacity(p)
         p['version']+=1;p['updated_at']=time.time();p['events'].append(dict(id=str(uuid.uuid4()),action=action,actor=user['id'],at=time.time(),note=note))
         audit(u,'ContractWorkChanged',user['id'],record_id=p['id'],command=action,version=p['version'])
     def free(u,worker,p):
@@ -372,11 +471,12 @@ def install(core):
         d={**t};d['registrations_count']=len(t['registrations']);d['registered']=uid in t['registrations'];d.pop('registrations');d['bids_count']=sum(b['status']=='submitted' for b in t['bids']);d['bids']=[b for b in t['bids'] if uid==t['owner_id'] or uid==b['contractor_id']];return d
     def project_view(p,uid):
         access(p,uid)
-        if p['owner_id']==uid:return p
+        state=dict(capacity=team_capacity(p),work_stage=work_stage(p))
+        if p['owner_id']==uid:return {**p,**state}
         mine=member(p,uid)
         if not mine:
-            return {**{k:p[k] for k in ('id','title','scope','site','starts_at','ends_at','status','version','owner_id','owner_name','tender_id')},'source_kind':p.get('source_kind','commercial_project'),'team':[m for m in p['team'] if m['worker_id']==uid],'goals':[],'attendance':[],'leave':[],'events':[]}
-        return {**p,'budget_paise':None,'team':[{**m,'daily_rate_paise':m['daily_rate_paise'] if m['worker_id']==uid else None,'terms':m['terms'] if m['worker_id']==uid else ''} for m in p['team']],'attendance':[a for a in p['attendance'] if a['worker_id']==uid or mine['role']=='supervisor'],'leave':[a for a in p['leave'] if a['worker_id']==uid or mine['role']=='supervisor']}
+            return {**{k:p[k] for k in ('id','title','scope','site','starts_at','ends_at','status','version','owner_id','owner_name','tender_id')},**state,'source_kind':p.get('source_kind','commercial_project'),'team':[m for m in p['team'] if m['worker_id']==uid],'goals':[],'attendance':[],'leave':[],'events':[]}
+        return {**p,**state,'budget_paise':None,'team':[{**m,'daily_rate_paise':m['daily_rate_paise'] if m['worker_id']==uid else None,'terms':m['terms'] if m['worker_id']==uid else ''} for m in p['team']],'attendance':[a for a in p['attendance'] if a['worker_id']==uid or mine['role']=='supervisor'],'leave':[a for a in p['leave'] if a['worker_id']==uid or mine['role']=='supervisor']}
     @r.get('/sectors')
     def sectors():
         return store.run(lambda u:dict(sectors=sector_catalog(u)))
@@ -386,6 +486,7 @@ def install(core):
             projects={p['id']:p for p in u.all('contract_projects')}
             contracts=[];scores={}
             for t in u.all('contract_tenders'):
+                if t.get('source_kind')=='customer_custom_query':continue
                 p=projects.get(t.get('winning_project_id'))
                 if t.get('status')!='awarded' or not p:continue
                 contracts.append(dict(id=t['id'],title=t['title'],sector=t['sector'],city=t['city'],status=p['status']))
@@ -402,7 +503,7 @@ def install(core):
     def opportunities(user=Depends(core.current_user)):
         def execute(u):
             contractor(u,user)
-            return dict(server_time=time.time(),tenders=[{k:v for k,v in tender_view(t,user['id']).items() if k not in ('request_hash','events','owner_id')} for t in u.all('contract_tenders')])
+            return dict(server_time=time.time(),tenders=[{k:v for k,v in tender_view(t,user['id']).items() if k not in ('request_hash','events','owner_id')} for t in u.all('contract_tenders') if t.get('source_kind')!='customer_custom_query'])
         return store.run(execute)
     @r.get('/published')
     def published(sector:str=Query(default='',max_length=80),query:str=Query(default='',max_length=120),
@@ -438,7 +539,7 @@ def install(core):
     def workspace(user=Depends(core.current_user)):
         phone(user)
         def execute(u):
-            uid=user['id'];w=u.get('workers',uid) or {};return dict(server_time=time.time(),user_id=uid,can_contract=w.get('status')=='approved' and bool(w.get('contractor_verified')),profile=u.get('contract_profiles',uid),projects=[project_view(p,uid) for p in u.all('contract_projects') if can_access(p,uid)],tenders=[tender_view(t,uid) for t in u.all('contract_tenders') if (w.get('status')=='approved' and w.get('contractor_verified')) or t['owner_id']==uid])
+            uid=user['id'];w=u.get('workers',uid) or {};return dict(server_time=time.time(),user_id=uid,can_contract=w.get('status')=='approved' and bool(w.get('contractor_verified')),profile=u.get('contract_profiles',uid),projects=[project_view(p,uid) for p in u.all('contract_projects') if can_access(p,uid)],tenders=[tender_view(t,uid) for t in u.all('contract_tenders') if t.get('source_kind')!='customer_custom_query' and ((w.get('status')=='approved' and w.get('contractor_verified')) or t['owner_id']==uid)])
         return store.run(execute)
     @r.put('/profile')
     def profile(body:Profile,user=Depends(core.current_user)):
@@ -464,6 +565,7 @@ def install(core):
             if body.ends_at<=time.time():fail('DATES','Choose future work dates.',422)
             if body.tender_id:
                 t=get(u,'contract_tenders',body.tender_id)
+                if t.get('source_kind')=='customer_custom_query':fail('SCOPED_QUERY','Use the matched customer query to prepare its contract.',403)
                 if t['status']!='open' or t['deadline']<=time.time():fail('CLOSED','This tender is closed.',409)
                 if body.starts_at!=t['starts_at'] or body.ends_at!=t['ends_at']:fail('DATES','Use the tender work dates for its team plan.',422)
             p=dict(**body.model_dump(exclude={'request_id'}),id=key,request_hash=digest,owner_id=user['id'],owner_name=(u.get('contract_profiles',user['id']) or {}).get('name',user['name']),source_kind='private_request' if private else 'commercial_project',owner_phone_verified=bool(user.get('phone_verified')),status='planning',team=[],goals=[],attendance=[],leave=[],events=[],version=1,created_at=time.time())
@@ -490,14 +592,16 @@ def install(core):
     @r.post('/tenders/{tid}/bid')
     def bid(tid:str,body:Bid,user=Depends(core.current_user)):
         def execute(u):
-            contractor(u,user);t=get(u,'contract_tenders',tid);uid=user['id'];key=identifier('bid',uid,body.request_id);old=next((b for b in t['bids'] if b['id']==key),None);digest=same_create(old,body)
+            contractor(u,user);t=get(u,'contract_tenders',tid)
+            if t.get('source_kind')=='customer_custom_query':fail('SCOPED_QUERY','Submit through the matched customer query.',403)
+            uid=user['id'];key=identifier('bid',uid,body.request_id);old=next((b for b in t['bids'] if b['id']==key),None);digest=same_create(old,body)
             if old:return tender_view(t,uid)
             version(t,body.expected_version)
             if t['owner_id']==uid:fail('SELF_BID','You cannot bid on your own tender.',403)
             if t['status']!='open' or not t['opens_at']<=time.time()<t['deadline']:fail('CLOSED','Bidding is not open.',409)
             p=get(u,'contract_projects',body.project_id)
             if p['owner_id']!=uid or p['tender_id']!=tid or p['status']!='planning':fail('TEAM_REQUIRED','Choose your team plan for this tender.',422)
-            crew=[m for m in p['team'] if m['status']=='accepted']
+            crew=accepted_team(p)
             if len(crew)<t['manpower_needed']:fail('TEAM_REQUIRED','The required number of agents must accept their invitations before bidding.',409)
             for m in crew:active_worker(u,m['worker_id']);free(u,m['worker_id'],p)
             for b in t['bids']:
@@ -509,7 +613,9 @@ def install(core):
     def tender_command(tid:str,body:TenderCommand,user=Depends(core.current_user)):
         phone(user)
         def execute(u):
-            t=get(u,'contract_tenders',tid);version(t,body.expected_version);uid=user['id'];action=body.action
+            t=get(u,'contract_tenders',tid)
+            if t.get('source_kind')=='customer_custom_query':fail('SCOPED_QUERY','Manage this contract through the customer query.',403)
+            version(t,body.expected_version);uid=user['id'];action=body.action
             if action in ('register','unregister'):
                 contractor(u,user)
                 if t['status']!='open' or time.time()>=t['deadline']:fail('CLOSED','Tender is closed.',409)
@@ -527,7 +633,7 @@ def install(core):
                     if time.time()<t['deadline']:fail('WINDOW_OPEN','Wait until the bidding deadline to award this tender.',409)
                     b=next((x for x in t['bids'] if x['id']==body.bid_id and x['status']=='submitted'),None)
                     if not b:fail('INVALID_BID','Choose a submitted bid.',422)
-                    p=get(u,'contract_projects',b['project_id']);crew=[m for m in p['team'] if m['status']=='accepted'];contractor(u,dict(id=b['contractor_id'],phone_verified=True))
+                    p=get(u,'contract_projects',b['project_id']);crew=accepted_team(p);contractor(u,dict(id=b['contractor_id'],phone_verified=True))
                     if p['status']!='planning' or len(crew)<t['manpower_needed']:fail('TEAM_REQUIRED','The bidder must reconfirm the required team.',409)
                     for m in crew:active_worker(u,m['worker_id']);free(u,m['worker_id'],p)
                     b['status']='awarded';t.update(status='awarded',winning_bid_id=b['id'],winning_project_id=p['id']);p.update(awarded_at=time.time(),contract_value_paise=b['amount_paise'],client_id=uid)
@@ -543,13 +649,14 @@ def install(core):
         from repaidians import blocked as social_blocked
         if social_blocked(u,user['id'],body.worker_id) or (u.get('network_suspensions',body.worker_id) or {}).get('active'):fail('UNAVAILABLE','This agent is unavailable for invitations.',409)
         if any(m['worker_id']==body.worker_id and m['status'] in ('pending','accepted') for m in p['team']):fail('DUPLICATE','This agent is already invited or on the team.',409)
+        require_team_place(p,body.worker_type)
         if body.reports_to and not any(m['worker_id']==body.reports_to and m['status']=='accepted' and m['role']=='supervisor' for m in p['team']):fail('HIERARCHY','Choose an accepted supervisor.',422)
         free(u,body.worker_id,p)
         m=dict(**body.model_dump(exclude={'expected_version'}),id=str(uuid.uuid4()),name=w['name'],status='pending',invited_at=time.time());p['team'].append(m)
         event(u,p,user,'agent_invited',w['name']);u.put('contract_projects',pid,p);notify(u,body.worker_id,'Project team invitation',p['title']);return p
     @r.post('/projects/{pid}/invitations')
     def invite(pid:str,body:Invite,user=Depends(core.current_user)):
-        return store.run(lambda u:add_invitation(u,pid,body,user))
+        return store.run(lambda u:project_view(add_invitation(u,pid,body,user),user['id']))
 
     @r.put('/projects/{pid}/hiring')
     def hiring_notice(pid:str,body:HiringNotice,user=Depends(core.current_user)):
@@ -562,8 +669,11 @@ def install(core):
             work_trade=hiring_trade(h,p['title'])
             if not work_trade:fail('WORK_CATEGORY_REQUIRED','Choose the work category separately from the business sector.',422)
             h['work_trade']=work_trade
+            if p.get('work_trade') and h['work_trade']!=p['work_trade']:fail('AGREED_TRADE','Hiring must keep the work category agreed for this contract.',409)
             h['sector']=save_sector(u,h['sector'],user['id']);p['hiring']=h
-            event(u,p,user,'hiring_'+body.status);u.put('contract_projects',pid,p);return p
+            if p.get('workforce_requirements') and h['role_requirements']!=p['workforce_requirements']:fail('AGREED_WORKFORCE','Hiring must keep the worker type counts agreed for this contract.',409)
+            validate_capacity_update(p)
+            event(u,p,user,'hiring_'+body.status);u.put('contract_projects',pid,p);return {**p,'capacity':team_capacity(p),'work_stage':work_stage(p)}
         return store.run(save)
     @r.post('/projects/{pid}/apply')
     def apply_for_project(pid:str,body:JoinApplication,user=Depends(core.current_user)):
@@ -575,18 +685,32 @@ def install(core):
             if not hiring_source_authorized(u,p):fail('UNAVAILABLE','Project owner approval is unavailable.',409)
             if h.get('status')!='open' or h.get('deadline',0)<=time.time() or p['status'] not in ('planning','active') or p['ends_at']<=time.time():fail('CLOSED','Hiring is not open for this project.',409)
             if h['version']!=body.hiring_version:fail('TERMS_CHANGED','Hiring details changed. Read the updated notice before applying.',409)
+            if team_capacity(p)['vacancies']==0:fail('FULL','The accepted project team has filled every place.',409)
+            if (p.get('tender_id') and not p.get('awarded_at')):fail('AWARD_REQUIRED','This plan is awaiting contract award. Register interest in the contract before applying for an awarded project.',409)
+            worker_type=body.worker_type
+            capacity=team_capacity(p)
+            if capacity['roles']:
+                role=next((r for r in capacity['roles'] if r['worker_type']==worker_type),None)
+                if not role:fail('WORKER_TYPE_REQUIRED','Choose a required worker type before applying.',422)
+                if role['vacancies']==0:fail('ROLE_FULL','The accepted team has filled this worker type.',409)
             if h['worker_role']!='any' and h['worker_role']!=w['role']:fail('ROLE_REQUIRED','This notice requires a different approved work role.',409)
             if (w.get('experience_years') or 0)<h['minimum_experience']:fail('EXPERIENCE_REQUIRED','This notice requires more recorded experience.',409)
             if any(m['worker_id']==uid and m['status'] in ('accepted','pending') for m in p['team']):fail('ALREADY_TEAM','An invitation or team placement already exists.',409)
             free(u,uid,p)
+            first_interest_at=None
+            if p.get('source_kind')=='customer_custom_query':
+                from repaidians import digest
+                interest=u.get('custom_contract_interests',digest(p.get('tender_id','')+':'+uid)) or {}
+                stamp=interest.get('created_at')
+                if interest.get('query_id')==p.get('tender_id') and interest.get('worker_id')==uid and interest.get('worker_type')==worker_type and interest.get('status')=='pending_award' and interest.get('available') is True and isinstance(stamp,(int,float)) and not isinstance(stamp,bool) and 0<stamp<=time.time():first_interest_at=stamp
             key=identifier('application',uid,pid);old=u.get('project_applications',key)
             if old and old['status'] in ('applied','shortlisted','on_hold') and (old.get('notice_snapshot') or {}).get('version')!=h['version']:
-                old.update(notice_snapshot=h,note=body.note)
+                old.update(notice_snapshot=h,note=body.note,worker_type=worker_type,first_interest_at=first_interest_at)
                 application_event(u,old,user,'reconfirmed','applied');return application_view(old)
             if old and old['status'] not in ('withdrawn','rejected','declined','offer_withdrawn'):return application_view(old)
             if old and old['status']=='rejected':fail('REVIEWED','This application was reviewed. Contact the contractor through a connection for future openings.',409)
             throttle(u,uid,'application',20,86400)
-            row=dict(id=key,project_id=pid,worker_id=uid,worker_name=w['name'],owner_id=p['owner_id'],note=body.note,notice_snapshot=h,source_kind=p.get('source_kind','commercial_project'),starts_at=p['starts_at'],ends_at=p['ends_at'],status='applied',version=(old or {}).get('version',0)+1,created_at=time.time(),updated_at=time.time(),events=[*((old or {}).get('events',[])),dict(id=str(uuid.uuid4()),action='applied',status='applied',actor=uid,at=time.time())])
+            row=dict(id=key,project_id=pid,worker_id=uid,worker_name=w['name'],owner_id=p['owner_id'],note=body.note,worker_type=worker_type,first_interest_at=first_interest_at,notice_snapshot=h,source_kind=p.get('source_kind','commercial_project'),starts_at=p['starts_at'],ends_at=p['ends_at'],status='applied',version=(old or {}).get('version',0)+1,created_at=time.time(),updated_at=time.time(),events=[*((old or {}).get('events',[])),dict(id=str(uuid.uuid4()),action='applied',status='applied',actor=uid,at=time.time())])
             u.put('project_applications',key,row)
             from repaidians_work import application_event as social_application_event
             social_application_event(u,row,p,'applied');notify(u,p['owner_id'],'New joining request',p['title']);return application_view(row)
@@ -637,8 +761,8 @@ def install(core):
                 if not p:continue
                 rows.append(application_details(u,a,uid))
             if scope=='owned':
-                rows.sort(key=lambda a:(not a['fit']['eligible'],-a['fit']['score'],a['created_at'],a['id']))
-                for position,row in enumerate(rows,1):row.update(queue_position=position,rank_scope='page',tie_break='first_applied')
+                rows.sort(key=lambda a:(not a['fit']['eligible'],-a['fit']['score'],a.get('first_interest_at') or a['created_at'],a['created_at'],a['id']))
+                for position,row in enumerate(rows,1):row.update(queue_position=position,rank_scope='page',tie_break='recorded_interest_or_application' if row.get('first_interest_at') else 'first_applied')
             else:rows.sort(key=lambda a:a['updated_at'],reverse=True)
             return dict(applications=rows,has_more=has_more,next_cursor=published_next_cursor(records[-1][0],binding) if has_more and records else None,server_time=time.time())
         return store.run(read)
@@ -691,12 +815,14 @@ def install(core):
                 candidate=active_worker(u,a['worker_id'])
                 if (u.get('network_suspensions',a['worker_id']) or {}).get('active'):fail('UNAVAILABLE','This candidate is under network review.',409)
                 if (h['worker_role']!='any' and candidate['role']!=h['worker_role']) or candidate.get('experience_years',0)<h['minimum_experience']:fail('REQUIREMENTS_CHANGED','The candidate no longer meets this notice. Review the current requirements.',409)
-                if sum(m['status'] in ('accepted','pending') for m in p['team'])>=h.get('openings',0):fail('TEAM_FULL','All advertised places are filled or offered. Update openings first.',409)
+                worker_type=body.worker_type or a.get('worker_type')
+                if a.get('worker_type') and worker_type!=a['worker_type']:fail('WORKER_TYPE_CHANGED','Send joining terms for the worker type the applicant selected.',409)
+                require_team_place(p,worker_type)
                 if not body.daily_rate_paise or len(body.terms.strip())<20:fail('TERMS','Set the offered daily rate and full joining terms.',422)
-                p=add_invitation(u,p['id'],Invite(expected_version=p['version'],worker_id=a['worker_id'],role=body.role,daily_rate_paise=body.daily_rate_paise,terms=body.terms),user)
+                p=add_invitation(u,p['id'],Invite(expected_version=p['version'],worker_id=a['worker_id'],role=body.role,worker_type=worker_type,daily_rate_paise=body.daily_rate_paise,terms=body.terms),user)
                 invitation=p['team'][-1];invitation.update(application_id=a['id'],hiring_version=h['version'])
                 u.put('contract_projects',p['id'],p);a['invitation_id']=invitation['id']
-                a['offer_snapshot']={k:invitation[k] for k in ('daily_rate_paise','terms','role','invited_at','hiring_version')}
+                a['offer_snapshot']={k:invitation.get(k) for k in ('daily_rate_paise','terms','role','worker_type','invited_at','hiring_version')}
             elif body.action in ('reject','hold') and len(body.note.strip())<5:fail('REASON','Give the candidate a short decision reason.',422)
             a['decision_note']=body.note
             application_event(u,a,user,body.action,{'offer':'offered','shortlist':'shortlisted','reject':'rejected','hold':'on_hold'}[body.action],body.note,body.request_id)
@@ -716,6 +842,8 @@ def install(core):
                 application=u.get('project_applications',inv['application_id']) if inv.get('application_id') else None
                 if application and (application.get('status')!='offered' or application.get('invitation_id')!=inv['id']):fail('OFFER_CHANGED','This application offer is no longer current.',409)
                 if a=='accept':
+                    if any(row.get('worker_id')==uid and row.get('status')=='accepted' for row in p['team']):fail('ALREADY_TEAM','You already hold an accepted placement on this project.',409)
+                    require_team_place(p,inv.get('worker_type'),exclude_invitation=inv['id'])
                     if inv.get('hiring_version') and (p.get('hiring') or {}).get('version')!=inv['hiring_version']:fail('TERMS_CHANGED','Hiring details changed after this offer. Ask for a new offer.',409)
                     if not hiring_source_authorized(u,p):fail('UNAVAILABLE','The project owner is unavailable.',409)
                     if (u.get('network_suspensions',uid) or {}).get('active'):fail('UNAVAILABLE','Worker access is under review.',409)
@@ -727,20 +855,23 @@ def install(core):
                     if p['ends_at']<=now:fail('DATES','Invitation dates have passed.',409)
                     if inv['reports_to'] and not member(p,inv['reports_to']):fail('HIERARCHY','The supervisor has left. Ask for a new invitation.',409)
                 inv.update(status='accepted' if a=='accept' else 'declined',responded_at=now);notify(u,p['owner_id'],'Team invitation '+a,p['title'])
+                if a=='accept':inv['accepted_at']=now
                 if application:
                     application_event(u,application,user,a,'hired' if a=='accept' else 'declined',body.note)
                     notify(u,uid,'Application '+application['status'],p['title'],application['id'],p['id'])
             elif a in ('leave_team','remove'):
                 target=body.target_id if a=='remove' else uid
                 if a=='remove' and not own:fail('FORBIDDEN','Only the contractor can remove members.',403)
-                row=next((x for x in p['team'] if x['worker_id']==target and x['status'] in ('pending','accepted')),None)
-                if not row:fail('MEMBER','Member not active.',409)
-                was_pending=row['status']=='pending';row['status']='removed' if a=='remove' else 'left'
-                linked=u.get('project_applications',row['application_id']) if row.get('application_id') else None
-                if linked and linked.get('invitation_id')==row['id']:
-                    status='offer_withdrawn' if was_pending else 'ended'
-                    application_event(u,linked,user,a,status,body.note)
-                    notify(u,row['worker_id'],'Application '+status.replace('_',' '),p['title'],linked['id'],p['id'])
+                active_rows=[x for x in p['team'] if x['worker_id']==target and x['status'] in ('pending','accepted')]
+                if not active_rows:fail('MEMBER','Member not active.',409)
+                linked_seen=set()
+                for row in active_rows:
+                    was_pending=row['status']=='pending';row['status']='removed' if a=='remove' else 'left'
+                    linked=u.get('project_applications',row['application_id']) if row.get('application_id') else None
+                    if linked and linked.get('invitation_id')==row['id'] and linked['id'] not in linked_seen:
+                        linked_seen.add(linked['id']);status='offer_withdrawn' if was_pending else 'ended'
+                        application_event(u,linked,user,a,status,body.note)
+                        notify(u,row['worker_id'],'Application '+status.replace('_',' '),p['title'],linked['id'],p['id'])
                 for child in p['team']:
                     if child.get('reports_to')==target:child['reports_to']=None
                 for att in p['attendance']:

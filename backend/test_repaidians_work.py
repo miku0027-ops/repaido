@@ -64,6 +64,13 @@ def get_jobs(api, uid='customer', **filters):
     return response.json()
 
 
+def approve_follower(uid='customer'):
+    """These social-follow scenarios represent a reviewed partner account."""
+    main.operations_store.run(lambda u: u.put('workers', uid, dict(id=uid, name='Registered professional follower',
+        status='approved', role='technician', categories=['electrician'], city='Balasore',
+        skills=['Electrical installation'], experience_years=4)))
+
+
 def test_native_jobs_strict_relevance_privacy_and_filters(work_api, monkeypatch):
     profile(); seed_job(); seed_job('job2', trade='Plumbing', hiring={'skills': ['Pipe repairs']})
     monkeypatch.setattr(operations.Unit, 'all', lambda *args: (_ for _ in ()).throw(AssertionError('Hot collection scan')))
@@ -207,6 +214,7 @@ def test_accepted_placements_only_and_independent_salary_consent(work_api):
 
 
 def test_placement_notifications_use_live_follow_edges_and_congratulate_once(work_api):
+    approve_follower()
     profile('worker2'); seed_job()
     work_api.patch('/repaidians/work/preferences', headers=auth('worker2'), json={'sharePlacements': True})
     assert work_api.put('/repaidians/follow/worker2', headers=auth('customer'), json={'active': True}).status_code == 200
@@ -294,6 +302,7 @@ def test_native_application_view_emits_one_owned_social_event_and_push(work_api)
 
 
 def test_company_connections_require_live_accepted_share_and_relationship(work_api):
+    approve_follower()
     profile('worker2'); profile(); seed_job()
     main.operations_store.run(lambda u: u.put('contract_profiles', 'worker', {'id': 'worker', 'name': 'Electrical company', 'city': 'Balasore', 'sector': 'Electrical', 'scope': 'Public company scope.'}))
     def accept(u):
@@ -373,6 +382,7 @@ def test_cursor_rejects_profile_lane_or_personalization_revision_changes(work_ap
 
 
 def test_expired_members_can_revoke_work_privacy_without_new_entitlement(work_api):
+    approve_follower()
     onboard(work_api, 'worker2'); profile('worker2'); seed_job(); seed_tender()
     enabled = {'personalizedDiscovery': True, 'contractUpdates': True, 'sharePlacements': True, 'shareSalary': True}
     assert work_api.patch('/repaidians/work/preferences', headers=auth('worker2'), json=enabled).status_code == 200

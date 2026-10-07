@@ -364,6 +364,24 @@ def pro(u, actor):
         fail('TRIAL_EXPIRED', 'Your 60-day community trial has ended. An active membership is required to continue.', 402)
 
 
+
+def capabilities(u, actor):
+    """Only the canonical reviewed worker record grants professional features."""
+    uid = (actor.get('user') or {}).get('id')
+    worker = u.get('workers', uid) if uid else None
+    approved = bool(worker and worker.get('status') == 'approved')
+    return {'professional': approved, 'communityWrite': approved,
+            'role': 'contractor' if approved and worker.get('contractor_verified') else 'agent' if approved else 'customer'}
+
+
+def professional(u, actor):
+    user = signed(actor)
+    if not capabilities(u, actor)['professional']:
+        fail('professional_required', 'Professional interactions are available to approved Repaidians.', 403)
+    pro(u, actor)
+    return member_ensure(u, user)
+
+
 def signed(actor):
     if not actor.get('user'):
         fail('SIGN_IN_REQUIRED', 'Sign in to continue.', 401)
@@ -618,7 +636,7 @@ def install(core):
                              'comments': [], 'follows': [{'from': user['id'], 'to': key} for key in activity['following']] if user else []},
                     'member': public_current, 'activity': activity, 'subscription': bill['subscription'], 'trial': bill['trial'],
                     'serverNow': bill['serverNow'], 'remainingMs': remaining,
-                    'authenticated': bool(user), 'paymentsReady': bill['paymentsReady'], 'mediaReady': storage.ready(core),
+                    'authenticated': bool(user), 'capabilities': capabilities(u, a), 'paymentsReady': bill['paymentsReady'], 'mediaReady': storage.ready(core),
                     'storage': 'firestore' if core.USE_FIRESTORE else 'sqlite',
                     'cursors': {k: p['nextCursor'] for k, p in pages.items()},
                     'unreadCount': sum(not row.get('read') for row in notes if not blocked(u, user['id'], row['authorId'])) if user else 0}
@@ -681,6 +699,9 @@ def install(core):
         def read(u):
             browse(u, a)
             row = u.get('rp_members', member_id)
+            worker = u.get('workers', member_id) if not row else None
+            if worker and worker.get('status') == 'approved':
+                row = member_ensure(u, {'id': member_id, 'name': worker.get('name', 'Repaidian')})
             if not row or blocked(u, (a['user'] or {}).get('id'), member_id):
                 fail('NOT_FOUND', 'Member unavailable.', 404)
             pages = {k: feed_page(u, a, k, author=member_id, limit=20) for k in ('post', 'reel', 'story')}
@@ -694,6 +715,7 @@ def install(core):
     def update_profile(body: ProfilePatch, a=Depends(actor)):
         user = signed(a)
         def save(u):
+            professional(u, a)
             browse(u, a)
             member = member_ensure(u, user)
             values = body.model_dump(exclude_none=True)
@@ -759,7 +781,7 @@ def install(core):
     def publish(body: Publication, a=Depends(actor)):
         user = signed(a)
         def save(u):
-            pro(u, a)
+            professional(u, a)
             prior = replay(u, user['id'], body, 'publish')
             if prior:
                 original = u.get('rp_publications', prior['item']['id'])
@@ -854,6 +876,8 @@ def install(core):
     def activity(action: Literal['likes', 'saved'], publication_id: str, body: Toggle, a=Depends(actor)):
         user = signed(a)
         def save(u):
+            if action == 'likes' and body.active:
+                professional(u, a)
             item = target(u, publication_id, a)
             member_ensure(u, user)
             key = digest(user['id'] + ':' + action + ':' + publication_id)
@@ -875,6 +899,8 @@ def install(core):
     def follow(member_id: str, body: Toggle, a=Depends(actor)):
         user = signed(a)
         def save(u):
+            if body.active:
+                professional(u, a)
             browse(u, a)
             mine = member_ensure(u, user)
             other = u.get('rp_members', member_id)
@@ -915,6 +941,7 @@ def install(core):
     def comment(publication_id: str, body: Text, a=Depends(actor)):
         user = signed(a)
         def save(u):
+            professional(u, a)
             item = target(u, publication_id, a)
             prior = replay(u, user['id'], body, 'comment', publication_id)
             if prior:
@@ -939,6 +966,9 @@ def install(core):
 
     def thread_access(u, a, other):
         user = signed(a)
+        professional(u, a)
+        if not capabilities(u, {'user': {'id': other}})['professional']:
+            fail('NOT_FOUND', 'Conversation unavailable.', 404)
         browse(u, a)
         if user['id'] == other or not u.get('rp_members', other) or blocked(u, user['id'], other):
             fail('NOT_FOUND', 'Conversation unavailable.', 404)
@@ -960,12 +990,20 @@ def install(core):
     def message(recipient_id: str, body: Text, a=Depends(actor)):
         user = signed(a)
         def save(u):
-            pro(u, a)
+            professional(u, a)
             thread_access(u, a, recipient_id)
             prior = replay(u, user['id'], body, 'message', recipient_id)
             if prior:
                 return prior
             recipient=u.get('rp_members',recipient_id) or {}
+            actor_role = capabilities(u, a)['role']
+            recipient_role = capabilities(u, {'user': {'id': recipient_id}})['role']
+            entitlement = subscription_state(u, user['id'])
+            current_trial = (entitlement.get('subscription') or {}).get('plan') == 'trial'
+            if actor_role == 'agent' and recipient_role == 'contractor' and current_trial:
+                from repaidians_network import accepted
+                if not accepted(u, user['id'], recipient_id):
+                    fail('NEARBY_OPENING_REQUIRED', 'Open a matching nearby contract to message its contractor during your free trial, or use an accepted professional connection.', 403)
             privacy=recipient.get('settings',{}).get('messagePrivacy','everyone')
             if privacy=='nobody' or privacy=='following' and not (u.get('rp_follows',digest(recipient_id+':'+user['id'])) or {}).get('active'):
                 fail('MESSAGES_RESTRICTED','This member is not accepting messages from you.',403)
@@ -989,6 +1027,7 @@ def install(core):
         if not 1 <= limit <= 50:
             fail('INVALID_LIMIT', 'Choose a page size between 1 and 50.', 422)
         def read(u):
+            professional(u, a)
             browse(u, a)
             rows = query(u, lane('rp_threads', user['id']), limit + 1, cursor_decode(cursor))
             prefetch_blocks(u, a, [row['id'] for row in rows])
@@ -1002,7 +1041,7 @@ def install(core):
     def bid(tender_id: str, body: Bid, a=Depends(actor)):
         user = signed(a)
         def save(u):
-            pro(u, a)
+            professional(u, a)
             item = target(u, tender_id, a)
             prior = replay(u, user['id'], body, 'bid', tender_id)
             if prior:
@@ -1032,6 +1071,7 @@ def install(core):
         if not 1 <= limit <= 50:
             fail('INVALID_LIMIT', 'Choose a page size between 1 and 50.', 422)
         def read(u):
+            professional(u, a)
             item = target(u, tender_id, a)
             if item['kind'] != 'tender' or item['authorId'] != user['id']:
                 fail('NOT_FOUND', 'Tender unavailable.', 404)
@@ -1046,7 +1086,7 @@ def install(core):
     @r.get('/tenders/{tender_id}/contact')
     def tender_contact(tender_id: str, a=Depends(actor)):
         def read(u):
-            pro(u, a)
+            professional(u, a)
             item = target(u, tender_id, a)
             if item['kind'] != 'tender' or item['deadline'] <= now_ms():
                 fail('NOT_FOUND', 'Tender unavailable.', 404)
@@ -1186,7 +1226,7 @@ def install(core):
             fail('MEDIA_UNAVAILABLE', 'Durable community media storage is not configured.', 503)
         mime = request.headers.get('content-type', '').split(';')[0]
         def reserve(u):
-            pro(u, a)
+            professional(u, a)
             rate(u, user['id'], 'upload', 60, 3600000)
         store.run(reserve)
         maximum = 8 * 1024 * 1024

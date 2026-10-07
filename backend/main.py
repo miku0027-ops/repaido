@@ -226,6 +226,8 @@ async def lifespan(app):
     repaidians_network.initialize(sys.modules[__name__])
     repaidians_opportunities.initialize(sys.modules[__name__])
     repaidians_work.initialize(sys.modules[__name__])
+    custom_contracts.initialize(sys.modules[__name__])
+    contract_records.initialize(sys.modules[__name__])
     async def run_scheduler():
         while True:
             try:
@@ -1145,3 +1147,8 @@ import repaidians_opportunities
 repaidians_opportunities.install(sys.modules[__name__])
 import repaidians_work
 repaidians_work.install(sys.modules[__name__])
+
+import custom_contracts
+custom_contracts.install(sys.modules[__name__])
+import contract_records
+contract_records.install(sys.modules[__name__])

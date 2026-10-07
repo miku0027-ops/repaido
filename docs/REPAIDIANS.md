@@ -1,6 +1,6 @@
 # Repaidians community
 
-The Home launcher opens Repaidians without resetting customer location, navigation or booking state. Its interface uses a photo-first social feed, gradient story rings, compact actions, a mobile tab bar and a desktop side rail. Light and dark themes share the Repaido design tokens. Motion respects the device's reduced-motion preference.
+The Home launcher opens Repaidians without resetting customer location, navigation or booking state. The compact plus menu also opens private customer contract requests and Quick Hire. [Custom contract architecture](CUSTOM_CONTRACTS.md) describes matching, canonical hiring, payments and progress privacy. Its interface uses a photo-first social feed, gradient story rings, compact actions, a mobile tab bar and a desktop side rail. Light and dark themes share the Repaido design tokens. Motion respects the device's reduced-motion preference.
 
 ## Shared backend
 
@@ -8,7 +8,7 @@ The Home launcher opens Repaidians without resetting customer location, navigati
 
 Community records use the existing operations store: Firestore `ops_rp_*` collections in the cloud and `operation_records` in SQLite for local development. Records include members, publications, timelines, comments, likes, saves, follows, messages and threads, tenders and bids, notifications, reports, blocks, usage and billing attempts. Indexed timeline lanes, prefix member search and cursors bound reads per request; followers and engagement counters update in the same transaction as their actions.
 
-The application does not generate sample posts, seeded tenders, fake engagement or invented specialist work. A new community starts with an empty feed. Registered members can create their own profile and portfolio. Reviewed work indicators are derived from approved Repaido worker records. Old `repaidians.v1.*` browser data and demo subscriptions are ignored rather than promoted to paid or public records.
+The application does not generate sample posts, seeded tenders, fake engagement or invented specialist work. A new community starts with an empty feed. Approved registered professionals can create their own profile and portfolio. Customers browse public work and manage private contract requests; a profile label cannot grant professional permissions. Reviewed work indicators are derived from approved Repaido worker records. Old `repaidians.v1.*` browser data and demo subscriptions are ignored rather than promoted to paid or public records.
 
 ## Features and access
 
@@ -18,7 +18,7 @@ The application does not generate sample posts, seeded tenders, fake engagement 
 - Member search, portfolio profiles, follows, shared message threads and activity notifications.
 - Tender briefs with budget, deadline, crew size, persisted bids and separately protected contact details.
 - Owner-only publication deletion, reporting and bilateral blocking. Blocks also remove follow relationships and hide affected publications, threads and notifications. Operator-authenticated `/api/repaidians/admin/reports` and `/api/repaidians/admin/reports/{id}/resolve` routes support reasoned review decisions and removal; this release has no dedicated moderation dashboard.
-- Every signed-in member receives one 60-day free trial from first joining Repaidians, with unlimited browsing and every social feature: publication, work videos, comments, follows, tender bids and contacts, messages and story replies. The backend records the trial against the member UID; changing a browser, session or device cannot restart it.
+- Every signed-in member receives one 60-day free browsing trial from first joining Repaidians. Approved canonical professionals also receive publishing, networking and hiring features during their trial. Ordinary customers cannot use professional profile tools, public comments or generic professional messaging; private awarded contract conversations use separate participant permissions. The backend records the trial against the member UID; changing a browser, session or device cannot restart it.
 - After that trial expires, an active ₹199/month Repaidians Pro membership is required to browse or use social features. Trial expiry retains existing publications and conversations. No charge or automatic debit happens at expiry. The interface distinguishes a free trial from paid Pro, shows the exact expiry in India time and closes content overlays when access expires. Server timestamps anchored to a monotonic browser clock keep the countdown fresh; only the backend grants access. Owner-only deletion and blocking remain available as narrow authenticated account/privacy API controls after expiry.
 - Guests have a server-measured 15-minute daily preview, resetting at midnight in India. Content reads and foreground heartbeats acquire shared 15-second leases, charged by the server; pausing stops renewal and an unused slice is not refunded. HTTP-only guest-cookie records deduplicate overlapping sessions. The guest cookie uses Firebase Hosting's supported `__session` name. This preview is not a daily fallback for members whose trial has ended.
 

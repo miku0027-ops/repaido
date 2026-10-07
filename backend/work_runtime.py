@@ -43,6 +43,8 @@ def initialize(core):
     repaidians_opportunities.initialize(core)
     repaidians_work.initialize(core)
     work_push.initialize(core)
+    import custom_contracts
+    custom_contracts.initialize(core)
 
 
 def health(core, service):

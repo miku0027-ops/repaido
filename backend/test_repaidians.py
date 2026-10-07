@@ -34,7 +34,7 @@ def api(tmp_path, monkeypatch):
             c.close()
     def current_user(authorization: str = Header(default='')):
         uid = authorization.removeprefix('Bearer ')
-        if uid not in ('alice', 'bob', 'carol'):
+        if uid not in ('alice', 'bob', 'carol', 'customer'):
             raise HTTPException(401, 'Invalid test session')
         return {'id': uid, 'name': uid.title() + ' Professional'}
     def operator(x_admin_key: str = Header(default='')):
@@ -44,6 +44,14 @@ def api(tmp_path, monkeypatch):
     core = SimpleNamespace(DB_PATH=path, USE_FIRESTORE=False, db=db, current_user=current_user, operator=operator, app=FastAPI())
     core.operations_store = Store(core)
     core.operations_store.init()
+    # Social mutations use the canonical approved partner record, never a
+    # self-selected profile role. Keep a fourth account as a real customer.
+    def approved_professionals(u):
+        for uid in ('alice', 'bob', 'carol'):
+            u.put('workers', uid, {'id': uid, 'name': uid.title() + ' Professional',
+                    'status': 'approved', 'role': 'technician', 'categories': ['electrician'],
+                    'city': 'Balasore', 'skills': [], 'experience_years': 0})
+    core.operations_store.run(approved_professionals)
     social.initialize(core)
     social.install(core)
     with TestClient(core.app) as client:
@@ -108,7 +116,7 @@ def test_empty_genuine_feed_guests_cookie_auth_and_pro_gate(api):
     }).status_code == 401
     assert api.post('/repaidians/media', headers={**auth(), 'Content-Type': 'image/jpeg'}, content=b'invalid').status_code == 422
     assert api.patch('/repaidians/profile', headers=auth(), json={'reviewed': True}).status_code == 422
-    assert api.get('/repaidians/state', headers=auth()).json()['member']['reviewed'] is False
+    assert api.get('/repaidians/state', headers=auth()).json()['member']['reviewed'] is True
 
 
 def test_guest_heartbeat_shared_budget_no_client_time_and_ist_reset(api, monkeypatch):
@@ -158,6 +166,9 @@ def test_trade_visibility_owner_media_and_verified_identity(api):
     })
     assert stolen.status_code == 422
     api.core.operations_store.run(lambda u: u.put('workers', 'bob', {'id': 'bob', 'name': alice['name'], 'status': 'approved', 'role': 'specialist', 'completed_tasks': 9, 'rating_sum': 18, 'rating_count': 4}))
+    # Revocation leaves existing public work readable, but no name-based
+    # badge transfer or old approval should survive in the public profile.
+    api.core.operations_store.run(lambda u: u.put('workers', 'alice', {**u.get('workers', 'alice'), 'status': 'pending'}))
     assert api.get('/repaidians/members/alice').json()['member']['reviewed'] is False
     bob = api.get('/repaidians/members/bob').json()['member']
     assert bob['reviewed'] is True and bob['completedTasks'] == 9 and bob['rating'] == 4.5
@@ -597,7 +608,7 @@ def test_professional_profile_persistence_filters_validation_and_badge_boundary(
     assert member['skills'] == ['Wiring', 'Troubleshooting'] and member['experienceYears'] == 7
     assert member['workStatus'] == 'open_to_work' and member['professionalType'] == 'specialist'
     assert member['professionalInfoSource'] == 'profile'
-    assert member['reviewed'] is False and member['role'] == 'Member'
+    assert member['reviewed'] is True and member['role'] == 'Technician'
     assert api.patch('/repaidians/profile', headers=auth(), json={'experienceYears': '7'}).status_code == 422
     assert api.patch('/repaidians/profile', headers=auth(), json={'experienceYears': 61}).status_code == 422
     assert api.patch('/repaidians/profile', headers=auth(), json={'skills': ['Skill'] * 13}).status_code == 422

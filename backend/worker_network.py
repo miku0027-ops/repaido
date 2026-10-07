@@ -35,7 +35,8 @@ def messaging(u,w):
 def person_card(u,w):
     if not w or w.get('status')!='approved':return None
     p=u.get('worker_profiles',w['id']) or {};count=w.get('rating_count',0)
-    return dict(id=w['id'],name=w['name'],city=w.get('city',''),role=w.get('role','technician'),contractor=bool(w.get('contractor_verified')),skills=w.get('skills',[]),categories=w.get('categories',[]),experience_years=w.get('experience_years',0),completed_tasks=w.get('completed_tasks',0),rating=round(w.get('rating_sum',0)/count,2) if count else None,review_count=count,bio=p.get('bio',''),portrait_url=f"/api/operations/professional-media/{p['portrait_id']}" if p.get('portrait_id') else None)
+    from repaidians_billing import membership_badge
+    return dict(id=w['id'],name=w['name'],city=w.get('city',''),role=w.get('role','technician'),contractor=bool(w.get('contractor_verified')),skills=w.get('skills',[]),categories=w.get('categories',[]),experience_years=w.get('experience_years',0),completed_tasks=w.get('completed_tasks',0),rating=round(w.get('rating_sum',0)/count,2) if count else None,review_count=count,bio=p.get('bio',''),portrait_url=f"/api/operations/professional-media/{p['portrait_id']}" if p.get('portrait_id') else None,repaidianBadge=membership_badge(u,w['id'],worker=w))
 def safe_profile(u,w):
     # Published professional work summaries only. No customer address, payout, GPS or KYC.
     p=public_profile(u,w)

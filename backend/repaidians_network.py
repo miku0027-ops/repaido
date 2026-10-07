@@ -315,6 +315,9 @@ def check_version(row, expected):
 
 def target_member(u, uid, other):
     member = u.get('rp_members', other)
+    worker = u.get('workers', other) if not member else None
+    if worker and worker.get('status') == 'approved':
+        member = social.member_ensure(u, {'id': other, 'name': worker.get('name', 'Repaidian')})
     if not member or social.blocked(u, uid, other):
         fail('NOT_FOUND', 'Member unavailable.', 404)
     return member
@@ -477,7 +480,7 @@ def install(core):
             if values == {'visibility': 'connections'}:
                 social.member_ensure(u, user)
             else:
-                social.pro(u, a)
+                social.professional(u, a)
             old = social.replay(u, user['id'], body, 'network-profile')
             if old:
                 return old
@@ -563,8 +566,10 @@ def install(core):
             if body.action in ('cancel', 'decline', 'remove'):
                 social.member_ensure(u, user)
             else:
-                social.pro(u, a)
+                social.professional(u, a)
             target_member(u, uid, member_id)
+            if body.action in ('request', 'accept') and not social.capabilities(u, {'user': {'id': member_id}})['professional']:
+                fail('NOT_FOUND', 'Professional profile unavailable.', 404)
             prior = social.replay(u, uid, body, 'network-connection', member_id)
             if prior:
                 return prior
@@ -628,7 +633,7 @@ def install(core):
         user = social.signed(a)
         def save(u):
             uid = user['id']
-            social.pro(u, a) if body.active else social.member_ensure(u, user)
+            social.professional(u, a) if body.active else social.member_ensure(u, user)
             member = target_member(u, uid, member_id)
             if uid == member_id:
                 fail('SELF_ENDORSEMENT', 'An endorsement must come from another connection.', 422)
@@ -678,7 +683,7 @@ def install(core):
         user = social.signed(a)
         def save(u):
             uid = user['id']
-            social.pro(u, a)
+            social.professional(u, a)
             target_member(u, uid, member_id)
             if uid == member_id or not accepted(u, uid, member_id):
                 fail('CONNECTION_REQUIRED', 'Recommendations must come from an accepted connection.', 403)
@@ -710,7 +715,7 @@ def install(core):
         user = social.signed(a)
         def save(u):
             uid = user['id']
-            social.pro(u, a) if body.action == 'approve' else social.member_ensure(u, user)
+            social.professional(u, a) if body.action == 'approve' else social.member_ensure(u, user)
             row = u.get('rp_network_recommendations', recommendation_id)
             if not row or uid not in (row['authorId'], row['recipientId']):
                 fail('NOT_FOUND', 'Recommendation unavailable.', 404)

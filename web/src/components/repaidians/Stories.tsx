@@ -3,10 +3,10 @@ import {ChevronLeft,ChevronRight,Pause,Play,Plus,Send,Volume2,VolumeX,X} from 'l
 import {Modal} from '../ui';
 import type {CommunityMember,CommunityStory} from '../../types/repaidians';
 import {Avatar,LocalLabel,Media,timeAgo} from './common';
-export function StoriesTray({stories,memberFor,onOpen,onCreate}:{stories:CommunityStory[];memberFor:(id:string)=>CommunityMember;onOpen:(id:string)=>void;onCreate:()=>void}) {
+export function StoriesTray({stories,memberFor,onOpen,onCreate}:{stories:CommunityStory[];memberFor:(id:string)=>CommunityMember;onOpen:(id:string)=>void;onCreate?:()=>void}) {
   const authors=[...new Set(stories.map(s=>s.authorId))];
   return <section className="rp-stories-section" aria-label="24-hour stories"><div className="rp-stories">
-    <button className="rp-story-add" onClick={onCreate}><span><Plus size={27} strokeWidth={1.5}/></span><small>Your story</small></button>
+    {onCreate&&<button className="rp-story-add" onClick={onCreate}><span><Plus size={27} strokeWidth={1.5}/></span><small>Your story</small></button>}
     {authors.map(id=>{const member=memberFor(id);return <button className="rp-story-button" key={id} onClick={()=>onOpen(stories.find(s=>s.authorId===id)!.id)} aria-label={'View '+member.name+' stories'}><span className="rp-story-ring"><Avatar member={member}/></span><small>{member.handle||member.name.split(' ')[0]}</small></button>;})}
   </div></section>;
 }

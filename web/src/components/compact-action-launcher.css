@@ -1,0 +1,17 @@
+.compact-action-launcher{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:var(--ui-nav-clearance,88px);z-index:35;display:flex;flex-direction:column;align-items:flex-end;gap:10px;font-family:var(--ui-font);max-width:calc(100vw - 32px)}
+.compact-action-launcher .compact-action-trigger{display:grid;place-items:center;width:48px;height:48px;min-height:48px;min-width:48px;padding:0;border:1px solid #ffffff50;border-radius:16px;background:linear-gradient(145deg,#25396a,#142445);color:#fff;box-shadow:0 3px 0 #0c1730,0 8px 22px #10244030}
+.compact-action-trigger svg{transition:transform 160ms ease}
+.compact-action-trigger[aria-expanded=true] svg{transform:rotate(45deg)}
+.compact-action-list{display:flex;flex-direction:column;gap:4px;width:min(17rem,calc(100vw - 32px));max-height:calc(100dvh - var(--ui-nav-clearance,88px) - 80px);overflow:auto;padding:6px;border:1px solid var(--ui-line);border-radius:18px;background:var(--ui-surface);color:var(--ui-ink);box-shadow:0 6px 24px #10244028}
+.compact-action-list button{display:flex;align-items:center;gap:10px;width:100%;min-width:0;min-height:48px;padding:9px;border:0;border-radius:12px;text-align:left;background:transparent;color:var(--ui-ink);font-size:.875rem;font-weight:650;line-height:1.4;overflow-wrap:anywhere}
+.compact-action-list button:hover{background:var(--ui-subtle)}
+.compact-action-symbol{display:grid;place-items:center;width:34px;height:34px;flex:none;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-subtle);color:var(--ui-link)}
+.compact-action-launcher button:focus-visible{outline:3px solid var(--ui-focus,var(--ui-link));outline-offset:3px}
+dialog.quick-hire-modal,dialog.custom-contract-modal{width:calc(100% - 24px);max-width:1100px;max-height:calc(100dvh - 24px);overflow:auto;background:var(--ui-surface);color:var(--ui-ink);padding:16px}
+.quick-hire-modal>.app-modal-heading,.custom-contract-modal>.app-modal-heading{margin-bottom:16px}
+.quick-hire-modal .app-modal-heading h2,.custom-contract-modal .app-modal-heading h2{padding-top:0}
+.quick-hire-modal .hiring{padding:0}
+@media(min-width:1024px){.compact-action-launcher{bottom:24px;right:24px}}
+@media(prefers-reduced-motion:reduce){.compact-action-trigger svg{transition:none}}
+.reduce-motion .compact-action-trigger svg{transition:none}
+@media(forced-colors:active){.compact-action-launcher .compact-action-trigger{background:ButtonFace;color:ButtonText;border:1px solid ButtonText;box-shadow:none}.compact-action-symbol{color:ButtonText}}

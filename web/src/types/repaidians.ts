@@ -2,7 +2,7 @@ import type {RepaidianBadgeMetadata} from '../components/RepaidianBadge';
 export type Trade = 'cleaning' | 'electrician' | 'plumber' | 'ac' | 'pest' | 'carpenter' | 'civil' | 'spares';
 export type Visibility = 'public' | 'trade';
 export type StudioKind = 'post' | 'reel' | 'story' | 'tender';
-export type CommunityTab = 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications' | 'jobs' | 'applications' | 'companies' | 'network';
+export type CommunityTab = 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications' | 'jobs' | 'applications' | 'companies' | 'network' | 'contracts';
 export type WorkStatus = 'available' | 'open_to_work' | 'hiring' | 'not_looking';
 export type ProfessionalType = 'agent' | 'specialist' | 'contractor' | 'shop_owner' | 'member';
 export interface ProfessionalFields {
@@ -65,9 +65,11 @@ export interface CommunityActivity {
   likes: string[]; saved: string[]; following: string[]; bids: string[]; messages: CommunityMessage[];
   profile?: Pick<CommunityMember, 'name' | 'trade' | 'bio'>;
 }
+export interface CommunityCapabilities {professional:boolean;communityWrite:boolean;role:'customer'|'agent'|'contractor';}
 export interface CommunitySnapshot {
   data: CommunityData; activity: CommunityActivity; member: CommunityMember;
   subscription: CommunitySubscription | null; trial:CommunityTrial|null; remainingMs: number; serverNow:number;
+  capabilities?:CommunityCapabilities;
   authenticated: boolean; paymentsReady: boolean; mediaReady: boolean; unreadCount?: number;
 }
 export interface PublicationDraft {
@@ -77,6 +79,6 @@ export interface PublicationDraft {
   reference?:OpportunityReference;
 }
 export interface CommunityPage<T> {items: T[]; members: CommunityMember[]; nextCursor: string | null;}
-export interface CommunityNotification {id: string; type: string; actorId?: string; authorId?: string; targetId?: string; placementId?:string;projectId?:string;applicationId?:string;contractId?:string;title?:string;body?:string;text?: string; createdAt: number; read?: boolean;}
+export interface CommunityNotification {id: string; type: string; actorId?: string; authorId?: string; targetId?: string; placementId?:string;projectId?:string;applicationId?:string;contractId?:string;queryId?:string;bidId?:string;title?:string;body?:string;text?: string; createdAt: number; read?: boolean;}
 export interface CommunityThread {id: string; memberId?: string; recipientId?: string; lastMessage?: string; text?: string; updatedAt?: number; unreadCount?: number;}
 export interface SubscriptionStatus {active: boolean; subscription: CommunitySubscription | null; trial:CommunityTrial|null; serverNow:number; paymentsReady: boolean; amount: number; currency: string; paymentStatus?: string;}

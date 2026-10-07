@@ -2,7 +2,10 @@ import {useEffect,useRef,useState} from 'react';
 import {onIdTokenChanged} from 'firebase/auth';
 import {auth} from '../firebase';
 import {operation} from '../services/operations';
-import {ArrowRight,ChevronLeft,ChevronRight} from 'lucide-react';
+import {ArrowRight,ChevronLeft,ChevronRight,FileCheck2,RefreshCw} from 'lucide-react';
+import {CustomContractError,customContractQueries,subscribeCustomContracts} from '../services/customContractsService';
+import type {CustomContractQuery} from '../types/customContracts';
+import {RepaidianBadge} from './RepaidianBadge';
 import type {AnimationItem} from 'lottie-web';
 import './opportunity-carousel.css';
 export type Opportunity={id:string;tag:string;title:string;body:string;cta:string;image:string;alt:string;legacy?:boolean;terms?:string};
@@ -15,6 +18,25 @@ export const opportunities:Opportunity[]=[
 ];
 // Chosen once per mount: the weekday changes the shell, never an individual slide.
 export function bannerShape(date=new Date()){const day=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Kolkata',weekday:'short'}).format(date);return ({Mon:'panorama',Tue:'soft',Wed:'editorial',Thu:'panorama',Fri:'studio',Sat:'soft',Sun:'editorial'} as Record<string,string>)[day];}
+export function CustomerContractMatches({accountKey,onOpen}:{accountKey:string;onOpen:(queryId:string)=>void}){
+ const [queries,setQueries]=useState<CustomContractQuery[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[edges,setEdges]=useState({previous:false,next:false}),rail=useRef<HTMLDivElement>(null),generation=useRef(0);
+ useEffect(()=>{
+   let alive=true;const controller=new AbortController();setQueries([]);setError('');
+   const load=async()=>{const request=++generation.current;setBusy(true);try{const data=await customContractQueries('mine','',true,controller.signal);if(alive&&request===generation.current){setQueries(data.items);setError('');}}catch(reason){if(alive&&request===generation.current&&!controller.signal.aborted){if(reason instanceof CustomContractError&&[401,403,404].includes(reason.status))setQueries([]);setError((reason as Error).message);}}finally{if(alive&&request===generation.current)setBusy(false);}};
+   const refresh=()=>{if(!document.hidden)void load();};void load();const unsubscribe=subscribeCustomContracts(refresh);window.addEventListener('repaido:operations-updated',refresh);window.addEventListener('focus',refresh);const timer=setInterval(refresh,60000);
+   return()=>{alive=false;generation.current++;controller.abort();unsubscribe();clearInterval(timer);window.removeEventListener('repaido:operations-updated',refresh);window.removeEventListener('focus',refresh);};
+ },[accountKey]);
+ const matches=queries.filter(query=>query.permissions.can_message||Number.isFinite(query.stats.bids)&&query.stats.bids>0||!!query.matched_contractors?.length);
+ const readEdges=()=>{const el=rail.current;if(el)setEdges({previous:el.scrollLeft>2,next:el.scrollLeft+el.clientWidth<el.scrollWidth-2});};
+ useEffect(()=>{readEdges();const resize=new ResizeObserver(readEdges);if(rail.current)resize.observe(rail.current);return()=>resize.disconnect();},[queries]);
+ const move=(direction:number)=>{const el=rail.current;if(el)el.scrollBy({left:direction*el.clientWidth,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches||document.documentElement.classList.contains('reduce-motion')?'instant':'smooth'});};
+ if(!queries.length&&!error)return null;
+ return <section className="customer-contract-matches" aria-label="Contract proposals" aria-busy={busy}>
+   <header><div><span className="customer-contract-eyebrow">YOUR CUSTOM CONTRACTS</span><h2>{matches.some(query=>query.permissions.can_message)?'Matches, proposals & contracts':matches.some(query=>query.matched_contractors?.length)?'Matched contractors & proposals':matches.length?'Proposals to review':'Your requests'}</h2></div>{matches.length>1&&<div className="customer-contract-controls"><button type="button" aria-label="Previous contract request" disabled={!edges.previous} onClick={()=>move(-1)}><ChevronLeft size={18}/></button><button type="button" aria-label="Next contract request" disabled={!edges.next} onClick={()=>move(1)}><ChevronRight size={18}/></button></div>}</header>
+   {error&&<p className="customer-contract-read-error" role="status">{error}<button type="button" onClick={()=>window.dispatchEvent(new Event('repaido:custom-contracts-updated'))}><RefreshCw size={16} aria-hidden="true"/>Retry proposals</button></p>}
+   {matches.length?<div ref={rail} className="customer-contract-rail" onScroll={readEdges} tabIndex={0} aria-label="Your contract requests with matches and proposals">{matches.map(query=><article className="customer-contract-card" key={query.id}><span className="customer-contract-card-icon"><FileCheck2 size={23} aria-hidden="true"/></span><div className="customer-contract-card-copy"><small>{query.city} · {query.status==='awarded'?'Accepted contract':query.status==='open'?'Open request':query.status}</small><h3>{query.title}</h3>{!!query.matched_contractors?.length&&<><div className="customer-contract-matched-person">{query.matched_contractors.slice(0,2).map(match=><div key={match.contractor_id}><strong>{match.name}</strong><RepaidianBadge badge={match.member.repaidianBadge}/></div>)}</div><p>{query.matched_contractors.length} matching {query.matched_contractors.length===1?'contractor':'contractors'} shown</p><small>Checked matches from your work category and city</small></>}<p>{query.permissions.can_message?'Proposal accepted':query.stats.bids>0?`${query.stats.bids} ${query.stats.bids===1?'proposal':'proposals'} received`:'No proposal received yet'}</p><button type="button" onClick={()=>onOpen(query.id)}>{query.permissions.can_message?'Open contract':query.stats.bids>0?'Review proposals':'Review matches'}<ArrowRight size={16} aria-hidden="true"/></button></div></article>)}</div>:!error&&<div className="customer-contract-empty"><p>No proposals received yet.</p><button type="button" onClick={()=>onOpen(queries[0].id)}>View your request<ArrowRight size={16} aria-hidden="true"/></button></div>}
+ </section>;
+}
 function MotionAccent({playing}:{playing:boolean}){const ref=useRef<HTMLSpanElement>(null),animation=useRef<AnimationItem|undefined>(undefined),playingRef=useRef(playing);playingRef.current=playing;useEffect(()=>{let alive=true;void import('lottie-web').then(({default:lottie})=>{if(!alive||!ref.current)return;animation.current=lottie.loadAnimation({container:ref.current,renderer:'svg',loop:true,autoplay:false,path:'/animations/opportunity-orbit.json'});if(playingRef.current)animation.current.play();});return()=>{alive=false;animation.current?.destroy();};},[]);useEffect(()=>{playing?animation.current?.play():animation.current?.pause();},[playing]);return <span ref={ref} className="opportunity-motion" aria-hidden="true"/>;}
 export default function OpportunityCarousel({slides=opportunities,variant='market',onOpen}:{slides?:Opportunity[];variant?:'home'|'market';onOpen:(slide:Opportunity)=>void}){
  const [ranking,setRanking]=useState<string[]>([]);

@@ -81,6 +81,9 @@ class TrackingPing(Position):
 
 def apply_payment(u, payment):
     """Only called with an authenticated provider GET, never browser/webhook claims."""
+    from contract_records import apply_provider_payment as apply_contract_payment
+    contract = apply_contract_payment(u, payment)
+    if contract is not None: return contract
     attempts = [a for a in u.all('payments') if a.get('order_id') == payment.get('order_id')]
     if not attempts:
         from repaidians_billing import apply_provider_payment

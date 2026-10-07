@@ -42,7 +42,7 @@ export function CommunityInbox({selfId,onOpen,onMembers}:{selfId:string;onOpen:(
     {!busy&&!error&&!threads.length&&<EmptyState title="Good work begins with a hello.">Visit a profile to start a conversation. New messages will appear here.</EmptyState>}
   </section>;
 }
-export function CommunityNotifications({accountKey,onProfile,onMembers,onApplications,onContract,onPublication}:{accountKey:string;onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void;onApplications:(id?:string)=>void;onContract:(id:string)=>void;onPublication?:(id:string)=>void}) {
+export function CommunityNotifications({accountKey,onProfile,onMembers,onApplications,onContract,onPublication,onCustomContract}:{accountKey:string;onProfile:(id:string)=>void;onMembers:(members:CommunityMember[])=>void;onApplications:(id?:string)=>void;onContract:(id:string)=>void;onPublication?:(id:string)=>void;onCustomContract?:(id:string)=>void}) {
   const [items,setItems]=useState<CommunityNotification[]>([]),[members,setMembers]=useState<CommunityMember[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState(''),[placement,setPlacement]=useState<string|null>(null),[cursor,setCursor]=useState<string|null>(null),[moreBusy,setMoreBusy]=useState(false),[retry,setRetry]=useState(0);
   const epoch=useRef(0);
   useEffect(()=>{
@@ -56,7 +56,8 @@ export function CommunityNotifications({accountKey,onProfile,onMembers,onApplica
   const open=(item:CommunityNotification)=>{
     const generation=epoch.current;
     if(!item.read)void readNotifications([item.id]).then(()=>{if(generation===epoch.current)setItems(old=>old.map(row=>row.id===item.id?{...row,read:true}:row));}).catch(()=>{});
-    if(item.placementId||item.type==='placement'||item.type==='congratulation')setPlacement(item.placementId||item.targetId||null);
+    if(item.queryId&&onCustomContract)onCustomContract(item.queryId);
+    else if(item.placementId||item.type==='placement'||item.type==='congratulation')setPlacement(item.placementId||item.targetId||null);
     else if(item.applicationId||item.type==='application_update')onApplications(item.applicationId||item.targetId);
     else if(item.contractId||item.type==='contract_update'){const id=item.contractId||item.targetId;if(id)onContract(id);}
     else if(['like','comment','bid'].includes(item.type)&&item.targetId&&onPublication)onPublication(item.targetId);
