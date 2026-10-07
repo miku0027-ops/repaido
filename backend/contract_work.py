@@ -104,6 +104,7 @@ class HiringNotice(Input):
     city:str=Field(min_length=2,max_length=80)
     area:str=Field(min_length=2,max_length=120)
     sector:str=Field(min_length=2,max_length=80)
+    work_trade:Literal['cleaning','electrician','plumber','ac','pest','carpenter','civil','spares']|None=None
     summary:str=Field(min_length=20,max_length=3000)
     skills:list[str]=Field(min_length=1,max_length=20)
     worker_role:Literal['any','technician','specialist']='any'
@@ -151,6 +152,24 @@ def hiring_source_authorized(u,p):
     owner=u.get('workers',p.get('owner_id','')) or {}
     return owner.get('status')=='approved' and bool(owner.get('contractor_verified'))
 
+HIRING_TRADES=('cleaning','electrician','plumber','ac','pest','carpenter','civil','spares')
+
+def hiring_trade(hiring,title=''):
+    """Work category is independent of the customer's business/industry sector.
+
+    Old records can be classified from specific skills/title, then a recognizable
+    trade sector. An unknown industry is not evidence of a spare-parts job.
+    """
+    explicit=hiring.get('work_trade')
+    if explicit in HIRING_TRADES:return explicit
+    from repaidians_opportunities import trade_for
+    for value in [*hiring.get('skills',[]),title,hiring.get('sector','')]:
+        text=' '.join(unicodedata.normalize('NFKC',str(value or '')).casefold().split())
+        trade=trade_for(text)
+        if trade!='spares':return trade
+        if re.search(r'\b(?:spares?|parts?|inventory|shop|shops|distributor|dealer)\b',text):return 'spares'
+    return None
+
 def application_fit(worker,hiring):
     """Explainable, fixed-weight suitability; arrival order only resolves equal scores."""
     def tokens(values):
@@ -159,7 +178,7 @@ def application_fit(worker,hiring):
         return {aliases.get(word,word) for word in words if word not in {'service','services','work','worker','and','the','for'}}
     requested=tokens(hiring.get('skills',[]));held=tokens(worker.get('skills',[]))
     skills=len(requested & held)/len(requested) if requested else 0
-    wanted=tokens([hiring.get('sector',''),*hiring.get('skills',[])])
+    wanted=tokens([hiring_trade(hiring) or ''])
     category=1.0 if tokens(worker.get('categories',[])) & wanted else 0.0
     city=1.0 if worker.get('city','').strip().casefold()==hiring.get('city','').strip().casefold() else 0.0
     minimum=hiring.get('minimum_experience',0);years=max(0,worker.get('experience_years') or 0)
@@ -540,6 +559,9 @@ def install(core):
             if p['status'] in ('completed','cancelled') or p['ends_at']<=time.time():fail('CLOSED','This project has ended.',409)
             if body.status=='open' and not time.time()<body.deadline<=p['ends_at']:fail('DEADLINE','Set a future application deadline within the project dates.',422)
             h={**body.model_dump(exclude={'expected_version'}),'version':(p.get('hiring') or {}).get('version',0)+1,'updated_at':time.time()}
+            work_trade=hiring_trade(h,p['title'])
+            if not work_trade:fail('WORK_CATEGORY_REQUIRED','Choose the work category separately from the business sector.',422)
+            h['work_trade']=work_trade
             h['sector']=save_sector(u,h['sector'],user['id']);p['hiring']=h
             event(u,p,user,'hiring_'+body.status);u.put('contract_projects',pid,p);return p
         return store.run(save)
@@ -573,14 +595,13 @@ def install(core):
     def project_candidates(pid:str,cursor:str=Query(default='',max_length=1024),limit:int=Query(default=24,ge=1,le=APPLICATION_SCAN),user=Depends(core.current_user)):
         def read(u):
             from repaidians_work import candidate_keyset
-            from repaidians_opportunities import trade_for
             from repaidians import blocked as social_blocked
             from worker_network import blocked, person_card
             p=get(u,'contract_projects',pid);project_owner(u,p,user);h=p.get('hiring') or {}
             if not h:fail('HIRING_REQUIRED','Publish the work requirements before discovering suitable agents.',409)
             if p['status'] in ('completed','cancelled') or p['ends_at']<=time.time():fail('CLOSED','This project has ended.',409)
-            after,binding=published_cursor(cursor,dict(user_id=user['id'],project_id=pid,hiring_version=h['version'],city=h['city'],sector=h['sector']))
-            refs=candidate_keyset(u,trade_for(h['sector']),h['city'],after,APPLICATION_SCAN)
+            after,binding=published_cursor(cursor,dict(user_id=user['id'],project_id=pid,hiring_version=h['version'],city=h['city'],work_trade=hiring_trade(h,p['title'])))
+            refs=candidate_keyset(u,hiring_trade(h,p['title']),h['city'],after,APPLICATION_SCAN)
             u.prefetch([(kind,row['id']) for row in refs for kind in ('workers','rp_members','network_suspensions','worker_profiles')]+[(kind,key) for row in refs for key in (user['id']+':'+row['id'],row['id']+':'+user['id']) for kind in ('network_blocks',)]+[('rp_blocks',hashlib.sha256(key.encode()).hexdigest()) for row in refs for key in (user['id']+':'+row['id'],row['id']+':'+user['id'])])
             candidates=[];last=after;seen=0
             for ref in refs:

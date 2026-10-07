@@ -132,7 +132,7 @@ def deploy(args):
            '--schedule=* * * * *', '--time-zone=Asia/Kolkata',
            '--uri=' + worker_url + '/internal/work/dispatch', '--http-method=POST',
            '--oidc-service-account-email=' + caller, '--oidc-token-audience=' + worker_url,
-           '--headers=Content-Type=application/json', '--message-body={"limit":40}',
+           ('--update-headers=' if action == 'update' else '--headers=') + 'Content-Type=application/json', '--message-body={"limit":40}',
            '--attempt-deadline=240s', '--max-retry-attempts=3', '--min-backoff=30s', '--max-backoff=300s')
     gcloud('scheduler', 'jobs', 'pause', 'repaido-work-updates', *scheduler)
     with open(args.receipt, 'w') as output:
@@ -155,13 +155,14 @@ def await_release(args):
     from datetime import datetime
     def stamp(value):
         return datetime.fromisoformat(value.replace('Z', '+00:00'))
-    own = gcloud('builds', 'describe', args.build, '--project=' + args.project, '--region=global', data=True)
+    build_region = getattr(args, 'build_region', 'global')
+    own = gcloud('builds', 'describe', args.build, '--project=' + args.project, '--region=' + build_region, data=True)
     trigger = own.get('buildTriggerId')
     if not trigger:
         return
     started = time.monotonic()
     while True:
-        active = gcloud('builds', 'list', '--project=' + args.project, '--region=global', '--limit=100',
+        active = gcloud('builds', 'list', '--project=' + args.project, '--region=' + build_region, '--limit=100',
                         '--filter=buildTriggerId=' + trigger + ' AND (status=WORKING OR status=QUEUED)', data=True)
         earlier = [build for build in active if build['id'] != args.build and stamp(build['createTime']) < stamp(own['createTime'])]
         if not earlier:
@@ -178,6 +179,7 @@ if __name__ == '__main__':
     parser.add_argument('action', choices=['deploy', 'promote', 'await-release'])
     parser.add_argument('--project', required=True)
     parser.add_argument('--region', default='us-central1')
+    parser.add_argument('--build-region', default='global', help='Cloud Build location, separate from the Cloud Run service region.')
     parser.add_argument('--parent', default='repaido-api')
     parser.add_argument('--image')
     parser.add_argument('--build')

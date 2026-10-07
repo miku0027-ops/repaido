@@ -100,8 +100,9 @@ def _fields(source, row, u):
     if source == 'contract':
         return row.get('owner_id', ''), trade_for(row.get('sector')), row.get('city', '')
     if source == 'career':
+        from contract_work import hiring_trade
         hiring = row.get('hiring') or {}
-        return row.get('owner_id', ''), trade_for(hiring.get('sector')), hiring.get('city', '')
+        return row.get('owner_id', ''), hiring_trade(hiring, row.get('title', '')), hiring.get('city', '')
     if source == 'inventory':
         shop = u.get('shops', row.get('shop_id', '')) or {}
         return shop.get('owner_id', ''), trade_for(row.get('category')), shop.get('city', '')
@@ -134,7 +135,9 @@ def index_record(u, kind, key, row, origin='live'):
     if origin == 'legacy' and marker and marker.get('origin') == 'live':
         return
     owner, trade, city = _fields(source, row, u)
-    modes = {(trade, city.casefold()), ('all', city.casefold()), (trade, ''), ('all', '')}
+    modes = {('all', city.casefold()), ('all', '')}
+    if trade:
+        modes.update(((trade, city.casefold()), (trade, '')))
     channels = {lane(source, trade=t, city=c) for t, c in modes}
     if owner:
         channels.add(lane(source, 'mine', owner))
@@ -197,6 +200,8 @@ def resolve(u, source, key, actor):
                     manpowerNeeded=row.get('manpower_needed'))
     elif source == 'career':
         from contract_work import public_hiring, hiring_source_authorized
+        if not trade:
+            return None
         hiring = row.get('hiring') or {}
         worker = u.get('workers', owner) or {}
         if (not hiring_source_authorized(u, row)

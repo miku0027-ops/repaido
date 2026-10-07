@@ -6,7 +6,7 @@ export interface WorkPreferences {
 export interface WorkInterest {trade:Trade;weight:number;reason:string;}
 export interface WorkInterests {trades:WorkInterest[];personalized:boolean;}
 export interface WorkJobFilters {
-  query?:string;trade?:Trade|'all';city?:string;minimumPayPaise?:number;
+  query?:string;trade?:Trade|'all';city?:string;sector?:string;minimumPayPaise?:number;
   experience?:number;workType?:'all'|'project'|'private_request';closesWithinDays?:0|7|30;
   cursor?:string;limit?:number;
 }

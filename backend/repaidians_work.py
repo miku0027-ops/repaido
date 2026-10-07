@@ -27,6 +27,8 @@ EVENT_WEIGHTS = {'search': 1.0, 'view': .25, 'save': 2.0, 'apply': 3.0}
 HALF_LIFE_MS = 14 * 86400000
 ID = r'^[A-Za-z0-9_-]{1,100}$'
 STOP_WORDS = {'service', 'services', 'work', 'worker', 'and', 'the', 'for', 'contract', 'contracts', 'project', 'projects', 'find'}
+RANK_VERSION = 'work-v2'
+WORK_TRADE_INDEX_VERSION = 'work-trade-v2'
 
 
 class Preferences(Input):
@@ -155,11 +157,14 @@ def keyword_similarity(weights, text):
 
 
 def _source_fields(kind, row):
+    from contract_work import hiring_trade
     if kind == 'contract_projects':
         hiring = row.get('hiring') or {}
-        return trade_for(hiring.get('sector')), hiring.get('city', ''), tokens(' '.join([hiring.get('city', ''), hiring.get('sector', ''), row.get('title', ''), *hiring.get('skills', [])]))
+        trade = hiring_trade(hiring, row.get('title', ''))
+        return trade, hiring.get('city', ''), tokens(' '.join([hiring.get('city', ''), trade or '', hiring.get('sector', ''), row.get('title', ''), *hiring.get('skills', [])]))
     if kind == 'contract_tenders':
-        return trade_for(row.get('sector')), row.get('city', ''), tokens(row.get('city', '') + ' ' + row.get('sector', '') + ' ' + row.get('title', ''))
+        trade = hiring_trade({'sector': row.get('sector', ''), 'skills': row.get('skills') or []}, row.get('title', ''))
+        return trade, row.get('city', ''), tokens(row.get('city', '') + ' ' + row.get('sector', '') + ' ' + row.get('title', ''))
     return trade_for(row.get('sector')), row.get('city', ''), tokens(row.get('city', '') + ' ' + row.get('sector', '') + ' ' + row.get('name', ''))
 
 
@@ -203,8 +208,14 @@ def index_record(u, kind, key, row):
         return
     name = kinds[kind]
     trade, city, words = _source_fields(kind, row)
-    channels = {channel(name, t, c) for t, c in ((trade, city), (trade, ''), ('all', city), ('all', ''))}
+    channels = {channel(name, 'all', city), channel(name, 'all', '')}
+    if trade in TRADES:
+        channels.update((channel(name, trade, city), channel(name, trade, '')))
     channels.update(channel(name, 'all', '', word) for word in words[:8])
+    if kind in ('contract_projects', 'contract_tenders'):
+        sector = (row.get('hiring') or {}).get('sector', '') if kind == 'contract_projects' else row.get('sector', '')
+        if normalized(sector):
+            channels.update((channel(name + '_sector', 'all', city, sector), channel(name + '_sector', 'all', '', sector)))
     if row.get('owner_id'):
         channels.add(lane('rp_work_owned_' + name, row['owner_id']))
     previous = u.get('rp_work_index', name + ':' + key) or {}
@@ -212,7 +223,7 @@ def index_record(u, kind, key, row):
     if kind == 'contract_projects':
         hiring = row.get('hiring') or {}
         occupied = sum(seat.get('status') in ('pending', 'accepted') for seat in row.get('team', []))
-        active = row.get('status') in ('planning', 'active') and row.get('ends_at', 0) > current_time and hiring.get('status') == 'open' and hiring.get('deadline', 0) > current_time and hiring.get('openings', 0) > occupied
+        active = trade in TRADES and row.get('status') in ('planning', 'active') and row.get('ends_at', 0) > current_time and hiring.get('status') == 'open' and hiring.get('deadline', 0) > current_time and hiring.get('openings', 0) > occupied
     elif kind == 'contract_tenders':
         active = row.get('status') == 'open' and row.get('ends_at', 0) > current_time
     else:
@@ -256,7 +267,7 @@ def _profile_binding(u, uid):
     profile = {key: member.get(key) for key in ('trade', 'city', 'skills', 'experienceYears', 'workStatus')}
     revision = (u.get('rp_work_signals', uid) or {}).get('revision', 0) if pref['personalizedDiscovery'] else 0
     return {'profile': digest(json.dumps(profile, sort_keys=True)), 'personalized': pref['personalizedDiscovery'],
-            'signalsRevision': revision, 'rankVersion': 'work-v1'}
+            'signalsRevision': revision, 'rankVersion': RANK_VERSION}
 
 
 def _safe_owner(u, uid, owner):
@@ -264,7 +275,7 @@ def _safe_owner(u, uid, owner):
 
 
 def job(u, key, uid, member=None, filters=None):
-    from contract_work import public_hiring, identifier
+    from contract_work import public_hiring, identifier, hiring_trade
     p = u.get('contract_projects', key)
     if not p or p.get('owner_id') == uid or not _safe_owner(u, uid, p.get('owner_id')):
         return None
@@ -279,7 +290,9 @@ def job(u, key, uid, member=None, filters=None):
         return None
     member = member or u.get('rp_members', uid) or {}
     filters = filters or {}
-    trade = trade_for(h.get('sector'))
+    trade = hiring_trade(h, p.get('title', ''))
+    if trade not in TRADES:
+        return None
     skills = h.get('skills', [])[:20]
     member_skills = set(tokens(' '.join(member.get('skills', [])[:12])))
     requested_skills = set(tokens(' '.join(skills)))
@@ -302,6 +315,8 @@ def job(u, key, uid, member=None, filters=None):
     if h.get('worker_role') == 'technician' and worker.get('role') != 'technician':
         return None
     if filters.get('city') and normalized(h.get('city')) != normalized(filters['city']):
+        return None
+    if filters.get('sector') and normalized(h.get('sector')) != normalized(filters['sector']):
         return None
     if h.get('daily_rate_paise', 0) < filters.get('minimumPayPaise', 0):
         return None
@@ -353,6 +368,8 @@ def _candidates(u, kind, filters, member, after, limit=PAGE_SCAN):
     if trade == 'all' and kind == 'jobs' and not search:
         trade = member.get('trade') if member.get('trade') in TRADES else 'all'
     source = channel(kind, 'all', '', search[0]) if search else channel(kind, trade, filters.get('city', ''))
+    if filters.get('sector'):
+        source = channel(kind + '_sector', 'all', filters.get('city', ''), filters['sector'])
     return active_query(u, source, limit, after)
 
 
@@ -375,11 +392,11 @@ def jobs_page(u, uid, filters, cursor=None, limit=20):
     more = bool(examined and (len(selected) == limit or len(rows) == PAGE_SCAN))
     pref = preferences(u, uid)
     return {'items': selected, 'nextCursor': _next(examined, binding) if more else None,
-            'personalized': pref['personalizedDiscovery'], 'preferences': pref, 'rankingScope': 'page', 'rankingVersion': 'work-v1'}
+            'personalized': pref['personalizedDiscovery'], 'preferences': pref, 'rankingScope': 'page', 'rankingVersion': RANK_VERSION}
 
 
 def contract(u, tid, uid):
-    from contract_work import public_tender
+    from contract_work import public_tender, hiring_trade
     if not re.fullmatch(ID, str(tid)):
         return None
     row = u.get('contract_tenders', tid)
@@ -388,7 +405,7 @@ def contract(u, tid, uid):
     public = public_tender(row, time.time())
     if not public:
         return None
-    trade = trade_for(row.get('sector'))
+    trade = hiring_trade({'sector': row.get('sector', ''), 'skills': row.get('skills') or []}, row.get('title', ''))
     weighting = next((entry['weight'] for entry in interests(u, uid)['trades'] if entry['trade'] == trade), 0)
     keyword_match = keyword_similarity(keyword_weights(u, uid), row.get('title', '') + ' ' + row.get('sector', ''))
     score = min(1, .5 * min(1, weighting / 10) + .5 * keyword_match)
@@ -405,6 +422,8 @@ def contracts_page(u, uid, filters, cursor=None, limit=20):
         examined = row['sortKey']
         card = contract(u, row['id'], uid) if row.get('active') else None
         if not card or (filters.get('trade', 'all') != 'all' and card['trade'] != filters['trade']) or (filters.get('city') and normalized(card['city']) != normalized(filters['city'])):
+            continue
+        if filters.get('sector') and normalized(card['sector']) != normalized(filters['sector']):
             continue
         if filters.get('query') and not all(word in tokens(card['title'] + ' ' + card['sector'] + ' ' + card['city']) for word in tokens(filters['query'])):
             continue
@@ -697,8 +716,9 @@ def backfill(core, limit=10):
     """Background-only native document keyset migration, bounded per invocation."""
     limit = max(1, min(limit, 20)); processed = 0
     for kind in ('contract_projects', 'contract_tenders', 'contract_profiles', 'rp_follows', 'rp_members'):
+        checkpoint_key = kind + ':' + WORK_TRADE_INDEX_VERSION if kind in ('contract_projects', 'contract_tenders') else kind
         def read(u):
-            checkpoint = u.get('rp_work_backfill', kind) or {}
+            checkpoint = u.get('rp_work_backfill', checkpoint_key) or {}
             if checkpoint.get('complete'):
                 return checkpoint, []
             return checkpoint, native_scan(u, kind, checkpoint.get('after', ''), limit + 1)
@@ -708,14 +728,17 @@ def backfill(core, limit=10):
                 current = u.get(kind, key)
                 if current:
                     index_record(u, kind, key, current)
+                    if kind == 'contract_projects':
+                        from repaidians_opportunities import index_record as index_opportunity
+                        index_opportunity(u, kind, key, current)
             core.operations_store.run(index_live)
             processed += 1
         if not checkpoint.get('complete'):
             after = rows[min(limit, len(rows)) - 1][0] if rows else checkpoint.get('after', '')
             def save(u):
-                latest = u.get('rp_work_backfill', kind) or {}
+                latest = u.get('rp_work_backfill', checkpoint_key) or {}
                 if latest.get('after', '') <= after:
-                    u.put('rp_work_backfill', kind, {'after': after, 'complete': len(rows) <= limit})
+                    u.put('rp_work_backfill', checkpoint_key, {'after': after, 'complete': len(rows) <= limit})
             core.operations_store.run(save)
     return {'processed': processed}
 
@@ -791,7 +814,7 @@ def install(core):
         return store.run(save)
 
     @r.get('/work/jobs')
-    def get_jobs(response: Response, trade: str = 'all', city: str = Query(default='', max_length=80), query_text: str = Query(default='', alias='query', max_length=120),
+    def get_jobs(response: Response, trade: str = 'all', city: str = Query(default='', max_length=80), sector: str = Query(default='', max_length=80), query_text: str = Query(default='', alias='query', max_length=120),
                  minimumPayPaise: int = Query(default=0, ge=0, le=10000000), experience: int | None = Query(default=None, ge=0, le=60),
                  workType: Literal['all', 'project', 'private_request'] = 'all', closesWithinDays: int = Query(default=0, ge=0, le=30),
                  cursor: str | None = Query(default=None, max_length=1500), limit: int = Query(default=20, ge=1, le=30), account=Depends(user)):
@@ -799,18 +822,22 @@ def install(core):
             fail('INVALID_FILTER', 'Choose a supported work trade.', 422)
         if closesWithinDays not in (0, 7, 30):
             fail('INVALID_FILTER', 'Choose a closing window of 7 or 30 days.', 422)
+        if sector and len(normalized(sector)) < 2:
+            fail('INVALID_FILTER', 'Choose a business sector with at least two characters.', 422)
         response.headers['Cache-Control'] = 'private, no-store'
-        filters = {'trade': trade, 'city': normalized(city), 'query': normalized(query_text), 'minimumPayPaise': minimumPayPaise,
+        filters = {'trade': trade, 'city': normalized(city), 'sector': normalized(sector), 'query': normalized(query_text), 'minimumPayPaise': minimumPayPaise,
                    'experience': experience, 'workType': workType, 'closesWithinDays': closesWithinDays}
         return store.run(lambda u: jobs_page(u, account['id'], filters, cursor, limit))
 
     @r.get('/work/contracts')
-    def get_contracts(response: Response, trade: str = 'all', city: str = Query(default='', max_length=80), query_text: str = Query(default='', alias='query', max_length=120),
+    def get_contracts(response: Response, trade: str = 'all', city: str = Query(default='', max_length=80), sector: str = Query(default='', max_length=80), query_text: str = Query(default='', alias='query', max_length=120),
                       cursor: str | None = Query(default=None, max_length=1500), limit: int = Query(default=20, ge=1, le=30), account=Depends(user)):
         if trade != 'all' and trade not in TRADES:
             fail('INVALID_FILTER', 'Choose a supported work trade.', 422)
         response.headers['Cache-Control'] = 'private, no-store'
-        return store.run(lambda u: contracts_page(u, account['id'], {'trade': trade, 'city': normalized(city), 'query': normalized(query_text)}, cursor, limit))
+        if sector and len(normalized(sector)) < 2:
+            fail('INVALID_FILTER', 'Choose a business sector with at least two characters.', 422)
+        return store.run(lambda u: contracts_page(u, account['id'], {'trade': trade, 'city': normalized(city), 'sector': normalized(sector), 'query': normalized(query_text)}, cursor, limit))
 
     @r.put('/work/contracts/{tid}/watch')
     def watch_contract(tid: str, body: Watch, account=Depends(user)):

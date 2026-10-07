@@ -158,7 +158,7 @@ def test_fit_explains_recorded_skills_geography_and_fifo_only_for_ties(api):
 
 
 def test_ready_candidates_live_authorization_and_stale_lane_defense(api,monkeypatch):
-    seed(api);p,_=project(api);p,_=notice(api,p)
+    seed(api);p,_=project(api);p,_=notice(api,p,work_trade='electrician')
     import repaidians_work as rw
     profile=dict(id='worker2',name='Ready professional',trade='electrician',city='Balasore',workStatus='open_to_work',avatarUrl=None)
     def index(u,row):
@@ -187,7 +187,7 @@ def test_ready_candidates_live_authorization_and_stale_lane_defense(api,monkeypa
 
 
 def test_ready_candidate_pages_are_bounded_without_global_profile_scan(api,monkeypatch):
-    seed(api);p,_=project(api);p,_=notice(api,p)
+    seed(api);p,_=project(api);p,_=notice(api,p,work_trade='electrician')
     import repaidians_work as rw
     worker=get('workers','worker2')
     def fill(u):
@@ -289,3 +289,35 @@ def test_workspace_membership_revocation_drops_private_scope_but_retains_accepte
     history=api.get(url,headers=auth('worker2')).json()['projects']
     assert history[0]['status']=='completed' and history[0]['team'][-1]['terms']
     owner=api.get(url,headers=auth('worker')).json()['projects'];assert owner[0]['scope']=='CONFIDENTIAL work specification'
+
+
+def test_business_sector_and_work_category_are_distinct_with_legacy_skill_inference(api):
+    seed(api);p,_=project(api,title='Campus maintenance opportunity')
+    worker=get('workers','worker2');put('workers','worker2',{**worker,'skills':['Electrical wiring'],'categories':['electrician']})
+    import repaidians_work as rw
+    def ready(u,key,trade,skills):
+        u.put('workers',key,{**worker,'id':key,'skills':skills,'categories':[trade]})
+        member=dict(id=key,name='Ready professional',trade=trade,city='Balasore',workStatus='available',avatarUrl=None)
+        u.put('rp_members',key,member);rw.index_record(u,'rp_members',key,member)
+    main.operations_store.run(lambda u:(ready(u,'worker2','electrician',['Electrical wiring']),ready(u,'cleaner','cleaning',['Home cleaning']),ready(u,'shop-profile','spares',['Inventory management'])))
+    p,_=notice(api,p,sector='Education',work_trade='electrician',skills=['Electrical wiring'])
+    assert p['hiring']['sector']=='Education' and p['hiring']['work_trade']=='electrician'
+    url='/operations/contractor/projects/'+p['id']+'/candidates'
+    result=api.get(url,headers=auth('worker'));assert result.status_code==200,result.text
+    assert [row['worker_id'] for row in result.json()['candidates']]==['worker2']
+    assert result.json()['candidates'][0]['fit']['components']['category']==1
+    assert cw.public_hiring(p)['hiring']['sector']=='Education'
+    assert cw.public_hiring(p)['hiring']['work_trade']=='electrician'
+    assert cw.hiring_trade({'sector':'Education','skills':['Electrical wiring']},'Campus maintenance')=='electrician'
+    assert cw.hiring_trade({'sector':'Education','skills':['Generic assistance']},'Plumbing technician needed')=='plumber'
+    assert cw.hiring_trade({'sector':'Electrical','skills':['Generic assistance']},'Maintenance')=='electrician'
+    assert cw.hiring_trade({'sector':'Education','skills':['Generic assistance']},'Campus maintenance') is None
+    assert cw.hiring_trade({'sector':'Education','skills':['Electrical wiring'],'work_trade':'plumber'})=='plumber'
+    body=dict(p['hiring']);body.pop('version');body.pop('updated_at');body.update(expected_version=p['version'],work_trade='Education')
+    assert api.put('/operations/contractor/projects/'+p['id']+'/hiring',headers=auth('worker'),json=body).status_code==422
+    # An old client omitting the field still stores the clear skill-derived trade.
+    p,_=notice(api,p,sector='Education',skills=['Electrical wiring'])
+    assert p['hiring']['work_trade']=='electrician'
+    # Unknown industry+generic skills require a deliberate category, not a bogus spares lane.
+    body.update(work_trade=None,expected_version=p['version'],skills=['Generic assistance'],sector='Education')
+    assert api.put('/operations/contractor/projects/'+p['id']+'/hiring',headers=auth('worker'),json=body).status_code==422

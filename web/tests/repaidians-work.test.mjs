@@ -39,8 +39,8 @@ test('account switch rejects late private results and retires old cache entries'
 });
 test('failed reads never become cached, and parameters are bounded and encoded',async()=>{
   transport=async()=>{throw Error('offline');};await assert.rejects(service.workJobs('a'),/offline/);assert.equal(service.peekWorkJobs('a'),null);
-  transport=async()=>({items:[],nextCursor:null});await service.workJobs('a',{query:'wiring & testing',limit:1000,experience:0});
-  const url=new URL(calls.at(-1).path,'https://repaido.test');assert.equal(url.searchParams.get('query'),'wiring & testing');assert.equal(url.searchParams.get('limit'),'30');assert.equal(url.searchParams.get('experience'),'0');
+  transport=async()=>({items:[],nextCursor:null});await service.workJobs('a',{query:'wiring & testing',sector:'Education',trade:'electrician',limit:1000,experience:0});
+  const url=new URL(calls.at(-1).path,'https://repaido.test');assert.equal(url.searchParams.get('query'),'wiring & testing');assert.equal(url.searchParams.get('sector'),'Education');assert.equal(url.searchParams.get('trade'),'electrician');assert.equal(url.searchParams.get('limit'),'30');assert.equal(url.searchParams.get('experience'),'0');
 });
 test('profile updates invalidate work matches; work mutations emit one coherent update',async()=>{
   await service.workJobs('a');let updates=0;window.addEventListener('repaidians:work-update',()=>updates++);

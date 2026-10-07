@@ -408,3 +408,57 @@ def test_expired_members_can_revoke_work_privacy_without_new_entitlement(work_ap
     assert not main.operations_store.run(lambda u: work.delivery_allowed(u, placement_push))
     assert not main.operations_store.run(lambda u: work.delivery_allowed(u, contract_push))
     assert work_api.get('/repaidians/work/interests', headers=auth('worker2')).status_code == 402
+
+
+def test_job_work_trade_and_business_industry_filters_are_independent(work_api, monkeypatch):
+    profile()
+    seed_job('school', trade='Education', hiring={'work_trade': 'electrician'})
+    monkeypatch.setattr(operations.Unit, 'all', lambda *args: (_ for _ in ()).throw(AssertionError('Sector collection scan')))
+    page = get_jobs(work_api, trade='electrician', sector='education', query='installation')
+    assert [item['id'] for item in page['items']] == ['school']
+    assert page['items'][0]['trade'] == 'electrician'
+    assert page['items'][0]['details']['hiring']['sector'] == 'Education'
+    assert get_jobs(work_api, trade='spares', sector='Education')['items'] == []
+    assert get_jobs(work_api, trade='electrician', sector='Retail', query='installation')['items'] == []
+    cards = work_api.get('/repaidians/opportunities', headers=auth('customer'), params={'kind': 'jobs', 'trade': 'electrician'}).json()['items']
+    assert [item['id'] for item in cards] == ['school']
+    tender = seed_tender('school-tender'); tender.update(sector='Education', title='Campus electrical installation')
+    main.operations_store.run(lambda u: u.put('contract_tenders', tender['id'], tender))
+    matched = work_api.get('/repaidians/work/contracts', headers=auth('customer'), params={'sector': 'Education', 'query': 'installation'})
+    assert matched.status_code == 200, matched.text
+    assert [item['id'] for item in matched.json()['items']] == ['school-tender']
+    assert work_api.get('/repaidians/work/contracts', headers=auth('customer'), params={'sector': 'Retail', 'query': 'installation'}).json()['items'] == []
+    assert work_api.get('/repaidians/work/contracts', headers=auth('customer'), params={'sector': 'x'}).status_code == 422
+
+
+def test_versioned_background_migration_repairs_legacy_industry_misclassification(work_api, monkeypatch):
+    import repaidians_opportunities as bridge
+    profile()
+    row = seed_job('legacy-school', trade='Education', hiring={'skills': ['Electrical installation']})
+    row['title'] = 'Campus upgrade team'
+    main.operations_store.run(lambda u: u.put('contract_projects', row['id'], row))
+    def historical_projection(u):
+        key = row['id']; marker = u.get('rp_work_index', 'jobs:' + key)
+        for old in marker['channels']:
+            u.put(old, key, {'id': key, 'sortKey': key, 'active': False})
+        old_channels = {work.channel('jobs', 'spares'), work.channel('jobs')}
+        for old in old_channels:
+            u.put(old, key, {'id': key, 'sortKey': key, 'active': True})
+        u.put('rp_work_index', 'jobs:' + key, {'channels': sorted(old_channels), 'active': True})
+        u.put('rp_work_backfill', 'contract_projects', {'complete': True, 'after': 'zzz'})
+        career_marker = u.get('rp_opportunity_refs', 'career:' + key)
+        for old in career_marker['channels']:
+            u.put(old, key, {'id': key, 'sortKey': key, 'source': 'career', 'origin': 'live', 'active': False})
+        old_career_channels = {bridge.lane('career', trade='spares'), bridge.lane('career')}
+        for old in old_career_channels:
+            u.put(old, key, {'id': key, 'sortKey': key, 'source': 'career', 'origin': 'live', 'active': True})
+        u.put('rp_opportunity_refs', 'career:' + key, {'channels': sorted(old_career_channels), 'origin': 'live'})
+        u.put('rp_opportunity_backfill', 'career', {'done': True, 'after': 'zzz'})
+    main.operations_store.run(historical_projection)
+    monkeypatch.setattr(operations.Unit, 'all', lambda *args: (_ for _ in ()).throw(AssertionError('Migration collection scan')))
+    assert get_jobs(work_api, trade='electrician')['items'] == []
+    assert work.backfill(main, limit=2)['processed'] <= 10
+    assert [item['id'] for item in get_jobs(work_api, trade='electrician')['items']] == ['legacy-school']
+    cards = work_api.get('/repaidians/opportunities', headers=auth('customer'), params={'kind': 'jobs', 'trade': 'electrician'}).json()['items']
+    assert [item['id'] for item in cards] == ['legacy-school']
+    assert main.operations_store.run(lambda u: u.get('rp_work_backfill', 'contract_projects:' + work.WORK_TRADE_INDEX_VERSION))['complete']

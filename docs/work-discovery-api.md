@@ -18,7 +18,7 @@ sign-out and preference changes.
 | `PATCH /repaidians/work/preferences` | Partial `personalizedDiscovery`, `contractUpdates`, `sharePlacements`, `shareSalary`; all default false |
 | `GET /repaidians/work/interests` | `{trades:[{trade,weight,reason}],personalized}` |
 | `POST /repaidians/work/behavior` | `{eventId:UUID,trade,type,query?,sourceId?}`; type `search`, `view`, `save`, `apply`; account-scoped replay protection |
-| `GET /repaidians/work/jobs` | `{items,nextCursor,personalized,preferences,rankingScope:"page",rankingVersion:"work-v1"}` |
+| `GET /repaidians/work/jobs` | `{items,nextCursor,personalized,preferences,rankingScope:"page",rankingVersion:"work-v2"}` |
 | `GET /repaidians/work/contracts` | `{items,nextCursor,personalized,preferences}` with native safe public tender summaries, watched flag, trade and match reasons |
 | `GET /repaidians/work/contracts/{id}/watch` | `{watched}`; unavailable sources return 404 |
 | `PUT /repaidians/work/contracts/{id}/watch` | `{active:boolean}` -> `{watched}`; enabling requires explicit contract-update consent |
@@ -27,7 +27,7 @@ sign-out and preference changes.
 | `GET /repaidians/placements/{id}` | Consented accepted placement, safe project identity and public member profile; salary is omitted unless independently opted in |
 | `POST /repaidians/placements/{id}/congratulate` | `{clientId:UUID,message:"congratulations"|"good_luck"|"well_deserved"}`; one durable congratulations per sender and placement |
 
-Jobs filters: `trade`, `city`, `query` (whole indexed terms),
+Jobs filters: `trade`, `sector` (business industry), `city`, `query` (whole indexed terms),
 `minimumPayPaise`, `experience` (applicant years), `workType`
 (`all`, `project`, `private_request`), `closesWithinDays` (`0`, `7`, `30`),
 `cursor`, `limit` (1–30). Contract/company filters are trade/city/query/cursor/
@@ -35,7 +35,9 @@ limit. Job/contract cursors bind account, normalized filters, profile fingerprin
 personalization consent, behavioral revision and ranking version, and advance over unavailable
 records within a strict scan bound. Job card `deadline`, `startsAt`, `endsAt` are
 milliseconds; nested native `details.hiring.deadline` and project dates are
-seconds. A job's `openings` is remaining capacity. `application`, when present,
+seconds. Contract filters also accept an independent `sector`. Sector/city lanes
+apply exact normalized native industry matching; keyword query is never replaced
+by an industry selection. A job's `openings` is remaining capacity. `application`, when present,
 contains only this account's native application id and status.
 
 Default jobs are restricted to profile trade/skills and recorded experience.
@@ -46,9 +48,18 @@ and network blocks are checked again from native sources. Private customer
 projects require a server-owned phone-verification snapshot; clients cannot
 create authorization through a discovery hint.
 
+Hiring `work_trade` is a canonical worker category independent of the business
+`sector`: for example, an Education-sector job can require an electrician.
+`hiring_trade` resolves explicit work categories first, then specific legacy
+skills/title and recognizable trade sectors. Unknown industries never become
+spare-parts jobs. Versioned `work-trade-v2` background checkpoints repair older
+audience lanes and legacy career references even when the original backfill was
+marked complete; every migration reads the current native source in a bounded
+transaction.
+
 ## Ranking and bounded state
 
-The explainable `work-v1` job score uses trade .45, listed skill-token overlap .25,
+The explainable `work-v2` job score uses trade .45, listed skill-token overlap .25,
 profile city .15, experience .10 and optional trade/keyword interest .025 each. This is a
 ranking signal within the bounded page, not a calibrated hiring probability or
 a global top-N claim. Search lanes index up to eight normalized native title,

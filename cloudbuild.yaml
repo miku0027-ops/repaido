@@ -87,7 +87,7 @@ steps:
   - id: await-release-turn
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: python3
-    args: ['scripts/deploy-work-services.py', 'await-release', '--project=$PROJECT_ID', '--build=$BUILD_ID']
+    args: ['scripts/deploy-work-services.py', 'await-release', '--project=$PROJECT_ID', '--build=$BUILD_ID', '--build-region=$LOCATION']
 
   - id: deploy-work-services
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
