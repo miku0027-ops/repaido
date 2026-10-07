@@ -107,6 +107,26 @@ signal. Run the output's `gcloud compute ssl-certificates describe` command unti
 if it stalls. Then verify the hostname with a normal HTTPS client; do not disable
 certificate verification to bypass issuance.
 
+## Client transport inventory
+
+`VITE_API_BASE_URL` does not currently select the origin for every transport.
+Review these concrete paths when preparing the client migration:
+
+| Source | Current behavior and cutover requirement |
+| --- | --- |
+| `web/src/services/api.ts` | Generic requests and asset URLs use the configured origin; the production default and `web/.env.cpanel` still point to `run.app`. Cloud Build supplies no edge override. |
+| `web/src/services/repaidiansService.ts` | Community JSON and protected-media fetches use same-origin `/api`; preserve local-path validation, account generations and media retirement when introducing the edge origin. |
+| `web/src/services/repaidiansNetworkService.ts` | Networking also fetches same-origin `/api` directly. |
+| `web/src/services/repaidiansWorkService.ts` | Most work calls delegate to the community transport above; hiring/application commands already use the generic API helper. |
+| `android/agent/src/main/java/com/repaido/agent/TrackingService.java` | Native tracking `position` and `stop` use `WEB_URL`; add a separate API origin through a supported APK update, keeping `WEB_URL` as the trusted page/bridge origin. Preserve disabled HTTP redirects. |
+| `android/app/src/main/java/com/repaido/app/Api.kt` | Legacy native requests use `REPAIDO_API_URL` independently of Vite; account for supported older clients even though the current customer activity uses a WebView. |
+
+Preserve exact backend CORS origin allowlists and bearer/idempotency handling.
+Validate cross-origin JavaScript access to `ETag`, `Content-Range`,
+`Accept-Ranges` and `Retry-After`; expose required response headers explicitly
+if the migrated client reads them. Root Hosting work rewrites and the web-only
+main rewrites remain bypasses until migration and ingress closure complete.
+
 ## Client cutover, enforcement and ingress
 
 1. After certificate activation, exercise authenticated main/work endpoints,
