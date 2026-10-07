@@ -205,6 +205,8 @@ def member_public(u, row):
     out.update(reviewed=approved, registeredId=row['id'] if w else None,
                completedTasks=int(w.get('completed_tasks', 0)) if approved else 0,
                rating=(w.get('rating_sum', 0) / w['rating_count']) if approved and w.get('rating_count') else None)
+    from repaidians_billing import membership_badge
+    out['repaidianBadge'] = membership_badge(u, row['id'], worker=w, now=now_ms() / 1000)
     if approved:
         out['role'] = 'Specialist' if w.get('role') == 'specialist' else 'Technician'
     return out
@@ -347,7 +349,7 @@ def browse(u, actor):
         member_ensure(u, actor['user'])
         if subscription_state(u, actor['user']['id'])['active']:
             return QUOTA
-        fail('TRIAL_EXPIRED', 'Your 30-day community trial has ended. An active membership is required to continue.', 402)
+        fail('TRIAL_EXPIRED', 'Your 60-day community trial has ended. An active membership is required to continue.', 402)
     remaining = usage(u, actor['subject'], True)
     if remaining <= 0:
         fail('DAILY_LIMIT', 'Your 15-minute community browsing allowance is used. Upgrade or return after midnight IST.', 402)
@@ -359,7 +361,7 @@ def pro(u, actor):
         fail('SIGN_IN_REQUIRED', 'Sign in to continue.', 401)
     member_ensure(u, actor['user'])
     if not subscription_state(u, actor['user']['id'])['active']:
-        fail('TRIAL_EXPIRED', 'Your 30-day community trial has ended. An active membership is required to continue.', 402)
+        fail('TRIAL_EXPIRED', 'Your 60-day community trial has ended. An active membership is required to continue.', 402)
 
 
 def signed(actor):
@@ -424,7 +426,7 @@ def actor_rows(u, base, uid, maximum=50, before=None):
 def members_for(u, ids, actor):
     ids = list(dict.fromkeys(ids))[:100]
     prefetch_blocks(u, actor, ids)
-    u.prefetch([('rp_members', key) for key in ids] + [('workers', key) for key in ids])
+    u.prefetch([(kind, key) for key in ids for kind in ('rp_members', 'workers', 'rp_trials', 'rp_subscriptions')])
     return [member_public(u, row) for key in ids if (row := u.get('rp_members', key)) and not blocked(u, (actor.get('user') or {}).get('id'), key)]
 
 
@@ -1157,6 +1159,8 @@ def install(core):
                 fail('NOT_FOUND', 'Member unavailable.', 404)
             u.put('rp_blocks', digest(user['id'] + ':' + member_id), {'active': body.active, 'from': user['id'], 'to': member_id, 'createdAt': now_ms()})
             if body.active:
+                from repaidians_network import disconnect
+                disconnect(u, user['id'], member_id, reason='blocked')
                 # Remove both follow edges and their counters atomically. Old
                 # notifications/threads remain private but are filtered at read.
                 for left, right in ((user['id'], member_id), (member_id, user['id'])):

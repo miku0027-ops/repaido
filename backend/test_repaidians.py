@@ -448,7 +448,7 @@ def test_operator_retain_does_not_change_content_or_private_contacts(api):
     assert api.get('/repaidians/feed?kind=tender').json()['items'][0]['id'] == tender['id']
 
 
-def test_new_members_join_from_direct_api_and_get_full_30_day_social_trial(api, monkeypatch):
+def test_new_members_join_from_direct_api_and_get_full_60_day_social_trial(api, monkeypatch):
     stamp = int(time.time() * 1000)
     monkeypatch.setattr(social, 'now_ms', lambda: stamp)
     # The first interaction is a direct authenticated discovery request, with
@@ -456,10 +456,10 @@ def test_new_members_join_from_direct_api_and_get_full_30_day_social_trial(api, 
     assert api.get('/repaidians/feed', headers=auth()).status_code == 200
     initial = api.get('/repaidians/state', headers=auth()).json()
     trial = initial['trial']
-    assert trial == {'startsAt': stamp, 'endsAt': stamp + 30 * 86400000, 'status': 'active'}
+    assert trial == {'startsAt': stamp, 'endsAt': stamp + 60 * 86400000, 'status': 'active'}
     assert initial['serverNow'] == stamp and initial['subscription'] == {
         'plan': 'trial', 'provider': 'trial', 'amountPaise': 0,
-        'startsAt': stamp, 'endsAt': stamp + 30 * 86400000,
+        'startsAt': stamp, 'endsAt': stamp + 60 * 86400000,
     }
     profile(api)
     # A direct authenticated upload also joins the recipient before its first
@@ -572,14 +572,14 @@ def test_trial_is_server_owned_once_per_uid_survives_devices_profile_and_backfil
     assert api.core.operations_store.run(lambda u: u.get('rp_usage', 'user_' + social.digest('alice'))) is None
     # Existing durable community profiles backfill from their original joining
     # date instead of receiving a fresh trial each time this release deploys.
-    old_start = clock[0] - 31 * 86400000
+    old_start = clock[0] - 61 * 86400000
     api.core.operations_store.run(lambda u: u.put('rp_members', 'bob', {
         'id': 'bob', 'name': 'Existing Professional', 'handle': 'existing.bob', 'trade': 'electrician',
         'role': 'Member', 'avatarUrl': '', 'bio': '', 'createdAt': old_start,
         'followersCount': 0, 'followingCount': 0,
     }))
     existing = api.get('/repaidians/state', headers=auth('bob')).json()
-    assert existing['trial'] == {'startsAt': old_start, 'endsAt': old_start + 30 * 86400000, 'status': 'expired'}
+    assert existing['trial'] == {'startsAt': old_start, 'endsAt': old_start + 60 * 86400000, 'status': 'expired'}
     assert existing['remainingMs'] == 0
     clock[0] = first['endsAt']
     assert api.get('/repaidians/state', headers=auth()).json()['trial']['status'] == 'expired'
@@ -621,7 +621,7 @@ def test_professional_profile_persistence_filters_validation_and_badge_boundary(
 
 def test_professional_worker_defaults_backfill_and_bounded_filter_pagination(api, monkeypatch):
     stamp = social.now_ms() - 5 * 86400000
-    original_trial_end = stamp + 30 * 86400000
+    original_trial_end = stamp + 60 * 86400000
     def seed(u):
         for index in range(12):
             uid = 'old-professional-' + str(index)

@@ -1,8 +1,8 @@
 /* Community navigation shares the Repaido palette while keeping a quiet social surface. */
 .rp-avatar-frame{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;vertical-align:middle;line-height:0;max-width:max-content;}
 .rp-avatar-ready .rp-avatar{border-color:var(--ui-success);box-shadow:0 0 0 2px var(--ui-surface),0 0 0 3px var(--ui-success);}
-.rp-ready-badge{position:absolute;right:-1px;top:-2px;display:grid;place-items:center;width:16px;height:16px;border:2px solid var(--ui-surface);border-radius:50%;background:var(--ui-success);color:var(--ui-success-surface);z-index:1;}
-.rp-avatar-frame:has(.rp-avatar-large) .rp-ready-badge{right:0;top:0;width:24px;height:24px;}
+.rp-ready-badge{position:absolute;right:-1px;bottom:-2px;display:grid;place-items:center;width:16px;height:16px;border:2px solid var(--ui-surface);border-radius:50%;background:var(--ui-success);color:var(--ui-success-surface);z-index:1;}
+.rp-avatar-frame:has(.rp-avatar-large) .rp-ready-badge{right:0;bottom:0;width:24px;height:24px;}
 .rp-member-row>.rp-avatar-frame{flex:0 0 auto!important;}
 .rp-aside-identity>.rp-avatar-frame{min-width:32px;}
 .rp-post-media{width:calc(100% - var(--ui-space)*3);margin-inline:auto;display:grid;place-items:center;}

@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -223,6 +223,7 @@ async def lifespan(app):
     operations_store.init()
     contract_work.initialize(sys.modules[__name__])
     repaidians.initialize(sys.modules[__name__])
+    repaidians_network.initialize(sys.modules[__name__])
     repaidians_opportunities.initialize(sys.modules[__name__])
     repaidians_work.initialize(sys.modules[__name__])
     async def run_scheduler():
@@ -783,19 +784,27 @@ def update_booking(booking_id: str, body: BookingUpdate):
 # =========================================================
 
 @app.get('/technicians')
-def get_technicians(city: str = 'Balasore', category: str | None = None):
+def get_technicians(city: str = 'Balasore', category: str | None = None, role: str | None = None, offset: int = Query(default=0,ge=0,le=100000), limit: int = Query(default=24,ge=1,le=24)):
     def read(u):
         rows = []
-        for w in u.all('workers'):
+        workers={}
+        canonical_city=next((name for name in CITIES if name.casefold()==city.casefold()),city)
+        for w in u.find('workers','city',canonical_city):
             if w['status'] != 'approved' or w['city'].casefold() != city.casefold(): continue
             if category and category != 'all' and category not in w['categories']: continue
+            if role and w['role']!=role:continue
             rows.append({k: w[k] for k in ('id','name','role','city','categories','skills','tools','experience_years','completed_tasks','rating_count','rating_sum')})
-        return {'technicians': rows}
+            workers[w['id']]=w
+        rows.sort(key=lambda row:row['id'])
+        visible=rows[offset:offset+limit]
+        from operations import enrich_professional_badges
+        enrich_professional_badges(u,visible,workers)
+        return {'technicians': visible,'next_offset':offset+limit if offset+limit<len(rows) else None}
     return operations_store.run(read)
 
 @app.get('/specialists')
 def get_specialists(city: str = 'Balasore', category: str | None = None):
-    return {'specialists': [w for w in get_technicians(city, category)['technicians'] if w['role'] == 'specialist']}
+    return {'specialists': get_technicians(city, category, role='specialist', offset=0, limit=24)['technicians']}
 
 class PartnerApplicationInput(BaseModel):
     role: str = 'Technician'
@@ -1130,6 +1139,8 @@ import repaidians_billing
 repaidians_billing.install(sys.modules[__name__])
 import repaidians
 repaidians.install(sys.modules[__name__])
+import repaidians_network
+repaidians_network.install(sys.modules[__name__])
 import repaidians_opportunities
 repaidians_opportunities.install(sys.modules[__name__])
 import repaidians_work

@@ -133,7 +133,10 @@ def install(core):
         def save(u):
             network_worker(u,user)
             if user['id']==wid:fail('INVALID','Choose another member.',422)
-            u.put('network_blocks',user['id']+':'+wid,dict(owner_id=user['id'],other_id=wid,active=True,at=time.time()));return dict(blocked=True)
+            u.put('network_blocks',user['id']+':'+wid,dict(owner_id=user['id'],other_id=wid,active=True,at=time.time()))
+            from repaidians_network import disconnect
+            disconnect(u,user['id'],wid,reason='blocked')
+            return dict(blocked=True)
         return store.run(save)
     @r.delete('/blocks/{wid}')
     def unblock(wid:str,user=Depends(core.current_user)):

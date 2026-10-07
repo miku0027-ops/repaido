@@ -3,6 +3,7 @@
 Provider calls run outside database transactions. Per-user pointers and per-order
 indexes keep reads bounded; a receipt cannot be used by another Repaido purchase.
 """
+import copy
 import hashlib
 import hmac
 import json
@@ -23,8 +24,10 @@ PRICE = 19900
 POLICY = 'repaidians-pro-monthly-v1'
 MAX_WEBHOOK_BYTES = 256 * 1024
 MAX_PREPAID_PERIODS = 12
-TRIAL_MS = 30 * 86400 * 1000
-TRIAL_POLICY = 'repaidians-full-social-trial-30-days-v1'
+TRIAL_MS = 60 * 86400 * 1000
+TRIAL_POLICY = 'repaidians-full-social-trial-60-days-v2'
+LEGACY_TRIAL_POLICY = 'repaidians-full-social-trial-30-days-v1'
+LEGACY_TRIAL_MS = 30 * 86400 * 1000
 
 
 class Empty(Input):
@@ -35,23 +38,90 @@ class Check(Input):
     attempt_id: str | None = Field(default=None, pattern=r'^[a-f0-9-]{36}$')
 
 
-def ensure_trial(u, user_id, starts_at=None, now=None):
+def _legacy_trial(trial):
+    return bool(trial and trial.get('policy') == LEGACY_TRIAL_POLICY
+                and type(trial.get('startsAt')) is int and trial['startsAt'] >= 0
+                and type(trial.get('endsAt')) is int
+                and trial['endsAt'] == trial['startsAt'] + LEGACY_TRIAL_MS)
+
+
+def _extend_prepaid_trial_grants(u, user_id, old_end, persist=True):
+    """Preserve paid time queued at the old trial boundary, once with migration.
+
+    Only a proved captured Repaidians grant chain is moved. Unrelated existing
+    paid periods, refund tombstones, provider receipts and interval durations
+    are preserved. The trial write and these updates share the store transaction.
+    Public badge projections use ``persist=False`` to compute the same intervals
+    on copies without multiplying billing writes in a bulk profile transaction.
+    """
+    member = copy.deepcopy(u.get('rp_subscriptions', user_id))
+    if not member or member.get('status') != 'active' or member.get('policy') != POLICY or not member.get('grants'):
+        return member
+    grants = sorted(member['grants'], key=lambda g: g['startsAt'])
+    delta, next_start, moved = TRIAL_MS - LEGACY_TRIAL_MS, old_end, {}
+    for grant in grants:
+        if grant.get('startsAt') != next_start:
+            if moved:
+                break
+            continue
+        attempt = copy.deepcopy(u.get('rp_payments', grant.get('attemptId', '')))
+        if (not attempt or attempt.get('kind') != 'repaidians_pro' or attempt.get('userId') != user_id
+                or attempt.get('status') != 'captured' or attempt.get('paymentId') != grant.get('paymentId')
+                or attempt.get('grantStartsAt') != grant['startsAt'] or attempt.get('grantEndsAt') != grant['endsAt']
+                or (not moved and attempt.get('createdAt', old_end) >= old_end)):
+            break
+        next_start = grant['endsAt']
+        grant.update(startsAt=grant['startsAt'] + delta, endsAt=grant['endsAt'] + delta)
+        attempt.update(grantStartsAt=grant['startsAt'], grantEndsAt=grant['endsAt'])
+        if persist:
+            u.put('rp_payments', attempt['id'], attempt)
+        moved[grant['attemptId']] = grant
+    if not moved:
+        return member
+    member['grants'] = [moved.get(grant['attemptId'], grant) for grant in member['grants']]
+    if member.get('attemptId') in moved:
+        member['startsAt'] += delta
+        # The stored end spans the contiguous queued chain, including only the
+        # proved shifted intervals when an unrelated interval follows it.
+        old_member_end = member['endsAt']
+        if old_member_end <= next_start:
+            member['endsAt'] += delta
+    if persist:
+        u.put('rp_subscriptions', user_id, member)
+    return member
+
+
+def ensure_trial(u, user_id, starts_at=None, now=None, worker=None):
     """Issue once after joining. ``starts_at`` is trusted server milliseconds.
 
-    This is never a browser endpoint. An existing UID's grant is immutable, even
-    if its community profile is updated, deleted and rejoined, or read again.
+    This is never a browser endpoint. The original joining date never changes,
+    even if the community profile is updated, deleted and rejoined. The known
+    30-day launch policy is extended once to 60 days from that original date;
+    expired trials outside the enlarged interval remain expired. Approved
+    registered workers also enroll once on their first projection, without
+    creating a community profile; a later community join reuses that trial.
     """
     now = time.time() if now is None else now
     member = u.get('rp_members', user_id) if user_id else None
     if not member:
-        return None
+        worker = u.get('workers', user_id) if worker is None and user_id else worker
+        if not worker or worker.get('id') != user_id or worker.get('status') != 'approved':
+            return None
     trial = u.get('rp_trials', user_id)
     if not trial:
-        starts = starts_at if starts_at is not None else member.get('createdAt', int(now * 1000))
+        starts = (starts_at if starts_at is not None else member.get('createdAt', int(now * 1000))) if member else int(now * 1000)
         if type(starts) is not int or starts < 0:
             fail('MEMBER_DATE_REQUIRED', 'Your community joining date needs review.')
         trial = dict(userId=user_id, startsAt=starts, endsAt=starts + TRIAL_MS, policy=TRIAL_POLICY)
         u.put('rp_trials', user_id, trial)
+    elif _legacy_trial(trial):
+        _extend_prepaid_trial_grants(u, user_id, trial['endsAt'])
+        trial.update(endsAt=trial['startsAt'] + TRIAL_MS, policy=TRIAL_POLICY,
+                     extendedFromPolicy=LEGACY_TRIAL_POLICY)
+        u.put('rp_trials', user_id, trial)
+    if (type(trial.get('startsAt')) is not int or trial['startsAt'] < 0
+            or type(trial.get('endsAt')) is not int or trial['endsAt'] <= trial['startsAt']):
+        fail('MEMBER_DATE_REQUIRED', 'Your community joining date needs review.')
     return dict(startsAt=trial['startsAt'], endsAt=trial['endsAt'],
                 status='active' if trial['startsAt'] <= now * 1000 < trial['endsAt'] else 'expired')
 
@@ -71,6 +141,43 @@ def _current_period(member, now):
         if grant['startsAt'] <= ends and grant['endsAt'] > ends:
             ends = grant['endsAt']
     return starts, ends
+
+
+def membership_badge(u, user_id, worker=None, now=None):
+    """Public membership proof, separate from identity or contractor review.
+
+    Registered approved worker records determine the agent/contractor role;
+    profile declarations never do. A customer card enrolls an approved worker
+    once without a community profile, and cannot restart an existing trial or
+    expose billing accounts or payments. Existing legacy grants are projected
+    read-only here; own-account subscription and payment commands persist their
+    atomic migration without adding prepaid-chain writes to bulk public reads.
+    """
+    now = time.time() if now is None else now
+    worker = u.get('workers', user_id) if worker is None and user_id else worker
+    if not worker or worker.get('id') != user_id or worker.get('status') != 'approved':
+        return None
+    stored_trial = u.get('rp_trials', user_id)
+    if _legacy_trial(stored_trial):
+        starts, ends = stored_trial['startsAt'], stored_trial['startsAt'] + TRIAL_MS
+        trial = dict(startsAt=starts, endsAt=ends,
+                     status='active' if starts <= now * 1000 < ends else 'expired')
+        member = _extend_prepaid_trial_grants(u, user_id, stored_trial['endsAt'], persist=False)
+    else:
+        trial = ensure_trial(u, user_id, now=now, worker=worker)
+        member = u.get('rp_subscriptions', user_id)
+    if not trial:
+        return None
+    period = _current_period(member, now)
+    if period:
+        source, starts, ends = 'paid', *period
+    elif trial['status'] == 'active':
+        source, starts, ends = 'trial', trial['startsAt'], trial['endsAt']
+    else:
+        return None
+    return dict(label='Repaidian', kind='membership', status='active', source=source,
+                professionalType='contractor' if worker.get('contractor_verified') else 'agent',
+                startsAt=starts, endsAt=ends)
 
 
 def subscription(u, user_id, now=None):
@@ -137,6 +244,10 @@ def apply_payment(u, attempt, payment, now=None):
         fail('PAYMENT_MISMATCH', 'The provider refund needs reconciliation.')
     refunded = max(raw_refund, attempt.get('amountRefunded', 0))
     status = payment.get('status')
+    # Resolve policy migration before reading paid grants. Capture/refund uses
+    # the migrated intervals, so a stale local list cannot undo their extension.
+    trial = ensure_trial(u, attempt['userId'], now=now) if final_payment else None
+    attempt = u.get('rp_payments', attempt['id']) or attempt
     member = u.get('rp_subscriptions', attempt['userId']) or {}
     grants = member.get('grants', [])
     if refunded or status == 'refunded':
@@ -145,7 +256,6 @@ def apply_payment(u, attempt, payment, now=None):
         _save_grants(u, attempt['userId'], [g for g in grants if g['attemptId'] != attempt['id']], now)
     elif status == 'captured' and payment.get('captured') is True:
         if attempt.get('status') not in ('captured', 'refunded'):
-            trial = ensure_trial(u, attempt['userId'], now=now)
             trial_end = trial['endsAt'] if trial and trial['status'] == 'active' else 0
             starts = max(int(now * 1000), trial_end, max((g['endsAt'] for g in grants), default=0))
             ends = int(month_after(starts / 1000) * 1000)

@@ -10,7 +10,7 @@ import math
 from typing import Literal
 from fastapi import APIRouter, Depends
 from pydantic import Field
-from operations import Input, Pin, metres, fail
+from operations import Input, Pin, metres, fail, enrich_professional_badges
 from search_index import public_search
 
 
@@ -92,6 +92,7 @@ def install(core):
         matching_categories = {s['category'] for s in services}
         def read(u):
             workers = []
+            worker_by_id = {}
             if body.location and body.city in core.CITIES:
                 for w in u.find('workers','city',body.city):
                     p = w.get('position')
@@ -113,11 +114,13 @@ def install(core):
                     score = (w['rating_sum']+20)/(w['rating_count']+5)
                     safe['_rank'] = (match, score, -distance)
                     workers.append(safe)
+                    worker_by_id[w['id']] = w
             workers.sort(key=lambda w: (w['distance_km'], w['id']) if body.sort == 'distance' else (*(-v for v in w['_rank']), w['id']))
             if body.sort == 'rating': workers.sort(key=lambda w: (-(w['rating'] or 0), -w['rating_count'], w['distance_km'], w['id']))
             if body.sort == 'experience': workers.sort(key=lambda w: (-w['experience_years'], w['distance_km'], w['id']))
-            for w in workers: w.pop('_rank')
-            return workers[:24]
+            visible = workers[:24]
+            for worker in visible: worker.pop('_rank')
+            return enrich_professional_badges(u, visible, worker_by_id)
         workers = store.run(read)
         public_services = [{k: s[k] for k in ('id','name','category','description','price_paise','duration_minutes','included','excluded')} for s in services[:60]]
         home_services = [s for s in OFFERINGS if (not body.category or s['category']==body.category) and relevance(body.query,s['name']+' '+s['description'])>0] if body.max_price_paise is None and not body.min_price_paise and body.max_duration_minutes is None else []

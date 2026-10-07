@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -103,6 +103,8 @@ class Discovery(Input):
     city: str
     category: str | None = None
     radius_km: float = Field(default=6, gt=0, le=6)
+    offset: int = Field(default=0, ge=0, le=10000)
+    limit: int = Field(default=24, ge=1, le=24)
 
 
 class Booking(Input):
@@ -463,6 +465,32 @@ def assess_penalties(u, j, now):
     return changed
 
 
+def enrich_professional_badges(u, public_rows, worker_by_id):
+    """Enroll/project only the returned page, with independent billing reads batched.
+
+    Callers rank and paginate before this helper. Public allowlists stay in the
+    caller; private worker or payment records never merge into a customer card.
+    """
+    from repaidians_billing import membership_badge
+    ids = [row['id'] for row in public_rows]
+    u.prefetch([(kind, uid) for uid in ids for kind in ('rp_members', 'rp_trials', 'rp_subscriptions')])
+    for row in public_rows:
+        row['repaidianBadge'] = membership_badge(u, row['id'], worker=worker_by_id[row['id']])
+    return public_rows
+
+
+def own_worker_projection(u, worker):
+    """Every own-worker response preserves the same authoritative avatar metadata."""
+    if not worker:
+        return None
+    from repaidians_billing import membership_badge
+    uid = worker['id']
+    u.prefetch([(kind, uid) for kind in ('worker_profiles', 'rp_members', 'rp_trials', 'rp_subscriptions')])
+    profile = u.get('worker_profiles', uid) or {}
+    return {**worker, 'repaidianBadge': membership_badge(u, uid, worker=worker),
+            'portrait_url': f"/api/operations/professional-media/{profile['portrait_id']}" if profile.get('portrait_id') else None}
+
+
 def install(core):
     router = APIRouter(prefix='/operations', tags=['Field operations'])
     store = Store(core)
@@ -475,7 +503,10 @@ def install(core):
 
     @router.get('/worker/me')
     def worker_me(user=Depends(worker_user)):
-        return store.run(lambda u: {'worker': u.get('workers', user['id']), 'verification_uploads_available': bool(__import__('os').getenv('REPAIDO_KYC_BUCKET'))})
+        def read(u):
+            worker=u.get('workers',user['id'])
+            return {'worker':own_worker_projection(u, worker),'verification_uploads_available':bool(__import__('os').getenv('REPAIDO_KYC_BUCKET'))}
+        return store.run(read)
 
     @router.post('/worker/onboarding')
     def onboard(body: Onboarding, user=Depends(worker_user)):
@@ -524,7 +555,7 @@ def install(core):
             if not w or w['status'] != 'approved': fail('APPROVAL_REQUIRED', 'Your worker profile must be approved before going online.', 403)
             # A delayed heartbeat must never undo an explicit offline choice.
             if body.heartbeat and not w.get('online'):
-                return {'worker':w,'new_assignments':0}
+                return {'worker':own_worker_projection(u, w),'new_assignments':0}
             if bool(w.get('online')) != body.online:
                 eid = str(uuid.uuid4())
                 u.put('availability_events', eid, dict(id=eid,worker_id=w['id'],online=body.online,at=time.time()))
@@ -538,7 +569,7 @@ def install(core):
                 u.put('availability_samples',sample,dict(id=sample,worker_id=w['id'],at=time.time()))
             u.put('workers', w['id'], w)
             assigned = dispatch_waiting(u, time.time()) if body.online else 0
-            return {'worker': w, 'new_assignments': assigned}
+            return {'worker': own_worker_projection(u, w), 'new_assignments': assigned}
         return store.run(save)
 
     @router.get('/admin/workers', dependencies=[Depends(core.operator)])
@@ -636,13 +667,24 @@ def install(core):
         return store.run(save)
 
     @router.get('/professionals')
-    def professionals():
-        return store.run(lambda u: {'professionals': [{k: w[k] for k in ('id', 'name', 'role', 'city', 'categories', 'skills', 'tools', 'experience_years', 'completed_tasks', 'rating_count', 'rating_sum', 'points', 'has_specialist_kit')} for w in u.all('workers') if w['status'] == 'approved']})
+    def professionals(offset: int = Query(default=0, ge=0, le=10000), limit: int = Query(default=24, ge=1, le=24)):
+        def read(u):
+            candidates = sorted((worker for worker in u.all('workers') if worker['status'] == 'approved'),
+                                key=lambda worker: (worker['name'].casefold(), worker['id']))
+            visible = candidates[offset:offset + limit]
+            rows = [{k: worker[k] for k in ('id', 'name', 'role', 'city', 'categories', 'skills', 'tools',
+                                           'experience_years', 'completed_tasks', 'rating_count', 'rating_sum', 'points', 'has_specialist_kit')}
+                    for worker in visible]
+            enrich_professional_badges(u, rows, {worker['id']: worker for worker in visible})
+            return {'professionals': rows, 'offset': offset, 'limit': limit,
+                    'next_offset': offset + limit if len(candidates) > offset + limit else None}
+        return store.run(read)
 
     @router.post('/professionals/search')
     def search_professionals(body: Discovery):
         def read(u):
             result = []
+            worker_by_id = {}
             for w in u.all('workers'):
                 if w['status'] != 'approved' or not w.get('online') or w['city'].casefold() != body.city.casefold(): continue
                 if body.category and body.category not in w['categories']: continue
@@ -653,8 +695,12 @@ def install(core):
                 safe = {k:w[k] for k in ('id','name','role','city','categories','skills','tools','experience_years','completed_tasks','rating_count','rating_sum','points','has_specialist_kit')}
                 safe['distance_km'] = round(distance/1000, 1)
                 result.append(safe)
+                worker_by_id[w['id']] = w
             result.sort(key=lambda w: (-(w['rating_sum']/max(1,w['rating_count'])), w['distance_km'], w['id']))
-            return {'professionals': result, 'distance_type':'straight_line'}
+            visible = result[body.offset:body.offset + body.limit]
+            enrich_professional_badges(u, visible, worker_by_id)
+            return {'professionals': visible, 'distance_type':'straight_line', 'offset': body.offset, 'limit': body.limit,
+                    'next_offset': body.offset + body.limit if len(result) > body.offset + body.limit else None}
         return store.run(read)
 
     @router.post('/bookings', status_code=201)

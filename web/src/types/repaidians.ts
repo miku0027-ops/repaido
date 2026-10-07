@@ -1,7 +1,8 @@
+import type {RepaidianBadgeMetadata} from '../components/RepaidianBadge';
 export type Trade = 'cleaning' | 'electrician' | 'plumber' | 'ac' | 'pest' | 'carpenter' | 'civil' | 'spares';
 export type Visibility = 'public' | 'trade';
 export type StudioKind = 'post' | 'reel' | 'story' | 'tender';
-export type CommunityTab = 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications' | 'jobs' | 'applications' | 'companies';
+export type CommunityTab = 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications' | 'jobs' | 'applications' | 'companies' | 'network';
 export type WorkStatus = 'available' | 'open_to_work' | 'hiring' | 'not_looking';
 export type ProfessionalType = 'agent' | 'specialist' | 'contractor' | 'shop_owner' | 'member';
 export interface ProfessionalFields {
@@ -33,6 +34,7 @@ export interface CommunityMember extends ProfessionalFields {
   registeredId?: string; reviewed?: boolean; completedTasks?: number; rating?: number | null;
   followersCount?: number; followingCount?: number; postsCount?: number;
   professionalInfoSource?:'profile';
+  repaidianBadge?:RepaidianBadgeMetadata|null;
 }
 export interface CommunityMedia { url: string; kind: 'image' | 'video'; alt: string; }
 export interface CommunityItem {

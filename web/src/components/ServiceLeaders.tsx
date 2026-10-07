@@ -6,6 +6,8 @@ import {categories} from '../data';
 import {Modal} from './ui';
 import {ProfessionalDetails,type Professional} from './Hiring';
 import './service-leaders.css';
+import {RepaidianBadge} from './RepaidianBadge';
+import './repaidian-professional.css';
 
 interface Props {
   city:string;
@@ -17,7 +19,7 @@ interface Props {
   initiallyExpanded?:boolean;
   onSelectCategory?:(category:string)=>void;
 }
-type LeaderCategory={id:string;name:string;count:number;leader:Pick<Professional,'id'|'name'|'portrait_url'|'role'>|null};
+type LeaderCategory={id:string;name:string;count:number;leader:Pick<Professional,'id'|'name'|'portrait_url'|'role'|'repaidianBadge'>|null};
 type Leaderboard={professionals:Professional[];total:number;categories:LeaderCategory[]};
 
 /** Category-specific, approved public profiles. Browsing never creates a booking. */
@@ -68,7 +70,7 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
       {error&&<p className="catalog-leaders-status" role="alert">{leaders.length?'Showing last received results. ':''}Leaders could not refresh. <button className="catalog-professionals-retry" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}
       {loading?<p className="catalog-leaders-status" role="status">Checking category leaders…</p>:!error&&!leaders.length?<p className="catalog-leaders-status">No matching professionals are listed here yet.</p>:null}
       {!!leaders.length&&<nav className="catalog-leaders-rail" aria-label="Category leaderboards">{leaders.map(c=><button type="button" className="catalog-leader-preview" key={c.id} onClick={()=>onSelectCategory?.(c.id)} aria-label={`View ${c.name} leaderboard`}>
-        <span className="catalog-professional-avatar" aria-hidden="true"><User size={20}/>{c.leader?.portrait_url&&<img src={apiAssetUrl(c.leader.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+        <span className="repaidian-avatar-frame catalog-repaidian-avatar"><span className="catalog-professional-avatar" aria-hidden="true"><User size={20}/>{c.leader?.portrait_url&&<img src={apiAssetUrl(c.leader.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><RepaidianBadge badge={c.leader?.repaidianBadge} variant="avatar"/></span>
         <span className="catalog-leader-preview-copy"><strong>{c.name}</strong><span>{c.leader?.name||'No ranked leader yet'}</span><small>{c.leader?'Category leader':`${c.count} listed · awaiting reviews`}</small></span><ArrowRight size={14} aria-hidden="true"/>
       </button>)}</nav>}
       <p className="sr-only">{result?.updatedAt?`Updated ${new Date(result.updatedAt).toLocaleTimeString()}. `:''}Leaderboards refresh every 30 seconds while this page is visible. Rankings use verified completed-work reviews. Unreviewed profiles are not assigned a rank.</p>
@@ -92,8 +94,8 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
         const reviewCount=record?.review_count||0;
         const rating=record?.rating;
         return <article className="catalog-professional" key={p.id}>
-          <div className="catalog-professional-avatar" aria-hidden="true"><User size={24}/>{p.portrait_url&&<img src={apiAssetUrl(p.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</div>
-          <div className="catalog-professional-info"><h3>{p.name}</h3><p>{p.role==='specialist'?'Specialist':'Technician'}{p.experience_years!=null?` · ${p.experience_years} years’ experience`:''}</p>
+          <span className="repaidian-avatar-frame catalog-repaidian-avatar"><span className="catalog-professional-avatar" aria-hidden="true"><User size={24}/>{p.portrait_url&&<img src={apiAssetUrl(p.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><RepaidianBadge badge={p.repaidianBadge} variant="avatar"/></span>
+          <div className="catalog-professional-info"><div className="repaidian-professional-name"><h3>{p.name}</h3><RepaidianBadge badge={p.repaidianBadge}/></div><p>{p.role==='specialist'?'Specialist':'Technician'}{p.experience_years!=null?` · ${p.experience_years} years’ experience`:''}</p>
             <div className="catalog-professional-badges"><span><ShieldCheck size={12} aria-hidden="true"/>Team-reviewed</span>{!!p.rank&&reviewCount>0&&<span>Category rank #{p.rank}</span>}</div>
             <p className="catalog-professional-record">{reviewCount>0&&rating!=null?<><Star size={12} aria-hidden="true"/>{rating.toFixed(1)} · {reviewCount} category reviews</>:'No category reviews yet'}{record?.completed?` · ${record.completed} completed`:''}</p>
           </div>

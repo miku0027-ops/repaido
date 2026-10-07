@@ -305,8 +305,8 @@ def text(value):
     s=re.sub(r'(?<!\w)(?:\+?\d[\s().-]*){8,15}(?!\w)','[contact hidden]',s)
     return re.sub(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', '[contact hidden]',s)
 
-def profile(u,w,jobs,offers=None):
-    p=public_profile(u,w,jobs=jobs)
+def profile(u,w,jobs,offers=None,*,include_membership=True,include_network=True):
+    p=public_profile(u,w,jobs=jobs,include_membership=include_membership,include_network=include_network)
     for key in ('city','radius_km'):p.pop(key,None)
     for key in ('name','bio'):p[key]=text(p.get(key))
     for key in ('skills','tools','languages','specialties'):p[key]=[text(v) for v in p.get(key,[])]
@@ -417,7 +417,7 @@ def install(core):
                 origin=w.get('location')
                 fresh=w.get('position') or {};available=bool(w.get('online') and 0<=now-fresh.get('received_at',0)<=300 and fresh.get('accuracy',1000)<=100 and w['id'] not in busy)
                 if body.available_only and not available:continue
-                row=profile(u,w,by_worker[w['id']],by_offer_worker[w['id']]);row['available_now']=available
+                row=profile(u,w,by_worker[w['id']],by_offer_worker[w['id']],include_membership=False,include_network=False);row['available_now']=available
                 if body.strict_nearby:row['distance_km']=round(metres(body.location.model_dump(),origin)/1000,1)
                 row['service_packages']=[{k:s.get(k) for k in ('id','name','description','price_paise','duration_minutes','included','excluded')} for s in catalog['services'] if s['category'] in row['categories']]
                 if body.language and body.language.casefold() not in [v.casefold() for v in row['languages']]:continue
@@ -440,7 +440,19 @@ def install(core):
             keys={'recommended':lambda x:(*[-v for v in score(x,body.category)],x['id']),'rating':lambda x:(-(next((r['rating'] or 0 for r in x['category_records'] if r['category']==body.category),0) if body.category else x['rating'] or 0),-score(x,body.category)[2],x['id']),'completed':lambda x:(-score(x,body.category)[1],x['id']),'experience':lambda x:(-(x['experience_years'] or 0),*[-v for v in score(x,body.category)],x['id'])}
             selected.sort(key=keys[body.sort]);ranking=sorted([x for x in selected if score(x,body.category)[2]],key=lambda x:(*[-v for v in score(x,body.category)],x['id']));ranks={x['id']:i+1 for i,x in enumerate(ranking)}
             for row in selected:row['rank']=ranks.get(row['id']);row['rank_category']=body.category
-            return {'professionals':selected[:40],'total':len(selected),'categories':leaders,'scope':'service_area' if body.location else 'city','covered':body.city in core.CITIES,'method':'Rank uses verified completed-work reviews, confidence from review count, then completed work in the selected category. New profiles are unranked. Only approved, active Hire members are listed. City browsing is not an availability promise; a request rechecks current location and schedule.'}
+            # Ranking reads every eligible candidate, but membership enrollment
+            # and richer career sections are bounded to the returned page.
+            from repaidians_billing import membership_badge
+            visible=selected[:40]
+            visible_ids={row['id'] for row in visible}|{c['leader']['id'] for c in leaders if c['leader']}
+            u.prefetch([(kind,wid) for wid in visible_ids for kind in ('rp_members','rp_trials','rp_subscriptions','rp_network_profiles')])
+            workers={w['id']:w for w in eligible}
+            badges={wid:membership_badge(u,wid,worker=workers[wid]) for wid in visible_ids}
+            for row in visible:
+                row['repaidianBadge']=badges[row['id']]
+            for category in leaders:
+                if category['leader']:category['leader']['repaidianBadge']=badges[category['leader']['id']]
+            return {'professionals':visible,'total':len(selected),'categories':leaders,'scope':'service_area' if body.location else 'city','covered':body.city in core.CITIES,'method':'Rank uses verified completed-work reviews, confidence from review count, then completed work in the selected category. New profiles are unranked. Only approved, active Hire members are listed. City browsing is not an availability promise; a request rechecks current location and schedule.'}
         # Exact city-only browse requests are shared briefly across Cloud Run
         # threads. GPS/availability searches always read current records.
         cache_key=body.model_dump_json() if core.USE_FIRESTORE and not body.location and not body.available_only and not body.strict_nearby else None

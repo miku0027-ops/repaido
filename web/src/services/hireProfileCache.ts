@@ -44,3 +44,13 @@ export async function hireProfiles<T>(body:Record<string,unknown>,force=false):P
   inFlight.set(id,request);
   try{return await request;}finally{if(inFlight.get(id)===request)inFlight.delete(id);}
 }
+
+// Rich public background is read only after opening one profile, never for a directory page.
+export async function publicProfessionalDetails<T extends {id:string}>(id:string,signal:AbortSignal):Promise<T> {
+  const response=await apiFetch('/api/operations/professionals/'+encodeURIComponent(id),
+    {signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])},{background:true});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.detail?.message||'Professional background could not load. Please retry.');
+  if(data.id!==id)throw new Error('This profile could not be confirmed. Please retry.');
+  return data as T;
+}

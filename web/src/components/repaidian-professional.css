@@ -1,0 +1,29 @@
+/* Preserve the portrait sizes and keep the membership seal outside its crop. */
+.hire-repaidian-avatar{width:64px;height:84px;line-height:0;}
+.hire-repaidian-avatar>img,.hire-repaidian-avatar>.hire-avatar-empty{width:100%;height:100%;object-fit:cover;object-position:center top;border-radius:12px;}
+.hire-repaidian-avatar>.hire-avatar-empty{display:grid;place-items:center;}
+.hire-repaidian-avatar .repaidian-badge-seal{display:grid;place-items:center;flex-wrap:nowrap;gap:0;}
+.hire-discovery-page .hire-card-main>.hire-repaidian-avatar{width:60px;height:72px;}
+.hire-compact-results .hire-card-main>.hire-repaidian-avatar{width:48px;height:60px;}
+.hire-compact-results .hire-card-main>.hire-repaidian-avatar>img,.hire-compact-results .hire-card-main>.hire-repaidian-avatar>.hire-avatar-empty{border-radius:10px;}
+.hire-profile-person>.hire-repaidian-avatar{width:72px;height:88px;}
+.hire-professional-page .hire-profile-person>.hire-repaidian-avatar{width:64px;height:76px;}
+.hire-comparison-person>.hire-repaidian-avatar{width:40px;height:48px;}
+.hire-comparison-person>.hire-repaidian-avatar>img,.hire-comparison-person>.hire-repaidian-avatar>.hire-avatar-empty{border-radius:8px;}
+.catalog-professional-dialog .hire-profile-person>.hire-repaidian-avatar{width:64px;height:64px;}
+.repaidian-professional-name{display:flex;align-items:center;flex-wrap:wrap;gap:6px 9px;min-width:0;}
+.repaidian-professional-name>:is(h1,h2,h3,h4){min-width:0;overflow-wrap:anywhere;}
+.hire-profile-person>div,.agent-profile-summary>div{min-width:0;}
+.hire-profile-person .repaidian-professional-name{margin-bottom:6px;}
+.hire-full-profile .agent-record-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+.hire-full-profile .agent-record-grid>*{min-width:0;overflow-wrap:anywhere;}
+.nearby-person-header{display:flex;align-items:center;gap:12px;}
+.nearby-person-header>div{min-width:0;}
+.nearby-person-header>.hire-repaidian-avatar{width:56px;height:64px;}
+.quick-repaidian-avatar,.catalog-repaidian-avatar{justify-self:start;}
+.worker-repaidian-avatar{width:64px;height:72px;}
+.worker-repaidian-avatar>img,.worker-repaidian-placeholder{width:100%;height:100%;border-radius:12px;object-fit:cover;object-position:center top;}
+.worker-repaidian-placeholder{display:grid;place-items:center;color:var(--ui-link);background:var(--ui-surface);border:1px solid var(--ui-line);}
+.agent-profile-summary .repaidian-professional-name{margin-bottom:6px;}
+.worker-welcome-compact .repaidian-professional-name{gap:6px 9px;}
+@media(max-width:359px){.agent-profile-summary{gap:12px;padding:12px;}.worker-repaidian-avatar{width:56px;height:64px;}}

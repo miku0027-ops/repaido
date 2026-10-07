@@ -7,12 +7,14 @@ import {formatMoney,categories as serviceCategories} from '../data';
 import type {Service} from '../types';
 import {offerDate,type ProfessionalOffer} from './ProfessionalOffers';
 import type {QuickMarket,QuickPanel} from './HomeQuickActions';
+import {RepaidianBadge,type RepaidianBadgeMetadata} from './RepaidianBadge';
+import './repaidian-professional.css';
 
 type Category={id:string;name:string};
-type Entry={recurring?:boolean;scope?:string[];facts?:string[];offers?:ProfessionalOffer[];id:string;name:string;categories:string[];description:string;image?:string;price?:number;detail?:string;rating?:number|null;reviews?:number;service?:Service;cart?:Omit<CartItem,'quantity'>};
+type Entry={repaidianBadge?:RepaidianBadgeMetadata|null;recurring?:boolean;scope?:string[];facts?:string[];offers?:ProfessionalOffer[];id:string;name:string;categories:string[];description:string;image?:string;price?:number;detail?:string;rating?:number|null;reviews?:number;service?:Service;cart?:Omit<CartItem,'quantity'>};
 type Product={id:string;name:string;category:string;condition:string;price_paise:number;stock:number;shop_id:string;image_url?:string;warranty?:string};
 type Listing={id:string;name:string;product_type:string;value_paise:number;condition:string;city:string;image_url?:string};
-type Professional={id:string;name:string;categories:string[];bio:string;portrait_url?:string;rating:number|null;review_count:number;completed_tasks:number;home_services?:string[];skills?:string[];languages?:string[];experience_years?:number;offers?:ProfessionalOffer[]};
+type Professional={repaidianBadge?:RepaidianBadgeMetadata|null;id:string;name:string;categories:string[];bio:string;portrait_url?:string;rating:number|null;review_count:number;completed_tasks:number;home_services?:string[];skills?:string[];languages?:string[];experience_years?:number;offers?:ProfessionalOffer[]};
 type HomeService={id:string;name:string;category:string;description:string;recurring?:boolean;requirements?:{label:string}[];offers?:ProfessionalOffer[]};
 const labels:Record<string,string>={phone:'Phones & tablets',computer:'Laptops & computers',television:'TVs & screens',audio:'Audio & sound',tools:'Tools',appliance:'Appliances',care:'Care',civil:'Floor plans',interiors:'Interiors',construction:'Construction'};
 const homeArt=['maid','caretaker','interior-design','floor-plan','renovation','decor','civil-engineer','contractor'];
@@ -58,7 +60,7 @@ export default function QuickActionCatalog({panel,city,location,onLocation,onMar
       }else if(panel==='hire'){
         const data=await request<{professionals:Professional[];categories:Category[];total?:number}>('/api/operations/hiring/leaderboard',{city,location:area==='nearby'?location||null:null,radius_km:20,category:hireCategory==='all'?'':hireCategory});
         catalog=data.categories;setTotal(data.total??data.professionals.length);
-        rows=data.professionals.map(p=>({id:p.id,name:p.name,categories:[...p.categories,...(p.home_services||[]).map(id=>'home:'+id)],description:p.bio||'Explore this professional’s reviewed skills and work history.',image:p.portrait_url,rating:p.rating,reviews:p.review_count,detail:`${p.completed_tasks} completed tasks`,facts:[...(p.experience_years!==undefined?[`${p.experience_years} years’ experience`]:[]),...(p.languages?.length?[p.languages.map(l=>l.trim()).join(' · ')]:[])],scope:p.skills,offers:p.offers}));
+        rows=data.professionals.map(p=>({id:p.id,name:p.name,categories:[...p.categories,...(p.home_services||[]).map(id=>'home:'+id)],description:p.bio||'Explore this professional’s reviewed skills and work history.',image:p.portrait_url,repaidianBadge:p.repaidianBadge,rating:p.rating,reviews:p.review_count,detail:`${p.completed_tasks} completed tasks`,facts:[...(p.experience_years!==undefined?[`${p.experience_years} years’ experience`]:[]),...(p.languages?.length?[p.languages.map(l=>l.trim()).join(' · ')]:[])],scope:p.skills,offers:p.offers}));
       }else if(panel==='home'){
         const data=await request<{services:HomeService[]}>('/api/operations/home/catalog?city='+encodeURIComponent(city));
         rows=data.services.map(s=>({id:s.id,name:s.name,categories:[s.category],description:s.description,recurring:s.recurring,scope:s.requirements?.map(f=>f.label),offers:s.offers}));
@@ -103,9 +105,9 @@ export default function QuickActionCatalog({panel,city,location,onLocation,onMar
         <div className="quick-products-grid">{grouped.map(group=><section className="quick-category-group" key={group.id} aria-label={group.name||'Matching results'}>
           {group.name&&<div className="quick-group-heading"><h3>{group.name}</h3><span>{group.entries.length} {group.entries.length===1?'service':'services'}</span></div>}
           {group.entries.map(entry=>{const artIndex=panel==='home'?homeArt.indexOf(entry.id):-1;const Title=panel==='home'?'h4':'h3';return <article className="quick-product-card" key={entry.id}>
-            <div className="quick-card-heading"><div className={`quick-product-thumb-wrap ${artIndex>=0?'quick-service-art':''}`} aria-hidden="true" style={artIndex>=0?{backgroundPosition:`${artIndex%4*100/3}% ${artIndex<4?0:100}%`}:undefined}>
-              {artIndex<0&&(entry.image?<img src={apiAssetUrl(entry.image)} alt="" className="quick-product-thumb" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>:panel==='hire'?<Users size={32}/>:<Package size={32}/>)}</div>
-              <div className="quick-card-title-block"><span className="quick-card-eyebrow">{panel==='home'?(entry.recurring?'Ongoing home support':'Plan your project'):entry.categories.map(c=>categories.find(x=>x.id===c)?.name||label(c)).slice(0,2).join(' · ')}</span><Title className="quick-product-title">{entry.name}</Title></div>
+            <div className="quick-card-heading"><span className="repaidian-avatar-frame quick-repaidian-avatar"><span className={`quick-product-thumb-wrap ${artIndex>=0?'quick-service-art':''}`} aria-hidden="true" style={artIndex>=0?{backgroundPosition:`${artIndex%4*100/3}% ${artIndex<4?0:100}%`}:undefined}>
+              {artIndex<0&&(entry.image?<img src={apiAssetUrl(entry.image)} alt="" className="quick-product-thumb" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>:panel==='hire'?<Users size={32}/>:<Package size={32}/>)}</span>{panel==='hire'&&<RepaidianBadge badge={entry.repaidianBadge} variant="avatar"/>}</span>
+              <div className="quick-card-title-block"><span className="quick-card-eyebrow">{panel==='home'?(entry.recurring?'Ongoing home support':'Plan your project'):entry.categories.map(c=>categories.find(x=>x.id===c)?.name||label(c)).slice(0,2).join(' · ')}</span><div className="repaidian-professional-name"><Title className="quick-product-title">{entry.name}</Title>{panel==='hire'&&<RepaidianBadge badge={entry.repaidianBadge}/>}</div></div>
             </div>
             <div className="quick-product-info"><p className="quick-product-description">{entry.description}</p>
               <div className="quick-card-facts">{panel==='home'&&<span><CalendarDays size={14} aria-hidden="true"/>{entry.recurring?'7-day starter or monthly plan':'Scope & estimate first'}</span>}{entry.detail&&<span>{panel==='repair'&&<Clock size={14} aria-hidden="true"/>}{entry.detail}</span>}{entry.facts?.map(f=><span key={f}>{f}</span>)}</div>

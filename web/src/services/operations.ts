@@ -1,3 +1,4 @@
+import type {RepaidianBadgeMetadata} from '../components/RepaidianBadge';
 import {readDeviceLocation} from './deviceLocation.mjs';
 import { apiFetch } from './api';
 import { auth } from '../firebase';
@@ -41,6 +42,7 @@ export interface Job {
   };
 }
 export interface LiveWorker {
+  portrait_url?:string;repaidianBadge?:RepaidianBadgeMetadata|null;
   dob?:string; home_address?:string; location?:{lat:number;lng:number}; requested_role?:string; experience_years?:number; radius_km?:number;
   id:string; name:string; phone:string; status:string; role:string; city:string;
   categories:string[]; skills:string[]; tools:string[]; online:boolean; points:number;

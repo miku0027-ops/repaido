@@ -18,10 +18,25 @@ class Profile(Input):
     portrait_id: str | None = None
     cover_id: str | None = None
 
-def public_profile(u, w, jobs=None):
+def customer_network_profile(u, uid):
+    from repaidians_network import profile_public
+    career=u.get('rp_network_profiles',uid)
+    if not career or career.get('visibility')!='public':return None
+    # Declared public career sections follow the customer directory's contact
+    # policy. Explicit credential and portfolio URLs remain member consented.
+    from hire_discovery import text
+    text_fields={'about','title','organization','company','location','description','institution','qualification','fieldOfStudy','school','degree','field','issuer','name','skill','skills','text','relationship','bio','headline','city'}
+    def redact(value,key=''):
+        if isinstance(value,dict):return {k:redact(v,k) for k,v in value.items()}
+        if isinstance(value,list):return [redact(v,key) for v in value]
+        return text(value) if isinstance(value,str) and key in text_fields else value
+    return redact(profile_public(u,uid,None))
+
+def public_profile(u, w, jobs=None, *, include_membership=True, include_network=True):
+    from repaidians_billing import membership_badge
     profile=u.get('worker_profiles',w['id']) or {}
     reviews=[]
-    for j in (u.all('jobs') if jobs is None else jobs):
+    for j in (u.for_workers('jobs',[w['id']]) if jobs is None else jobs):
         if j.get('worker_id')==w['id'] and j['state']=='completed' and j.get('review'):
             r=j['review']
             reviews.append(dict(service=j['service_name'],rating=r['rating'],text=r.get('text',''),at=r.get('created_at',j.get('completed_at')),reply=(r.get('worker_reply') or {}).get('text'),verified=True))
@@ -29,7 +44,10 @@ def public_profile(u, w, jobs=None):
         'bio':profile.get('bio',''),'languages':profile.get('languages',[]),'specialties':profile.get('specialties',[]),
         'portrait_url':f"/api/operations/professional-media/{profile['portrait_id']}" if profile.get('portrait_id') else None,
         'cover_url':f"/api/operations/professional-media/{profile['cover_id']}" if profile.get('cover_id') else None,
-        'verification':'Team-reviewed professional','reviews':sorted(reviews,key=lambda r:r['at'] or 0,reverse=True)[:20],
+        'verification':'Team-reviewed professional','contractor_verified':bool(w.get('contractor_verified')),
+        'repaidianBadge':membership_badge(u,w['id'],worker=w) if include_membership else None,
+        'professionalNetwork':customer_network_profile(u,w['id']) if include_network else None,
+        'reviews':sorted(reviews,key=lambda r:r['at'] or 0,reverse=True)[:20],
         'rating':sum(r['rating'] for r in reviews)/len(reviews) if reviews else None,'review_count':len(reviews),
         'distribution':{str(i):sum(r['rating']==i for r in reviews) for i in range(1,6)}}
 
@@ -201,7 +219,11 @@ def install(core):
         return Response(report_pdf(data),media_type='application/pdf',headers={'Cache-Control':'no-store','Content-Disposition':f'attachment; filename="Repaido-task-{uuid.UUID(jid)}.pdf"','X-Content-Type-Options':'nosniff'})
     @r.get('/worker/public-profile')
     def profile(user=Depends(core.current_user)):
-        return store.run(lambda u:{'profile':u.get('worker_profiles',own(u,user)['id']) or {}})
+        def read(u):
+            worker=own(u,user)
+            profile=u.get('worker_profiles',worker['id']) or {}
+            return {'profile':{**profile,'portrait_url':f"/api/operations/professional-media/{profile['portrait_id']}" if profile.get('portrait_id') else None}}
+        return store.run(read)
     @r.put('/worker/public-profile')
     def update(body:Profile,user=Depends(core.current_user)):
         def save(u):

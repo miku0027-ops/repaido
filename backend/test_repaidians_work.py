@@ -392,8 +392,8 @@ def test_expired_members_can_revoke_work_privacy_without_new_entitlement(work_ap
     assert main.operations_store.run(lambda u: work.delivery_allowed(u, contract_push))
     def expire(u):
         member = u.get('rp_members', 'worker2'); trial = u.get('rp_trials', 'worker2')
-        joined = int((time.time() - 32 * 86400) * 1000)
-        member['createdAt'] = joined; trial.update(startsAt=joined, endsAt=joined + 30 * 86400000)
+        joined = int((time.time() - 62 * 86400) * 1000)
+        member['createdAt'] = joined; trial.update(startsAt=joined, endsAt=joined + 60 * 86400000)
         u.put('rp_members', 'worker2', member); u.put('rp_trials', 'worker2', trial)
         return trial
     original_trial = main.operations_store.run(expire)

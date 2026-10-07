@@ -2,6 +2,7 @@ import {useEffect,useId,useRef,useState} from 'react';
 import {BadgeCheck,User,ImageOff,Camera,Check} from 'lucide-react';
 import type {CommunityMedia,CommunityMember} from '../../types/repaidians';
 import {loadMedia,trades} from '../../services/repaidiansService';
+import {RepaidianBadge} from '../RepaidianBadge';
 
 export const tradeName=(trade: string)=>trades.find(t=>t.id===trade)?.name||trade;
 export const money=(amount: number)=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(amount);
@@ -13,7 +14,7 @@ export function Avatar({member,size='normal'}:{member:CommunityMember;size?:'nor
   const {url,failed,setFailed}=useAssetUrl(member.avatarUrl);
   const initials=member.name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(name=>Array.from(name)[0]).join('').toLocaleUpperCase();
   const ready=member.workStatus==='available'||member.workStatus==='open_to_work';
-  return <span className={'rp-avatar-frame'+(ready?' rp-avatar-ready':'')}><span className={'rp-avatar rp-avatar-'+size}>{url&&!failed?<img src={url} alt="" loading="lazy" onError={()=>setFailed(true)}/>:initials?<span className="rp-avatar-initials" aria-hidden="true">{initials}</span>:<User size={size==='large'?32:20} aria-hidden="true"/>}</span>{ready&&<span className="rp-ready-badge" role="img" aria-label="Ready for work" title="Ready for work"><Check size={size==='large'?14:10} aria-hidden="true"/></span>}</span>;
+  return <span className={'rp-avatar-frame'+(ready?' rp-avatar-ready':'')}><span className={'rp-avatar rp-avatar-'+size}>{url&&!failed?<img src={url} alt="" loading="lazy" onError={()=>setFailed(true)}/>:initials?<span className="rp-avatar-initials" aria-hidden="true">{initials}</span>:<User size={size==='large'?32:20} aria-hidden="true"/>}</span><RepaidianBadge badge={member.repaidianBadge} variant="avatar"/>{ready&&<span className="rp-ready-badge" role="img" aria-label="Ready for work" title="Ready for work"><Check size={size==='large'?14:10} aria-hidden="true"/></span>}</span>;
 }
 export function Author({member,onOpen}:{member:CommunityMember;onOpen:()=>void}) {
   const reviewedId=useId(),detail=(member.handle?'@'+member.handle+' · ':'')+tradeName(member.trade);

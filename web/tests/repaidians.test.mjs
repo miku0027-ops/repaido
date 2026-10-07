@@ -141,7 +141,7 @@ test('trial metadata stays server-owned and expired-trial errors do not mint bro
   assert.deepEqual((await service.chargeBrowsing(true)).subscription,subscription);
   assert.deepEqual(JSON.parse(calls.at(-1).init.body),{active:true},'The browser cannot send a trial start or expiry.');
   const stored=[...values.entries()];
-  globalThis.fetch=async()=>new Response(JSON.stringify({detail:{code:'TRIAL_EXPIRED',message:'Your 30-day free trial has ended.'}}),{status:402});
+  globalThis.fetch=async()=>new Response(JSON.stringify({detail:{code:'TRIAL_EXPIRED',message:'Your 60-day free trial has ended.'}}),{status:402});
   await assert.rejects(service.snapshot(),error=>error.status===402&&error.code==='TRIAL_EXPIRED');
   await assert.rejects(service.publish('guest',{kind:'post'}),error=>error.status===402&&error.code==='TRIAL_EXPIRED');
   assert.deepEqual([...values.entries()],stored,'An expired trial never becomes a local entitlement.');

@@ -45,7 +45,7 @@ function storedRecord(kind,id){
 function expireTrial(account){
   const trial=storedRecord('rp_trials',account.user.id);
   assert.ok(trial,'The real server must create the once-per-account trial.');
-  fixture('rp_trials',account.user.id,{...trial,startsAt:Date.now()-31*86400000,endsAt:Date.now()-1000});
+  fixture('rp_trials',account.user.id,{...trial,startsAt:Date.now()-61*86400000,endsAt:Date.now()-1000});
 }
 async function api(path,account,method='GET',body,expected=200,headers={}){
   const response=await fetch(apiOrigin+path,{method,headers:{...(account?{Authorization:'Bearer '+account.token}:{}),...(body&&!Buffer.isBuffer(body)?{'Content-Type':'application/json'}:{}),...headers},...(body===undefined?{}:{body:Buffer.isBuffer(body)?body:JSON.stringify(body)})});
@@ -181,7 +181,7 @@ try{
   const initial=await api('/repaidians/state',alice);
   assert.equal(initial.authenticated,true);assert.equal(initial.paymentsReady,false);
   assert.equal(initial.subscription.plan,'trial');assert.equal(initial.subscription.provider,'trial');assert.equal(initial.subscription.amountPaise,0);
-  assert.equal(initial.trial.status,'active');assert.equal(initial.trial.endsAt-initial.trial.startsAt,30*86400000);
+  assert.equal(initial.trial.status,'active');assert.equal(initial.trial.endsAt-initial.trial.startsAt,60*86400000);
   assert.equal(initial.subscription.endsAt,initial.trial.endsAt);
   const trialEnd=initial.trial.endsAt;
   const login=await api('/auth/login',null,'POST',{email:alice.user.email,password:'isolated-test-password'});
@@ -685,7 +685,7 @@ try{
   await guest.reload();assert.equal(await shell(guest).locator('.rp-post').count(),0);
   assert.deepEqual(errors,[]);
   succeeded=true;
-  console.log('Repaidians real SQLite/API/browser checks passed: 30-day trial and expiry/paid restoration, posts/media/comments/follows/DMs and privacy, exact portfolio reel/listing viewers, account-switch delayed private response isolation, preserved loaded feed pages after likes/refresh, professional profile persistence, inline invalid/taken handle errors, explicit suggestions and unchanged legacy-handle compatibility, filtered discovery, all four native opportunity sources, ownership/purchase-proven sharing, live UI listing prices and withdrawal, saved opportunities, attached purchased/refurbished and second-hand posts, real app product/career handoff and return, padded contained photos and expansion/tools, guest quota, 320–524px/desktop light-dark themes, 200% text, reduced motion and WCAG AA audits.');
+  console.log('Repaidians real SQLite/API/browser checks passed: 60-day trial and expiry/paid restoration, posts/media/comments/follows/DMs and privacy, exact portfolio reel/listing viewers, account-switch delayed private response isolation, preserved loaded feed pages after likes/refresh, professional profile persistence, inline invalid/taken handle errors, explicit suggestions and unchanged legacy-handle compatibility, filtered discovery, all four native opportunity sources, ownership/purchase-proven sharing, live UI listing prices and withdrawal, saved opportunities, attached purchased/refurbished and second-hand posts, real app product/career handoff and return, padded contained photos and expansion/tools, guest quota, 320–524px/desktop light-dark themes, 200% text, reduced motion and WCAG AA audits.');
 }catch(error){
   for(const [contextIndex,context] of (browser?.contexts()||[]).entries())for(const [index,page] of context.pages().entries()){
     await page.screenshot({path:resolve(work,'failure-'+contextIndex+'-'+index+'.png')}).catch(()=>{});
