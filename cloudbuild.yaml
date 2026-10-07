@@ -1,5 +1,10 @@
 # Submit from the repository root; see docs/CLOUD_BUILD.md.
 steps:
+  - id: check-build-history-access
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args: ['scripts/deploy-work-services.py', 'check-build-access', '--project=$PROJECT_ID', '--build=$BUILD_ID', '--build-region=$LOCATION']
+
   - id: backend-tests
     name: python:3.12-slim
     dir: backend

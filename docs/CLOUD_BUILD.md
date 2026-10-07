@@ -7,7 +7,8 @@ only one subdirectory. The trigger must use project `repaido`.
 
 The Python test step also installs Node.js: the camera metadata integration test
 executes the frontend's actual JavaScript encoder through a Node subprocess.
-The pipeline runs the backend tests, frontend tests and production build, then
+An initial read-only preflight verifies Cloud Build history access before running
+the backend tests, frontend tests and production build. The pipeline then
 builds and pushes the backend container. It deploys unique no-traffic Cloud Run
 candidates for the main API, work API, and private update worker, checking their
 health and build IDs. It waits for earlier builds from the same trigger, promotes
@@ -48,6 +49,21 @@ login token or service-account key should be committed: the Firebase CLI uses th
 Cloud Build service account through Application Default Credentials.
 Build output is sent to Cloud Logging (`options.logging: CLOUD_LOGGING_ONLY`).
 The build identity needs Logs Writer, and users viewing logs need Logs Viewer.
+
+For the existing `repaido` build identity, a project owner can run the reviewed
+one-time bootstrap in Cloud Shell:
+
+```sh
+bash scripts/bootstrap-work-deployment.sh repaido firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com
+```
+
+The script grants Cloud Build Viewer, Cloud Run Admin, Cloud Scheduler Admin,
+and Datastore Index Admin to this deployment identity, enables the four delivery
+APIs, creates the dedicated Scheduler caller if absent, and grants the build
+account Service Account User on that caller only. A separate existing API runtime
+account receives FCM send capability; the current SDK account already has it.
+Future builds read enabled API status and skip enablement when it is complete.
+The build never runs this bootstrap or grants itself these project permissions.
 
 Inspect the trigger build in Cloud Build History after pushing. Verify the deployed
 commit at `https://repaido.web.app/build-info.json` and API build IDs at

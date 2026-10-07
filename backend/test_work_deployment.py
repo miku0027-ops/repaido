@@ -19,6 +19,8 @@ def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path,
         commands.append(args)
         if args[:3] == ('run', 'services', 'describe'):
             return {'spec': {'template': {'spec': {'serviceAccountName': 'runtime@repaido.iam.gserviceaccount.com', 'containers': [{'env': []}]}}}}
+        if args[:2] == ('services', 'list'):
+            return [{'config': {'name': service}} for service in deploy.REQUIRED_WORK_APIS]
         if args[:2] == ('run', 'deploy'):
             name = args[2]
             return {'status': {'url': 'https://' + name + '.example.run.app',
@@ -46,6 +48,7 @@ def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path,
     assert other not in scheduler
     assert '--oidc-token-audience=https://repaido-work-worker.example.run.app' in scheduler
     assert services == ['repaido-work-api', 'repaido-work-worker']
+    assert not any(command[:2] == ('services', 'enable') for command in commands)
     receipt = json.loads((tmp_path / 'receipt.json').read_text())
     assert [row['revision'] for row in receipt] == ['repaido-work-api-verified', 'repaido-work-worker-verified']
 
@@ -77,3 +80,72 @@ def test_release_order_read_permission_failure_stays_fail_closed(monkeypatch):
     monkeypatch.setattr(deploy, 'gcloud', denied)
     with pytest.raises(PermissionError, match='cloudbuild.builds.get'):
         deploy.await_release(SimpleNamespace(project='repaido', build='own', build_region='global'))
+
+
+@pytest.mark.parametrize('denied_operation', ['describe', 'list'])
+def test_early_build_access_get_and_list_fail_fast_with_actionable_role_without_mutations(monkeypatch, capsys, denied_operation):
+    commands = []
+    def fake_gcloud(*args, data=False):
+        commands.append(args)
+        if args[1] == denied_operation:
+            raise deploy.subprocess.CalledProcessError(1, ['gcloud', *args])
+        return {'id': 'own', 'private_configuration': 'MUST_NOT_APPEAR_IN_OUTPUT'}
+    monkeypatch.setattr(deploy, 'gcloud', fake_gcloud)
+    monkeypatch.setattr(deploy.time, 'sleep', lambda *args: pytest.fail('Access preflight must not wait for earlier builds.'))
+    args = SimpleNamespace(project='repaido', build='own', build_region='us-central1')
+    with pytest.raises(RuntimeError, match='roles/cloudbuild.builds.viewer') as failed:
+        deploy.check_build_access(args)
+    assert 'us-central1' in str(failed.value) and 'cloudbuild.builds.get' in str(failed.value)
+    assert 'cloudbuild.builds.list' in str(failed.value)
+    assert len(commands) == (1 if denied_operation == 'describe' else 2)
+    assert all(command[:2] in (('builds', 'describe'), ('builds', 'list')) for command in commands)
+    assert all('--region=us-central1' in command for command in commands)
+    assert 'MUST_NOT_APPEAR_IN_OUTPUT' not in capsys.readouterr().out + str(failed.value)
+
+
+def test_early_build_access_checks_only_own_get_and_bounded_list_without_logging_metadata(monkeypatch, capsys):
+    commands = []
+    def fake_gcloud(*args, data=False):
+        commands.append(args)
+        return {'configuration': 'MUST_NOT_APPEAR_IN_OUTPUT'}
+    monkeypatch.setattr(deploy, 'gcloud', fake_gcloud)
+    monkeypatch.setattr(deploy.time, 'sleep', lambda *args: pytest.fail('Access preflight must not wait for earlier builds.'))
+    deploy.check_build_access(SimpleNamespace(project='repaido', build='own', build_region='global'))
+    assert commands == [('builds', 'describe', 'own', '--project=repaido', '--region=global'),
+                        ('builds', 'list', '--project=repaido', '--region=global', '--limit=1')]
+    output = capsys.readouterr().out
+    assert 'verified' in output and 'MUST_NOT_APPEAR_IN_OUTPUT' not in output
+
+
+def test_enabled_apis_use_read_only_service_listing_without_enabling_again(monkeypatch):
+    commands = []
+    def fake_gcloud(*args, data=False):
+        commands.append(args)
+        return [{'config': {'name': service}} for service in (*deploy.REQUIRED_WORK_APIS, 'unrelated.googleapis.com')]
+    monkeypatch.setattr(deploy, 'gcloud', fake_gcloud)
+    deploy.ensure_required_apis('repaido')
+    assert commands == [('services', 'list', '--enabled', '--project=repaido')]
+
+
+def test_only_missing_apis_are_enabled(monkeypatch):
+    commands = []
+    def fake_gcloud(*args, data=False):
+        commands.append(args)
+        if args[:2] == ('services', 'list'):
+            return [{'config': {'name': service}} for service in deploy.REQUIRED_WORK_APIS[:-1]]
+        return {}
+    monkeypatch.setattr(deploy, 'gcloud', fake_gcloud)
+    deploy.ensure_required_apis('repaido')
+    assert commands == [('services', 'list', '--enabled', '--project=repaido'),
+                        ('services', 'enable', 'firebaseinstallations.googleapis.com', '--project=repaido')]
+
+
+def test_denied_api_listing_does_not_try_unverified_enable_or_iam_changes(monkeypatch):
+    commands = []
+    def denied(*args, **kwargs):
+        commands.append(args)
+        raise deploy.subprocess.CalledProcessError(1, ['gcloud', *args])
+    monkeypatch.setattr(deploy, 'gcloud', denied)
+    with pytest.raises(deploy.subprocess.CalledProcessError):
+        deploy.ensure_required_apis('repaido')
+    assert commands == [('services', 'list', '--enabled', '--project=repaido')]

@@ -12,6 +12,9 @@ import time
 import urllib.error
 import urllib.request
 
+REQUIRED_WORK_APIS = ('cloudscheduler.googleapis.com', 'fcm.googleapis.com',
+                      'fcmregistrations.googleapis.com', 'firebaseinstallations.googleapis.com')
+
 
 def gcloud(*args, data=False):
     result = subprocess.check_output(['gcloud', *args, '--quiet', '--format=json'], text=True)
@@ -25,6 +28,19 @@ def exists(*args):
     if 'NOT_FOUND' in result.stderr or 'not found' in result.stderr.lower() or 'does not exist' in result.stderr.lower():
         return None
     raise RuntimeError('GCP resource check failed: ' + result.stderr)
+
+
+def ensure_required_apis(project):
+    """Reuse enabled APIs without requiring an API-enablement role each release."""
+    enabled = gcloud('services', 'list', '--enabled', '--project=' + project, data=True)
+    if not isinstance(enabled, list):
+        raise RuntimeError('Could not determine the project enabled APIs; refusing an unverified setup change.')
+    names = {service.get('config', {}).get('name') for service in enabled}
+    missing = [service for service in REQUIRED_WORK_APIS if service not in names]
+    if missing:
+        gcloud('services', 'enable', *missing, '--project=' + project)
+    else:
+        print('Required work APIs are already enabled.')
 
 
 def request_health(url, build_id, token, service):
@@ -78,7 +94,7 @@ def deploy(args):
     environment.update(REPAIDO_STORAGE='firestore', GOOGLE_CLOUD_PROJECT=args.project, REPAIDO_BUILD_ID=args.build)
     caller = 'repaido-work-scheduler@' + args.project + '.iam.gserviceaccount.com'
     # Provision the dedicated scheduling caller before introducing Hosting routes.
-    gcloud('services', 'enable', 'cloudscheduler.googleapis.com', 'fcm.googleapis.com', 'fcmregistrations.googleapis.com', 'firebaseinstallations.googleapis.com', '--project=' + args.project)
+    ensure_required_apis(args.project)
     gcloud('firestore', 'fields', 'ttls', 'update', 'expiresAt',
            '--collection-group=ops_rp_work_behavior_commands', '--enable-ttl', '--async', '--project=' + args.project)
     if not exists('iam', 'service-accounts', 'describe', caller, '--project=' + args.project):
@@ -150,6 +166,28 @@ def promote(args):
     print('Verified work candidates promoted.')
 
 
+def check_build_access(args):
+    """Fail before expensive work if the later release-order reads are denied."""
+    if not args.build:
+        raise ValueError('--build is required for the build-history access check.')
+    build_region = getattr(args, 'build_region', 'global')
+    common = ['--project=' + args.project, '--region=' + build_region]
+    for operation in [('builds', 'describe', args.build, *common),
+                      ('builds', 'list', *common, '--limit=1')]:
+        try:
+            # Capture the JSON without printing build environment/configuration.
+            gcloud(*operation, data=True)
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError(
+                'Cloud Build history read access failed before tests. The active build service account needs '
+                'cloudbuild.builds.get and cloudbuild.builds.list, included in roles/cloudbuild.builds.viewer, '
+                f'on project {args.project} for build location {build_region}. '
+                'Check the gcloud error above, verify the account binding, then retry. '
+                'This check does not grant permissions or change resources.'
+            ) from error
+    print('Cloud Build history read access verified; tests can proceed.')
+
+
 def await_release(args):
     """Order releases from the same trigger so an older build cannot roll back a new one."""
     from datetime import datetime
@@ -176,7 +214,7 @@ def await_release(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['deploy', 'promote', 'await-release'])
+    parser.add_argument('action', choices=['deploy', 'promote', 'await-release', 'check-build-access'])
     parser.add_argument('--project', required=True)
     parser.add_argument('--region', default='us-central1')
     parser.add_argument('--build-region', default='global', help='Cloud Build location, separate from the Cloud Run service region.')
@@ -185,4 +223,5 @@ if __name__ == '__main__':
     parser.add_argument('--build')
     parser.add_argument('--receipt', default='/workspace/work-candidates.json')
     arguments = parser.parse_args()
-    {'deploy': deploy, 'promote': promote, 'await-release': await_release}[arguments.action](arguments)
+    {'deploy': deploy, 'promote': promote, 'await-release': await_release,
+     'check-build-access': check_build_access}[arguments.action](arguments)
