@@ -1,0 +1,72 @@
+/* Customer sign-in and registration share the same theme-aware controls. */
+.customer-auth-dialog {
+  color: var(--ui-ink);
+  background: var(--ui-surface);
+  border-color: var(--ui-control);
+}
+
+.customer-auth-dialog .text-ink,
+.customer-auth-dialog .field-label {
+  color: var(--ui-ink) !important;
+}
+
+.customer-auth-dialog .text-muted {
+  color: var(--ui-muted);
+}
+
+.customer-auth-dialog .text-accent {
+  color: var(--ui-link) !important;
+}
+
+.customer-auth-dialog .auth-segmented-switch {
+  background: var(--ui-subtle);
+  border: 1px solid var(--ui-line);
+}
+
+.customer-auth-dialog .auth-segment-btn {
+  min-width: 0;
+  color: var(--ui-ink);
+}
+
+.customer-auth-dialog .auth-segment-btn.active {
+  background: var(--ui-primary);
+  color: #fff;
+}
+
+.customer-auth-dialog .google-sign-in-btn,
+.customer-auth-dialog .button-secondary {
+  color: var(--ui-ink);
+  background: var(--ui-surface);
+  border-color: var(--ui-control);
+}
+
+.customer-auth-dialog .google-sign-in-btn:hover:not(:disabled),
+.customer-auth-dialog .button-secondary:hover:not(:disabled) {
+  background: var(--ui-subtle);
+}
+
+.customer-auth-dialog .auth-divider::before,
+.customer-auth-dialog .auth-divider::after {
+  border-color: var(--ui-line);
+}
+
+.customer-auth-dialog .field,
+.customer-auth-dialog .phone-prefix-input,
+.customer-auth-dialog .phone-number-field,
+.customer-auth-dialog .otp-digit-input {
+  color: var(--ui-ink);
+  background: var(--ui-surface);
+  border-color: var(--ui-control);
+  min-width: 0;
+}
+
+.customer-auth-dialog .country-code {
+  flex: none;
+  color: var(--ui-ink);
+  background: var(--ui-subtle);
+  border-color: var(--ui-control);
+}
+
+.customer-auth-dialog .phone-prefix-input:focus-within {
+  border-color: var(--ui-focus);
+}

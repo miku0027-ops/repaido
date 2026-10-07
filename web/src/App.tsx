@@ -4,6 +4,7 @@ import HomeQuickActions,{type QuickMarket} from './components/HomeQuickActions';
 import {CompactActionLauncher} from './components/CompactActionLauncher';
 import {AccountHub} from './components/AccountHub';
 import {AccountEmailAccess,AccountEmailNotice} from './components/AccountEmailAccess';
+import './components/customer-auth-dialog.css';
 import {useAccountProfile} from './hooks/useAccountProfile';
 import {accountEmailError} from './services/accountProfileService';
 import {emailVerificationLink} from './services/emailVerificationLink.mjs';
@@ -2198,6 +2199,7 @@ export default function App() {
       {sheet === 'auth' && (
         <Modal
           title={authMode === 'create' ? 'Create account' : 'Sign in'}
+          className="customer-auth-dialog"
           onClose={() => { setSheet(''); setError(''); setOtpStep('phone'); setOtpCode(''); }}
         >
           {/* Segmented Switch: Create account vs Sign in */}
