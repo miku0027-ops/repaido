@@ -2,7 +2,13 @@
 **
 !cloudbuild.yaml
 !firebase.json
+!firebase.security-tests.json
+!firestore.rules
+!firestore.indexes.json
 !.firebaserc
+!scripts/
+!scripts/*.py
+!scripts/*.mjs
 !backend/
 !backend/*.py
 !backend/requirements.txt

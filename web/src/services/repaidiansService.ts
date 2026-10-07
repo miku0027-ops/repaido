@@ -1,4 +1,6 @@
 import {auth} from '../firebase';
+import {onAuthStateChanged} from 'firebase/auth';
+import {createReadCache} from './readCache.mjs';
 import type {
   CommunityComment, CommunityMedia, CommunityMember, CommunityMessage, CommunityPage,
   CommunityPost, CommunityReel, CommunitySnapshot, CommunityStory, CommunityTender,
@@ -15,9 +17,19 @@ export const trades: {id: Trade; name: string}[] = [
   {id:'civil',name:'Civil'}, {id:'spares',name:'Shop Spares'},
 ];
 const UPDATE = 'repaidians:update';
+const IDENTITY_UPDATE = 'repaidians:identity-update';
+const MEDIA_UPDATE = 'repaidians:media-update';
+export const CONTENT_FRESH_MS = 15000;
+export const MEDIA_FRESH_MS = 60000;
+const MEDIA_CACHE_BYTES = 32 * 1024 * 1024;
+const cacheNow=()=>performance.now();
+const contentReads = createReadCache({maxEntries:48,now:cacheNow});
 const pendingReads = new Map<string, Promise<unknown>>();
 const mediaCache = new Map<string, {blob: Blob; at: number}>();
+const mediaDeadlines = new WeakMap<Blob,{key:string;epoch:number;freshUntil:number}>();
+const pendingMedia = new Map<string, Promise<Blob>>();
 const mutationKeys = new Map<string, string>();
+let identityScope='',identityGeneration=0,contentGeneration=0,mediaGeneration=0,mediaBytes=0,sawFirebase=false;
 
 export class CommunityError extends Error {
   constructor(message: string, public status: number, public code = '') {super(message);}
@@ -36,17 +48,75 @@ export function suggestProfileHandle(value:string):string {
   const suggestion=normalizeProfileHandle(value).replace(/\s+/g,'_').replace(/[^a-z0-9._]/g,'').replace(/^[._]+/,'').slice(0,30);
   return suggestion&&!profileHandleError(suggestion)&&suggestion!==normalizeProfileHandle(value)?suggestion:'';
 }
+export function communityIdentityKey(){
+  if(auth.currentUser)sawFirebase=true;
+  return auth.currentUser?.uid||(!sawFirebase?localStorage.getItem('repaido.token'):null)||'guest';
+}
+function clearMedia(){
+  mediaGeneration++;mediaBytes=0;mediaCache.clear();pendingMedia.clear();
+  const generation=mediaGeneration;queueMicrotask(()=>{if(generation===mediaGeneration)window.dispatchEvent(new Event(MEDIA_UPDATE));});
+}
+export const communityMediaScope=()=>communityIdentityKey()+':'+mediaGeneration;
+export function subscribeCommunityMedia(listener:()=>void){window.addEventListener(MEDIA_UPDATE,listener);return()=>window.removeEventListener(MEDIA_UPDATE,listener);}
+function clearContent(){
+  contentGeneration++;contentReads.invalidate();
+  // A new generation must not join a pre-mutation transport request.
+  for(const key of pendingReads.keys())if(/:\/(feed\?|members\/|publications\/)/.test(key))pendingReads.delete(key);
+}
+// Authoritative access/profile changes also retire pending work and decoded
+// assets, without dispatching another content mutation or refresh loop.
+export function retireCommunityContent(){clearContent();clearMedia();}
+function syncIdentity(){
+  const next=communityIdentityKey();
+  if(next!==identityScope){identityScope=next;identityGeneration++;clearContent();clearMedia();pendingReads.clear();mutationKeys.clear();
+    const generation=identityGeneration;queueMicrotask(()=>{if(generation===identityGeneration)window.dispatchEvent(new Event(IDENTITY_UPDATE));});}
+  return next;
+}
+onAuthStateChanged(auth,()=>{syncIdentity();});
+window.addEventListener('repaido:identity-changed',()=>{syncIdentity();});
+window.addEventListener('storage',event=>{if((event as StorageEvent).key==='repaido.token'||(event as StorageEvent).key===null)syncIdentity();});
+export function subscribeCommunityIdentity(listener:()=>void){window.addEventListener(IDENTITY_UPDATE,listener);return()=>window.removeEventListener(IDENTITY_UPDATE,listener);}
 async function identity() {
   await auth.authStateReady();
-  const user=auth.currentUser;
-  const token = user ? await user.getIdToken() : localStorage.getItem('repaido.token');
-  if(auth.currentUser?.uid!==user?.uid||(!user&&localStorage.getItem('repaido.token')!==token))
+  const user=auth.currentUser,key=syncIdentity(),epoch=identityGeneration;
+  const token = user ? await user.getIdToken() : !sawFirebase?localStorage.getItem('repaido.token'):null;
+  if(auth.currentUser?.uid!==user?.uid||syncIdentity()!==key||epoch!==identityGeneration)
     throw new CommunityError('Your account changed. Reopen this view.',409,'ACCOUNT_CHANGED');
-  return {token, key: user?.uid || token || 'guest'};
+  return {token,key,epoch};
 }
+function assertIdentity(owner:Awaited<ReturnType<typeof identity>>){
+  if(syncIdentity()!==owner.key||owner.epoch!==identityGeneration)throw new CommunityError('Your account changed. Reopen this view.',409,'ACCOUNT_CHANGED');
+}
+function observeAbort<T>(request:Promise<T>,signal?:AbortSignal):Promise<T>{
+  if(!signal)return request;
+  if(signal.aborted)return Promise.reject(new DOMException('Request cancelled.','AbortError'));
+  return new Promise((resolve,reject)=>{
+    const cancel=()=>reject(new DOMException('Request cancelled.','AbortError'));signal.addEventListener('abort',cancel,{once:true});
+    request.then(value=>{signal.removeEventListener('abort',cancel);if(!signal.aborted)resolve(value);},error=>{signal.removeEventListener('abort',cancel);if(!signal.aborted)reject(error);});
+  });
+}
+async function contentRead<T>(path:string,force=false,signal?:AbortSignal):Promise<T>{
+  if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');
+  const owner=await identity(),epoch=contentGeneration;
+  const request=contentReads.read(owner.key+':'+path,async()=>{
+    const value=await communityRequest<T>(path);assertIdentity(owner);
+    if(epoch!==contentGeneration)throw new CommunityError('The community changed. Refresh this view.',409,'CONTENT_CHANGED');
+    return value;
+  },{freshMs:CONTENT_FRESH_MS,force}) as Promise<T>;
+  try{
+    const value=await observeAbort(request,signal);assertIdentity(owner);
+    if(epoch!==contentGeneration)throw new CommunityError('The community changed. Refresh this view.',409,'CONTENT_CHANGED');
+    return value;
+  }catch(error){
+    if(error instanceof CommunityError&&[401,402,403,404].includes(error.status)&&epoch===contentGeneration)retireCommunityContent();
+    throw error;
+  }
+}
+function peekContent<T>(path:string):T|null{return contentReads.peek(syncIdentity()+':'+path,CONTENT_FRESH_MS) as T|null;}
+window.addEventListener(UPDATE,()=>{clearContent();});
 export async function communityRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!path.startsWith('/') || path.startsWith('//') || /[?#].*https?:/i.test(path)) throw new Error('Expected a Repaidians API path.');
-  const {token, key} = await identity();
+  const owner=await identity(),{token,key}=owner;
   const read = (init.method || 'GET') === 'GET';
   const cacheKey = key + ':' + path;
   const prior = read ? pendingReads.get(cacheKey) : undefined;
@@ -60,6 +130,7 @@ export async function communityRequest<T>(path: string, init: RequestInit = {}):
       ...init, headers, credentials:'same-origin', signal:init.signal || AbortSignal.timeout(30000),
     });
     const body = await response.json().catch(() => ({}));
+    assertIdentity(owner);
     if (!response.ok) {
       const detail = body.detail;
       const invalidHandle=path==='/profile'&&Array.isArray(detail)&&detail.some((d:{loc?:unknown[]})=>d.loc?.[1]==='handle');
@@ -73,30 +144,39 @@ export async function communityRequest<T>(path: string, init: RequestInit = {}):
   if (read) pendingReads.set(cacheKey, request);
   try {return await request;} finally {if (pendingReads.get(cacheKey) === request) pendingReads.delete(cacheKey);}
 }
-const changed = () => window.dispatchEvent(new Event(UPDATE));
+export interface CommunityChange {path?:string;contentChanged:boolean;}
+const changed = (path:string) => window.dispatchEvent(new CustomEvent<CommunityChange>(UPDATE,{detail:{path,contentChanged:!/^\/(activity\/|messages\/|notifications\/read$)/.test(path)}}));
 async function mutate<T>(path: string, method: string, body?: unknown): Promise<T> {
   const value = await communityRequest<T>(path, {method, ...(body === undefined ? {} : {body:JSON.stringify(body)})});
-  changed(); return value;
+  if(path==='/profile'||path==='/settings'||path.startsWith('/blocks/')||method==='DELETE'&&path.startsWith('/publications/'))clearMedia();
+  changed(path); return value;
 }
 async function command<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const key = path + ':' + JSON.stringify(body);
+  const key = syncIdentity()+':'+path+':'+JSON.stringify(body);
   const clientId = mutationKeys.get(key) || crypto.randomUUID();
   mutationKeys.set(key, clientId);
+  while(mutationKeys.size>64)mutationKeys.delete(mutationKeys.keys().next().value!);
   const value = await mutate<T>(path, 'POST', {...body, clientId});
   mutationKeys.delete(key); return value;
 }
 // The account arguments keep component callers consistent. The server resolves
 // the owner from the verified bearer token, never from these browser arguments.
-export const snapshot = (_account?: string, _name?: string) => communityRequest<CommunitySnapshot>('/state');
+export const snapshot = (_account?: string, _name?: string, compact=false) => communityRequest<CommunitySnapshot>('/state'+(compact?'?content=compact':''));
 export const chargeBrowsing = (active: boolean, keepalive = false) => communityRequest<{remainingMs:number;subscription:CommunitySnapshot['subscription'];trial:CommunitySnapshot['trial'];serverNow:number}>('/usage', {method:'POST', body:JSON.stringify({active}), keepalive});
-export function subscribe(listener: () => void): () => void {
-  window.addEventListener(UPDATE, listener);return () => window.removeEventListener(UPDATE, listener);
+export function subscribe(listener: (change?:CommunityChange) => void): () => void {
+  const receive=(event:Event)=>listener((event as CustomEvent<CommunityChange>).detail||{contentChanged:true});
+  window.addEventListener(UPDATE, receive);return () => window.removeEventListener(UPDATE, receive);
 }
-export function feed(kind: 'post'|'story'|'reel'|'tender', trade: Trade|'all' = 'all', mode = 'all', cursor = '', signal?:AbortSignal, limit = 12) {
+type FeedKind='post'|'story'|'reel'|'tender';
+type FeedPage=CommunityPage<CommunityPost|CommunityStory|CommunityReel|CommunityTender>;
+function feedPath(kind:FeedKind,trade:Trade|'all',mode:string,cursor:string,limit:number){
   const params = new URLSearchParams({kind,trade,mode,limit:String(Math.max(1,Math.min(50,Math.floor(limit))))});
   if(cursor)params.set('cursor',cursor);
-  return communityRequest<CommunityPage<CommunityPost|CommunityStory|CommunityReel|CommunityTender>>('/feed?' + params, {signal});
+  return '/feed?'+params;
 }
+export const feed=(kind:FeedKind,trade:Trade|'all'='all',mode='all',cursor='',signal?:AbortSignal,limit=12,force=false)=>contentRead<FeedPage>(feedPath(kind,trade,mode,cursor,limit),force,signal);
+export const peekFeed=(kind:FeedKind,trade:Trade|'all'='all',mode='all',cursor='',limit=12)=>peekContent<FeedPage>(feedPath(kind,trade,mode,cursor,limit));
+export const feedFreshUntil=(kind:FeedKind,trade:Trade|'all'='all',mode='all',cursor='',limit=12)=>contentReads.freshUntil(syncIdentity()+':'+feedPath(kind,trade,mode,cursor,limit),CONTENT_FRESH_MS);
 export const searchMembers = (query:string,signal?:AbortSignal,filters:ProfessionalFilters={},cursor='') => {
   const params=new URLSearchParams({search:query.replace(/^@/,''),limit:'20'});
   for(const key of ['trade','city','workStatus','professionalType'] as const)if(filters[key]&&filters[key]!=='all')params.set(key,filters[key]!);
@@ -110,7 +190,7 @@ export const opportunities=(filters:OpportunityFilters={},signal?:AbortSignal)=>
 };
 export const opportunityDetails=(reference:OpportunityReference)=>communityRequest<CommunityOpportunity>('/opportunities/'+encodeURIComponent(reference.source)+'/'+encodeURIComponent(reference.id));
 export const saveOpportunity=(reference:OpportunityReference,active:boolean)=>mutate<{saved:boolean}>('/opportunities/'+encodeURIComponent(reference.source)+'/'+encodeURIComponent(reference.id)+'/saved','PUT',{active});
-export const memberProfile = (id: string) => communityRequest<{member:CommunityMember;posts:CommunityPost[];reels:CommunityReel[];stories:CommunityStory[];stats:{followers:number;following:number;posts:number;reels:number}}>('/members/'+encodeURIComponent(id));
+export const memberProfile = (id: string, force=false) => contentRead<{member:CommunityMember;posts:CommunityPost[];reels:CommunityReel[];stories:CommunityStory[];viewerFollowing?:boolean;stats:{followers:number;following:number;posts:number;reels:number}}>('/members/'+encodeURIComponent(id),force);
 export const toggleActivity = (_account: string, kind: 'likes'|'saved', id: string, active: boolean) => mutate<{active:boolean;likeCount?:number}>('/activity/'+kind+'/'+encodeURIComponent(id), 'PUT', {active});
 export const follow = (_account: string, id: string, active: boolean) => mutate('/follow/'+encodeURIComponent(id), 'PUT', {active});
 export const comment = (_account: string, id: string, text: string) => command('/comments/'+encodeURIComponent(id), {text:text.trim()});
@@ -155,17 +235,47 @@ export async function storeMedia(files: File[]): Promise<CommunityMedia[]> {
   }
   return output;
 }
-export const publicationDetails = (id: string) => communityRequest<{item:CommunityPost|CommunityReel;members:CommunityMember[]}>('/publications/'+encodeURIComponent(id));
-export async function loadMedia(url: string): Promise<Blob|null> {
+export const publicationDetails = (id: string, force=false) => contentRead<{item:CommunityPost|CommunityReel;members:CommunityMember[]}>('/publications/'+encodeURIComponent(id),force);
+function removeMedia(key:string){const entry=mediaCache.get(key);if(entry){mediaBytes-=entry.blob.size;mediaCache.delete(key);}}
+export function mediaFreshUntil(url:string,blob?:Blob){
+  const key=syncIdentity()+':'+url,deadline=blob?mediaDeadlines.get(blob):undefined;
+  if(blob)return deadline&&deadline.key===key&&deadline.epoch===mediaGeneration&&cacheNow()<deadline.freshUntil?deadline.freshUntil:0;
+  const entry=mediaCache.get(key);
+  return entry&&cacheNow()-entry.at<MEDIA_FRESH_MS?entry.at+MEDIA_FRESH_MS:0;
+}
+export async function loadMedia(url: string,signal?:AbortSignal): Promise<Blob|null> {
   if(!/^\/api\/repaidians\/media\/[A-Za-z0-9_-]+$/.test(url)) return null;
-  const {token,key} = await identity();
+  if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');
+  const owner=await identity(),{token,key}=owner,epoch=mediaGeneration;
+  if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');
   const cacheKey = key + ':' + url;
+  for(const [key,entry] of mediaCache)if(cacheNow()-entry.at>=MEDIA_FRESH_MS)removeMedia(key);
   const stored = mediaCache.get(cacheKey);
-  if(stored && Date.now()-stored.at < 60000) return stored.blob;
-  const response = await fetch(url, {credentials:'same-origin',headers:token?{Authorization:'Bearer '+token}:{},signal:AbortSignal.timeout(30000)});
-  if(!response.ok) throw new CommunityError('Media is unavailable. Retry or check your access.',response.status);
-  const blob = await response.blob();
-  // Bound memory to four uploaded media objects; never persist protected copies.
-  if(mediaCache.size >= 4)mediaCache.delete(mediaCache.keys().next().value!);
-  mediaCache.set(cacheKey,{blob,at:Date.now()});return blob;
+  if(stored){mediaCache.delete(cacheKey);mediaCache.set(cacheKey,stored);}
+  let request=stored?Promise.resolve(stored.blob):pendingMedia.get(cacheKey);
+  if(!request){
+    request=(async()=>{
+      const response=await fetch(url,{credentials:'same-origin',headers:token?{Authorization:'Bearer '+token}:{},signal:AbortSignal.timeout(30000)});
+      assertIdentity(owner);
+      if(epoch!==mediaGeneration)throw new CommunityError('Media access changed. Reopen this view.',409,'MEDIA_CHANGED');
+      if(!response.ok){
+        if([401,402,403,404].includes(response.status))removeMedia(cacheKey);
+        throw new CommunityError('Media is unavailable. Retry or check your access.',response.status);
+      }
+      const mime=(response.headers.get('Content-Type')||'').split(';')[0].toLowerCase(),length=Number(response.headers.get('Content-Length')||0);
+      if(!/^(image\/(jpeg|png|webp)|video\/(mp4|webm))$/.test(mime)||length>MAX_MEDIA_BYTES){await response.body?.cancel();throw new CommunityError('This media could not be loaded.',422,'INVALID_MEDIA');}
+      const blob=await response.blob();assertIdentity(owner);
+      if(epoch!==mediaGeneration)throw new CommunityError('Media access changed. Reopen this view.',409,'MEDIA_CHANGED');
+      if(blob.size>MAX_MEDIA_BYTES)throw new CommunityError('This media exceeds the supported size.',413,'MEDIA_TOO_LARGE');
+      const at=cacheNow();mediaDeadlines.set(blob,{key:cacheKey,epoch,freshUntil:at+MEDIA_FRESH_MS});
+      removeMedia(cacheKey);mediaCache.set(cacheKey,{blob,at});mediaBytes+=blob.size;
+      while(mediaCache.size>64||mediaBytes>MEDIA_CACHE_BYTES)removeMedia(mediaCache.keys().next().value!);
+      return blob;
+    })();
+    pendingMedia.set(cacheKey,request);
+    void request.finally(()=>{if(pendingMedia.get(cacheKey)===request)pendingMedia.delete(cacheKey);}).catch(()=>{});
+  }
+  const blob=await observeAbort(request,signal);assertIdentity(owner);
+  if(epoch!==mediaGeneration)throw new CommunityError('Media access changed. Reopen this view.',409,'MEDIA_CHANGED');
+  return blob;
 }

@@ -119,3 +119,38 @@ def test_worker_verifies_exact_audience_and_allowed_google_caller(monkeypatch):
     monkeypatch.setattr(id_token, 'verify_oauth2_token', verify)
     assert work_worker.scheduler_identity('Bearer signed-google-token')['email'] == 'scheduler@repaido.iam.gserviceaccount.com'
     assert observed == [('signed-google-token', 'https://work-worker.example.run.app')]
+
+
+def test_profile_index_migration_runs_in_bounded_authenticated_worker_batches(service):
+    import repaidians
+    core = service.app.state.core
+    stamp = repaidians.now_ms() - 86400000
+
+    def seed(unit):
+        for index in range(3):
+            uid = 'legacy-professional-' + str(index)
+            unit.put('rp_members', uid, {'id': uid, 'name': 'Legacy professional ' + str(index),
+                'handle': 'legacy.' + str(index), 'trade': 'electrician', 'role': 'Member',
+                'avatarUrl': '', 'bio': '', 'followersCount': 0, 'followingCount': 0, 'createdAt': stamp + index})
+            unit.put('rp_member_directory', uid, {'id': uid, 'sortKey': repaidians.sort_key(stamp + index, uid)})
+            unit.put('workers', uid, {'id': uid, 'status': 'approved', 'categories': ['electrician'],
+                'role': 'specialist', 'city': 'Balasore', 'skills': ['Rewiring'], 'experience_years': 4})
+
+    core.operations_store.run(seed)
+    application = work_worker.create_app(core)
+    with TestClient(application, raise_server_exceptions=False) as client:
+        assert client.post('/internal/work/dispatch', json={'limit': 1}).status_code in (401, 503)
+        assert not core.operations_store.run(lambda unit: unit.get('rp_members', 'legacy-professional-0')).get('professionalVersion')
+        application.dependency_overrides[work_worker.scheduler_identity] = lambda: {'email': 'isolated-test-scheduler'}
+        first = client.post('/internal/work/dispatch', json={'limit': 1})
+        assert first.status_code == 200, first.text
+        assert first.json()['profiles_indexing'] is True
+        assert core.operations_store.run(lambda unit: unit.get('rp_members', 'legacy-professional-0'))['professionalVersion'] == 1
+        assert not core.operations_store.run(lambda unit: unit.get('rp_members', 'legacy-professional-2')).get('professionalVersion')
+        for _ in range(3):
+            last = client.post('/internal/work/dispatch', json={'limit': 1})
+            assert last.status_code == 200, last.text
+        assert last.json()['profiles_indexing'] is False
+        trial = core.operations_store.run(lambda unit: unit.get('rp_trials', 'legacy-professional-0'))
+        assert trial['startsAt'] == stamp
+        assert trial['endsAt'] == stamp + 60 * 86400000

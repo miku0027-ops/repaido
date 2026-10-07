@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from work_runtime import health, initialize, shared_core
+from http_boundary import TransportBoundaryMiddleware
 
 logger = logging.getLogger('repaido.work.api')
 
@@ -79,6 +80,10 @@ def create_app(core=None):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Cache-Control'] = 'private, no-store'
         return response
+
+    # The existing work gate remains the service's admission controller. Apply
+    # the same streaming body/header bounds before its auth and database work.
+    application.add_middleware(TransportBoundaryMiddleware, admission=False)
 
     @application.get('/health')
     @application.get('/repaidians/work/health')

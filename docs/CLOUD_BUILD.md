@@ -7,11 +7,15 @@ only one subdirectory. The trigger must use project `repaido`.
 
 The Python test step also installs Node.js: the camera metadata integration test
 executes the frontend's actual JavaScript encoder through a Node subprocess.
-An initial read-only preflight verifies Cloud Build history access before running
-the backend tests, frontend tests and production build. The pipeline then
+Initial read-only preflights verify Cloud Build history access and access to the
+existing Firestore Rules release before running the backend tests, frontend tests
+and production build. The frontend step uses Node 24 on Debian Trixie with Java
+21 and pinned Firebase CLI 15.32.1 to test the source rules against a loopback
+Firestore emulator in a demo project. The pipeline then
 builds and pushes the backend container. It deploys unique no-traffic Cloud Run
 candidates for the main API, work API, and private update worker, checking their
-health and build IDs. It waits for earlier builds from the same trigger, promotes
+health and build IDs. It waits for earlier builds from the same trigger, publishes
+and verifies the reviewed Firestore Rules source, promotes
 the verified revisions, resumes the authenticated update schedule, and deploys
 Firebase Hosting. It checks the site, main API, and work API build IDs through
 Hosting. A failed step fails the build; it does not
@@ -30,13 +34,23 @@ identity and secrets, setting `REPAIDO_BUILD_ID` and explicitly selecting
 `REPAIDO_STORAGE=firestore`. Before deployment proceeds, the candidate must
 complete a community read/write transaction against Firestore and report a
 configured durable media bucket. The Dockerfile
-includes `b2b.py`, which is imported by the API. Hosting deployment is restricted
-to `--only hosting`; Firestore rules and indexes are not deployed.
+includes `b2b.py` and the request-boundary module imported by the API. The Firebase
+CLI deployment remains restricted to `--only hosting`; a separate Rules API
+publisher updates the existing `cloud.firestore` release. It compares the current
+source, skips unchanged writes, compiles changed source into a ruleset, verifies
+that source, activates the release and verifies the resulting ruleset identity.
+It does not create a database, publish indexes or alter stored records.
 
 Use a build service account with Artifact Registry Writer on the image repository,
 Cloud Run deployment and IAM-policy permissions on the three services, Service
 Account User on the runtime and dedicated Scheduler identities, Logs Writer,
-Firebase Hosting Admin and Service Usage Consumer. The release-order check needs
+Firebase Hosting Admin and Service Usage Consumer. Rules publication additionally
+requires `firebaserules.rulesets.create`, `firebaserules.rulesets.get`,
+`firebaserules.releases.get` and `firebaserules.releases.update`; the existing
+`roles/firebase.sdkAdminServiceAgent` includes these permissions. The publisher
+does not grant IAM or require Rules test/initial-release creation permissions.
+Its preflight fails before expensive build steps if permissions or the existing
+release are missing. The release-order check needs
 `cloudbuild.builds.get` and `cloudbuild.builds.list`, included in
 `roles/cloudbuild.builds.viewer`; it fails closed if it cannot read build history.
 Initial work-service provisioning additionally needs service API enablement,
@@ -83,6 +97,7 @@ gcloud builds submit . --project=repaido --region=us-central1 \
   --service-account=projects/repaido/serviceAccounts/BUILD_ACCOUNT_EMAIL
 ```
 
-The root `.gcloudignore` includes backend tests and Firebase configuration, and
+The root `.gcloudignore` includes backend tests, deployment scripts, rules and
+Firebase/emulator configuration, and
 excludes dependencies, databases and environment files. Review the source upload
 inventory with `gcloud meta list-files-for-upload` before manual submission.

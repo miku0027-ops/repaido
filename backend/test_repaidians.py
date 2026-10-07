@@ -713,8 +713,13 @@ def test_professional_worker_defaults_backfill_and_bounded_filter_pagination(api
     api.core.operations_store.run(seed)
     monkeypatch.setattr(Unit, 'all', lambda *_: (_ for _ in ()).throw(AssertionError('Unbounded profile scan')))
     first = api.get('/repaidians/members?city=balasore&trade=electrician&professionalType=specialist&limit=2').json()
-    assert first['indexing'] is True and len(first['members']) == 2
+    assert first['indexing'] is True and first['members'] == []
+    assert api.core.operations_store.run(lambda u: u.get('rp_professional_index_meta', 'v1')) is None
+    assert api.core.operations_store.run(lambda u: u.get('rp_members', 'old-professional-0')).get('professionalVersion') is None
     for _ in range(4):
+        # The private worker advances the bounded migration independently of
+        # customer search reads. User polling never creates the index writes.
+        social.reindex_professional_members(api.core, limit=5)
         latest = api.get('/repaidians/members?city=Balasore&trade=electrician&professionalType=specialist&limit=2').json()
         if not latest['indexing']:
             break

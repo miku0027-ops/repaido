@@ -636,31 +636,27 @@ export function recordAdminAction(action: Omit<AdminLedgerEntry, 'id' | 'timesta
 /**
  * Support Ticket Submission
  */
+const supportRequestIds = new Map<string, string>();
 export async function submitSupportTicket(ticket: Omit<SupportTicket, 'id' | 'status' | 'createdAt'>): Promise<string> {
-  const id = `REP-TICKET-${Math.floor(1000 + Math.random() * 9000)}`;
-  const record: SupportTicket = {
-    ...ticket,
-    id,
-    status: 'open',
-    createdAt: new Date().toISOString()
-  };
-
-  const current = readLocal<SupportTicket[]>(KEYS.TICKETS, []);
-  writeLocal(KEYS.TICKETS, [record, ...current]);
-
-  try {
-    const userId = auth.currentUser?.uid || null;
-    await setDoc(doc(db, 'support_tickets', id), {
-      ...record,
-      userId,
-      user_id: userId,
-      firestoreTimestamp: serverTimestamp()
-    });
-  } catch (err) {
-    console.warn('Could not sync support ticket to Firestore:', err);
-  }
-
-  return id;
+  await auth.authStateReady();
+  const member = auth.currentUser;
+  if (!member) throw new Error('Sign in to submit and track your support request.');
+  const details = {name: ticket.name.trim(), phone: ticket.phone.trim(), subject: ticket.subject.trim(), message: ticket.message.trim()};
+  const key = member.uid + ':' + JSON.stringify(details);
+  if (supportRequestIds.size >= 32 && !supportRequestIds.has(key)) supportRequestIds.delete(supportRequestIds.keys().next().value!);
+  const requestId = supportRequestIds.get(key) || crypto.randomUUID();
+  supportRequestIds.set(key, requestId);
+  const token = await member.getIdToken();
+  assertAuthIdentity(member.uid);
+  const response = await apiFetch('/api/support-tickets', {method: 'POST',
+    headers: {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'},
+    body: JSON.stringify({...details, request_id: requestId}), cache: 'no-store'});
+  const data = await response.json().catch(() => ({}));
+  assertAuthIdentity(member.uid);
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : data.detail?.message || 'Your support request was not saved. Please retry.');
+  if (typeof data.ticket_id !== 'string' || !data.ticket_id.startsWith('REP-TICKET-')) throw new Error('The server did not confirm your support request. Please retry.');
+  supportRequestIds.delete(key);
+  return data.ticket_id;
 }
 
 // ==========================================

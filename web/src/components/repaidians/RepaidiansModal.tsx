@@ -1,11 +1,12 @@
 import {useCallback,useEffect,useRef,useState,useMemo} from 'react';
-import {Bookmark,BriefcaseBusiness,Clapperboard,Crown,Bell,Home,MessageCircle,Plus,Search,User,X,Clock3,Infinity,LockKeyhole,ArrowRight,ThumbsUp,Menu,ShieldCheck,Building2,FileCheck2,ArrowLeft,Users} from 'lucide-react';
+import {Bookmark,BriefcaseBusiness,Clapperboard,Crown,Bell,Home,MessageCircle,Plus,Search,User,X,Clock3,Infinity,LockKeyhole,ArrowRight,ThumbsUp,Menu,ShieldCheck,Building2,FileCheck2,ArrowLeft,Users,RefreshCw} from 'lucide-react';
 import {Modal} from '../ui';
 import {
-  snapshot,subscribe,chargeBrowsing,feed,memberProfile,publicationDetails,follow,toggleActivity,trades,
+  snapshot,subscribe,subscribeCommunityIdentity,communityIdentityKey,retireCommunityContent,chargeBrowsing,feed,peekFeed,feedFreshUntil,memberProfile,publicationDetails,follow,toggleActivity,trades,
   bid,sendMessage,tenderContact,deletePublication,reportPublication,blockMember,CommunityError,opportunityDetails,
+  type CommunityChange,
 } from '../../services/repaidiansService';
-import type {CommunityMember,CommunityPost,CommunityReel,CommunitySnapshot,CommunityTab,CommunityTender,CommunityOpportunity,OpportunityReference,OpportunitySource,StudioKind,Trade} from '../../types/repaidians';
+import type {CommunityMember,CommunityPost,CommunityReel,CommunityStory,CommunitySnapshot,CommunityTab,CommunityTender,CommunityOpportunity,OpportunityReference,OpportunitySource,StudioKind,Trade} from '../../types/repaidians';
 import {Feed} from './Feed';
 import {OpportunityCard} from './OpportunityCard';
 import {StoriesTray,StoryViewer} from './Stories';
@@ -27,6 +28,7 @@ import './repaidians.css';
 import './social-navigation.css';
 
 type TimelineItem=CommunityPost|CommunityReel|CommunityTender;
+type TimelineWindow={key:string;items:TimelineItem[];cursor:string|null;freshUntil:number};
 type ProfileResult=Awaited<ReturnType<typeof memberProfile>>;
 type Confirm={kind:'delete'|'block'|'report';id:string};
 const navigation=[{id:'feed',label:'Home',icon:Home},{id:'search',label:'Search',icon:Search},{id:'network',label:'My network',icon:Users},{id:'reels',label:'Works',icon:Clapperboard},{id:'opportunities',label:'Work & market',icon:BriefcaseBusiness},{id:'tenders',label:'Tenders',icon:BriefcaseBusiness},{id:'contracts',label:'Contracts',icon:BriefcaseBusiness},{id:'profile',label:'My profile',icon:User}] as const;
@@ -37,7 +39,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   const [cachedState,setState]=useState<CommunitySnapshot|null>(null),[stateAccount,setStateAccount]=useState(account),[tab,setTab]=useState<CommunityTab>(['contracts','network'].includes(initialTab)?'opportunities':initialTab),[genre,setGenre]=useState<Trade|'all'>('all'),[mode,setMode]=useState<'all'|'saved'|'liked'|'jobs'|'applications'>('all');
   const [profileId,setProfileId]=useState<string|null>(null),[profileData,setProfileData]=useState<ProfileResult|null>(null),[profileBusy,setProfileBusy]=useState(false),[storyId,setStoryId]=useState<string|null>(null),[comments,setComments]=useState<string|null>(null),[recipient,setRecipient]=useState<CommunityMember|null>(null);
   const [studio,setStudio]=useState<StudioKind|null>(null),[upgrade,setUpgrade]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState(''),[revision,setRevision]=useState(0),[confirm,setConfirm]=useState<Confirm|null>(null),[reason,setReason]=useState('spam'),[confirmBusy,setConfirmBusy]=useState(false),[detail,setDetail]=useState<CommunityPost|null>(null);
-  const [members,setMembers]=useState<Record<string,CommunityMember>>({}),[timeline,setTimeline]=useState<{key:string;items:TimelineItem[];cursor:string|null}>({key:'',items:[],cursor:null}),[feedBusy,setFeedBusy]=useState(false),[moreBusy,setMoreBusy]=useState(false),[remaining,setRemaining]=useState(15*60000),[clockNow,setClockNow]=useState(Date.now());
+  const [members,setMembers]=useState<Record<string,CommunityMember>>({}),[timeline,setTimeline]=useState<TimelineWindow>({key:'',items:[],cursor:null,freshUntil:0}),[storyItems,setStoryItems]=useState<CommunityStory[]>([]),[feedBusy,setFeedBusy]=useState(false),[moreBusy,setMoreBusy]=useState(false),[remaining,setRemaining]=useState(15*60000),[clockNow,setClockNow]=useState(Date.now());
   const [attachedReference,setAttachedReference]=useState<OpportunityReference|undefined>(initialReference);
   const [options,setOptions]=useState<'menu'|'settings'|null>(null),[workView,setWorkView]=useState<WorkMarketView>(initialJobId?'jobs':initialTab==='contracts'?'contracts':initialTab==='network'?'network':'market');
   const [applicationTarget,setApplicationTarget]=useState<string|undefined>();
@@ -46,8 +48,10 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   const [interests,setInterests]=useState(()=>peekWorkInterests(account));
   const initialReferenceOpened=useRef(false),initialProfileOpened=useRef<string|undefined>(undefined),initialPublicationOpened=useRef<string|undefined>(undefined),initialJobOpened=useRef<string|undefined>(undefined);
   const alive=useRef(true),authAccount=useRef(account),busyActions=useRef(new Set<string>()),remainingAt=useRef({ms:15*60000,at:performance.now()}),serverClock=useRef({ms:Date.now(),at:performance.now()});
+  const feedWindows=useRef(new Map<string,TimelineWindow>()),forcedSources=useRef(new Set<string>()),forceStories=useRef(false),contentScope=useRef(''),identityRetired=useRef(false);
   const timelineWindow=useRef(timeline);timelineWindow.current=timeline;
   const state=stateAccount===account?cachedState:null;
+  const stateWindow=useRef(state);stateWindow.current=state;
   const orderedTrades=useMemo(()=>{if(!interests?.personalized)return trades;const positions=new Map(interests.trades.map((item,index)=>[item.trade,index]));return [...trades].sort((a,b)=>(positions.get(a.id)??trades.length)-(positions.get(b.id)??trades.length));},[interests]);
   useEffect(()=>{
     if(!state?.authenticated){setInterests(null);return;}let active=true,timer:ReturnType<typeof setTimeout>|undefined;const controller=new AbortController();
@@ -68,34 +72,49 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   const exactExpiry=subscription?new Date(subscription.endsAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})+' IST':'';
   const addMembers=useCallback((incoming:CommunityMember[])=>setMembers(old=>({...old,...Object.fromEntries(incoming.map(m=>[m.id,m]))})),[]);
   const refresh=useCallback(async()=>{
+    if(identityRetired.current)return;
     const requestAccount=account;
-    const next=await snapshot(account,name);
-    if(!alive.current||authAccount.current!==requestAccount)return;
+    const next=await snapshot(account,name,true);
+    if(!alive.current||identityRetired.current||authAccount.current!==requestAccount)return;
     setState(next);setStateAccount(requestAccount);addMembers([...next.data.members,next.member]);
     const receivedAt=performance.now();serverClock.current={ms:next.serverNow??Date.now(),at:receivedAt};setClockNow(serverClock.current.ms);
-    remainingAt.current={ms:next.remainingMs,at:receivedAt};setRemaining(next.remainingMs);setError('');
+    remainingAt.current={ms:next.remainingMs,at:receivedAt};setRemaining(next.remainingMs);if(!stateWindow.current)setError('');
   },[account,name,addMembers]);
   useEffect(()=>{
     const switched=authAccount.current!==account;
-    alive.current=true;authAccount.current=account;setState(null);setMembers({});setTimeline({key:'',items:[],cursor:null});
+    identityRetired.current=false;
+    alive.current=true;authAccount.current=account;setState(null);setMembers({});setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setFeedBusy(false);setMoreBusy(false);feedWindows.current.clear();forcedSources.current.clear();forceStories.current=false;contentScope.current='';
     setOptions(null);setWorkView(switched?'market':initialJobId?'jobs':initialTab==='contracts'?'contracts':initialTab==='network'?'network':'market');setMode('all');setApplicationTarget(undefined);setContractTarget(undefined);setJobTarget(undefined);setGenre('all');setInterests(peekWorkInterests(account));
     setProfileId(null);setProfileData(null);setProfileBusy(false);setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setDetail(null);setConfirm(null);setUpgrade('');setNotice('');setAttachedReference(switched?undefined:initialReference);
     if(switched){initialReferenceOpened.current=true;initialProfileOpened.current=undefined;initialPublicationOpened.current=undefined;initialJobOpened.current=initialJobId;}
-    void refresh().catch(e=>{if(alive.current)setError((e as Error).message);});
-    const changed=()=>{void refresh().catch(e=>{if(alive.current)setNotice((e as Error).message);});setRevision(v=>v+1);};
+    void refresh().catch(e=>{if(alive.current&&!identityRetired.current&&authAccount.current===account)setError((e as Error).message);});
+    const changed=(change?:CommunityChange)=>{void refresh().catch(e=>{if(alive.current&&!identityRetired.current&&authAccount.current===account)setNotice((e as Error).message);});if(change?.contentChanged!==false){feedWindows.current.clear();forcedSources.current.add(timelineWindow.current.key);forceStories.current=true;setRevision(v=>v+1);}};
     const unsubscribe=subscribe(changed);
+    const expectedIdentity=communityIdentityKey();
+    const unsubscribeIdentity=subscribeCommunityIdentity(()=>{
+      if(communityIdentityKey()===expectedIdentity)return;
+      identityRetired.current=true;feedWindows.current.clear();forcedSources.current.clear();forceStories.current=false;
+      setState(null);setMembers({});setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setProfileId(null);setRecipient(null);setComments(null);setStoryId(null);setDetail(null);setStudio(null);setConfirm(null);setOptions(null);setUpgrade('');setError('');setNotice('');
+    });
     const heartbeat=async()=>{
-      try{const usage=await chargeBrowsing(!document.hidden);if(!alive.current||authAccount.current!==account)return;const receivedAt=performance.now();serverClock.current={ms:usage.serverNow??Date.now(),at:receivedAt};setClockNow(serverClock.current.ms);remainingAt.current={ms:usage.remainingMs,at:receivedAt};setRemaining(usage.remainingMs);setState(old=>old?{...old,remainingMs:usage.remainingMs,subscription:usage.subscription||null,trial:usage.trial??null,serverNow:serverClock.current.ms}:old);}catch(e){if(alive.current)setNotice((e as Error).message);}
+      if(identityRetired.current)return;
+      try{const usage=await chargeBrowsing(!document.hidden);if(!alive.current||identityRetired.current||authAccount.current!==account)return;const receivedAt=performance.now();serverClock.current={ms:usage.serverNow??Date.now(),at:receivedAt};setClockNow(serverClock.current.ms);remainingAt.current={ms:usage.remainingMs,at:receivedAt};setRemaining(usage.remainingMs);setState(old=>old?{...old,remainingMs:usage.remainingMs,subscription:usage.subscription||null,trial:usage.trial??null,serverNow:serverClock.current.ms}:old);}catch(e){if(alive.current&&!identityRetired.current&&authAccount.current===account)setNotice((e as Error).message);}
     };
     const visibility=()=>{remainingAt.current={ms:remainingAt.current.ms,at:performance.now()};void heartbeat();};
     const timer=setInterval(()=>{if(!document.hidden)void heartbeat();},10000);
     const clock=setInterval(()=>{if(!document.hidden){const elapsed=performance.now();setClockNow(serverClock.current.ms+elapsed-serverClock.current.at);setRemaining(Math.max(0,remainingAt.current.ms-(elapsed-remainingAt.current.at)));}},1000);
-    const poll=setInterval(()=>{if(!document.hidden){void refresh().catch(()=>{});setRevision(v=>v+1);}},30000);
+    const poll=setInterval(()=>{if(!document.hidden)void refresh().catch(()=>{});},30000);
     document.addEventListener('visibilitychange',visibility);
-    return()=>{alive.current=false;unsubscribe();clearInterval(timer);clearInterval(clock);clearInterval(poll);document.removeEventListener('visibilitychange',visibility);void chargeBrowsing(false,true).catch(()=>{});};
+    return()=>{alive.current=false;unsubscribe();unsubscribeIdentity();clearInterval(timer);clearInterval(clock);clearInterval(poll);document.removeEventListener('visibilitychange',visibility);void chargeBrowsing(false,true).catch(()=>{});};
   },[refresh,account]);
   useEffect(()=>{if(!subscription)return;const until=subscription.endsAt-(serverClock.current.ms+performance.now()-serverClock.current.at);if(until<=0){void refresh().catch(()=>{});return;}const timer=setTimeout(()=>{setClockNow(serverClock.current.ms+performance.now()-serverClock.current.at);void refresh().catch(()=>{});},Math.min(until+50,2147483647));return()=>clearTimeout(timer);},[subscription?.endsAt,subscription?.plan,refresh]);
-  useEffect(()=>{if(!locked)return;setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setDetail(null);setConfirm(null);},[locked]);
+  useEffect(()=>{if(!locked)return;retireCommunityContent();feedWindows.current.clear();setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setDetail(null);setConfirm(null);},[locked]);
+  useEffect(()=>{
+    if(!state)return;
+    const scope=[state.member.id,state.member.trade,state.authenticated,professional,state.capabilities?.role].join(':');
+    if(contentScope.current&&contentScope.current!==scope){retireCommunityContent();feedWindows.current.clear();setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setRecipient(null);setComments(null);setDetail(null);setStudio(null);setRevision(value=>value+1);}
+    contentScope.current=scope;
+  },[state?.member.id,state?.member.trade,state?.authenticated,professional,state?.capabilities?.role]);
   useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(timer);},[notice]);
   const handleError=(e:unknown)=>{
     const problem=e as CommunityError;
@@ -121,15 +140,15 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   useEffect(()=>{if(state&&!locked&&initialProfileId&&initialProfileOpened.current!==initialProfileId){initialProfileOpened.current=initialProfileId;openProfile(initialProfileId);}},[!!state,locked,initialProfileId]);
   useEffect(()=>{
     if(tab!=='profile'||!state||locked)return;
-    let active=true;setProfileBusy(true);
+    let active=true;setProfileBusy(!profileData||profileData.member.id!==(profileId||state.member.id));
     const id=profileId||state.member.id;
     if(id==='guest'){setProfileBusy(false);return;}
-    void memberProfile(id).then(data=>{if(active){setProfileData(data);addMembers([data.member]);}}).catch(e=>{if(active)handleError(e);}).finally(()=>{if(active)setProfileBusy(false);});return()=>{active=false;};
+    void memberProfile(id).then(data=>{if(active){setProfileData(data);addMembers([data.member]);}}).catch(e=>{if(!active)return;if((e as CommunityError).code==='CONTENT_CHANGED'){setRevision(value=>value+1);return;}if([401,402,403,404].includes((e as CommunityError).status))setProfileData(null);handleError(e);}).finally(()=>{if(active)setProfileBusy(false);});return()=>{active=false;};
   },[profileId,tab,state?.member.id,revision,locked]);
-  const openDetail=useCallback(async(id:string)=>{
+  const openDetail=useCallback(async(id:string,force=false)=>{
     const requestAccount=authAccount.current;
     try{
-      const data=await publicationDetails(id);
+      const data=await publicationDetails(id,force);
       if(!alive.current||authAccount.current!==requestAccount)return false;
       addMembers(data.members);
       const item=Array.isArray(data.item.media)?data.item as CommunityPost:{...data.item as CommunityReel,media:[(data.item as CommunityReel).media]};
@@ -137,52 +156,78 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
     }catch(e){if(alive.current&&authAccount.current===requestAccount){setDetail(old=>old?.id===id?null:old);setNotice((e as Error).message);}return false;}
   },[addMembers]);
   useEffect(()=>{if(!state||locked||!initialPublicationId||initialPublicationOpened.current===initialPublicationId)return;void openDetail(initialPublicationId).then(opened=>{if(opened)initialPublicationOpened.current=initialPublicationId;});},[!!state,locked,initialPublicationId,openDetail]);
-  useEffect(()=>{if(state&&!locked&&detail?.id)void openDetail(detail.id);},[revision,locked,account]);
+  useEffect(()=>{if(state&&!locked&&detail?.id)void openDetail(detail.id,true);},[revision,locked,account]);
   const kind=tab==='reels'?'reel':tab==='tenders'?'tender':'post';
   const sourceKey=kind+':'+genre+':'+(kind==='post'?mode:'all');
+  const rememberWindow=useCallback((window:TimelineWindow)=>{
+    feedWindows.current.delete(window.key);feedWindows.current.set(window.key,window);
+    while(feedWindows.current.size>6)feedWindows.current.delete(feedWindows.current.keys().next().value!);
+  },[]);
+  const refreshContent=()=>{forcedSources.current.add(sourceKey);forceStories.current=true;setRevision(value=>value+1);};
+  useEffect(()=>{
+    if(!state||locked||tab!=='feed')return;
+    const controller=new AbortController(),requestAccount=account,force=forceStories.current;forceStories.current=false;
+    const cached=!force?peekFeed('story','all','all','',15):null;
+    if(cached){setStoryItems(cached.items as CommunityStory[]);addMembers(cached.members);}
+    void feed('story','all','all','',controller.signal,15,force).then(page=>{
+      if(controller.signal.aborted||authAccount.current!==requestAccount)return;
+      setStoryItems(page.items as CommunityStory[]);addMembers(page.members);
+    }).catch(e=>{if(!controller.signal.aborted&&authAccount.current===requestAccount){if((e as CommunityError).code==='CONTENT_CHANGED'){forceStories.current=true;setRevision(value=>value+1);return;}setStoryItems([]);handleError(e);}});
+    return()=>controller.abort();
+  },[!!state,locked,tab,revision,account]);
   useEffect(()=>{
     if(!state||locked||!['feed','reels','tenders'].includes(tab))return;
-    const controller=new AbortController();setFeedBusy(true);
-    const extent=Math.max(12,timelineWindow.current.key===sourceKey?timelineWindow.current.items.length:12);
+    const controller=new AbortController(),requestAccount=account,force=forcedSources.current.delete(sourceKey);
+    const retained=feedWindows.current.get(sourceKey);
+    if(!force&&retained&&performance.now()<retained.freshUntil){setTimeline(retained);setFeedBusy(false);return;}
+    const extent=Math.max(12,retained?.items.length??(timelineWindow.current.key===sourceKey?timelineWindow.current.items.length:12));
+    const cached=!force?peekFeed(kind,genre,kind==='post'?mode:'all','',Math.min(50,extent)):null;
+    if(cached){addMembers(cached.members);setTimeline({key:sourceKey,items:cached.items as TimelineItem[],cursor:cached.nextCursor,freshUntil:feedFreshUntil(kind,genre,kind==='post'?mode:'all','',Math.min(50,extent))});}
+    else if(timelineWindow.current.key!==sourceKey)setTimeline({key:sourceKey,items:[],cursor:null,freshUntil:0});
+    setFeedBusy(true);
     void (async()=>{
-      let items:TimelineItem[]=[],incoming:CommunityMember[]=[],cursor:string|null=null,pages=0;
+      let items:TimelineItem[]=[],incoming:CommunityMember[]=[],cursor:string|null=null,pages=0,freshUntil=Number.POSITIVE_INFINITY;
       do{
-        const page=await feed(kind,genre,kind==='post'?mode:'all',cursor||'',controller.signal,Math.min(50,extent-items.length));
+        const pageCursor=cursor||'',limit=Math.min(50,extent-items.length);
+        const page=await feed(kind,genre,kind==='post'?mode:'all',pageCursor,controller.signal,limit,force);
         if(controller.signal.aborted)return null;
+        freshUntil=Math.min(freshUntil,feedFreshUntil(kind,genre,kind==='post'?mode:'all',pageCursor,limit)||performance.now());
         items=unique([...items,...page.items as TimelineItem[]]);incoming=unique([...incoming,...page.members]);cursor=page.nextCursor;
       }while(cursor&&items.length<extent&&++pages<Math.ceil(extent/12));
-      return {items,members:incoming,nextCursor:cursor};
+      return {items,members:incoming,nextCursor:cursor,freshUntil};
     })().then(data=>{
-      if(controller.signal.aborted||!data)return;addMembers(data.members);
-      setTimeline({key:sourceKey,items:data.items,cursor:data.nextCursor});
+      if(controller.signal.aborted||!data||authAccount.current!==requestAccount)return;addMembers(data.members);
+      const window={key:sourceKey,items:data.items,cursor:data.nextCursor,freshUntil:data.freshUntil};rememberWindow(window);setTimeline(window);
       setError('');
-    }).catch(e=>{if(!controller.signal.aborted)setError((e as Error).message);}).finally(()=>{if(!controller.signal.aborted)setFeedBusy(false);});
+    }).catch(e=>{if(!controller.signal.aborted&&authAccount.current===requestAccount){if((e as CommunityError).code==='CONTENT_CHANGED'){forcedSources.current.add(sourceKey);setRevision(value=>value+1);return;}if([401,402,403,404].includes((e as CommunityError).status)){feedWindows.current.delete(sourceKey);setTimeline({key:sourceKey,items:[],cursor:null,freshUntil:0});}setError((e as Error).message);}}).finally(()=>{if(!controller.signal.aborted&&authAccount.current===requestAccount)setFeedBusy(false);});
     return()=>controller.abort();
-  },[!!state,tab,genre,mode,revision,locked]);
+  },[!!state,tab,genre,mode,revision,locked,account,rememberWindow]);
   const loadMore=async()=>{
     if(!timeline.cursor||moreBusy||feedBusy)return;const requestAccount=authAccount.current;setMoreBusy(true);
-    try{const page=await feed(kind,genre,kind==='post'?mode:'all',timeline.cursor);if(!alive.current||authAccount.current!==requestAccount)return;addMembers(page.members);setTimeline(old=>old.key===sourceKey?{...old,items:unique([...old.items,...page.items as TimelineItem[]]),cursor:page.nextCursor}:old);}catch(e){handleError(e);}finally{setMoreBusy(false);}
+    try{const page=await feed(kind,genre,kind==='post'?mode:'all',timeline.cursor);if(!alive.current||authAccount.current!==requestAccount)return;addMembers(page.members);const freshUntil=feedFreshUntil(kind,genre,kind==='post'?mode:'all',timeline.cursor,12)||performance.now();setTimeline(old=>{if(old.key!==sourceKey)return old;const window={...old,items:unique([...old.items,...page.items as TimelineItem[]]),cursor:page.nextCursor,freshUntil:Math.min(old.freshUntil,freshUntil)};rememberWindow(window);return window;});}catch(e){if(alive.current&&authAccount.current===requestAccount)handleError(e);}finally{if(alive.current&&authAccount.current===requestAccount)setMoreBusy(false);}
   };
   const share=async(post:CommunityPost)=>{
     const data={title:memberFor(post.authorId).name+' on Repaidians',text:post.caption,url:location.origin+'/?repaidians='+encodeURIComponent(post.id)};
     try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText(data.text+' '+data.url);setNotice('Link copied. Your publication’s visibility rules still apply.');}}catch(e){if((e as Error).name!=='AbortError')setNotice('Sharing is unavailable in this browser.');}
   };
   const like=(id:string)=>void act('like:'+id,async()=>{
-    const item=timeline.items.find(item=>item.id===id) as CommunityPost|undefined;
-    const active=!(item?.liked??state?.activity.likes.includes(id));
-    const result=await toggleActivity(account,'likes',id,active);
+    const item=(timeline.items.find(item=>item.id===id)||(detail?.id===id?detail:undefined)) as CommunityPost|undefined;
+    const result=await toggleActivity(account,'likes',id,!(item?.liked??state?.activity.likes.includes(id)));
     if(!alive.current||authAccount.current!==account)return;
-    setTimeline(old=>({...old,items:old.items.map(item=>item.id===id?{...item,liked:active,likeCount:result.likeCount}:item)}));
+    const active=result.active,patch=(item:TimelineItem)=>item.id===id?{...item,liked:active,likeCount:result.likeCount}:item;
+    for(const [key,window] of feedWindows.current){if(key.endsWith(':liked'))feedWindows.current.delete(key);else feedWindows.current.set(key,{...window,items:window.items.map(patch)});}
+    setTimeline(old=>({...old,items:old.items.filter(item=>active||!old.key.endsWith(':liked')||item.id!==id).map(patch)}));
     setDetail(old=>old?.id===id?{...old,liked:active,likeCount:result.likeCount}:old);
     if(active&&interests?.personalized&&(item?.trade||detail?.trade))void trackWorkBehavior(account,{trade:(item?.trade||detail!.trade),type:'view',sourceId:id}).catch(()=>{});
     setState(old=>old?{...old,activity:{...old.activity,likes:active?uniqueIds([...old.activity.likes,id]):old.activity.likes.filter(value=>value!==id)}}:old);
   });
   const save=(id:string)=>void act('save:'+id,async()=>{
-    const item=timeline.items.find(item=>item.id===id) as CommunityPost|undefined;
-    const active=!(item?.saved??state?.activity.saved.includes(id));
-    await toggleActivity(account,'saved',id,active);
+    const item=(timeline.items.find(item=>item.id===id)||(detail?.id===id?detail:undefined)) as CommunityPost|undefined;
+    const result=await toggleActivity(account,'saved',id,!(item?.saved??state?.activity.saved.includes(id)));
     if(!alive.current||authAccount.current!==account)return;
-    setTimeline(old=>({...old,items:old.items.map(item=>item.id===id?{...item,saved:active}:item)}));
+    const active=result.active,patch=(item:TimelineItem)=>item.id===id?{...item,saved:active}:item;
+    for(const [key,window] of feedWindows.current){if(key.endsWith(':saved'))feedWindows.current.delete(key);else feedWindows.current.set(key,{...window,items:window.items.map(patch)});}
+    setTimeline(old=>({...old,items:old.items.filter(item=>active||!old.key.endsWith(':saved')||item.id!==id).map(patch)}));
     setDetail(old=>old?.id===id?{...old,saved:active}:old);
     if(active&&interests?.personalized&&(item?.trade||detail?.trade))void trackWorkBehavior(account,{trade:(item?.trade||detail!.trade),type:'save',sourceId:id}).catch(()=>{});
     setState(old=>old?{...old,activity:{...old.activity,saved:active?uniqueIds([...old.activity.saved,id]):old.activity.saved.filter(value=>value!==id)}}:old);
@@ -210,16 +255,23 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
     if(!confirm)return;setConfirmBusy(true);
     try{
       if(confirm.kind==='delete'){await deletePublication(confirm.id);setTimeline(old=>({...old,items:old.items.filter(i=>i.id!==confirm.id)}));setDetail(null);setNotice('Publication deleted.');}
-      else if(confirm.kind==='block'){await blockMember(confirm.id);setTimeline({key:'',items:[],cursor:null});setTab('feed');setProfileId(null);setNotice('Member blocked. Their content and messages are hidden.');}
+      else if(confirm.kind==='block'){await blockMember(confirm.id);feedWindows.current.clear();setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setTab('feed');setProfileId(null);setNotice('Member blocked. Their content and messages are hidden.');}
       else {await reportPublication(confirm.id,reason);setNotice('Report submitted for review.');}
       setConfirm(null);
     }catch(e){handleError(e);}finally{setConfirmBusy(false);}
   };
-  const stories=state?.data.stories.filter(story=>story.expiresAt>clockNow)||[];
+  const stories=storyItems.filter(story=>story.expiresAt>clockNow);
   const activeItems=timeline.key===sourceKey?timeline.items:[];
   const currentProfile=profileData?.member||(profileId?memberFor(profileId):state?.member);
   const profilePosts=profileData?[...profileData.posts,...profileData.reels.map(reel=>({...reel,media:[reel.media]}))]:[];
   const profileWithStats=currentProfile?{...currentProfile,postsCount:profileData?profileData.stats.posts+profileData.stats.reels:currentProfile.postsCount}:null;
+  const viewerFollowing=profileData?.viewerFollowing??(!!profileWithStats&&!!state?.activity.following.includes(profileWithStats.id));
+  const followProfile=()=>{if(!profileWithStats)return;void act('follow:'+profileWithStats.id,async()=>{
+    const requestAccount=account,result=await follow(account,profileWithStats.id,!viewerFollowing) as {active:boolean;followersCount?:number};
+    if(!alive.current||authAccount.current!==requestAccount)return;
+    setProfileData(old=>old?.member.id===profileWithStats.id?{...old,viewerFollowing:result.active,member:{...old.member,...(typeof result.followersCount==='number'?{followersCount:result.followersCount}:{})},stats:{...old.stats,...(typeof result.followersCount==='number'?{followers:result.followersCount}:{})}}:old);
+    setState(old=>old?{...old,activity:{...old.activity,following:result.active?uniqueIds([...old.activity.following,profileWithStats.id]):old.activity.following.filter(id=>id!==profileWithStats.id)}}:old);
+  });};
   const onMessage=(member:CommunityMember)=>{if(professional&&signed())setRecipient(member);};
   const quotaLabel=trialActive?'Free trial · '+trialDays+' '+(trialDays===1?'day':'days'):paid?'Pro':state?.authenticated?'Membership required':`${Math.floor(remaining/60000)}:${String(Math.floor(remaining/1000)%60).padStart(2,'0')} today`;
   const showContent=!!state&&!locked;
@@ -230,7 +282,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
       <div className="rp-toolbar"><button className="rp-quota" aria-label={trialActive?'Free trial: '+trialDays+' '+(trialDays===1?'day':'days')+' remaining. Ends '+exactExpiry+'. Browsing access included.':paid?'Repaidians Pro membership. Active until '+exactExpiry:state?.authenticated?'Repaidians membership required':'Daily browsing time remaining'} title={hasAccess?'Membership ends '+exactExpiry:undefined} onClick={()=>signed()&&setUpgrade('A little more room to grow your craft and your connections.')}><span>{hasAccess?<Infinity size={16}/>:<Clock3 size={16}/>}</span>{quotaLabel}</button><div><button className="rp-toolbar-notifications" aria-label="Notifications" aria-pressed={tab==='notifications'} onClick={()=>chooseTab('notifications')}><Bell size={19}/>{!!state?.unreadCount&&<i className="rp-notification-dot"/>}</button><button className="rp-tender-shortcut" aria-label="Tenders" aria-pressed={tab==='tenders'} onClick={()=>chooseTab('tenders')}><BriefcaseBusiness size={18}/><span className="rp-action-label">Tenders</span></button></div></div>
       <main className="rp-content" data-reels={tab==='reels'}>
         {!state&&<div className="rp-loading" role="status"><span className="rp-story-ring"><Avatar member={{id:'loading',name:'',handle:'',trade:'cleaning',role:'',avatarUrl:'',bio:''}}/></span><h2>Your community is coming into view.</h2><p>Connecting to Repaidians…</p></div>}
-        {error&&<div className="rp-error" role="alert"><p>{error}</p><button className="rp-secondary" onClick={()=>{if(!state)void refresh().catch(e=>setError((e as Error).message));else setRevision(v=>v+1);}}>Retry</button></div>}
+        {error&&<div className="rp-error" role="alert"><p>{error}</p><button className="rp-secondary" onClick={()=>{if(!state)void refresh().catch(e=>setError((e as Error).message));else refreshContent();}}>Retry</button></div>}
         {locked&&<div className="rp-locked"><LockKeyhole size={36}/><h2>{state.authenticated?(trialEnded?'Your free trial has ended.':'Continue with Repaidians Pro.'):'That’s today’s 15 minutes.'}</h2><p>{state.authenticated?'Your 60 days of free access from first joining Repaidians have ended. Continue browsing for ₹199 per month. Your existing work stays saved. No automatic charge.':'Your guest preview resets at midnight IST. Sign in to start 60 days of free browsing from first joining.'}</p><button className="rp-primary" onClick={()=>state.authenticated?setUpgrade('Your free trial has ended. Repaidians Pro is required to continue.'):signed()}>{state.authenticated?'Continue with Pro · ₹199/month':'Sign in · 60 days free'}</button><button className="rp-secondary" onClick={onClose}>Back to Repaido</button></div>}
         {locked&&state.authenticated&&<div className="rp-expired-settings"><button className="rp-secondary" onClick={()=>setOptions('settings')}><ShieldCheck size={18}/>Privacy & notifications</button></div>}
         {showContent&&<>
@@ -238,10 +290,15 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
           {tab==='feed'&&<>{mode!=='jobs'&&mode!=='applications'&&<StoriesTray stories={stories} memberFor={memberFor} onOpen={setStoryId} onCreate={professional?()=>create('story'):undefined}/>}<div className="rp-feed-modes" role="tablist" aria-label="Feed source">{([{id:'all',label:'For you',icon:Home},{id:'saved',label:'Saved',icon:Bookmark},...(mode==='liked'?[{id:'liked',label:'Interests',icon:ThumbsUp}] as const:[])] as const).map(item=><button key={item.id} role="tab" id={'rp-feed-tab-'+item.id} aria-controls="rp-feed-panel" aria-selected={mode===item.id} tabIndex={mode===item.id?0:-1} onKeyDown={event=>{const buttons=Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>('[role=tab]'));const index=buttons.indexOf(event.currentTarget);const next=event.key==='ArrowRight'?(index+1)%buttons.length:event.key==='ArrowLeft'?(index+buttons.length-1)%buttons.length:event.key==='Home'?0:event.key==='End'?buttons.length-1:-1;if(next>=0){event.preventDefault();buttons[next].click();buttons[next].focus();}}} onClick={()=>chooseFeed(item.id)}><item.icon size={16}/><span>{item.label}</span></button>)}</div></>}
 
 
+          {['feed','reels','tenders'].includes(tab)&&<div className="rp-genres" aria-label="Publication filters"><button aria-label="Refresh feed" title="Refresh feed" disabled={feedBusy||moreBusy} aria-busy={feedBusy} onClick={refreshContent}><RefreshCw size={17} aria-hidden="true"/></button><button aria-pressed={genre==='all'} onClick={()=>selectGenre('all')}>All trades</button>{orderedTrades.map(trade=><button key={trade.id} aria-pressed={genre===trade.id} onClick={()=>selectGenre(trade.id)}>{trade.name}</button>)}</div>}
+          {['feed','reels','tenders'].includes(tab)&&feedBusy&&!activeItems.length&&<p className="rp-loading" role="status">Loading publications…</p>}
+
           {tab==='feed'&&!['jobs','applications'].includes(mode)&&(!feedBusy||activeItems.length>0)&&<div id="rp-feed-panel" role="tabpanel" aria-labelledby={'rp-feed-tab-'+mode}><Feed professionalActions={professional} renderAttachment={attachment} suspended={!!(recipient||comments||storyId||studio||upgrade||detail||confirm)} posts={activeItems as CommunityPost[]} activity={state.activity} memberFor={memberFor} currentMemberId={state.member.id} onProfile={openProfile} onLike={like} onSave={save} onComments={id=>{if(professional&&signed())setComments(id);}} onShare={post=>void share(post)} onCreate={()=>create()} onDelete={id=>setConfirm({kind:'delete',id})} onReport={id=>{if(signed())setConfirm({kind:'report',id});}}/></div>}
 
           {tab==='reels'&&(!feedBusy||activeItems.length>0)&&<Reels professionalActions={professional} suspended={!!(recipient||comments||storyId||studio||upgrade||detail||confirm)} reels={activeItems as CommunityReel[]} likes={state.activity.likes} memberFor={memberFor} onLike={like} onComments={id=>{if(professional&&signed())setComments(id);}} onProfile={openProfile} onBook={reel=>onBook(reel.trade)} onCreate={()=>create('reel')}/>}
-          {tab==='tenders'&&(!feedBusy||activeItems.length>0)&&<Tenders professionalActions={professional} paid={hasAccess} selfId={state.member.id} tenders={activeItems as CommunityTender[]} bids={state.activity.bids} memberFor={memberFor} onProfile={openProfile} onBid={async id=>{if(!proAction('Send tender interest and connect with the right crew.',()=>{}))return false;const ok=await act('bid:'+id,()=>bid(account,id));if(ok)setNotice('Your interest was sent to the tender owner.');return ok;}} onContact={async tender=>{if(!proAction('Connect directly with tender owners.',()=>{}))return null;try{return (await tenderContact(tender.id)).contact;}catch(e){handleError(e);return null;}}} onCreate={()=>create('tender')}/>}
+          {tab==='tenders'&&(!feedBusy||activeItems.length>0)&&<Tenders professionalActions={professional} paid={hasAccess} selfId={state.member.id} tenders={activeItems as CommunityTender[]} bids={state.activity.bids} memberFor={memberFor} onProfile={openProfile} onBid={async id=>{if(!proAction('Send tender interest and connect with the right crew.',()=>{}))return false;const ok=await act('bid:'+id,()=>bid(account,id));if(ok){setTimeline(old=>({...old,items:old.items.map(item=>item.id===id?{...item,hasBid:true}:item)}));setNotice('Your interest was sent to the tender owner.');}return ok;}} onContact={async tender=>{if(!proAction('Connect directly with tender owners.',()=>{}))return null;try{return (await tenderContact(tender.id)).contact;}catch(e){handleError(e);return null;}}} onCreate={()=>create('tender')}/>}
+
+          {['feed','reels','tenders'].includes(tab)&&timeline.key===sourceKey&&timeline.cursor&&<div className="rp-post-body"><button className="rp-secondary" disabled={feedBusy||moreBusy} aria-busy={moreBusy} onClick={()=>void loadMore()}>{moreBusy?'Loading more…':'Load more'}</button></div>}
 
           {tab==='search'&&<PeopleSearch onProfile={openProfile} onMembers={addMembers}/>}
           {tab==='opportunities'&&<WorkAndMarket key={account} accountKey={account} member={state.member} authenticated={!!state.authenticated} professional={professional} role={state.capabilities?.role||'customer'} city={city} revision={revision} view={workView} onView={chooseWork} jobId={jobTarget} applicationId={applicationTarget} contractId={contractTarget} onOpenMember={openProfile} onDestination={destination} onManage={manage} onShare={shareListing} onOpenProject={onProject} onSignIn={onSignIn} onDiscoverPeople={()=>chooseTab('search')} onPrivacy={()=>setOptions('settings')}/>}
@@ -252,7 +309,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
           {tab==='notifications'&&<CommunityNotifications key={account} accountKey={account} onMembers={addMembers} onProfile={openProfile} onApplications={id=>chooseWork('applications',{applicationId:id})} onJob={id=>chooseWork('jobs',{jobId:id})} onCustomContract={id=>chooseWork('contracts',{contractId:id})} onPublication={id=>void openDetail(id)} onContract={id=>{const requestedAccount=account;void opportunityDetails({source:'contract',id}).then(card=>{if(alive.current&&authAccount.current===requestedAccount)destination(card);}).catch(e=>{if(alive.current&&authAccount.current===requestedAccount)setError((e as Error).message);});}}/>}
           {tab==='profile'&&(state.authenticated||profileId)&&profileBusy&&!profileData&&<p role="status" className="rp-loading">Opening the portfolio…</p>}
           {tab==='profile'&&!state.authenticated&&!profileId&&<EmptyState title="A profile that grows with your craft.">Explore published work and professional portfolios.<button className="rp-primary" onClick={()=>signed()}>Sign in to Repaido</button><button className="rp-business-suite" aria-label="Open Work and market business suite" onClick={()=>{chooseWork('market');}}><BriefcaseBusiness size={19}/><span><strong>Work & market</strong><small>Explore published projects and products</small></span><ArrowRight size={17}/></button></EmptyState>}
-          {tab==='profile'&&(professional||!!profileId)&&(!profileBusy||!!profileData)&&profileWithStats&&profileWithStats.id!=='guest'&&<Profile key={account+':'+profileWithStats.id} account={account} member={profileWithStats} self={profileWithStats.id===state.member.id} posts={profilePosts} following={state.activity.following.includes(profileWithStats.id)} followingCount={profileWithStats.followingCount||0} followersCount={profileWithStats.followersCount||0} authenticated={!!state.authenticated} professionalActions={professional} onOpenMember={openProfile} onNetwork={()=>chooseTab('network')} onJobs={()=>chooseFeed('jobs')} onCompanies={()=>{chooseWork('companies');}} onBack={()=>setTab('feed')} onFollow={()=>void act('follow:'+profileWithStats.id,()=>follow(account,profileWithStats.id,!state.activity.following.includes(profileWithStats.id)))} onMessage={()=>onMessage(profileWithStats)} onBook={()=>onBook(profileWithStats.trade)} onCreate={()=>create()} onPublication={id=>void openDetail(id)} onOptions={()=>setOptions('menu')} onWork={()=>{chooseWork('market');}} onStatusChanged={member=>{addMembers([member]);setProfileData(old=>old?.member.id===member.id?{...old,member}:old);setState(old=>old?.member.id===member.id?{...old,member}:old);}} onBlock={()=>{if(signed())setConfirm({kind:'block',id:profileWithStats.id});}}/>}
+          {tab==='profile'&&(professional||!!profileId)&&(!profileBusy||!!profileData)&&profileWithStats&&profileWithStats.id!=='guest'&&<Profile key={account+':'+profileWithStats.id} account={account} member={profileWithStats} self={profileWithStats.id===state.member.id} posts={profilePosts} following={viewerFollowing} followingCount={profileWithStats.followingCount||0} followersCount={profileWithStats.followersCount||0} authenticated={!!state.authenticated} professionalActions={professional} onOpenMember={openProfile} onNetwork={()=>chooseTab('network')} onJobs={()=>chooseFeed('jobs')} onCompanies={()=>{chooseWork('companies');}} onBack={()=>setTab('feed')} onFollow={followProfile} onMessage={()=>onMessage(profileWithStats)} onBook={()=>onBook(profileWithStats.trade)} onCreate={()=>create()} onPublication={id=>void openDetail(id)} onOptions={()=>setOptions('menu')} onWork={()=>{chooseWork('market');}} onStatusChanged={member=>{addMembers([member]);setProfileData(old=>old?.member.id===member.id?{...old,member}:old);setState(old=>old?.member.id===member.id?{...old,member}:old);}} onBlock={()=>{if(signed())setConfirm({kind:'block',id:profileWithStats.id});}}/>}
         </>}
       </main>
       <aside className="rp-desktop-aside">{showContent&&<><div className="rp-aside-identity"><Avatar member={state.member}/><span><strong>{state.authenticated?state.member.name:'Welcome to Repaidians'}</strong><small>{professional?'@'+state.member.handle:'Discover the people behind the work'}</small></span></div>{professional&&<section className="rp-pro-card"><Crown size={26}/><h2>Make something worth sharing.</h2><p>Join a community built around your craft.</p><button className="rp-primary" onClick={()=>create()}>Share your work</button></section>}<p className="rp-fine">Your feed shows real publications. Trade-only posts stay within their selected community.</p></>}</aside>

@@ -13,9 +13,8 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email == 'firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com' ||
-        (request.auth.token.role != null && request.auth.token.role == 'admin') ||
-        (request.auth.token.admin != null && request.auth.token.admin == true)
+        request.auth.token.get('role', '') == 'admin' ||
+        request.auth.token.get('admin', false) == true
       );
     }
 
@@ -63,15 +62,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 7. Support Tickets: Anyone can submit a ticket; users can read their own; admin manages all
+    // 7. Retained support tickets: owners/admin may read. New cases and every
+    // state change use authenticated server commands with audit/email intent.
     match /support_tickets/{ticketId} {
-      allow create: if true;
-      allow read, update: if isAuthenticated() && (
-        resource.data.user_id == request.auth.uid || 
-        resource.data.userId == request.auth.uid || 
+      allow read: if isAuthenticated() && (
+        resource.data.get('user_id', '') == request.auth.uid ||
+        resource.data.get('userId', '') == request.auth.uid ||
         isAdmin()
       );
-      allow delete: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     // 8. City Slots & Capacity & Coverage: Public read; admin write

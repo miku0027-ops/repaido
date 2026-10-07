@@ -111,3 +111,46 @@ for(const functionName of ['signInWithGoogle','confirmPhoneOtp']){
     assert.deepEqual(changes,[]);assert.match(errors.at(-1),/account changed/i);
   });
 }
+
+function supportFixture(){
+  const member={uid:'account-a',getIdToken:async()=> 'verified-account-a-token'};
+  const auth={currentUser:member,authStateReady:async()=>{}},requests=[];
+  const control={send:async()=>new Response(JSON.stringify({ticket_id:'REP-TICKET-confirmed'}),{status:201})};
+  const support=serviceAst.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='submitSupportTicket');
+  assert.ok(support);
+  const source=transpile(support.getText(serviceAst));
+  const deps={auth,supportRequestIds:new Map(),crypto:{randomUUID:()=> 'stable-request-id'},
+    assertAuthIdentity:uid=>{if(auth.currentUser?.uid!==uid)throw Error('Account changed');},
+    apiFetch:async(...args)=>{requests.push(args);return control.send(...args);}};
+  const submit=new Function('deps','const {'+Object.keys(deps).join(',')+'}=deps;'+source+'return submitSupportTicket;')(deps);
+  return {auth,requests,control,member,submit};
+}
+const supportDetails={name:'Member A',phone:'9876543210',subject:'Booking question',message:'Please review this booking.'};
+
+test('legacy support helper uses the canonical signed API and returns only a confirmed ticket',async()=>{
+  const state=supportFixture();
+  assert.equal(await state.submit({...supportDetails,user_id:'forged'}),'REP-TICKET-confirmed');
+  const [path,init]=state.requests[0];
+  assert.equal(path,'/api/support-tickets');assert.equal(init.headers.Authorization,'Bearer verified-account-a-token');
+  assert.deepEqual(JSON.parse(init.body),{...supportDetails,request_id:'stable-request-id'});
+});
+test('support retries retain the command identity and never fabricate a ticket after server failure',async()=>{
+  const state=supportFixture();let calls=0;
+  state.control.send=async()=>new Response(JSON.stringify(++calls===1?{detail:{message:'Unavailable'}}:{ticket_id:'REP-TICKET-confirmed'}),{status:calls===1?503:201});
+  await assert.rejects(state.submit(supportDetails),/Unavailable/);
+  assert.equal(await state.submit(supportDetails),'REP-TICKET-confirmed');
+  assert.equal(JSON.parse(state.requests[0][1].body).request_id,JSON.parse(state.requests[1][1].body).request_id);
+});
+test('support helper rejects guests and account switches during token resolution',async()=>{
+  const guest=supportFixture();guest.auth.currentUser=null;
+  await assert.rejects(guest.submit(supportDetails),/Sign in/);assert.equal(guest.requests.length,0);
+  const state=supportFixture(),pendingToken=deferred();state.member.getIdToken=()=>pendingToken.promise;
+  const pending=state.submit(supportDetails);await tick();state.auth.currentUser={uid:'account-b'};pendingToken.resolve('old-token');
+  await assert.rejects(pending,/Account changed/);assert.equal(state.requests.length,0);
+});
+test('support helper rejects a late response after switching accounts',async()=>{
+  const state=supportFixture(),pendingResponse=deferred();state.control.send=()=>pendingResponse.promise;
+  const pending=state.submit(supportDetails);await tick();assert.equal(state.requests.length,1);
+  state.auth.currentUser={uid:'account-b'};pendingResponse.resolve(new Response(JSON.stringify({ticket_id:'REP-TICKET-old-account'}),{status:201}));
+  await assert.rejects(pending,/Account changed/);
+});

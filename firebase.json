@@ -11,12 +11,48 @@
       "**/node_modules/**"
     ],
     "rewrites": [
-      {"source":"/api/repaidians/work","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
-      {"source":"/api/repaidians/work/**","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
-      {"source":"/api/repaidians/companies","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
-      {"source":"/api/repaidians/companies/**","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
-      {"source":"/api/repaidians/placements","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
-      {"source":"/api/repaidians/placements/**","run":{"serviceId":"repaido-work-api","region":"us-central1"}},
+      {
+        "source": "/api/repaidians/work",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/work/**",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/companies",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/companies/**",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/placements",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/placements/**",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
       {
         "source": "/api/**",
         "run": {
@@ -31,29 +67,41 @@
     ],
     "headers": [
       {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Strict-Transport-Security",
+            "value": "max-age=31536000"
+          }
+        ]
+      },
+      {
+        "regex": "^/(|index\\.html|worker(/.*)?|shop-admin(/.*)?|company-admin(/.*)?)$",
+        "headers": [
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Content-Security-Policy",
+            "value": "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://api.razorpay.com https://checkout.razorpay.com; upgrade-insecure-requests"
+          }
+        ]
+      },
+      {
         "source": "index.html",
         "headers": [
           {
             "key": "Cache-Control",
             "value": "no-cache, no-store, must-revalidate"
-          }
-        ]
-      },
-      {
-        "source": "brand/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, must-revalidate"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(js|css)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "max-age=31536000, immutable"
           }
         ]
       },
@@ -67,8 +115,31 @@
         ]
       },
       {
+        "source": "assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "brand/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, must-revalidate"
+          }
+        ]
+      },
+      {
         "source": "repaidians-work-push-sw.js",
-        "headers": [{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
       }
     ]
   }

@@ -5,6 +5,11 @@ steps:
     entrypoint: python3
     args: ['scripts/deploy-work-services.py', 'check-build-access', '--project=$PROJECT_ID', '--build=$BUILD_ID', '--build-region=$LOCATION']
 
+  - id: check-firestore-rules-access
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args: ['scripts/deploy-firestore-rules.py', '--project=$PROJECT_ID', '--check-access']
+
   - id: backend-tests
     name: python:3.12-slim
     dir: backend
@@ -20,13 +25,17 @@ steps:
         REPAIDO_STORAGE=sqlite python -m pytest -q
 
   - id: web-tests-and-build
-    name: node:24-bookworm-slim
+    name: node:24-trixie-slim
     dir: web
     entrypoint: bash
     args:
       - -ceu
       - |
-        npm install --global pnpm@11.19.0
+        apt-get update
+        apt-get install --yes --no-install-recommends openjdk-21-jre-headless
+        npm install --global pnpm@11.19.0 firebase-tools@15.32.1
+        # Use only a demo project and loopback emulator; no production records.
+        firebase emulators:exec --project=demo-repaido-security --only=firestore --config=../firebase.security-tests.json 'node ../scripts/test-firestore-security.mjs'
         pnpm install --frozen-lockfile --ignore-scripts
         npm test
         npm run build
@@ -93,6 +102,11 @@ steps:
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: python3
     args: ['scripts/deploy-work-services.py', 'await-release', '--project=$PROJECT_ID', '--build=$BUILD_ID', '--build-region=$LOCATION']
+
+  - id: deploy-firestore-rules
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args: ['scripts/deploy-firestore-rules.py', '--project=$PROJECT_ID']
 
   - id: deploy-work-services
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim

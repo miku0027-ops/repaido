@@ -67,11 +67,13 @@ def create_app(core=None):
         if not gate.acquire(blocking=False):
             raise HTTPException(503, 'A work dispatch is already running.', headers={'Retry-After': '15'})
         try:
+            import repaidians
             import repaidians_work
             import work_push
             import custom_contracts
             import transactional_mail
-            result = {'indexing': repaidians_work.backfill(core, limit=min(body.limit, 20)),
+            result = {'profiles_indexing': repaidians.reindex_professional_members(core, limit=min(body.limit, 5)),
+                      'indexing': repaidians_work.backfill(core, limit=min(body.limit, 20)),
                       'devices': work_push.backfill_devices(core, limit=min(body.limit, 20)),
                       'contracts': custom_contracts.process_notifications(core, limit=min(body.limit, 16)),
                       'updates': repaidians_work.process_updates(core, limit=body.limit),

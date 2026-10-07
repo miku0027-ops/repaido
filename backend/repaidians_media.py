@@ -8,10 +8,12 @@ import os
 import re
 import struct
 import tempfile
+import threading
 import warnings
 from pathlib import Path
 
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
 from PIL import Image, ImageOps
 
 from operations import fail
@@ -19,8 +21,74 @@ from operations import fail
 
 MAX_BYTES = 8 * 1024 * 1024
 MAX_PIXELS = 20_000_000
+STREAM_CHUNK_BYTES = 64 * 1024
+CLOUD_READ_CHUNK_BYTES = 1024 * 1024
 _KEY = re.compile(r"^repaidians/(?:[A-Za-z0-9_-]{1,128}/)*[A-Za-z0-9_-]{1,128}(?:\.(?:jpg|png|webp|mp4|webm))?$")
 _IMAGE_TYPES = {'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/webp': 'WEBP'}
+_client_instance = None
+_client_factory = None
+_client_lock = threading.Lock()
+
+
+def _client():
+    """Reuse the workload's connection pool, never a user's authorization."""
+    from google.cloud import storage
+    global _client_instance, _client_factory
+    with _client_lock:
+        if _client_instance is None or _client_factory is not storage.Client:
+            _client_instance = storage.Client()
+            _client_factory = storage.Client
+        return _client_instance
+
+
+def _blob(key, generation=None):
+    bucket = _client().bucket(_bucket())
+    return bucket.blob(key, generation=generation) if generation is not None else bucket.blob(key)
+
+
+def _read_error(error):
+    if isinstance(error, HTTPException):
+        raise error
+    if isinstance(error, FileNotFoundError) or getattr(error, 'code', None) == 404:
+        fail('NOT_FOUND', 'Community media was not found.', 404)
+    fail('STORAGE_UNAVAILABLE', 'Community media is temporarily unavailable.', 503)
+
+
+class _MediaStream:
+    """Own the reader even if an HTTP disconnect prevents first iteration."""
+    def __init__(self, chunks, reader):
+        self.chunks, self.reader = chunks, reader
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return next(self.chunks)
+
+    def close(self):
+        try:
+            self.chunks.close()
+        finally:
+            self.reader.close()
+
+
+class MediaStreamingResponse(StreamingResponse):
+    def __init__(self, content, **kwargs):
+        self.media_stream = content
+        super().__init__(content, **kwargs)
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            # Starlette's threadpool adapter does not close a synchronous
+            # iterator on cancellation. Cleanup belongs to the HTTP response,
+            # including a disconnect before it emits the first body chunk.
+            import anyio
+            close = getattr(self.media_stream, 'close', None)
+            if close:
+                with anyio.CancelScope(shield=True):
+                    await anyio.to_thread.run_sync(close)
 
 
 def _bucket():
@@ -188,11 +256,10 @@ def write(core, key, data, mime):
     try:
         bucket = _bucket()
         if bucket:
-            from google.cloud import storage
-            blob = storage.Client().bucket(bucket).blob(key)
+            blob = _blob(key)
             blob.cache_control = 'private, no-store'
             blob.upload_from_string(data, content_type=mime, if_generation_match=0)
-            return
+            return getattr(blob, 'generation', None)
         target = _local_path(core, key)
         target.parent.mkdir(parents=True, exist_ok=True)
         # Write and fsync in the destination directory before atomically linking
@@ -229,15 +296,73 @@ def read(core, key):
     try:
         bucket = _bucket()
         if bucket:
-            from google.cloud import storage
-            return storage.Client().bucket(bucket).blob(key).download_as_bytes()
+            return _blob(key).download_as_bytes()
         return _local_path(core, key).read_bytes()
-    except FileNotFoundError:
-        fail('NOT_FOUND', 'Community media was not found.', 404)
-    except HTTPException:
-        raise
     except Exception as error:
-        # Avoid importing cloud clients until a cloud destination is configured.
-        if getattr(error, 'code', None) == 404:
-            fail('NOT_FOUND', 'Community media was not found.', 404)
-        fail('STORAGE_UNAVAILABLE', 'Community media is temporarily unavailable.', 503)
+        _read_error(error)
+
+
+def read_range(core, key, start, end, generation=None):
+    """Fetch only the authorized byte span; a seek never downloads the whole video."""
+    _valid_key(key)
+    if not ready(core):
+        fail('STORAGE_UNAVAILABLE', 'Community media storage is unavailable. Retry later.', 503)
+    if type(start) is not int or type(end) is not int or start < 0 or end < start or end - start + 1 > MAX_BYTES:
+        fail('INVALID_RANGE', 'Invalid community media byte range.', 422)
+    try:
+        if _bucket():
+            content = _blob(key, generation).download_as_bytes(start=start, end=end, raw_download=True)
+        else:
+            with _local_path(core, key).open('rb') as reader:
+                reader.seek(start)
+                content = reader.read(end - start + 1)
+        if len(content) != end - start + 1:
+            fail('STORAGE_UNAVAILABLE', 'Community media is incomplete. Retry later.', 503)
+        return content
+    except Exception as error:
+        _read_error(error)
+
+
+def stream(core, key, size, generation=None):
+    """Open a bounded stream after API authorization, without buffering an entire upload.
+
+    GCS reads use a reusable client and a 1 MB read buffer rather than the SDK's
+    default 40 MB. Pin new objects to the upload generation to avoid mixing
+    versions across chunk requests. Keys are create-only for legacy objects too.
+    The first read happens before response headers so missing objects remain a
+    regular 404/503 rather than a successful response with an interrupted body.
+    """
+    _valid_key(key)
+    if not ready(core):
+        fail('STORAGE_UNAVAILABLE', 'Community media storage is unavailable. Retry later.', 503)
+    if type(size) is not int or not 0 < size <= MAX_BYTES:
+        fail('INVALID_MEDIA', 'Invalid community media size.', 422)
+    reader = None
+    try:
+        if _bucket():
+            reader = _blob(key, generation).open('rb', chunk_size=CLOUD_READ_CHUNK_BYTES, raw_download=True)
+        else:
+            reader = _local_path(core, key).open('rb')
+            if os.fstat(reader.fileno()).st_size != size:
+                fail('STORAGE_UNAVAILABLE', 'Community media is incomplete. Retry later.', 503)
+        first = reader.read(min(size, STREAM_CHUNK_BYTES))
+        if len(first) != min(size, STREAM_CHUNK_BYTES):
+            fail('STORAGE_UNAVAILABLE', 'Community media is incomplete. Retry later.', 503)
+    except Exception as error:
+        if reader is not None:
+            reader.close()
+        _read_error(error)
+
+    def chunks():
+        remaining = size - len(first)
+        try:
+            yield first
+            while remaining:
+                chunk = reader.read(min(remaining, STREAM_CHUNK_BYTES))
+                if not chunk or len(chunk) > remaining:
+                    raise OSError('Incomplete community media stream')
+                remaining -= len(chunk)
+                yield chunk
+        finally:
+            reader.close()
+    return _MediaStream(chunks(), reader)

@@ -434,6 +434,8 @@ def clean_item(item, u=None, actor=None):
         uid = (actor.get('user') or {}).get('id')
         for action, flag in (('likes', 'liked'), ('saved', 'saved')):
             out[flag] = bool(uid and (u.get('rp_activity', digest(uid + ':' + action + ':' + item['id'])) or {}).get('active'))
+        if item['kind'] == 'tender':
+            out['hasBid'] = bool(uid and u.get('rp_bids', digest(item['id'] + ':' + uid)))
     return out
 
 
@@ -501,6 +503,8 @@ def feed_page(u, actor, kind='post', trade='all', mode='all', cursor=None, limit
     more = bool(examined and (len(items) == limit or len(scans) >= limit * 3 + 1))
     if uid:
         u.prefetch([('rp_activity', digest(uid + ':' + action + ':' + item['id'])) for item in items for action in ('likes', 'saved')])
+        if kind == 'tender':
+            u.prefetch([('rp_bids', digest(item['id'] + ':' + uid)) for item in items])
     references = [item['reference'] for item in items if item.get('reference')]
     if references:
         from repaidians_opportunities import reference_pairs
@@ -615,15 +619,18 @@ def install(core):
     core.repaidians_actor = actor
 
     @r.get('/state')
-    def state(a=Depends(actor)):
+    def state(content: Literal['full', 'compact'] = 'full', a=Depends(actor)):
         def read(u):
             from repaidians_work import notification_visible, prefetch_notification_targets
             user = a['user']
             current = member_ensure(u, user) if user else {'id': 'guest', 'name': 'Guest', 'handle': 'guest', 'trade': 'cleaning', 'role': 'Guest', 'avatarUrl': '', 'bio': ''}
             bill = subscription_state(u, (user or {}).get('id'))
             remaining = QUOTA if bill['active'] else 0 if user else usage(u, a['subject'], True)
-            pages = {k: feed_page(u, a, k, limit=15) for k in ('post', 'story', 'reel', 'tender')} if remaining else {}
-            activity = {key: [row['id'] for row in actor_rows(u, 'rp_' + key, user['id'], 200)] if user and remaining else [] for key in ('likes', 'saved', 'following', 'bids')}
+            # New clients load the selected feed and stories separately. Keep
+            # the full bootstrap for older clients, but avoid four duplicate
+            # feeds and global activity-lane scans in metadata refreshes.
+            pages = {k: feed_page(u, a, k, limit=15) for k in ('post', 'story', 'reel', 'tender')} if remaining and content == 'full' else {}
+            activity = {key: [row['id'] for row in actor_rows(u, 'rp_' + key, user['id'], 200)] if user and remaining and content == 'full' else [] for key in ('likes', 'saved', 'following', 'bids')}
             activity['messages'] = []
             all_members = {m['id']: m for p in pages.values() for m in p['members']}
             public_current = member_public(u, current) if user else current
@@ -672,12 +679,12 @@ def install(core):
         if filters.get('trade') and filters['trade'] not in TRADES or filters.get('workStatus') and filters['workStatus'] not in WORK_STATUSES or filters.get('professionalType') and filters['professionalType'] not in PROFESSIONAL_TYPES:
             fail('INVALID_FILTER', 'Choose a supported trade, work status and profile type.', 422)
         prefix = search.strip().casefold()[:20]
-        indexing = False
-        if filters:
-            store.run(lambda u: browse(u, a))
-            indexing = reindex_professional_members(core, 5)
         def read(u):
             browse(u, a)
+            # Legacy directory migration runs in the private bounded worker.
+            # Searches report its progress without doing profile writes or
+            # contending on the global checkpoint in a customer's request.
+            indexing = bool(filters and not (u.get('rp_professional_index_meta', 'v1') or {}).get('complete'))
             if prefix and len(prefix) < 2:
                 return {'members': [], 'nextCursor': None, 'indexing': indexing}
             source = 'rp_search_' + digest(prefix) if prefix else 'rp_member_filter_' + filter_key(filters) if filters else 'rp_member_directory'
@@ -710,6 +717,8 @@ def install(core):
             pages = {k: feed_page(u, a, k, author=member_id, limit=20) for k in ('post', 'reel', 'story')}
             return {'member': member_public(u, row), 'posts': pages['post']['items'], 'reels': pages['reel']['items'],
                     'stories': pages['story']['items'], 'cursors': {k: p['nextCursor'] for k, p in pages.items()},
+                    'viewerFollowing': bool((uid := (a.get('user') or {}).get('id')) and
+                                            (u.get('rp_follows', digest(uid + ':' + member_id)) or {}).get('active')),
                     'stats': {'followers': row.get('followersCount', 0), 'following': row.get('followingCount', 0),
                               'posts': visible_count(u, row, 'post', a), 'reels': visible_count(u, row, 'reel', a)}}
         return store.run(read)
@@ -1274,18 +1283,21 @@ def install(core):
         key = str(uuid.uuid4())
         object_key = 'repaidians/' + digest(user['id']) + '/' + key
         try:
-            storage.write(core, object_key, normalized, mime)
+            generation = storage.write(core, object_key, normalized, mime)
         except Exception as exc:
             from fastapi import HTTPException
             if isinstance(exc, HTTPException):
                 raise
             fail('MEDIA_UNAVAILABLE', 'Media could not be stored. Retry later.', 503)
         record = dict(id=key, ownerId=user['id'], object=object_key, mime=mime, kind=kind, size=len(normalized),
-                      status='ready', createdAt=now_ms(), publicationIds=[])
+                      status='ready', createdAt=now_ms(), publicationIds=[], sha256=hashlib.sha256(normalized).hexdigest())
+        if generation is not None:
+            record['generation'] = str(generation)
         store.run(lambda u: u.put('rp_media', key, record))
         return {'id': key, 'url': '/api/repaidians/media/' + key, 'kind': kind, 'alt': ''}
 
     @r.get('/media/{asset_id}')
+    @r.head('/media/{asset_id}')
     def get_media(asset_id: str, request: Request, response: Response, a=Depends(actor)):
         def read(u):
             browse(u, a)
@@ -1297,31 +1309,48 @@ def install(core):
             if asset.get('avatarFor'):
                 accessible = True
             if not accessible:
-                accessible = any(visible(u, u.get('rp_publications', key), a) for key in asset.get('publicationIds', []))
+                references = asset.get('publicationIds', [])[:20]
+                u.prefetch([('rp_publications', key) for key in references])
+                accessible = any(visible(u, u.get('rp_publications', key), a) for key in references)
             if not accessible:
                 fail('NOT_FOUND', 'Media unavailable.', 404)
             return asset
         asset = store.run(read)
-        try:
-            content = storage.read(core, asset['object'])
-        except Exception:
-            fail('MEDIA_UNAVAILABLE', 'Media is temporarily unavailable.', 503)
-        headers = {'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Accept-Ranges': 'bytes'}
+        size = asset['size']
+        # Create-only object keys make old uploads immutable too. New uploads
+        # use their actual normalized-content digest as the strong validator.
+        etag = '"' + (asset.get('sha256') or hashlib.sha256((asset['object'] + ':' + str(size)).encode()).hexdigest()) + '"'
+        headers = {'Cache-Control': 'private, max-age=0, must-revalidate', 'Vary': 'Authorization, Cookie',
+                   'X-Content-Type-Options': 'nosniff', 'Accept-Ranges': 'bytes', 'ETag': etag}
         if response.headers.get('set-cookie'):
             headers['Set-Cookie'] = response.headers['set-cookie']
+        # Conditional responses are deliberately after all live database access
+        # checks. A cached image cannot bypass blocks, deletion, story expiry,
+        # trade privacy or expired membership, even with a matching validator.
+        validators = [part.strip().removeprefix('W/') for part in request.headers.get('if-none-match', '').split(',')]
+        if etag in validators or '*' in validators:
+            return Response(status_code=304, headers=headers)
+        headers['Content-Length'] = str(size)
+        if request.method == 'HEAD':
+            return Response(media_type=asset['mime'], headers=headers)
         span = request.headers.get('range')
-        if span and asset['kind'] == 'video':
-            found = re.fullmatch(r'bytes=(\d*)-(\d*)', span)
+        if span and request.headers.get('if-range', etag) == etag:
+            found = re.fullmatch(r'bytes=(\d{0,20})-(\d{0,20})', span)
             if not found or not any(found.groups()):
-                return Response(status_code=416, headers={**headers, 'Content-Range': f'bytes */{len(content)}'})
+                headers['Content-Length'] = '0'
+                return Response(status_code=416, headers={**headers, 'Content-Range': f'bytes */{size}'})
             left, right = found.groups()
-            start = int(left) if left else max(0, len(content) - int(right))
-            end = min(len(content) - 1, int(right) if left and right else len(content) - 1)
-            if start > end or start >= len(content):
-                return Response(status_code=416, headers={**headers, 'Content-Range': f'bytes */{len(content)}'})
-            headers['Content-Range'] = f'bytes {start}-{end}/{len(content)}'
-            return Response(content[start:end + 1], status_code=206, media_type=asset['mime'], headers=headers)
-        return Response(content, media_type=asset['mime'], headers=headers)
+            start = int(left) if left else max(0, size - int(right))
+            end = min(size - 1, int(right) if left and right else size - 1)
+            if start > end or start >= size:
+                headers['Content-Length'] = '0'
+                return Response(status_code=416, headers={**headers, 'Content-Range': f'bytes */{size}'})
+            headers['Content-Range'] = f'bytes {start}-{end}/{size}'
+            headers['Content-Length'] = str(end - start + 1)
+            content = storage.read_range(core, asset['object'], start, end, generation=asset.get('generation'))
+            return Response(content, status_code=206, media_type=asset['mime'], headers=headers)
+        return storage.MediaStreamingResponse(storage.stream(core, asset['object'], size, generation=asset.get('generation')),
+                                              media_type=asset['mime'], headers=headers)
 
     # Lifespan creates the base operations table. The SQLite query index must
     # be installed there as well; root wires initialize(core) after Store.init.

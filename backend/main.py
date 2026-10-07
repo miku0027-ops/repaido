@@ -266,8 +266,12 @@ async def security_headers(request: Request, call_next):
         request.scope['raw_path'] = request.scope['raw_path'][4:]
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Cache-Control'] = 'no-store'
+    response.headers.setdefault('Cache-Control', 'private, no-store')
     return response
+
+
+from http_boundary import TransportBoundaryMiddleware
+app.add_middleware(TransportBoundaryMiddleware)
 
 
 def hash_password(password, salt=None):

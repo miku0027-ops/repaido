@@ -46,6 +46,7 @@ export interface CommunityReel extends CommunityItem { caption: string; media: C
 export interface CommunityTender extends CommunityItem {
   title: string; details: string; location: string; budgetRupees: number; slots: number; deadline: number;
   contact: string;
+  hasBid?:boolean;
 }
 export interface CommunityComment {
   id: string; targetId: string; authorId: string; text: string; createdAt: number;
