@@ -57,7 +57,7 @@ try{
  const owner=await register('Live Customer'),contractor=await register('Live Contractor'),agent=await register('Live Agent');
  for(const account of [contractor,agent])fixture('workers',account.user.id,{id:account.user.id,name:account.user.name,status:'approved',contractor_verified:account===contractor,role:'technician',city:'Balasore',skills:['Electrical inspection'],categories:['electrician'],experience_years:4,completed_tasks:0,rating_count:0,rating_sum:0});
  const now=Date.now()/1000;
- const custom=(await api('/operations/custom-contracts/queries',owner,'POST',{request_id:randomUUID(),title:'Live office electrical installation',sector:'Office',work_trade:'electrician',city:'Balasore',area:'Central market',site:'PRIVATE customer office gate 401',location:{lat:21.4934,lng:86.9135},scope:'Inspect and install the agreed lighting with electrical safety checks for the office.',skills:['Electrical inspection'],minimum_experience:2,workforce_requirements:[{worker_type:'electrician',count:2}],starts_at:now+86400,ends_at:now+172800,deadline:now+3600,budget_paise:900000,terms:'Complete the electrical installation safely and record inspection results.'},201)).query;
+ const custom=(await api('/operations/custom-contracts/queries',owner,'POST',{request_id:randomUUID(),title:'Live office electrical installation',sector:'Office',work_trade:'electrician',city:'Balasore',area:'Central market',site:'PRIVATE customer office gate 401',location:{lat:21.4934,lng:86.9135},scope:'Inspect and install the agreed lighting with electrical safety checks for the office.',skills:['Electrical inspection'],minimum_experience:2,workforce_requirements:[{worker_type:'electrician',count:2}],starts_at:now+86400,ends_at:now+172800,deadline:now+3600,budget_paise:900000,terms:'Complete the electrical installation safely and record inspection results.',cta_label:'Contact lead'},201)).query;
  const customer=await newPage(owner,'customer&contract='+custom.id,483);
  await customer.getByRole('navigation',{name:'Contract breadcrumbs'}).waitFor();
  assert.equal(await panel(customer,'Contractor matches').getByRole('button').getAttribute('aria-expanded'),'false');
@@ -142,7 +142,7 @@ try{
  await customer.getByRole('button',{name:'Confirm award at ₹8,500.00',exact:true}).click();
  await customer.getByRole('heading',{name:'Private contract messages',exact:true}).waitFor();
  await professional.getByRole('heading',{name:'Private contract messages',exact:true}).waitFor();
- await openPanel(customer,'Private contract messages');await openPanel(professional,'Private contract messages');
+ await customer.getByRole('button',{name:'Contact lead',exact:true}).click();await eventually(async()=>await customer.getByLabel('Your private message').evaluate(el=>el===document.activeElement),'Configured action must open and focus the private message form.');await openPanel(professional,'Private contract messages');
  await professional.getByLabel('Your private message',{exact:true}).fill('Private instructions for the customer and awarded contractor.');
  await professional.getByRole('button',{name:'Send private message',exact:true}).click();
  await customer.getByText('Private instructions for the customer and awarded contractor.',{exact:true}).waitFor();

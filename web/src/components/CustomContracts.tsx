@@ -39,15 +39,16 @@ export function CustomContractDetail({id,accountKey,mode,onBack,focusProposalId,
   const resource=useCustomContractResource<CustomContractDetails>(accountKey+':query:'+id,(force,signal)=>customContractDetails(id,force,signal));
   const live=useContractLive(id,accountKey),action=useCustomContractAction();
   const [award,setAward]=useState<CustomContractBid|null>(null),[close,setClose]=useState(false),[panel,setPanel]=useState('proposals');
-  const viewed=useRef(''),focused=useRef('');
+  const viewed=useRef(''),focused=useRef(''),workspace=useRef<HTMLDivElement|null>(null),focusMessage=useRef(false);
   useEffect(()=>{if(viewed.current===id)return;viewed.current=id;void markCustomContractViewed(id).catch(()=>{});},[id]);
   useEffect(()=>{if(focusProposalId)setPanel('proposals');},[focusProposalId]);
   useEffect(()=>{if(!focusProposalId||!resource.data||focused.current===focusProposalId)return;const proposal=document.getElementById('cc-proposal-'+focusProposalId);if(proposal){proposal.scrollIntoView({block:'nearest',behavior:'auto'});focused.current=focusProposalId;}},[focusProposalId,resource.data]);
+  useEffect(()=>{if(panel==='messages'&&focusMessage.current){focusMessage.current=false;workspace.current?.querySelector<HTMLTextAreaElement>('[data-panel^=cc-messages] textarea')?.focus();}},[panel]);
   const query=resource.data?.query,project=resource.data?.project;
   const manage=mode==='customer'||!!query?.permissions.can_manage_engagement,toggle=(name:string)=>setPanel(current=>current===name?'':name);
   const progress=project?.status==='completed'?3:project&&['active','paused'].includes(project.status)?2:project?1:0;
   const stateText=resource.error?'Updates need attention':({checking:'Checking for updates…',current:'Updates automatically',paused:'Updates paused',reconnecting:'Connection interrupted · retrying…',unavailable:'Updates unavailable'})[live];
-  return <div className="cc-detail cc-workspace">
+  return <div ref={workspace} className="cc-detail cc-workspace">
     <nav className="cc-breadcrumbs" aria-label="Contract breadcrumbs">
       <button onClick={onBack}><ArrowLeft size={16} aria-hidden="true"/>{manage?'My requests':'Contract opportunities'}</button>
       {query&&<><span aria-hidden="true">/</span><span aria-current="page">{query.title}</span></>}
@@ -63,6 +64,7 @@ export function CustomContractDetail({id,accountKey,mode,onBack,focusProposalId,
         <div className="cc-facts"><span><MapPin size={15} aria-hidden="true"/>{query.area.trim().toLowerCase()===query.city.trim().toLowerCase()?query.city:query.area+', '+query.city}</span><span><CalendarDays size={15} aria-hidden="true"/>{contractDate(query.starts_at)} – {contractDate(query.ends_at)}</span></div>
         <div className="cc-money"><strong>{contractMoney(project?.contract_value_paise??query.budget_paise)}</strong><small>{project?'Agreed contract price':'Planned budget'}</small></div>
         <p className="cc-live-state" role="status" data-state={resource.error?'reconnecting':live}>{stateText}</p>
+        {query.permissions.can_message&&query.controls.cta_enabled!==false&&<button className="cc-primary" onClick={()=>{if(panel==='messages')workspace.current?.querySelector<HTMLTextAreaElement>('[data-panel^=cc-messages] textarea')?.focus();else{focusMessage.current=true;setPanel('messages');}}}>{query.controls.cta_label||'Enquiry'}<MessageCircle size={16} aria-hidden="true"/></button>}
       </header>
       <nav className="cc-contract-stages" aria-label="Contract progress"><ol>{['Requirement','Award','Work','Complete'].map((label,index)=><li key={label} aria-current={query.status!=='closed'&&progress===index?'step':undefined} data-complete={query.status!=='closed'&&index<progress}><span aria-hidden="true">{index<progress?'✓':index+1}</span>{label}</li>)}</ol></nav>
       {query.status==='closed'&&<p className="cc-note">This requirement is closed to new proposals.</p>}
@@ -75,7 +77,7 @@ export function CustomContractDetail({id,accountKey,mode,onBack,focusProposalId,
             <span className="cc-status" data-status={bid.status}>{contractStatus(bid.status)}</span>
             <div className="cc-money"><strong>{contractMoney(bid.amount_paise)}</strong><small>Proposed contract price</small></div>
             <p className="cc-detail-description">{bid.proposal}</p><small>Submitted {contractDate(bid.submitted_at,true)}</small>
-            {query.permissions.can_award&&bid.status==='submitted'&&<button className="cc-primary" disabled={action.busy} onClick={()=>setAward(bid)}>Review & accept proposal<CheckCircle2 size={16} aria-hidden="true"/></button>}
+            {query.permissions.can_award&&bid.status==='submitted'&&<div className="cc-actions"><button className="cc-primary" disabled={action.busy} onClick={()=>setAward(bid)}>Review & accept proposal<CheckCircle2 size={16} aria-hidden="true"/></button>{query.controls.cta_enabled!==false&&<button disabled={action.busy} onClick={()=>setAward(bid)}>{query.controls.cta_label||'Enquiry'}<MessageCircle size={16} aria-hidden="true"/></button>}</div>}
           </article>)}</div>
           {award&&query.permissions.can_award&&<section className="cc-bid-confirm" aria-label="Confirm contract award"><h3>Accept {award.contractor_name}’s proposal</h3><p>The agreed contract price will be <strong>{contractMoney(award.amount_paise)}</strong>. Check the proposal, work dates and requirement before confirming.</p><p className="cc-note">Accepting creates the project. It does not confirm a payment.</p><div className="cc-actions"><button disabled={action.busy} onClick={()=>setAward(null)}>Keep reviewing</button><button className="cc-primary" disabled={action.busy} onClick={()=>void action.run(async()=>{await customContractCommand(query.id,query.version,'award',{bid_id:award.id});setAward(null);await resource.refresh();},'Contract awarded. Your project is ready below.')}>{action.busy?'Confirming award…':'Confirm award at '+contractMoney(award.amount_paise)}</button></div></section>}
         </ContractPanel>
