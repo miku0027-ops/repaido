@@ -451,6 +451,7 @@ def query_view(u, row, user):
     uid = user['id']; owner = uid == row['owner_id']; winner = uid == row.get('awarded_contractor_id')
     worker = u.get('workers', uid) or {}; matching = match(u, row, uid)
     writable = matching['eligible'] and member_access(u, uid)
+    engagement = match(u, row, uid, contractor=False)['eligible'] and member_access(u, uid)
     open_now = row['status'] == 'open' and time.time() < row['deadline']
     stats = u.get('custom_contract_stats', row['id']) or {'views': 0, 'comments': 0, 'reactions': {key: 0 for key in REACTIONS}, 'interests': 0}
     my_reaction = (u.get('custom_contract_reactions', social.digest(row['id'] + ':' + uid)) or {}).get('reaction')
@@ -470,8 +471,8 @@ def query_view(u, row, user):
     output.update(controls=row['controls'], stats={**stats, 'bids': sum(b['status'] == 'submitted' for b in row['bids'])},
                   my_reaction=my_reaction, bids=bids, match=matching, requirements=profile,
                   permissions=dict(can_bid=writable and not owner and open_now, can_award=owner and row['status']=='open' and time.time()<row['ends_at'],
-                    can_close=owner and row['status'] == 'open', can_react=not owner and writable and row['controls']['reactions_enabled'],
-                    can_comment=(owner or writable) and row['controls']['comments_enabled'], can_manage_engagement=owner,
+                    can_close=owner and row['status'] == 'open', can_react=not owner and engagement and row['controls']['reactions_enabled'],
+                    can_comment=(owner or engagement) and row['controls']['comments_enabled'], can_manage_engagement=owner,
                     can_enquire=row['controls'].get('cta_enabled',True) and row['status']=='awarded' and (owner or winner),
                     can_use_cta=row['controls'].get('cta_enabled',True) and (owner or writable or winner),
                     can_message=row['status'] == 'awarded' and (owner or winner), can_view_site=owner or winner))
@@ -590,6 +591,22 @@ def install(core):
             row=get_query(u,qid);access(u,row,user);return details(u,row,user)
         return store.run(read)
 
+    @router.get('/queries/{qid}/updates')
+    def updates(qid: str, response: Response, user=Depends(core.current_user)):
+        # One bounded, authenticated check; no proposal bodies, candidate scan,
+        # site or message content travels through the update channel.
+        response.headers['Cache-Control'] = 'private, no-store'
+        def read(u):
+            row = get_query(u, qid)
+            access(u, row, user)  # Recheck blocks, review and membership on every check.
+            stats = u.get('custom_contract_stats', qid) or {}
+            activity = u.get('custom_contract_activity', qid) or {}
+            project = u.get('contract_projects', row.get('winning_project_id', '')) if row.get('winning_project_id') and parties(row, user['id']) else None
+            signature = [row['version'], stats, activity.get('version', 0) if parties(row, user['id']) else 0,
+                (project or {}).get('version'), time.time() < row['deadline']]
+            return {'revision': hashlib.sha256(json.dumps(signature, sort_keys=True).encode()).hexdigest()}
+        return store.run(read)
+
     @router.post('/queries/{qid}/bids')
     def bid(qid:str,body:Bid,user=Depends(core.current_user)):
         def save(u):
@@ -671,7 +688,7 @@ def install(core):
     @router.put('/queries/{qid}/reaction')
     def reaction(qid:str,body:Reaction,user=Depends(core.current_user)):
         def save(u):
-            uid=user['id'];row=get_query(u,qid);access(u,row,user);professional(u,user,contractor=True)
+            uid=user['id'];row=get_query(u,qid);access(u,row,user);professional(u,user)
             if uid==row['owner_id'] or not row['controls']['reactions_enabled']:fail('REACTIONS_DISABLED','Reactions are disabled for this request.',403)
             rk,sig,old=receipt(u,uid,body,'reaction',qid)
             if old:return {'query':query_view(u,row,user)}
@@ -696,14 +713,14 @@ def install(core):
             return {'recorded':recorded,'views':stats['views']}
         return store.run(save)
 
-    def thread_access(u,row,user,kind,bid_id=None):
+    def thread_access(u,row,user,kind,bid_id=None,writing=False):
         access(u,row,user);uid=user['id']
         if kind in ('messages','enquiries'):
             if row['status']!='awarded' or not parties(row,uid):fail('AWARD_REQUIRED','Contract messages open only between the customer and accepted contractor after award.',403)
         if kind=='enquiries':
             proposal=next((b for b in row['bids'] if b['id']==bid_id),None) if bid_id else None
             if bid_id and (not proposal or bid_id!=row.get('winning_bid_id')):fail('PROPOSAL_REQUIRED','Enquiries must belong to the accepted proposal.',403)
-        if kind=='comments' and not row['controls']['comments_enabled']:fail('COMMENTS_DISABLED','Comments are disabled for this contract.',403)
+        if writing and kind=='comments' and not row['controls']['comments_enabled']:fail('COMMENTS_DISABLED','Comments are disabled for this contract.',403)
 
     def thread_page(u,qid,user,kind,cursor,limit):
         row=get_query(u,qid);thread_access(u,row,user,kind)
@@ -722,9 +739,9 @@ def install(core):
         return dict(items=items,members=public_members(u,[r['author_id'] for r in items]),nextCursor=encode_cursor(examined,user['id'],kind,qid) if more else None)
 
     def write_thread(u,qid,user,body,kind):
-        row=get_query(u,qid);uid=user['id'];thread_access(u,row,user,kind,getattr(body,'bid_id',None))
+        row=get_query(u,qid);uid=user['id'];thread_access(u,row,user,kind,getattr(body,'bid_id',None),writing=True)
         if not user.get('phone_verified'):fail('PHONE_REQUIRED','Verify your phone before communicating about a contract.',403)
-        if uid!=row['owner_id']:professional(u,user,contractor=True)
+        if uid!=row['owner_id']:professional(u,user)
         rk,sig,old=receipt(u,uid,body,kind,qid);key=identifier('custom-'+kind,uid,body.request_id)
         source=social.lane('custom_contract_'+kind,qid)
         if old:return {'item':{k:v for k,v in u.get(source,key).items() if k!='sortKey'}}
@@ -732,7 +749,7 @@ def install(core):
             parent=u.get(source,body.parent_id)
             if not parent or parent.get('parent_id'):fail('REPLY_UNAVAILABLE','Reply to an existing root comment in this contract.',422)
         social.rate(u,uid,'custom-contract-'+kind,limit=60);stamp=time.time()
-        item=dict(id=key,query_id=qid,author_id=uid,text=body.text,created_at=stamp,context='customer' if uid==row['owner_id'] else 'contractor',sortKey=social.sort_key(int(stamp*1000),key))
+        item=dict(id=key,query_id=qid,author_id=uid,text=body.text,created_at=stamp,context='customer' if uid==row['owner_id'] else 'contractor' if (u.get('workers',uid) or {}).get('contractor_verified') else 'agent',sortKey=social.sort_key(int(stamp*1000),key))
         if kind=='enquiries':item['bid_id']=body.bid_id
         elif kind=='comments':item['parent_id']=body.parent_id
         u.put(source,key,item)
@@ -743,6 +760,8 @@ def install(core):
         elif kind=='enquiries':
             proposal=next(b for b in row['bids'] if b['id']==body.bid_id)
             notification(u,proposal['contractor_id'] if uid==row['owner_id'] else row['owner_id'],uid,row,'custom_contract_enquiry',body.bid_id,row['winning_project_id'],event_id=key)
+        activity = u.get('custom_contract_activity', qid) or {'version': 0}
+        u.put('custom_contract_activity', qid, {'version': activity['version'] + 1})
         remember(u,rk,sig,key);return {'item':{k:v for k,v in item.items() if k!='sortKey'}}
 
     @router.get('/queries/{qid}/comments')
@@ -810,6 +829,8 @@ def install(core):
             u.put('custom_contract_interests',key,record);u.put(social.lane('custom_contract_interest',qid),key,{**record,'sortKey':social.sort_key(int(record['created_at']*1000),key)})
             stats=u.get('custom_contract_stats',qid) or {'views':0,'comments':0,'interests':0,'reactions':{r:0 for r in REACTIONS}}
             if not previous:stats['interests']+=1;u.put('custom_contract_stats',qid,stats)
+            activity = u.get('custom_contract_activity', qid) or {'version': 0}
+            u.put('custom_contract_activity', qid, {'version': activity['version'] + 1})
             remember(u,rk,sig,key);return {'interest':record}
         return store.run(save)
 

@@ -3,7 +3,7 @@ import {notifyFeedback} from '../services/actionFeedback';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {ArrowRight,CalendarDays,Eye,MapPin,MessageCircle,RefreshCw,Users} from 'lucide-react';
 import type {ContractPublicMember,CustomContractQuery} from '../types/customContracts';
-import {CustomContractError,subscribeCustomContracts} from '../services/customContractsService';
+import {CustomContractError,subscribeCustomContracts,watchCustomContract,type ContractLiveState} from '../services/customContractsService';
 import {RepaidianBadge} from './RepaidianBadge';
 import {apiAssetUrl} from '../services/api';
 
@@ -12,10 +12,16 @@ export function contractDate(value:number,time=false){return Number.isFinite(val
 export function contractLocalDate(value:number){const date=new Date(value*1000);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);}
 export const contractStatus=(value:string)=>({open:'Awaiting contract award',awarded:'Contract awarded',closed:'Query closed',planning:'Award accepted · planning',active:'Work in progress',paused:'Work paused',completed:'Completed',cancelled:'Cancelled',submitted:'Proposal submitted',requested:'Payment requested',approved:'Approved for payment',reported_pending:'Transfer reported · verification pending',confirmed:'Payment confirmed',rejected:'Declined',expired:'Expired'}[value]||value.replaceAll('_',' '));
 
+export function useContractLive(queryId:string,accountKey:string){
+  const [state,setState]=useState<ContractLiveState>('checking');
+  useEffect(()=>{setState('checking');return watchCustomContract(queryId,setState);},[queryId,accountKey]);
+  return state;
+}
+
 export function useCustomContractResource<T>(key:string,load:(force:boolean,signal:AbortSignal)=>Promise<T>,enabled=true){
   const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>({key,data:null,busy:enabled,error:''}),[revision,setRevision]=useState(0);
   const loader=useRef(load),controller=useRef<AbortController|null>(null),generation=useRef(0),mounted=useRef(true);loader.current=load;
-  const refresh=useCallback(async(force=true)=>{if(!enabled)return;controller.current?.abort();const abort=new AbortController();controller.current=abort;const epoch=++generation.current;setState(prior=>({key,data:prior.key===key?prior.data:null,busy:true,error:''}));try{const data=await loader.current(force,abort.signal);if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState({key,data,busy:false,error:''});}catch(error){if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState(prior=>({...prior,data:error instanceof CustomContractError&&[401,403,404].includes(error.status)?null:prior.data,busy:false,error:(error as Error).message}));}},[key,enabled]);
+  const refresh=useCallback(async(force=true)=>{if(!enabled)return;controller.current?.abort();const abort=new AbortController();controller.current=abort;const epoch=++generation.current;setState(prior=>({key,data:prior.key===key?prior.data:null,busy:true,error:''}));try{const data=await loader.current(force,abort.signal);if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState({key,data,busy:false,error:''});}catch(error){if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState(prior=>({...prior,data:error instanceof CustomContractError&&[401,402,403,404].includes(error.status)?null:prior.data,busy:false,error:(error as Error).message}));}},[key,enabled]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;generation.current++;controller.current?.abort();};},[]);
   useEffect(()=>subscribeCustomContracts(()=>setRevision(value=>value+1)),[]);
   useEffect(()=>{void refresh(false);return()=>{generation.current++;controller.current?.abort();};},[refresh,revision]);

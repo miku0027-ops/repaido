@@ -83,3 +83,21 @@ might already have succeeded.
 The Android customer app renders the same web interface. Native Poppins family
 resources and their licence also live in the customer and agent Android apps; those require an APK
 build to update the native launch screen.
+
+Customer contract details use the same spacing and status hierarchy as booking
+cards: a breadcrumb, a summary card, a four-stage trail and named management
+panels. Proposals open first; matching explanations and post settings start
+closed. One panel opens at a time, and a closed panel keeps any draft already
+started. Customer reaction totals are read-only facts, not disabled buttons.
+
+An open contract shares one authenticated update watcher across its panels. It
+checks a small server revision every 2.5 seconds and reloads saved data only when
+that revision changes. Hidden tabs pause; returning or reconnecting checks
+immediately. Interrupted connections show a retry status, and revoked access
+clears private content. Exact sites, other contractors' bids and private messages
+stay behind the existing server permissions. Agents who have recorded eligible
+availability can react and comment, but cannot submit contractor proposals.
+
+Run `web/tests/custom-contract-live.browser.mjs` against local Vite to test
+simultaneous customer, contractor and agent sessions with disposable SQLite data,
+reconnection, privacy, panel defaults, AAA contrast and 200% text layouts.

@@ -115,6 +115,8 @@ def test_query_engagement_is_real_exclusive_scoped_and_owner_can_disable(ready):
     current=ready.get(url,headers=auth('shop')).json()['query'];assert current['stats']['comments']==2
     updated=command(ready,current,'engagement',comments_enabled=False,reactions_enabled=False)['query']
     assert not updated['permissions']['can_comment'] and not updated['permissions']['can_react']
+    history=ready.get(url+'/comments',headers=auth('worker'))
+    assert history.status_code==200 and len(history.json()['items'])==2
     assert ready.post(url+'/comments',headers=auth('shop'),json={'request_id':str(uuid.uuid4()),'text':'Disabled comment'}).status_code==403
     assert ready.put(url+'/reaction',headers=auth('worker'),json={'request_id':str(uuid.uuid4()),'reaction':'useful'}).status_code==403
 
@@ -314,3 +316,71 @@ def test_legacy_embedded_proposal_reads_and_tender_budget_rolls_back_mutations(r
     from fastapi import HTTPException
     with pytest.raises(HTTPException) as error:put('contract_tenders',q['id'],oversized)
     assert error.value.status_code==409 and get('contract_tenders',q['id'])==before
+
+
+def test_update_revision_tracks_real_activity_and_replays_without_private_data(ready, monkeypatch):
+    q, _ = query(ready)
+    url = PREFIX+'/queries/'+q['id']
+    def revision(uid='shop'):
+        r = ready.get(url+'/updates', headers=auth(uid))
+        assert r.status_code == 200, r.text
+        assert r.headers['cache-control'] == 'private, no-store'
+        assert set(r.json()) == {'revision'} and len(r.json()['revision']) == 64
+        return r.json()['revision']
+    first = revision()
+    assert ready.post(url+'/view', headers=auth('shop'), json={'request_id':str(uuid.uuid4())}).json()['recorded'] is False
+    assert revision() == first
+    ready.post(url+'/view', headers=auth('worker'), json={'request_id':str(uuid.uuid4())})
+    second = revision(); assert second != first
+    ready.post(url+'/view', headers=auth('worker'), json={'request_id':str(uuid.uuid4())})
+    assert revision() == second
+    reaction = {'request_id':str(uuid.uuid4()), 'reaction':'useful'}
+    assert ready.put(url+'/reaction', headers=auth('worker'), json=reaction).status_code == 200
+    third = revision(); assert third != second
+    ready.put(url+'/reaction', headers=auth('worker'), json=reaction)
+    assert revision() == third
+    comment = {'request_id':str(uuid.uuid4()), 'text':'The agreed dates fit the installation.'}
+    assert ready.post(url+'/comments', headers=auth('worker'), json=comment).status_code == 201
+    fourth = revision(); assert fourth != third
+    assert ready.get(url+'/updates', headers=auth('stranger')).status_code == 404
+    def forbidden(*args, **kwargs): raise AssertionError('Update checks must not scan collections.')
+    monkeypatch.setattr(Unit, 'all', forbidden); monkeypatch.setattr(Unit, 'find', forbidden)
+    assert revision() == fourth
+    worker = get('workers','worker'); put('workers','worker',{**worker,'status':'rejected'})
+    assert ready.get(url+'/updates', headers=auth('worker')).status_code == 404
+
+
+def test_recorded_agents_can_react_and_comment_but_never_bid_or_read_private_records(ready):
+    q, _ = query(ready); url = PREFIX+'/queries/'+q['id']
+    # Existing nearby/membership discovery boundary is still required.
+    assert ready.get(url, headers=auth('worker2')).status_code == 404
+    body = dict(request_id=str(uuid.uuid4()), note='Available to install the cooling equipment on these dates.', available=True, worker_type='ac_installer', **location())
+    assert ready.post(url+'/interest', headers=auth('worker2'), json=body).status_code == 200
+    agent = ready.get(url, headers=auth('worker2')).json()['query']
+    assert agent['permissions']['can_react'] and agent['permissions']['can_comment']
+    assert not agent['permissions']['can_bid'] and not agent['permissions']['can_view_site']
+    assert 'site' not in agent and 'location' not in agent and not agent['bids']
+    assert ready.put(url+'/reaction', headers=auth('worker2'), json={'request_id':str(uuid.uuid4()),'reaction':'support'}).status_code == 200
+    assert ready.post(url+'/comments', headers=auth('worker2'), json={'request_id':str(uuid.uuid4()),'text':'I am available for the requested installer work.'}).status_code == 201
+    owner = ready.get(url, headers=auth('shop')).json()['query']
+    assert owner['stats']['reactions']['support'] == 1 and owner['stats']['comments'] == 1
+    assert ready.post(url+'/bids', headers=auth('worker2'), json=dict(request_id=str(uuid.uuid4()),expected_version=q['version'],amount_paise=800000,proposal='An agent may not submit a contractor proposal.',accepted_terms=True)).status_code == 403
+    command(ready, owner, 'engagement', comments_enabled=False, reactions_enabled=False)
+    assert ready.put(url+'/reaction', headers=auth('worker2'), json={'request_id':str(uuid.uuid4()),'reaction':'useful'}).status_code == 403
+    assert ready.post(url+'/comments', headers=auth('worker2'), json={'request_id':str(uuid.uuid4()),'text':'Disabled.'}).status_code == 403
+
+
+def test_updates_follow_award_and_private_messages_without_publishing_their_contents(ready):
+    q, _ = query(ready); q, _ = bid(ready, q); url = PREFIX+'/queries/'+q['id']
+    before = ready.get(url+'/updates',headers=auth('shop')).json()
+    result = command(ready, q, 'award', bid_id=q['bids'][0]['id'])
+    awarded = ready.get(url+'/updates',headers=auth('shop')).json(); assert awarded != before
+    body = {'request_id':str(uuid.uuid4()),'text':'PRIVATE message and customer site instructions.'}
+    assert ready.post(url+'/messages',headers=auth('worker'),json=body).status_code == 201
+    after = ready.get(url+'/updates',headers=auth('shop')).json(); assert after != awarded
+    assert 'PRIVATE' not in json.dumps(after)
+    ready.post(url+'/messages',headers=auth('worker'),json=body)
+    assert ready.get(url+'/updates',headers=auth('shop')).json() == after
+    project = get('contract_projects',result['project']['id'])
+    put('contract_projects',project['id'],{**project,'version':project['version']+1,'status':'active'})
+    assert ready.get(url+'/updates',headers=auth('shop')).json() != after

@@ -4,6 +4,7 @@ import {withActionFeedback} from './actionFeedback';
 import {createReadCache} from './readCache.mjs';
 import type {ContractFreshLocation,ContractReaction,CustomContractCommentsPage,CustomContractDetails,CustomContractDraft,CustomContractMessagesPage,CustomContractInterestsPage,CustomContractsPage} from '../types/customContracts';
 import {readDeviceLocation} from './deviceLocation.mjs';
+import {createContractWatcher} from './contractLive.mjs';
 
 const reads=createReadCache({maxEntries:64}),commands=new Map<string,string>();
 const UPDATE='repaido:custom-contracts-updated';
@@ -14,6 +15,30 @@ function syncIdentity(){const next=scopeNow();if(next!==identity){identity=next;
 async function capturedIdentity(){await auth.authStateReady();const user=auth.currentUser,fallback=user?null:localStorage.getItem('repaido.token'),scope=syncIdentity(),epoch=generation;const token=user?await user.getIdToken():fallback;if(auth.currentUser?.uid!==user?.uid||(!user&&localStorage.getItem('repaido.token')!==fallback)||syncIdentity()!==scope)throw new CustomContractError('Your account changed. Reopen this contract.',409,'ACCOUNT_CHANGED');if(!token)throw new CustomContractError('Sign in to view your contract requests.',401,'AUTH_REQUIRED');return {scope,token,epoch};}
 export function invalidateCustomContractReads(){generation++;reads.invalidate();window.dispatchEvent(new Event(UPDATE));}
 export function subscribeCustomContracts(listener:()=>void){window.addEventListener(UPDATE,listener);return()=>window.removeEventListener(UPDATE,listener);}
+export type ContractLiveState='checking'|'current'|'paused'|'reconnecting'|'unavailable';
+const liveQueries=new Map<string,{listeners:Set<(state:ContractLiveState)=>void>;state:ContractLiveState;stop:()=>void}>();
+export function watchCustomContract(id:string,listener:(state:ContractLiveState)=>void){
+  const scope=syncIdentity(),key=scope+':'+id;
+  let shared=liveQueries.get(key);
+  if(!shared){
+    const listeners=new Set<(state:ContractLiveState)=>void>();
+    const publish=(state:ContractLiveState)=>{if(shared){shared.state=state;listeners.forEach(receive=>receive(state));}};
+    const watcher=createContractWatcher({
+      read:async(signal:AbortSignal)=>{
+        if(syncIdentity()!==scope)throw new CustomContractError('Your account changed. Reopen this contract.',409,'ACCOUNT_CHANGED');
+        return request<{revision:string}>(queryPath(id)+'/updates',{signal});
+      },
+      onChange:()=>{if(syncIdentity()===scope)invalidateCustomContractReads();},
+      onState:publish,active:()=>!document.hidden&&navigator.onLine,
+    });
+    const resume=()=>watcher.resume();
+    document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);window.addEventListener('offline',resume);
+    shared={listeners,state:'checking',stop:()=>{watcher.stop();document.removeEventListener('visibilitychange',resume);window.removeEventListener('online',resume);window.removeEventListener('offline',resume);}};
+    liveQueries.set(key,shared);watcher.start();
+  }
+  shared.listeners.add(listener);listener(shared.state);
+  return()=>{shared!.listeners.delete(listener);if(!shared!.listeners.size){shared!.stop();liveQueries.delete(key);}};
+}
 async function request<T>(path:string,init:RequestInit={},owner?:Awaited<ReturnType<typeof capturedIdentity>>):Promise<T>{
   return withActionFeedback(path,init,()=>performRequest<T>(path,init,owner));
 }

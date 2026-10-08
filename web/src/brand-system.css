@@ -255,4 +255,9 @@
     .account-card-shortcuts { grid-template-columns: minmax(0,1fr) !important; }
   }
   @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+  .cc-workspace .cc-management-panel { padding: 0 !important; }
+  .cc-workspace .cc-panel-toggle { background: var(--ui-surface) !important; color: var(--ui-ink) !important; border: 0 !important; padding: var(--card-padding) !important; border-radius: var(--ui-radius) !important; }
+  .cc-workspace .cc-panel-content>.cc-section { padding: 0 !important; }
+  .cc-workspace .cc-contract-stages li[aria-current]>span { color: #fff !important; }
+
 }
