@@ -9,12 +9,13 @@ import {actionFeedback,clearFeedback,dismissFeedback,notifyFeedback,type Feedbac
 import './app-experience.css';
 
 function FeedbackCard({item}:{item:Feedback}){
- const [paused,setPaused]=useState(false);
+ const [paused,setPaused]=useState(false),[slow,setSlow]=useState(false);
+ useEffect(()=>{setSlow(false);if(item.tone!=='pending')return;const timer=setTimeout(()=>setSlow(true),10000);return()=>clearTimeout(timer);},[item.id,item.tone]);
  useEffect(()=>{if(paused||item.tone==='pending'||item.tone==='error')return;const timer=setTimeout(()=>dismissFeedback(item.id),9000);return()=>clearTimeout(timer);},[item.id,item.at,item.tone,paused]);
  const Icon=item.tone==='pending'?LoaderCircle:item.tone==='success'?CheckCircle2:item.tone==='error'?AlertCircle:Info;
  return <div className="app-feedback-card" data-tone={item.tone} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setPaused(false);}}>
   <Icon size={22} aria-hidden="true" className={item.tone==='pending'?'app-feedback-spinner':''}/>
-  <div role={item.tone==='error'?'alert':'status'} aria-atomic="true"><strong>{item.title}</strong><p>{item.message}</p></div>
+  <div role={item.tone==='error'?'alert':'status'} aria-atomic="true"><strong>{item.title}</strong>{(item.message||slow)&&<p>{item.message||'Still waiting for confirmation…'}</p>}</div>
   {item.tone!=='pending'&&<button type="button" aria-label="Dismiss notification" onClick={()=>dismissFeedback(item.id)}><X size={18}/></button>}
  </div>;
 }

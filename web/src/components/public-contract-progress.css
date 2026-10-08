@@ -2,14 +2,14 @@
 .public-contract-history{margin:18px 0;padding:16px;border:1px solid var(--ui-line);border-radius:18px;background:var(--ui-surface)}
 .public-contract-history-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
 .public-contract-history-heading>div{min-width:0}
-.public-contract-history-heading>div>span{font-size:.625rem;font-weight:750;line-height:1.5;letter-spacing:.08em;color:var(--ui-muted)}
-.public-contract-history-heading h2{font-size:1rem;line-height:1.4;margin:3px 0 0;font-weight:750}
+.public-contract-history-heading>div>span{font-size:.625rem;font-weight:700;line-height:1.5;letter-spacing:.08em;color:var(--ui-muted)}
+.public-contract-history-heading h2{font-size:1rem;line-height:1.4;margin:3px 0 0;font-weight:700}
 .public-contract-history button,.public-contract-progress button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 12px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface);color:var(--ui-link);font-size:.8125rem;font-weight:700;line-height:1.5;text-align:left}
 .public-contract-history-heading>button{padding:10px;flex:none}
 .public-contract-history button svg,.public-contract-progress button svg{flex:none}
 .public-contract-history-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr));gap:12px}
 .public-contract-history-grid>article{min-width:0;padding:14px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-subtle)}
-.public-contract-summary h3{margin:7px 0;font-size:.9375rem;line-height:1.45;font-weight:750}
+.public-contract-summary h3{margin:7px 0;font-size:.9375rem;line-height:1.45;font-weight:700}
 .public-contract-summary p{margin:4px 0;font-size:.8125rem;line-height:1.5;color:var(--ui-muted)}
 .public-contract-state{display:inline-block;font-size:.6875rem;font-weight:700;line-height:1.5;color:var(--ui-link)}
 .public-contract-dates,.public-contract-review-count{display:flex;align-items:flex-start;gap:7px;color:var(--ui-muted);font-size:.75rem;line-height:1.5}
@@ -20,7 +20,7 @@
 .public-contract-refresh{display:flex;justify-content:flex-end;margin:8px 0}
 .public-contract-back{margin-bottom:12px}
 .public-contract-section{margin-top:18px;padding-top:14px;border-top:1px solid var(--ui-line);min-width:0}
-.public-contract-section h4{margin:0 0 12px;font-size:.875rem;font-weight:750;line-height:1.5}
+.public-contract-section h4{margin:0 0 12px;font-size:.875rem;font-weight:700;line-height:1.5}
 .public-contract-section ol,.public-contract-section ul{list-style:none;padding:0;margin:0}
 .public-contract-calendar,.public-contract-milestones{display:grid;gap:10px}
 .public-contract-calendar li,.public-contract-milestones li{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-subtle)}

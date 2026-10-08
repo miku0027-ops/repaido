@@ -187,7 +187,7 @@
 
 .contractor-grid-num {
   font-size: 1.45rem;
-  font-weight: 900;
+  font-weight:700;
   color: #0f306e;
   letter-spacing: -0.02em;
   margin: 4px 0 2px;
@@ -333,7 +333,7 @@
 
 .contractor-tender-title {
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight:700;
   color: #0f172a;
   line-height: 1.35;
   margin: 0 0 4px;
@@ -352,7 +352,7 @@
 
 .contractor-tender-budget-val {
   font-size: 1.15rem;
-  font-weight: 900;
+  font-weight:700;
   color: #0f306e;
 }
 
@@ -395,7 +395,7 @@
 
 .contractor-col-label {
   font-size: 0.65rem;
-  font-weight: 800;
+  font-weight:700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #64748b;
@@ -407,7 +407,7 @@
 
 .contractor-col-value {
   font-size: 0.88rem;
-  font-weight: 800;
+  font-weight:700;
   color: #0f172a;
   white-space: normal;
   overflow-wrap: break-word;
@@ -418,12 +418,12 @@
 .contractor-col-value.val-navy {
   color: #0f306e;
   font-size: 0.98rem;
-  font-weight: 900;
+  font-weight:700;
 }
 
 .contractor-col-value.val-emerald {
   color: #059669;
-  font-weight: 800;
+  font-weight:700;
 }
 
 .contractor-col-value.val-amber {
@@ -518,7 +518,7 @@
   border-radius: 12px;
   background: #eff6ff;
   color: #1e40af;
-  font-weight: 800;
+  font-weight:700;
   font-size: 0.95rem;
   display: flex;
   align-items: center;
@@ -615,7 +615,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
+  font-weight:700;
   font-size: 0.85rem;
   background: #ecfdf5;
   color: #065f46;

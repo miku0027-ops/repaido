@@ -68,7 +68,7 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setBackgroundColor(Color.parseColor("#F8FAFC"))
+            setBackgroundColor(Color.parseColor("#F4F6FA"))
         }
 
         val card = LinearLayout(this).apply {
@@ -92,8 +92,8 @@ class MainActivity : Activity() {
         val pulsingDot = View(this).apply {
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#FF6B35"))
-                setStroke(12, Color.parseColor("#FFD7B8"))
+                setColor(Color.parseColor("#17285C"))
+                setStroke(12, Color.parseColor("#DCE1E8"))
             }
             background = bg
             layoutParams = LinearLayout.LayoutParams(24, 24)
@@ -106,7 +106,7 @@ class MainActivity : Activity() {
         pulsingDot.startAnimation(pulseAnimation)
 
         val info = TextView(this).apply {
-            text = "Loading live service map..."
+            text = "Opening Repaido…"
             setTextColor(Color.parseColor("#1E293B"))
             textSize = 13f
             gravity = Gravity.CENTER
@@ -141,7 +141,7 @@ class MainActivity : Activity() {
         }
 
         web = WebView(this)
-        web.setBackgroundColor(Color.parseColor("#F8FAFC"))
+        web.setBackgroundColor(Color.parseColor("#F4F6FA"))
         web.visibility = View.GONE
         web.layoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,

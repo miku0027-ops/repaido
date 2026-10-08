@@ -17,7 +17,11 @@ export async function apiFetch(path: string, init?: RequestInit, options?: {back
   const background=options?.background??((init?.method||'GET').toUpperCase()==='GET');
   const done=background?()=>{}:beginLoading(path);
   try{
-    const send=()=>fetch(`${configuredOrigin}${path}`, {...init,signal:init?.signal||AbortSignal.timeout(20000)});
+    // A caller's cancellation signal must not disable the request deadline.
+    const upload = typeof Blob !== 'undefined' && init?.body instanceof Blob || typeof FormData !== 'undefined' && init?.body instanceof FormData;
+    const deadline=AbortSignal.timeout(upload?120000:20000);
+    const signal=init?.signal?AbortSignal.any([init.signal,deadline]):deadline;
+    const send=()=>fetch(`${configuredOrigin}${path}`, {...init,signal});
     if(options?.feedback===false||options?.background&&options?.feedback!==true)return await send();
     let response:Response|undefined;
     try{await withActionFeedback(path,init||{},async()=>{

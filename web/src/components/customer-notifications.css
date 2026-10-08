@@ -9,7 +9,7 @@ dialog.customer-notification-dialog {
 .notif-drawer-header {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(16px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--ui-line);}
 .notif-drawer-brand {display:flex;align-items:center;gap:12px;min-width:0;}
 .notif-drawer-brand-icon {display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:14px;background:var(--ui-primary);color:#fff;}
-.notif-drawer-brand h2 {font-size:1.125rem;margin:0;font-weight:750;line-height:1.35;}
+.notif-drawer-brand h2 {font-size:1.125rem;margin:0;font-weight:700;line-height:1.35;}
 .notif-drawer-brand p {font-size:.875rem;margin:3px 0 0;color:var(--ui-muted);}
 .notif-header-close-btn,.notif-header-btn,.notif-mark-read-btn {display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface);color:var(--ui-ink);padding:10px;font-size:.875rem;flex:none;}
 .notif-header-close-btn {padding:0;}
@@ -21,7 +21,7 @@ dialog.customer-notification-dialog {
 .notif-card {padding:16px;border:1px solid var(--ui-line);border-radius:16px;margin-bottom:12px;background:var(--ui-surface);overflow-wrap:anywhere;}
 .notif-card.is-unread {background:var(--ui-subtle);border-inline-start:3px solid var(--ui-link);}
 .notif-card-header {display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-.notif-micro-tag {font-size:.75rem;font-weight:650;color:var(--ui-link);}
+.notif-micro-tag {font-size:.75rem;font-weight:600;color:var(--ui-link);}
 .notif-unread-dot {height:7px;width:7px;flex:none;border-radius:50%;background:var(--ui-link);}
 .notif-card-title {font-size:1rem;font-weight:700;line-height:1.4;margin:0 0 6px;}
 .notif-card-desc {font-size:.875rem;line-height:1.6;margin:0 0 10px;color:var(--ui-muted);white-space:pre-wrap;}

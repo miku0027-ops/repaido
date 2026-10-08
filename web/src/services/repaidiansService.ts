@@ -130,8 +130,9 @@ async function performCommunityRequest<T>(path: string, init: RequestInit): Prom
     if (token) headers.set('Authorization', 'Bearer ' + token);
     if (typeof init.body === 'string') headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
+    const deadline=AbortSignal.timeout(typeof Blob!=='undefined'&&init.body instanceof Blob?120000:30000);
     const response = await fetch('/api/repaidians' + path, {
-      ...init, headers, credentials:'same-origin', signal:init.signal || AbortSignal.timeout(30000),
+      ...init, headers, credentials:'same-origin', signal:init.signal ? AbortSignal.any([init.signal,deadline]) : deadline,
     });
     const body = await response.json().catch(() => ({}));
     assertIdentity(owner);

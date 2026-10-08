@@ -61,7 +61,7 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
   const cached=path==='/jobs'||path==='/notifications';
   const done=(options.background??read)?()=>{}:beginLoading(path);
   const load=async()=>{
-    const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal||AbortSignal.timeout(15000), headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});
+    const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal, headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});
     const body = await response.json().catch(()=>({}));
     if (!response.ok) throw new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.'));
     if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');

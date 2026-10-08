@@ -59,7 +59,7 @@ public class AgentActivity extends Activity {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ));
-        root.setBackgroundColor(Color.parseColor("#F8FAFC"));
+        root.setBackgroundColor(Color.parseColor("#F4F6FA"));
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -82,8 +82,8 @@ public class AgentActivity extends Activity {
         View pulsingDot = new View(this);
         GradientDrawable dotBg = new GradientDrawable();
         dotBg.setShape(GradientDrawable.OVAL);
-        dotBg.setColor(Color.parseColor("#FF6B35"));
-        dotBg.setStroke(12, Color.parseColor("#FFD7B8"));
+        dotBg.setColor(Color.parseColor("#17285C"));
+        dotBg.setStroke(12, Color.parseColor("#DCE1E8"));
         pulsingDot.setBackground(dotBg);
         LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(24, 24);
         dotParams.topMargin = 16;
@@ -91,7 +91,7 @@ public class AgentActivity extends Activity {
         pulsingDot.startAnimation(AnimationUtils.loadAnimation(this, android.R.anim.fade_in));
 
         TextView info = new TextView(this);
-        info.setText("Loading technician dashboard...");
+        info.setText("Opening your workspace…");
         info.setTextColor(Color.parseColor("#1E293B"));
         info.setTextSize(13f);
         info.setGravity(Gravity.CENTER);
@@ -126,7 +126,7 @@ public class AgentActivity extends Activity {
         ));
 
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#F8FAFC"));
+        web.setBackgroundColor(Color.parseColor("#F4F6FA"));
         web.setVisibility(View.GONE);
         FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,

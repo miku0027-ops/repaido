@@ -47,14 +47,14 @@ export const tips = [
  ['worker','Review the task brief before setting off.']
 ];
 export function loadingLabel(path){
- if(/tracking|position|availability/.test(path))return 'Updating location and availability…';
- if(/payment|checkout|refund|payout/.test(path))return 'Checking payment details securely…';
- if(/hire|professionals|leaderboard/.test(path))return 'Finding professionals and hiring options…';
- if(/home.plan/.test(path))return 'Loading home plans and care schedules…';
- if(/inventory|market|rental/.test(path))return 'Finding available parts and equipment…';
- if(/jobs|booking/.test(path))return 'Updating your tasks and bookings…';
- if(/catalog|discovery|campaign/.test(path))return 'Finding services and suggestions for you…';
- return 'Getting your latest details ready…';
+ if(/tracking|position|availability/.test(path))return 'Updating location…';
+ if(/payment|checkout|refund|payout/.test(path))return 'Checking payment…';
+ if(/hire|professionals|leaderboard/.test(path))return 'Finding professionals…';
+ if(/home.plan/.test(path))return 'Loading your plans…';
+ if(/inventory|market|rental/.test(path))return 'Loading products…';
+ if(/jobs|booking/.test(path))return 'Loading bookings…';
+ if(/catalog|discovery|campaign/.test(path))return 'Loading services…';
+ return 'Loading…';
 }
 export function selectTip(path,index,interests=[],worker=false){
  const context=worker?'worker':/market|inventory|rental/.test(path)?'market':/hire|professionals/.test(path)?'hire':/home.plan/.test(path)?'care':null;

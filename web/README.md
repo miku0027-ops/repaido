@@ -17,22 +17,25 @@ Local preview: http://127.0.0.1:5186
 
 ## Tokens
 
-`src/styles.css` defines the Tailwind theme; `src/tokens.ts` exports matching values for JS consumers.
+`src/brand-system.css` owns shared typography, colour and card spacing;
+`src/styles.css` integrates the Tailwind theme and `src/tokens.ts` exposes JS tokens.
+See [the brand system](../docs/BRAND_SYSTEM.md) for card patterns, accessibility,
+wording and async-state rules.
 
 | Token | Value |
 | --- | --- |
-| Primary background | `#FFFFFF` |
-| Secondary surface | `#F8F9FA` |
-| Main text | `#0B132B` |
-| Primary CTA | `#0052FF` |
-| CTA hover | `#0044D6` |
-| Border | `1px #E2E8F0` |
-| Card / container radius | `12px` / `16px` |
-| Spacing | 8px increments |
-| Controls | 16px vertical / 24px horizontal padding |
-| Typeface | System sans, SF/Inter-style fallback stack |
+| Card / page surface | `#FFFFFF` / `#F4F6FA` |
+| Main / secondary text | `#0B132B` / `#3E4C63` |
+| Primary action | White on `#17285C` |
+| Border / control outline | `#DCE1E8` / `#68768A` |
+| Card radius | 16px |
+| Card padding | 16px phone / 20px desktop |
+| Spacing | 4, 8, 12, 16, 24, 32px |
+| Controls | 44px minimum height; 16px input text |
+| Typeface | Locally bundled Poppins 400, 500, 600, 700 |
 
-No drop shadows or remotely loaded fonts. Photos are served locally. Error messages use an additional semantic red.
+Text colours target AAA contrast in both themes. Cards use a restrained shadow;
+fonts and standard product imagery are served locally.
 
 ## Reusable components
 

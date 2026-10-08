@@ -88,7 +88,7 @@
 .worker-signin-shell .worker-signin-kicker {
   color: #b2d5ff;
   font-size: .75rem;
-  font-weight: 750;
+  font-weight:700;
   letter-spacing: .13em;
   line-height: 1.5;
 }
@@ -96,7 +96,7 @@
   margin: 22px 0 18px;
   color: #fff;
   font-size: clamp(2rem, 3.8vw, 3.4rem) !important;
-  font-weight: 800;
+  font-weight:700;
   line-height: 1.12;
   letter-spacing: -.035em;
   overflow-wrap: anywhere;
@@ -118,18 +118,18 @@
 .worker-signin-shell .worker-signin-panel-wrap { padding: clamp(28px, 4vw, 58px); align-self: center; }
 .worker-signin-shell .worker-signin-panel { margin: 0; padding: 0; outline-offset: 8px; }
 .worker-signin-shell .worker-signin-lock { display: grid; place-items: center; width: 50px; height: 50px; margin-bottom: 22px; background: var(--signin-soft); color: var(--signin-blue); border: 1px solid var(--signin-line); border-radius: 15px; }
-.worker-signin-shell .worker-signin-form-kicker { display: block; color: var(--signin-muted); font-size: .6875rem; font-weight: 750; letter-spacing: .12em; line-height: 1.6; }
+.worker-signin-shell .worker-signin-form-kicker { display: block; color: var(--signin-muted); font-size: .6875rem; font-weight:700; letter-spacing: .12em; line-height: 1.6; }
 .worker-signin-shell .worker-signin-panel h2 { margin: 8px 0 10px; font-size: 1.75rem !important; line-height: 1.2; letter-spacing: -.025em; color: var(--signin-ink); overflow-wrap: anywhere; }
 .worker-signin-shell .worker-signin-panel .worker-signin-form-intro { color: var(--signin-muted); font-size: .9375rem; line-height: 1.6; margin: 0 0 24px; }
 .worker-signin-shell .worker-signin-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .worker-signin-shell .worker-signin-roles button { min-width: 0; min-height: 78px; padding: 12px; gap: 10px; justify-content: flex-start; text-align: left; border: 1px solid var(--signin-line); border-radius: 14px; color: var(--signin-muted); background: var(--signin-surface); }
 .worker-signin-shell .worker-signin-roles button > svg { flex-shrink: 0; }
 .worker-signin-shell .worker-signin-roles button > span { min-width: 0; }
-.worker-signin-shell .worker-signin-roles strong { display: block; color: inherit; font-size: .9375rem; font-weight: 750; line-height: 1.35; }
+.worker-signin-shell .worker-signin-roles strong { display: block; color: inherit; font-size: .9375rem; font-weight:700; line-height: 1.35; }
 .worker-signin-shell .worker-signin-roles small { display: block; margin-top: 4px; color: var(--signin-muted); font-size: .6875rem; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
 .worker-signin-shell .worker-signin-roles button[aria-pressed=true] { border: 2px solid var(--signin-blue); padding: 11px; color: var(--signin-blue); background: var(--signin-soft); box-shadow: 0 3px 12px #1859bc0d; }
 .worker-signin-shell .worker-signin-panel .worker-signin-desk-note { font-size: .8125rem; color: var(--signin-muted); line-height: 1.6; margin: 14px 0 24px; }
-.worker-signin-shell .worker-signin-panel label { margin: 20px 0 0; color: var(--signin-ink); font-size: .875rem; font-weight: 650; }
+.worker-signin-shell .worker-signin-panel label { margin: 20px 0 0; color: var(--signin-ink); font-size: .875rem; font-weight:600; }
 .worker-signin-shell .worker-signin-panel input { width: 100%; margin-top: 8px; padding: 14px 16px; min-height: 54px; border: 1px solid #9aaec9; border-radius: 12px; font-size: 1rem; background: var(--signin-surface); color: var(--signin-ink); }
 .worker-signin-shell .worker-signin-panel input::placeholder { color: #657a96; }
 .worker-signin-shell .worker-signin-panel input:disabled { background: var(--signin-soft); color: var(--signin-muted); opacity: 1; }

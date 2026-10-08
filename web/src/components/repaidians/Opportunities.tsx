@@ -45,6 +45,6 @@ export function Opportunities({onDestination,onManage,onShare,city:initialCity='
     {!busy&&indexing&&<p className="rp-fine" role="status">Listings are being refreshed. More opportunities may appear shortly.</p>}
     <div className="rp-opportunities-grid">{items.map(card=><OpportunityCard key={card.source+':'+card.id} card={card} onDestination={onDestination} onShare={onShare} onSaved={saved}/>)}</div>
     {cursor&&!busy&&<button className="rp-load-more" disabled={moreBusy} onClick={()=>void loadMore()}>{moreBusy?'Loading opportunities…':'More opportunities'}</button>}
-    {!busy&&!error&&!items.length&&<EmptyState title={mode==='saved'?'Keep the right opportunities close.':mode==='mine'?'Your next listing starts here.':'No published opportunities match yet.'}>{mode==='saved'?'Save a project, job or product to find it here later.':mode==='mine'?'Your published tenders, jobs and products will appear here. Use Create a listing to get started.':'Try another trade or city. Published tenders, jobs and products appear as their owners make them available.'}</EmptyState>}
+    {!busy&&!error&&!items.length&&<EmptyState title={mode==='saved'?'No saved opportunities':mode==='mine'?'No listings yet':'No matches yet'}>{mode==='saved'?'Save a project, job or product to find it here later.':mode==='mine'?'Your published contracts, jobs and products will appear here.':'Try a different trade or city, or check back for new listings.'}</EmptyState>}
   </section>;
 }

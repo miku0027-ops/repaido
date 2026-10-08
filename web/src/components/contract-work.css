@@ -1,6 +1,6 @@
 /* Real project workspaces share the customer and partner design-system tokens. */
 .contract-desk{max-width:1200px;margin:auto;color:var(--ui-ink);padding:12px 0 32px;font:1rem/1.5 var(--ui-font);min-width:0}
-.contract-desk button,.contract-dialog button,.contract-hiring-dialog button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--ui-target,48px)!important;min-width:var(--ui-target,48px)!important;padding:10px 14px;border:1px solid var(--ui-control);border-radius:var(--ui-radius);background:var(--ui-surface);color:var(--ui-ink);font:inherit;font-size:.875rem;font-weight:650;cursor:pointer}
+.contract-desk button,.contract-dialog button,.contract-hiring-dialog button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--ui-target,48px)!important;min-width:var(--ui-target,48px)!important;padding:10px 14px;border:1px solid var(--ui-control);border-radius:var(--ui-radius);background:var(--ui-surface);color:var(--ui-ink);font:inherit;font-size:.875rem;font-weight:600;cursor:pointer}
 .contract-desk button:disabled,.contract-dialog button:disabled{cursor:not-allowed}
 .contract-desk button:hover:not(:disabled),.contract-dialog button:hover:not(:disabled){background:var(--ui-subtle)}
 .contract-desk .contract-primary,.contract-dialog .contract-primary,.contract-hiring-dialog .wn-primary{background:var(--ui-primary);border-color:var(--ui-primary);color:#fff}
@@ -10,7 +10,7 @@
 .contract-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
 .contract-heading h1{font-size:clamp(1.375rem,3vw,1.875rem);margin:8px 0}
 .contract-heading p{margin:0;color:var(--ui-muted)}
-.contract-kicker{display:flex;align-items:center;gap:6px;font-size:.8125rem;font-weight:750;letter-spacing:.05em}
+.contract-kicker{display:flex;align-items:center;gap:6px;font-size:.8125rem;font-weight:700;letter-spacing:.05em}
 .contract-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0}
 .contract-actions>button{flex:0 1 auto}
 .contract-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
@@ -26,7 +26,7 @@
 .contract-card>small{font-size:.8125rem;color:var(--ui-muted)}
 .contract-card>strong{font-size:1.25rem;color:var(--ui-ink)}
 .contract-card>button{margin-top:auto;justify-content:space-between;width:100%}
-.contract-chip{display:inline-flex;align-items:center;gap:6px;width:fit-content;border-radius:7px;background:var(--ui-subtle);color:var(--ui-muted);border:1px solid var(--ui-line);padding:5px 8px;font-size:.75rem;font-weight:750;text-transform:capitalize;line-height:1.4}
+.contract-chip{display:inline-flex;align-items:center;gap:6px;width:fit-content;border-radius:7px;background:var(--ui-subtle);color:var(--ui-muted);border:1px solid var(--ui-line);padding:5px 8px;font-size:.75rem;font-weight:700;text-transform:capitalize;line-height:1.4}
 .contract-chip[data-phase="Bidding open"],.contract-chip[data-status=active],.contract-chip[data-status=approved],.contract-chip[data-status=accepted],.contract-chip[data-status=completed]{background:var(--ui-success-surface);color:var(--ui-success);border-color:var(--ui-success-line)}
 .contract-chip[data-phase=Upcoming],.contract-chip[data-status=planning],.contract-chip[data-status=pending],.contract-chip[data-status=submitted],.contract-chip[data-phase="Awaiting decision"]{background:var(--ui-warning-surface);color:var(--ui-warning);border-color:var(--ui-warning-line)}
 .contract-facts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:.875rem;color:var(--ui-muted)}
@@ -36,23 +36,23 @@
 .contract-note p{margin:5px 0;line-height:1.6;font-size:.875rem}
 .contract-empty{padding:24px 20px;background:var(--ui-subtle);border:1px dashed var(--ui-control);border-radius:14px;color:var(--ui-muted);font-size:.9375rem;line-height:1.6}
 .contract-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.3fr) minmax(130px,.3fr) auto;gap:10px;align-items:end;margin:16px 0}
-.contract-toolbar label{display:grid;gap:5px;font-size:.8125rem;font-weight:650;min-width:0}
+.contract-toolbar label{display:grid;gap:5px;font-size:.8125rem;font-weight:600;min-width:0}
 .contract-desk input,.contract-desk select,.contract-form input,.contract-form textarea,.contract-form select{min-height:var(--ui-target)!important;border:1px solid var(--ui-control);border-radius:var(--ui-radius);padding:10px 12px;width:100%;font:inherit;color:var(--ui-ink);background:var(--ui-surface);box-sizing:border-box;min-width:0;margin-top:0}
 .contract-actions select{width:auto;max-width:100%}
 .contract-dialog{width:min(920px,calc(100% - 24px))!important;max-width:920px!important;max-height:calc(100dvh - 24px);overflow:auto;color:var(--ui-ink)!important;background:var(--ui-surface)!important}
 .contract-dialog .app-modal-heading{align-items:center;margin-bottom:20px}
 .contract-dialog .app-modal-heading h2{padding:0;font-size:1.25rem;line-height:1.4;color:var(--ui-ink)}
 .contract-form{display:grid;gap:16px;font-size:1rem}
-.contract-form label,.operations .contract-form label{display:grid;gap:6px;font-size:.9375rem;font-weight:650;margin:0}
+.contract-form label,.operations .contract-form label{display:grid;gap:6px;font-size:.9375rem;font-weight:600;margin:0}
 .contract-form p{line-height:1.6;margin:0;color:var(--ui-muted);font-size:.9375rem}
 .contract-form .contract-consent,.operations .contract-form .contract-consent{display:flex;align-items:flex-start;gap:10px;line-height:1.5;font-size:.875rem;font-weight:500}
 .contract-consent input{min-height:20px!important;height:20px;width:20px;flex-shrink:0;margin:3px 0 0}
-.contract-form-step{display:flex;align-items:center;gap:8px;font-size:.8125rem;color:var(--ui-link);font-weight:750}
+.contract-form-step{display:flex;align-items:center;gap:8px;font-size:.8125rem;color:var(--ui-link);font-weight:700}
 .contract-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .contract-form-grid>label:has(textarea),.contract-form-grid>label:has(.business-sector-field),.contract-form-grid>label.contract-field-wide{grid-column:1/-1}
 .contract-detail{display:grid;gap:16px;font-size:1rem;min-width:0}
 .contract-detail>details{border:1px solid var(--ui-line);border-radius:14px;padding:8px 16px;background:var(--ui-surface)}
-.contract-detail summary{display:flex;align-items:center;gap:8px;cursor:pointer;min-height:var(--ui-target)!important;font-weight:750;font-size:.9375rem}
+.contract-detail summary{display:flex;align-items:center;gap:8px;cursor:pointer;min-height:var(--ui-target)!important;font-weight:700;font-size:.9375rem}
 .contract-detail summary::after{content:'+';margin-left:auto;font-size:1.25rem}
 .contract-detail details[open]>summary::after{content:'−'}
 .contract-detail p{font-size:.9375rem;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ui-muted)}
@@ -64,7 +64,7 @@
 .contract-stage-track{list-style:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:0;margin:0}
 .contract-stage-track li{border:1px solid var(--ui-line);border-radius:12px;padding:12px;background:var(--ui-subtle);display:grid;gap:6px;font-size:.8125rem;color:var(--ui-muted)}
 .contract-stage-track li[aria-current=step]{border-color:var(--ui-control);color:var(--ui-ink);background:var(--ui-surface)}
-.contract-stage-track li>span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ui-primary);color:#fff;font-size:.75rem;font-weight:750}
+.contract-stage-track li>span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ui-primary);color:#fff;font-size:.75rem;font-weight:700}
 .contract-stage-track small{font-size:.75rem;color:var(--ui-muted)}
 .contract-member{display:flex;align-items:flex-start;gap:12px;padding:16px 0;border-bottom:1px solid var(--ui-line);min-width:0}
 .contract-member>div{flex:1;min-width:0;overflow-wrap:anywhere}
@@ -163,9 +163,9 @@
 /* Explicit recruitment stages and explainable, bounded applicant comparisons. */
 .contract-hiring-stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));list-style:none;margin:10px 0 14px;padding:0;gap:6px}
 .contract-hiring-stages li{display:flex;gap:6px;align-items:center;min-width:0;font-size:.75rem;color:var(--ui-muted);border:1px solid var(--ui-line);background:var(--ui-surface);padding:8px;border-radius:10px}
-.contract-hiring-stages li>span{display:grid;place-items:center;width:20px;height:20px;flex-shrink:0;background:var(--ui-primary);color:#fff;border-radius:50%;font-size:.6875rem;font-weight:750}
+.contract-hiring-stages li>span{display:grid;place-items:center;width:20px;height:20px;flex-shrink:0;background:var(--ui-primary);color:#fff;border-radius:50%;font-size:.6875rem;font-weight:700}
 .contract-fit{padding:9px 10px;border:1px solid var(--ui-success-line);background:var(--ui-success-surface);border-radius:10px;font-size:.75rem;color:var(--ui-ink)}
-.contract-fit>span{font-weight:650}.contract-fit ul,.contract-fit-reasons{font-size:.75rem;line-height:1.5;padding-inline-start:18px;margin:5px 0;color:var(--ui-muted)}
+.contract-fit>span{font-weight:600}.contract-fit ul,.contract-fit-reasons{font-size:.75rem;line-height:1.5;padding-inline-start:18px;margin:5px 0;color:var(--ui-muted)}
 .contract-fit small{font-size:.75rem!important}
 .contract-desk .contractor-hiring .wn-project .wn-actions{gap:6px}
 .contract-desk .contractor-hiring .wn-project button,.modal.contract-hiring-dialog .work-network button{min-height:36px!important;font-size:.75rem!important;padding:6px 9px!important;min-width:36px!important;gap:5px}

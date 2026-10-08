@@ -13,7 +13,7 @@
 .rp-avatar-frame:has(.rp-avatar-large)>.repaidian-badge-avatar .repaidian-badge-seal::before{border-radius:6px;}
 .rp-avatar-frame:has(.rp-avatar-large)>.repaidian-badge-avatar .repaidian-badge-seal>svg{width:19px;height:19px;}
 .repaidian-badge-tag{gap:7px;max-width:100%;padding:5px 10px 5px 6px;border:1px solid #bda777;border-radius:10px;background:linear-gradient(135deg,#fff9e8,#eeddba);color:#283d4d;box-shadow:inset 0 1px 0 #fff,0 2px 0 #bdad8a4a,0 4px 9px #162d4210;}
-.repaidian-badge.repaidian-badge-tag>.repaidian-badge-label{display:inline;min-width:0;color:var(--repaidian-tag-ink);font-size:.75rem;font-weight:750;letter-spacing:.02em;line-height:1.35;overflow-wrap:anywhere;}
+.repaidian-badge.repaidian-badge-tag>.repaidian-badge-label{display:inline;min-width:0;color:var(--repaidian-tag-ink);font-size:.75rem;font-weight:700;letter-spacing:.02em;line-height:1.35;overflow-wrap:anywhere;}
 .rp-profile-membership{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:7px;min-width:0;}
 .rp-profile-membership>small{font-size:.6875rem;line-height:1.5;color:var(--ui-muted);}
 [data-theme=dark] .repaidian-badge-tag{--repaidian-tag-ink:#f6e9cb;border-color:#a89468;background:linear-gradient(135deg,#283846,#172735);color:#f6e9cb;box-shadow:inset 0 1px 0 #7f92a329,0 2px 0 #0b172a,0 4px 9px #0003;}

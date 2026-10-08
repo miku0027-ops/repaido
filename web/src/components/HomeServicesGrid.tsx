@@ -718,7 +718,7 @@ function ServiceGraphicArt({ graphicKey }: { graphicKey?: string }) {
           {/* Tag Eyelet */}
           <circle cx="20" cy="22" r="3.5" fill="#ffffff" />
           {/* Bold % Symbol */}
-          <text x="32" y="38" fill="#ffffff" fontSize="16" fontWeight="900" fontFamily="system-ui, sans-serif" textAnchor="middle">%</text>
+          <text x="32" y="38" fill="#ffffff" fontSize="16" fontWeight="700" fontFamily="Poppins, sans-serif" textAnchor="middle">%</text>
           {/* Celebration Sparkles */}
           <path d="M46 14L47.5 18.5L52 20L47.5 21.5L46 26L44.5 21.5L40 20L44.5 18.5L46 14Z" fill="#fde047" />
           <circle cx="14" cy="46" r="2" fill="#fef08a" />
@@ -748,7 +748,7 @@ function ServiceGraphicArt({ graphicKey }: { graphicKey?: string }) {
           <circle cx="32" cy="32" r="22" fill="url(#off-gold)" />
           <circle cx="32" cy="32" r="18" fill="url(#off-coin)" />
           {/* Rupee Symbol */}
-          <text x="32" y="40" fill="#ffffff" fontSize="22" fontWeight="900" fontFamily="system-ui, sans-serif" textAnchor="middle">₹</text>
+          <text x="32" y="40" fill="#ffffff" fontSize="22" fontWeight="700" fontFamily="Poppins, sans-serif" textAnchor="middle">₹</text>
           {/* Sparkles */}
           <circle cx="48" cy="18" r="3" fill="#fef08a" />
           <circle cx="16" cy="44" r="2.5" fill="#fef08a" />

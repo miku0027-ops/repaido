@@ -37,7 +37,7 @@ export type AccountHubProps = AccountCardProps & {
 export function AccountHub(props: AccountHubProps) {
   const [policy, setPolicy] = useState<AppPolicyId | null>(null);
   return <div className="account-hub">
-    <header className="account-hub-heading"><div><p className="account-hub-eyebrow">MADE FOR YOUR EVERYDAY</p><h1>Your space.</h1><p>Everything you need, in one place.</p></div><button className="account-hub-location" onClick={props.onLocation}><MapPin size={18} aria-hidden="true"/><span>{props.city}</span><ChevronRight size={16} aria-hidden="true"/></button></header>
+    <header className="account-hub-heading"><div><p className="account-hub-eyebrow">Your Repaido account</p><h1>Account</h1><p>Bookings, orders and your account details.</p></div><button className="account-hub-location" onClick={props.onLocation}><MapPin size={18} aria-hidden="true"/><span>{props.city}</span><ChevronRight size={16} aria-hidden="true"/></button></header>
     <div className="account-hub-layout"><aside className="account-hub-profile"><AccountCard {...props} hideSignOut/></aside><div className="account-hub-menu">
       <AccountCategory icon={CalendarCheck} title="Bookings & work" description="Visits, home plans and hiring" initiallyOpen>
         <AccountAction icon={Wrench} label="My service bookings" description="View your visits and their progress" onClick={props.onBookings}/>
@@ -52,13 +52,13 @@ export function AccountHub(props: AccountHubProps) {
         <AccountAction icon={Repeat2} label="Let’s exchange" onClick={props.onExchange}/>
         <AccountAction icon={Package} label="Sell a used item" onClick={props.onSellUsed}/>
         <AccountAction icon={CalendarDays} label="My rentals" onClick={props.onRentals}/>
-        <AccountAction icon={Store} label="Shop Partner / B2B Merchant Portal" description="Manage your shop or switch accounts" onClick={props.onShopAccount}/>
+        <AccountAction icon={Store} label="Shop workspace" description="Manage your shop or switch accounts" onClick={props.onShopAccount}/>
       </AccountCategory>
       <AccountCategory icon={ShieldCheck} title="Account & privacy" description="Your details, alerts and reading choices">
         {props.identity && props.onCompleteEmail && <AccountAction icon={FileCheck2} label="Account details & email" onClick={props.onCompleteEmail}/>}
         <AccountAction icon={MapPin} label="Service location" description={props.city} onClick={props.onLocation}/>
         <AccountAction icon={Bell} label="Notifications & offers" description="Choose your offer preferences" onClick={props.onOffers}/>
-        <AccountAction icon={BriefcaseBusiness} label="Agent / specialist account" description="Register or switch to your professional workspace" onClick={props.onAgentAccount}/>
+        <AccountAction icon={BriefcaseBusiness} label="Professional account" description="Register or switch to your professional workspace" onClick={props.onAgentAccount}/>
         <AccountAction icon={ShieldCheck} label="Privacy policy" onClick={() => setPolicy('privacy')}/>
         <fieldset className="account-reading-preferences"><legend>Reading & motion</legend><label><input type="checkbox" checked={props.largerText} onChange={event => props.onLargerText(event.target.checked)}/><span>Larger text</span></label><label><input type="checkbox" checked={props.reducedMotion} onChange={event => props.onReducedMotion(event.target.checked)}/><span>Reduce animations</span></label><p>Saved on this device. Your device’s reduced-motion setting is always respected.</p></fieldset>
       </AccountCategory>

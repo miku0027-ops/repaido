@@ -1,3 +1,4 @@
+import {Card} from '../Card';
 import {useEffect,useState} from 'react';
 import {ArrowUpRight,Bookmark,BriefcaseBusiness,Building2,Check,Crown,MapPin,Package,Share2} from 'lucide-react';
 import {apiAssetUrl} from '../../services/api';
@@ -27,7 +28,7 @@ export function OpportunityCard({card,onDestination,onShare,onSaved,compact=fals
     if(busy)return;const next=!saved;setBusy(true);setError('');
     try{await saveOpportunity({source:card.source,id:card.id},next);setSaved(next);onSaved?.(card,next);}catch(error){setError((error as Error).message);}finally{setBusy(false);}
   };
-  return <article className={'rp-opportunity-card '+(compact?'rp-opportunity-card-compact':'')} data-kind={card.kind}>
+  return <Card className={'rp-opportunity-card '+(compact?'rp-opportunity-card-compact':'')} data-kind={card.kind}>
     {!!card.imageUrl&&!imageFailed&&<div className="rp-opportunity-image"><img src={apiAssetUrl(card.imageUrl)} alt={card.title} loading="lazy" onError={()=>setImageFailed(true)}/></div>}
     <div className="rp-opportunity-body"><div className="rp-opportunity-badges"><span className="rp-opportunity-kind"><Icon size={14}/>{customerContract?'Customer contract':card.kind==='tender'?'Tender':card.kind==='job'?'Job':'Product'}</span>{card.condition&&<span className="rp-opportunity-condition" data-condition={card.condition}>{conditions[card.condition]||titleCase(card.condition)}</span>}{card.prime?.active&&<span className="rp-opportunity-prime"><Crown size={13}/>Prime shop</span>}{card.prime?.active&&card.prime.paid_placement&&<span className="rp-opportunity-placement">Paid placement</span>}</div>
       <h3>{card.title}</h3>{card.description&&<p className="rp-opportunity-description">{card.description}</p>}
@@ -37,5 +38,5 @@ export function OpportunityCard({card,onDestination,onShare,onSaved,compact=fals
       {error&&<p className="rp-error" role="alert">{error}</p>}
       {(onDestination||allowSave||(card.shareable&&onShare))&&<div className="rp-opportunity-actions">{onDestination&&<button className="rp-primary" disabled={!available} onClick={()=>onDestination(card)}>{available?(customerContract?'Open contract':actionName(card.kind)):'Listing unavailable'}<ArrowUpRight size={17}/></button>}{allowSave&&<button className="rp-opportunity-save" disabled={busy||(!available&&!saved)} aria-label={saved?'Unsave opportunity':'Save opportunity'} aria-pressed={saved} aria-busy={busy} onClick={()=>void save()}>{saved?<Check size={18}/>:<Bookmark size={18}/>}</button>}{card.shareable&&onShare&&available&&<button className="rp-opportunity-share" aria-label="Share opportunity with Repaidians" onClick={()=>onShare({source:card.source,id:card.id})}><Share2 size={18}/></button>}</div>}
     </div>
-  </article>;
+  </Card>;
 }

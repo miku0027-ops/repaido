@@ -1,15 +1,15 @@
 @import "tailwindcss";
 @theme {
   --color-white: #FFFFFF;
-  --color-surface: #F8F9FA;
+  --color-surface: #F4F6FA;
   --color-ink: #0B132B;
   --color-accent: #003BB5;
   --color-accent-hover: #002D8F;
-  --color-line: #E2E8F0;
-  --color-control: #65748B;
+  --color-line: #DCE1E8;
+  --color-control: #68768A;
   --color-danger: #991B1B;
-  --color-muted: #414B60;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  --color-muted: #3E4C63;
+  --font-sans: "Poppins", sans-serif;
   --text-xs: .875rem;
   --text-sm: 1rem;
   --radius-xl: 12px;
@@ -103,7 +103,7 @@ body { line-height: 1.5; }
 .service-card { border-left:4px solid #E2E8F0; }
 .service-card:hover { border-left-color:var(--color-accent); }
 .service-photo { filter:none; }
-input[type=radio]:checked + span { font-weight:800; text-decoration:underline; text-underline-offset:4px; }
+input[type=radio]:checked + span { font-weight:700; text-decoration:underline; text-underline-offset:4px; }
 label:has(input[type=radio]) { border-color:var(--color-control); }
 label:has(input[type=radio]:checked) { border-width:2px; border-color:var(--color-accent); }
 @media(min-width:768px) {

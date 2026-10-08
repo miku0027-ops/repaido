@@ -318,7 +318,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
 
           const marker = L.marker([lat, lng], { icon }).addTo(map);
           marker.bindPopup(`
-            <div style="font-family: sans-serif; font-size: 12px; min-width: 180px; color: #0f172a;">
+            <div style="font-family: var(--ui-font); font-size: 12px; min-width: 180px; color: #0f172a;">
               <strong style="font-size: 13px;">${app.name}</strong>
               <div style="color: ${isSpecialist ? '#b45309' : '#047857'}; font-weight: bold; margin-top: 2px;">${app.role} • ${app.tradeCategory}</div>
               <div style="margin-top: 4px; font-size: 11px; color: #475569;">Rate: <strong>₹${app.hourlyRate || 250}/hr</strong> (Platform cut: 3%)</div>
@@ -351,10 +351,10 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
 
           const marker = L.marker([lat, lng], { icon }).addTo(map);
           marker.bindPopup(`
-            <div style="font-family: sans-serif; font-size: 12px; min-width: 200px; color: #0f172a;">
+            <div style="font-family: var(--ui-font); font-size: 12px; min-width: 200px; color: #0f172a;">
               <strong style="font-size: 13px;">${shop.shopName}</strong>
               <div style="color: #2563eb; font-weight: bold; margin-top: 2px;">Proprietor: ${shop.ownerName}</div>
-              <div style="margin-top: 4px; font-size: 11px;">GSTIN: <span style="font-family: monospace;">${shop.gstin}</span></div>
+              <div style="margin-top: 4px; font-size: 11px;">GSTIN: <span style="font-family: var(--ui-font);">${shop.gstin}</span></div>
               <div style="font-size: 11px; color: #059669; font-weight: bold;">Commission: 5% Platform Cut</div>
               <div style="font-size: 11px; color: #d97706;">Onboarding Due: ₹${shop.onboardingFeeRemaining}</div>
               <div style="margin-top: 6px; font-size: 10px; color: #94a3b8;">${shop.address}</div>
@@ -386,7 +386,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
 
           const marker = L.marker([lat, lng], { icon }).addTo(map);
           marker.bindPopup(`
-            <div style="font-family: sans-serif; font-size: 12px; color: #0f172a;">
+            <div style="font-family: var(--ui-font); font-size: 12px; color: #0f172a;">
               <strong>${booking.serviceName}</strong>
               <div style="color: #dc2626; font-weight: bold;">Customer Task #${booking.id}</div>
               <div style="font-size: 11px; margin-top: 2px;">Assigned: ${booking.worker?.name || 'Searching...'}</div>

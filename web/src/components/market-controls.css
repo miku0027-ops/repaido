@@ -7,7 +7,7 @@
 #root .market-experience .stores-segmented-nav { padding:0 2px; gap:4px; background:var(--ui-surface); border-radius:0; }
 #root .market-experience :is(.stores-nav-pill,.spare-category-rail-btn,.spare-filter-trigger,.spare-cart-button,.market-filter-trigger,.market-toggle-btn,.market-create-btn,.b2b-category-rail button) {
  position:relative; isolation:isolate; min-height:44px!important; height:auto!important; min-width:44px; max-height:none; padding:10px!important;
- border:0!important; border-radius:0!important; background:transparent!important; box-shadow:none!important; color:var(--ui-muted)!important; font-size:var(--market-label)!important; line-height:1.4; font-weight:650; gap:5px; transition:color 140ms ease;
+ border:0!important; border-radius:0!important; background:transparent!important; box-shadow:none!important; color:var(--ui-muted)!important; font-size:var(--market-label)!important; line-height:1.4; font-weight:600; gap:5px; transition:color 140ms ease;
 }
 #root .market-experience :is(.stores-nav-pill,.spare-category-rail-btn,.spare-filter-trigger,.spare-cart-button,.market-filter-trigger,.market-toggle-btn,.market-create-btn,.b2b-category-rail button)::before {
  content:''; position:absolute; z-index:-1; inset:6px 0; border:1px solid var(--ui-line); border-radius:9px; background:var(--ui-surface); transition:background-color 140ms ease,border-color 140ms ease;
@@ -64,11 +64,11 @@
 #root :is(.market-filter-modal,.spare-filter-modal) .app-modal-heading h2 { margin:0; padding:0; font-size:1.0625rem; line-height:1.4; }
 #root :is(.market-filter-modal,.spare-filter-modal) .app-modal-heading button { width:36px; min-width:36px; min-height:36px!important; padding:6px; border-radius:9px; }
 #root :is(.market-filter-form,.market-filter-budget) { display:grid; gap:14px; font-size:.75rem; }
-#root .market-filter-form label,#root .market-filter-budget { display:grid; gap:5px; color:var(--ui-ink); font-weight:650; font-size:.75rem; }
+#root .market-filter-form label,#root .market-filter-budget { display:grid; gap:5px; color:var(--ui-ink); font-weight:600; font-size:.75rem; }
 #root :is(.market-filter-form,.market-filter-budget) :is(input,select) { width:100%; min-width:0; min-height:40px; padding:7px 9px; font-size:1rem; border:1px solid var(--ui-line); border-radius:9px; color:var(--ui-ink); background:var(--ui-surface); }
 .market-filter-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 #root .market-filter-location { min-width:0; margin:0; padding:10px; border:1px solid var(--ui-line); border-radius:10px; }
-#root .market-filter-location legend { padding:0 4px; font-weight:650; }
+#root .market-filter-location legend { padding:0 4px; font-weight:600; }
 #root .market-filter-location p { font-size:.75rem; color:var(--ui-muted); margin:0 0 8px; overflow-wrap:anywhere; }
 .market-filter-location>div { display:flex; gap:6px; flex-wrap:wrap; }
 #root :is(.market-filter-form,.spare-filter-modal) button { min-height:36px!important; height:auto; padding:7px 10px; font-size:.75rem; line-height:1.5; border-radius:9px; border:1px solid var(--ui-line); color:var(--ui-ink); background:var(--ui-subtle); }

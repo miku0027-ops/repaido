@@ -34,7 +34,7 @@ async function performRequest<T>(path:string,init:RequestInit,captured?:Awaited<
   const headers=new Headers(init.headers);headers.set('Accept','application/json');
   if(owner.token)headers.set('Authorization','Bearer '+owner.token);
   if(typeof init.body==='string')headers.set('Content-Type','application/json');
-  const response=await fetch('/api/repaidians'+path,{...init,headers,credentials:'same-origin',signal:init.signal||AbortSignal.timeout(30000)});
+  const response=await fetch('/api/repaidians'+path,{...init,headers,credentials:'same-origin',signal:init.signal?AbortSignal.any([init.signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000)});
   const body=await response.json().catch(()=>({}));
   if(syncIdentity()!==owner.identity)throw new CommunityError('Your account changed. Reopen this view.',409,'ACCOUNT_CHANGED');
   if(!response.ok){const detail=body.detail;const message=typeof detail==='string'?detail:detail?.message||(Array.isArray(detail)?detail.map((item:{msg:string})=>item.msg).join('. '):'')||(response.status===401?'Sign in to build your professional network.':'Could not save these details. Retry.');throw new CommunityError(message,response.status,detail?.code||'');}

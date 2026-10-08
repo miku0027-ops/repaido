@@ -953,7 +953,7 @@ export default function App() {
                   <div className="desktop-hero-row">
                     {/* 3. Hero Promo Banner Card */}
                     <div className="repaido-hero-banner-container">
-                      <OpportunityCarousel variant="home" slides={[{id:'services',tag:'',title:'',body:'',cta:'Browse services',image:'/images/hero-banner-promo.png',alt:'Trusted help at budget-friendly prices - Local experts. Quality service. Hassle-free booking.',legacy:true},...opportunities]} onOpen={slide=>{if(slide.id==='services'){setActiveCategory('all');setTab('Services');}else if(slide.id==='contracts'){setMarketSubTab('tenders');setTab('ShopSpares');}else if(slide.id==='sell'){openStoreSection('preowned');setMarketQuick({sell:true});}else if(slide.id==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else openStoreSection(slide.id as 'rentals'|'exchange');}}/>
+                      <OpportunityCarousel variant="home" slides={[{id:'services',tag:'Home services',title:'A little help at home.',body:'Find local professionals for your everyday needs.',cta:'Browse services',image:'/images/family-home-care.jpg',alt:'A family spending time together at home'},...opportunities]} onOpen={slide=>{if(slide.id==='services'){setActiveCategory('all');setTab('Services');}else if(slide.id==='contracts'){setMarketSubTab('tenders');setTab('ShopSpares');}else if(slide.id==='sell'){openStoreSection('preowned');setMarketQuick({sell:true});}else if(slide.id==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else openStoreSection(slide.id as 'rentals'|'exchange');}}/>
                     </div>
 
                   </div>

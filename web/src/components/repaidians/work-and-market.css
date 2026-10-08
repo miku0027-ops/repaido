@@ -6,7 +6,7 @@
 .rp-work-market-heading p{font-size:.9375rem;line-height:1.6;color:var(--ui-muted);margin-top:6px;max-width:62ch;overflow-wrap:anywhere;}
 .rp-work-market-navigation{border:1px solid var(--ui-line);border-radius:14px;margin-bottom:22px;background:var(--ui-surface);min-width:0;overflow:hidden;}
 .rp-work-market-categories{display:flex;flex-wrap:wrap;align-items:stretch;gap:4px;padding:5px;min-width:0;}
-.rp-work-market button.rp-work-market-category{display:flex;flex:1 1 0;align-items:center;justify-content:flex-start;gap:8px;min-width:var(--ui-target,48px);padding:10px;border:1px solid transparent;background:transparent;color:var(--ui-muted);font-size:.875rem;font-weight:650;line-height:1.45;text-align:left;}
+.rp-work-market button.rp-work-market-category{display:flex;flex:1 1 0;align-items:center;justify-content:flex-start;gap:8px;min-width:var(--ui-target,48px);padding:10px;border:1px solid transparent;background:transparent;color:var(--ui-muted);font-size:.875rem;font-weight:600;line-height:1.45;text-align:left;}
 .rp-work-market-category>span{flex:1;min-width:0;overflow-wrap:anywhere;}
 .rp-work-market-category>svg{flex:none;}
 .rp-work-market button.rp-work-market-category[data-active=true]{color:var(--ui-ink);}
@@ -14,7 +14,7 @@
 .rp-work-market-category[aria-expanded=true]>svg:last-child{transform:rotate(180deg);}
 .rp-work-market-destinations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px;border-top:1px solid var(--ui-line);background:var(--ui-subtle);min-width:0;}
 .rp-work-market-destinations[hidden]{display:none;}
-.rp-work-market-destinations>button{justify-content:flex-start;padding:10px 12px;border:1px solid var(--ui-line);background:var(--ui-surface);font-size:.875rem;font-weight:650;line-height:1.5;text-align:left;min-width:0;}
+.rp-work-market-destinations>button{justify-content:flex-start;padding:10px 12px;border:1px solid var(--ui-line);background:var(--ui-surface);font-size:.875rem;font-weight:600;line-height:1.5;text-align:left;min-width:0;}
 .rp-work-market-destinations>button>svg{flex:none;}
 .rp-work-market-destinations>button>span{min-width:0;overflow-wrap:anywhere;}
 .rp-work-market-destinations>button[aria-current=page]{border-color:var(--ui-link);color:var(--ui-link);background:color-mix(in srgb,var(--ui-link) 7%,var(--ui-surface));}

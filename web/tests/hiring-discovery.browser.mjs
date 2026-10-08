@@ -27,7 +27,7 @@ function recommended(p,body){
 // Substitute only the local Firebase module. The actual production recommendation
 // wrapper and public cache execute, including token headers and account guards.
 const authFixture=`const listeners=new Set(); const makeUser=uid=>uid?{uid,getIdToken:async()=> 'test-token:'+uid}:null;
-export const auth={currentUser:makeUser('fixture-hire-account'),authStateReady:async()=>{},onIdTokenChanged(next){const callback=typeof next==='function'?next:next.next.bind(next);listeners.add(callback);queueMicrotask(()=>callback(auth.currentUser));return()=>listeners.delete(callback);}};
+export const auth={currentUser:makeUser('fixture-hire-account'),authStateReady:async()=>{},onAuthStateChanged(next){return this.onIdTokenChanged(next);},onIdTokenChanged(next){const callback=typeof next==='function'?next:next.next.bind(next);listeners.add(callback);queueMicrotask(()=>callback(auth.currentUser));return()=>listeners.delete(callback);}};
 window.__hireFixtureAuth=uid=>{auth.currentUser=makeUser(uid);for(const callback of listeners)callback(auth.currentUser);};
 export const db={};export const app={};export const analytics=null;export const firebaseConfig={};export default app;`;
 
@@ -98,7 +98,7 @@ async function newPage(width=390,{dark=false,text=100,signedIn=true}={}){
   await page.goto(origin+'/tests/hiring-discovery-preview.html');
   await page.getByRole('heading',{name:'Quick hire by category'}).waitFor();
   await catalogLoaded;
-  await page.getByRole('button',{name:/Show all \d+ categories/}).waitFor();
+  await page.getByRole('navigation',{name:'Professional categories'}).getByRole('button',{name:/^Electrical installation/}).waitFor();
   return page;
 }
 const categoryNav=page=>page.getByRole('navigation',{name:'Professional categories'});
@@ -143,7 +143,7 @@ async function privacyRegressions(){
   const page=await newPage(),recent=page.locator('.hire-recent-categories');
   await recent.getByRole('heading',{name:'Continue exploring'}).waitFor();
   await choose(page,'electrician');
-  await result(page).locator('.hire-shortlist-method').waitFor();
+  await result(page).locator('.hire-suggestion-label').first().waitFor();
   for(const professional of profiles.slice(0,2))await result(page).getByRole('checkbox',{name:'Compare '+professional.name}).check();
   await result(page).getByRole('button',{name:'Compare (2)',exact:true}).click();
   const comparison=page.getByRole('dialog',{name:'Compare professionals',exact:true});
@@ -169,12 +169,12 @@ async function privacyRegressions(){
 
   state.dayHireReady=true;await closeResult(page);await choose(page,'electrician');
   await result(page).locator('.hire-card-actions').first().getByRole('button',{name:'View profile',exact:false}).click();
-  await profile.getByRole('button',{name:'Check availability & request day hire',exact:true}).click();
+  await profile.getByRole('button',{name:'Request day hire',exact:true}).click();
   const location=page.getByRole('dialog',{name:'Where do you need help?',exact:true});await location.waitFor();
   await page.evaluate(()=>window.__hireFixtureAuth(''));await profile.waitFor({state:'hidden'});await location.waitFor({state:'hidden'});
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-third-account'));
   await result(page).locator('.hire-card-actions').first().getByRole('button',{name:'View profile',exact:false}).click();
-  await profile.getByRole('button',{name:'Check availability & request day hire',exact:true}).click();
+  await profile.getByRole('button',{name:'Request day hire',exact:true}).click();
   await location.getByLabel('Latitude',{exact:true}).fill('21.50');
   const availability=holdResponse('availabilityBarrier',()=>true);
   await location.getByRole('button',{name:'Confirm this location',exact:true}).click();await availability.reached;
@@ -185,7 +185,7 @@ async function privacyRegressions(){
 
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-third-account'));
   await result(page).locator('.hire-card-actions').first().getByRole('button',{name:'View profile',exact:false}).click();
-  await profile.getByRole('button',{name:'Check availability & request day hire',exact:true}).click();await booking.waitFor();
+  await profile.getByRole('button',{name:'Request day hire',exact:true}).click();await booking.waitFor();
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-third-account'));await page.waitForTimeout(50);assert.equal(await booking.count(),1,'Same-account token refresh must preserve the booking sheet.');
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-fourth-account'));await booking.waitFor({state:'hidden'});
   assert.equal(requests.filter(r=>r.path==='/api/operations/hiring/requests').length,0,'Privacy checks must not send a real day-hire request.');
@@ -199,7 +199,7 @@ try{
   if(!privacyOnly){
   const page=await newPage();
   assert.equal(requests.filter(r=>r.path.endsWith('/hiring/leaderboard')).length,0,'The directory must open only after an explicit category/search.');
-  assert.equal(await page.locator('[aria-roledescription="carousel"]').count(),0,'Hire must not auto-rotate professional carousels.');
+  assert.equal(await page.locator('[aria-roledescription="carousel"]').count(),1,'The inspiration banner remains separate from professional results.');
   await choose(page,'electrician');
   assert.equal(await result(page).locator('.hire-decision-card').count(),4);
   assert.equal(await result(page).getByRole('heading',{name:profiles[4].name}).count(),0);
@@ -215,11 +215,13 @@ try{
   await compare.getByText('Work evidence is a limited sample, rather than a complete history.',{exact:true}).waitFor();
   await compare.getByRole('button',{name:'Remove '+profiles[2].name+' from comparison'}).click();assert.equal(await compare.locator('.hire-comparison-card').count(),2);
   await compare.getByRole('button',{name:'Close dialog',exact:true}).click();
-  await result(page).locator('.hire-scope-planner').getByText('Scope & budget guide',{exact:false}).click();
-  await result(page).locator('.hire-catalogue-references').getByText(packages[0].name,{exact:true}).click();
-  await result(page).getByText('Excluded: Parts, Travel, Additional work.',{exact:true}).waitFor();
-  await result(page).getByRole('button',{name:'Review this service booking'}).click();
+  await result(page).getByRole('button',{name:'Scope & budget guide',exact:true}).click();
+  const scope=page.getByRole('dialog',{name:'Scope & budget guide',exact:true});
+  await scope.locator('.hire-catalogue-references').getByText(packages[0].name,{exact:true}).click();
+  await scope.getByText('Excluded: Parts, Travel, Additional work.',{exact:true}).waitFor();
+  await scope.getByRole('button',{name:'Review this service booking'}).click();
   assert.equal(await page.getByLabel('Last Hire action').textContent(),'service:fixture-electrical');
+  await scope.waitFor({state:'detached'});
   await choose(page,'electrician');
   state.failDirectory=true;state.failRecommendations=true;
   await result(page).getByRole('button',{name:'Refresh professional directory'}).click();
@@ -235,7 +237,7 @@ try{
   assert.equal(await result(page).getAttribute('aria-label'),categories[0].name);assert.equal(await result(page).locator('.hire-decision-card').count(),4,'A late category read cannot replace the current directory.');assert.equal(await result(page).getByRole('heading',{name:profiles[4].name}).count(),0);
   state.captured=null;state.finished=null;state.release=null;
   await closeResult(page);await choose(page,'cleaning');assert.equal(await result(page).locator('.hire-decision-card').count(),1);await closeResult(page);
-  await page.getByRole('button',{name:/Show all \d+ categories/}).click();assert.equal(await categoryNav(page).getByRole('button').count(),15);
+  assert.equal(await categoryNav(page).getByRole('button').count(),15);
   await choose(page,'home:maid');assert.equal(await result(page).locator('.hire-decision-card').count(),1);await result(page).getByRole('button',{name:'View profile',exact:false}).click();
   const profile=page.getByRole('dialog',{name:profiles[4].name,exact:true});await profile.waitFor();await profile.getByRole('button',{name:'Request Maid & daily home help scope'}).click();assert.equal(await page.getByLabel('Last Hire action').textContent(),'home:maid:fixture-worker-4');
   console.log('Hire category selection, 3-way comparison, budget scope, native handoff, cached errors and stale race passed.');
@@ -277,5 +279,5 @@ try{
   assert.deepEqual(errors,[],'Unexpected runtime errors');
   success=true;console.log(privacyOnly?'Hire privacy browser checks passed.':'Hire discovery browser checks passed.');
 }finally{
-  state.release?.();for(const release of releaseBarriers)release();if(!success&&activePage&&!activePage.isClosed()){await activePage.screenshot({path:resolve(artifacts,'hire-discovery-failure.png')}).catch(()=>{});console.error('Open dialogs at failure:',await activePage.locator('dialog[open]').evaluateAll(dialogs=>dialogs.map(dialog=>dialog.getAttribute('aria-label'))).catch(()=>[]));}await browser.close();if(!success)console.error('Hire checks failed; see web/test-results/hire-discovery-accessibility.json if produced.');
+  state.release?.();for(const release of releaseBarriers)release();if(!success&&activePage&&!activePage.isClosed()){await activePage.screenshot({path:resolve(artifacts,'hire-discovery-failure.png')}).catch(()=>{});console.error('Open dialogs at failure:',await activePage.locator('dialog[open]').evaluateAll(dialogs=>dialogs.map(dialog=>dialog.getAttribute('aria-label'))).catch(()=>[]));}await browser.close();if(!success){console.error('Browser errors:',errors);console.error('Hire checks failed; see web/test-results/hire-discovery-accessibility.json if produced.');}
 }

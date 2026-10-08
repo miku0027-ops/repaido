@@ -3,7 +3,7 @@
 .compact-action-trigger svg{transition:transform 160ms ease}
 .compact-action-trigger[aria-expanded=true] svg{transform:rotate(45deg)}
 .compact-action-list{display:flex;flex-direction:column;gap:4px;width:min(17rem,calc(100vw - 32px));max-height:calc(100dvh - var(--ui-nav-clearance,88px) - 80px);overflow:auto;padding:6px;border:1px solid var(--ui-line);border-radius:18px;background:var(--ui-surface);color:var(--ui-ink);box-shadow:0 6px 24px #10244028}
-.compact-action-list button{display:flex;align-items:center;gap:10px;width:100%;min-width:0;min-height:48px;padding:9px;border:0;border-radius:12px;text-align:left;background:transparent;color:var(--ui-ink);font-size:.875rem;font-weight:650;line-height:1.4;overflow-wrap:anywhere}
+.compact-action-list button{display:flex;align-items:center;gap:10px;width:100%;min-width:0;min-height:48px;padding:9px;border:0;border-radius:12px;text-align:left;background:transparent;color:var(--ui-ink);font-size:.875rem;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
 .compact-action-list button:hover{background:var(--ui-subtle)}
 .compact-action-symbol{display:grid;place-items:center;width:34px;height:34px;flex:none;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-subtle);color:var(--ui-link)}
 .compact-action-launcher button:focus-visible{outline:3px solid var(--ui-focus,var(--ui-link));outline-offset:3px}

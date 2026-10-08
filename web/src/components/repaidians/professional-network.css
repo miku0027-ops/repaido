@@ -6,7 +6,7 @@
 .rp-network-heading>div,.rp-network-section-title>div{min-width:0;}
 .rp-network-heading h2{font-size:1.125rem;letter-spacing:-.025em;line-height:1.4;}
 .rp-network-heading p,.rp-network-note{font-size:.75rem;line-height:1.6;color:var(--ui-muted);margin-top:5px;overflow-wrap:anywhere;}
-.rp-network-eyebrow{font-size:.625rem;letter-spacing:.075em;text-transform:uppercase;font-weight:750;color:var(--rn-accent);display:block;margin-bottom:4px;}
+.rp-network-eyebrow{font-size:.625rem;letter-spacing:.075em;text-transform:uppercase;font-weight:700;color:var(--rn-accent);display:block;margin-bottom:4px;}
 :is(.rp-professional-network,.rp-professional-profile) button{font-size:.75rem;line-height:1.5;min-height:var(--ui-target,48px)!important;min-width:0;max-width:100%;border-radius:10px;padding:8px 11px;white-space:normal;overflow-wrap:anywhere;}
 :is(.rp-professional-network,.rp-professional-profile) button.rp-network-primary{background:var(--ui-primary);color:var(--ui-surface);border:1px solid var(--ui-primary);font-weight:700;}
 :is(.rp-professional-network,.rp-professional-profile) button.rp-network-secondary{background:var(--ui-subtle);color:var(--ui-ink);border:1px solid var(--ui-control);}
@@ -58,9 +58,9 @@
 .rp-network-recommendation>small{font-size:.6875rem;color:var(--ui-muted);line-height:1.6;overflow-wrap:anywhere;}
 .rp-network-status{font-size:.6875rem;line-height:1.6;color:var(--ui-success);margin-block:8px;overflow-wrap:anywhere;}
 .rp-network-editor{border-top:1px solid var(--ui-line);padding-top:12px;margin-top:14px;}
-.rp-network-editor>summary{font-size:.8125rem;font-weight:650;cursor:pointer;min-height:var(--ui-target,48px);display:flex;align-items:center;}
+.rp-network-editor>summary{font-size:.8125rem;font-weight:600;cursor:pointer;min-height:var(--ui-target,48px);display:flex;align-items:center;}
 .rp-network-form{display:grid;gap:12px;min-width:0;}
-.rp-network-form label{display:grid;gap:5px;font-size:.75rem;line-height:1.6;font-weight:650;min-width:0;}
+.rp-network-form label{display:grid;gap:5px;font-size:.75rem;line-height:1.6;font-weight:600;min-width:0;}
 .rp-network-form :is(input:not([type=checkbox]),select,textarea){font:inherit;font-size:1rem;font-weight:400;line-height:1.5;color:var(--ui-ink);background:var(--ui-surface);border:1px solid var(--ui-control);border-radius:9px;padding:8px 10px;min-height:var(--ui-target,48px);width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
 .rp-network-form textarea{resize:vertical;}
 .rp-network-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}

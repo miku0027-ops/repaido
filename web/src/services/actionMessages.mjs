@@ -6,14 +6,14 @@ export function actionMessages(path, init = {}) {
  let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Non-JSON uploads. */ }
  const action = body.action || '';
  const upload = /\/(photos?|attachments|documents|media|evidence|portrait)(\/|$)/.test(route) || typeof Blob !== 'undefined' && init.body instanceof Blob;
- const pending = upload ? 'Uploading your file…' : /payment|checkout|refund|payout|razorpay|subscription\/(order|check)/.test(route) ? 'Checking payment details…' : /decision|commands/.test(route) ? 'Saving your decision…' : 'Submitting your changes…';
+ const pending = upload ? 'Uploading…' : /payment|checkout|refund|payout|razorpay|subscription\/(order|check)/.test(route) ? 'Checking payment…' : /decision|commands/.test(route) ? 'Saving…' : 'Saving…';
  return {pending, result(data = {}) {
   data = data || {};
   const status = data.status || data.state || data.listing?.status || data.rfq?.status;
   const note = (title, message, tone = 'success') => ({title, message, tone});
   if (data.ok === false || data.success === false) return note('Action needs attention', data.message || 'The server did not confirm this action. Review the details before trying again.', 'error');
-  if (/payment|checkout|refund|payout|razorpay|subscription\/(order|check)|\/prime\/(order|check)/.test(route)) return note('Payment status updated', 'Review the payment status shown in this view. A checkout opening or closing does not confirm payment.', 'info');
-  if (upload) return data.id || data.image_url || data.url || data.media?.id || data.document_id || data.photo_id ? note('Upload complete', 'Your file reached Repaido. Complete any remaining form steps to submit it.') : note('Upload response received','Check the file preview or saved attachment before submitting the form.','info');
+  if (/payment|checkout|refund|payout|razorpay|subscription\/(order|check)|\/prime\/(order|check)/.test(route)) return note('Payment status updated', 'Check the payment status below. Payment is complete only when confirmed.', 'info');
+  if (upload) return data.id || data.image_url || data.url || data.media?.id || data.document_id || data.photo_id ? note('Upload complete', 'Your file is ready. Save the form to attach it.') : note('Upload response received','Check the file preview or saved attachment before submitting the form.','info');
   if (/\/market\/listings$/.test(route) && (!data.id || !status)) return note('Listing not confirmed','Check My listings before submitting again.','error');
   if (/\/market\/listings$/.test(route)) return note(status === 'published' ? 'Listing published' : 'Listing saved', status === 'published' ? 'Your item is now listed. You can manage it in My listings.' : status === 'awaiting_fee' ? 'Your draft is saved. Review and pay the listing fee to publish it.' : 'Check My listings for its current publication status.');
   if (/\/publish-free$/.test(route)) return note('Listing published', 'Your free listing is now available in My listings.');
@@ -28,16 +28,16 @@ export function actionMessages(path, init = {}) {
   if (/\/b2b\/rfq\/[^/]+\/decision$/.test(route)) return note(action === 'accept' ? 'Quotation accepted' : 'Quotation declined','Your decision is saved. No payment was collected and stock was not reserved.');
   if (/\/b2b\/quotation$/.test(route)) return note('Quotation sent','The buyer can review the saved quotation.');
   if (/\/b2b\/listings/.test(route)) return note(method === 'DELETE' ? 'Listing removed' : 'Wholesale listing saved','Your catalogue has been updated.');
-  if (/\/custom-contracts\/queries$/.test(route)) return note('Requirement published','Review proposals in My contract requests. Work begins after you accept an award.');
-  if (/\/(bids|apply|interest)$/.test(route)) return note('Submission sent','Your proposal or application is saved for review. Acceptance is a separate step.');
+  if (/\/custom-contracts\/queries$/.test(route)) return note('Requirement published','Review proposals in My contract requests. Choose a contractor before work begins.');
+  if (/\/(bids|apply|interest)$/.test(route)) return note('Submission sent','Your submission is ready for review. You’ll be notified of the response.');
   if (/\/hiring$/.test(route)) return note('Hiring notice saved','Your project’s hiring details have been updated.');
   if (/\/(report|reports)$/.test(route)) return note('Report submitted','Your report was sent for review.');
   if (/\/(messages|comments|enquiries|agent-messages)$/.test(route)) return note('Message sent','Your message has been saved.');
   if (/\/support-tickets$/.test(route)) return note('Support request sent','Your request has been saved for the support team.');
-  if (/\/(profile|settings|preferences|hiring-policy)$/.test(route)) return note('Changes saved','Your latest settings have been saved.');
+  if (/\/(profile|settings|preferences|hiring-policy)$/.test(route)) return note('Changes saved','Your settings are up to date.');
   if (/\/quote$/.test(route)) return note('Quote ready','Review the estimate and terms before confirming.', 'info');
   if (/\/validate$/.test(route)) return note('Details checked','Review the validation result shown in this view.', 'info');
   if (status === 'pending' || status === 'pending_review' || status === 'submitted') return note('Submitted for review','Your submission was received. Approval is still pending.');
-  return note('Update saved', 'Your action was recorded. The latest details are shown in this view.');
+  return note('Update saved', 'Your changes are saved.');
  }};
 }

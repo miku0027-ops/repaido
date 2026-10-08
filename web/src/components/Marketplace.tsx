@@ -1,3 +1,4 @@
+import {Card} from './Card';
 import {useEffect,useRef,useState} from 'react';
 import {Plus,MapPin,Tag,Sparkles,Share2,PhoneCall,SlidersHorizontal,Search} from 'lucide-react';
 import {operation,currentPosition,money} from '../services/operations';
@@ -163,7 +164,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
   {busy&&<p role="status" className="market-busy-msg">Updating listings…</p>}
 
   <div className="market-grid">
-    {displayedRows.map(item=><article className="market-card" key={item.id}>
+    {displayedRows.map(item=><Card className="market-card" key={item.id}>
       <button className="market-card-open" onClick={()=>{detailSequence.current++;setListingError('');setDetail(item);}}>
         <div className="market-card-img-wrap">
           {published(item)&&item.image_url?<img src={apiAssetUrl(item.image_url)} alt={item.name} onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/images/icon-appliance.png';}}/>:<span className="market-image-placeholder">Photo saved privately</span>}
@@ -187,7 +188,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
         {item.mode==='second_hand'&&published(item)&&onShare&&<button onClick={()=>onShare({source:'second_hand',id:item.id})}><Share2 size={16}/> Share on Repaidians</button>}
         {!['closed','suspended'].includes(item.status)&&<button disabled={busy} onClick={()=>void run(async()=>{await operation(`/market/${item.id}/close`,{method:'POST'});if(detail?.id===item.id)setDetail(null);})}>Close listing</button>}
       </div>}
-    </article>)}
+    </Card>)}
   </div>
 
   {loaded&&!busy&&!error&&!displayedRows.length&&<p className="ops-empty">{mine?'You have no listings in this section yet.':'No listings match this category and area. Try another category, search or radius.'}</p>}
@@ -455,5 +456,5 @@ function MarketDetails({item,onClose,onShare,onSignIn}:{item:Item;onClose:()=>vo
 export function MarketplaceAdmin(){
  const [rows,setRows]=useState<Item[]>([]),[reports,setReports]=useState<{id:string;listing_id:string;reason:string}[]>([]),[error,setError]=useState(''),[reason,setReason]=useState('');
  const load=async()=>{try{const d=await operation<{listings:Item[];reports:typeof reports}>('/admin/market');setRows(d.listings);setReports(d.reports);}catch(e){setError((e as Error).message);}};useEffect(()=>{void load();},[]);
- return <section><h2>Community listings</h2><button onClick={()=>void load()}>Refresh</button><label>Moderation reason<textarea value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<div className="market-grid">{rows.map(x=><article className="ops-card" key={x.id}><h3>{x.name}</h3><p>{x.mode} · {x.status} · fee {x.fee_status}</p>{reports.filter(r=>r.listing_id===x.id).map(r=><p key={r.id}>Report: {r.reason}</p>)}<button disabled={reason.trim().length<10||x.status==='suspended'} onClick={()=>void operation(`/admin/market/${x.id}/hide`,{method:'POST',body:JSON.stringify({reason})}).then(load).catch(e=>setError(e.message))}>Hide listing</button></article>)}</div></section>;
+ return <section><h2>Community listings</h2><button onClick={()=>void load()}>Refresh</button><label>Moderation reason<textarea value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<div className="market-grid">{rows.map(x=><Card className="ops-card" key={x.id}><h3>{x.name}</h3><p>{x.mode} · {x.status} · fee {x.fee_status}</p>{reports.filter(r=>r.listing_id===x.id).map(r=><p key={r.id}>Report: {r.reason}</p>)}<button disabled={reason.trim().length<10||x.status==='suspended'} onClick={()=>void operation(`/admin/market/${x.id}/hide`,{method:'POST',body:JSON.stringify({reason})}).then(load).catch(e=>setError(e.message))}>Hide listing</button></Card>)}</div></section>;
 }

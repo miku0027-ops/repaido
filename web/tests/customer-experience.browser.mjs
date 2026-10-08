@@ -17,6 +17,8 @@ async function api(path,account,method='GET',body){const r=await fetch(apiOrigin
 async function pageFor(account,width=476,motion='reduce'){
  const context=await browser.newContext({viewport:{width,height:850},reducedMotion:motion});await context.addInitScript(a=>{if(a)localStorage.setItem('repaido.token',a.token);localStorage.setItem('repaido.customer.tab','"Explore"');},account||null);
  await context.route('**/api/**',async route=>{const url=new URL(route.request().url());const response=await route.fetch({url:apiOrigin+url.pathname+url.search});await route.fulfill({response});});
+ // Keep concurrent source edits from reloading the page during a responsive audit.
+ await context.route('**/@vite/client',async route=>{const response=await route.fetch();const body='class PreviewSocket{readyState=0;addEventListener(){};removeEventListener(){};send(){};close(){}}\n'+(await response.text()).replaceAll('new WebSocket(', 'new PreviewSocket(');await route.fulfill({response,contentType:'text/javascript',body});});
  const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));return page;
 }
 async function layout(page,name){const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);assert.equal(overflow,false,name+' document overflow');await page.screenshot({path:work+'/'+name+'.png',fullPage:true});}

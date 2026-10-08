@@ -36,7 +36,7 @@ export function ContractorHiring({projects,uid,onRefresh,onProject,onCreate,onIn
  const chooseDecision=(value:{a:Row;kind:string})=>{setDecisionConflict(false);setDecision(value);};
  const rows=applications.filter(a=>(filter==='all'||applicationStatus(a)===filter)&&`${a.worker_name} ${a.project_title} ${(a.applicant?.skills||[]).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
  return <div className="work-network contractor-hiring">
-  <div className="wn-between"><div><span className="wn-tag">Your project team</span><h2>Find the right fit. Confirm every offer.</h2></div>{canCreate&&<button onClick={onCreate}><Plus size={16}/>New project</button>}</div>
+  <div className="wn-between"><div><span className="wn-tag">Your project team</span><h2>Build your project team</h2></div>{canCreate&&<button onClick={onCreate}><Plus size={16}/>New project</button>}</div>
   <ol className="contract-hiring-stages" aria-label="Hiring steps">{['Publish roles','Compare applicants','Send terms','Agent accepts'].map((label,index)=><li key={label}><span>{index+1}</span>{label}</li>)}</ol>
   <div className="wn-stats"><span><strong>{own.filter(p=>noticeStatus(p)==='open').length}</strong>Open notices</span><span><strong>{applications.filter(a=>['applied','on_hold','shortlisted'].includes(a.status)).length}</strong>To review · this page</span><span><strong>{own.reduce((total,p)=>total+(p.capacity?.accepted??new Set(p.team.filter((member:Row)=>member.status==='accepted').map((member:Row)=>member.worker_id)).size),0)}</strong>Accepted team members</span></div>
   <h3>Project hiring notices</h3>

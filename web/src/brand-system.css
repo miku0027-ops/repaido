@@ -1,0 +1,258 @@
+/* Repaido's shared card and typography contract.
+   The priority layer keeps lazy-loaded module styles from changing core tokens.
+   Layout patterns follow the supplied card sheets: identity, media, rows and facts. */
+@font-face { font-family: Poppins; src: url('/fonts/poppins-400.woff2') format('woff2'); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: Poppins; src: url('/fonts/poppins-500.woff2') format('woff2'); font-style: normal; font-weight: 500; font-display: swap; }
+@font-face { font-family: Poppins; src: url('/fonts/poppins-600.woff2') format('woff2'); font-style: normal; font-weight: 600; font-display: swap; }
+@font-face { font-family: Poppins; src: url('/fonts/poppins-700.woff2') format('woff2'); font-style: normal; font-weight: 700; font-display: swap; }
+
+@layer repaido-brand {
+  :root {
+    --ui-font: 'Poppins', sans-serif !important;
+    --font-sans: 'Poppins', sans-serif !important;
+    --ui-ink: #0b132b !important;
+    --ui-muted: #3e4c63 !important;
+    --ui-surface: #ffffff !important;
+    --ui-subtle: #f4f6fa !important;
+    --ui-primary: #17285c !important;
+    --ui-primary-hover: #0b193f !important;
+    --ui-link: #003bb5 !important;
+    --ui-control: #68768a !important;
+    --ui-line: #dce1e8 !important;
+    --ui-success: #14532d !important;
+    --ui-success-surface: #f0fdf4 !important;
+    --ui-warning: #713f12 !important;
+    --ui-warning-surface: #fff4e6 !important;
+    --ui-danger: #991b1b !important;
+    --ui-danger-surface: #fff1f2 !important;
+    --ui-radius: 12px !important;
+    --ui-target: 44px !important;
+    --card-radius: 16px;
+    --card-padding: 16px;
+    --card-gap: 12px;
+    --card-shadow: 0 2px 8px #0b132b06;
+    --ui-space-1: 4px;
+    --ui-space-2: 8px;
+    --ui-space-3: 12px;
+    --ui-space-4: 16px;
+    --ui-space-5: 24px;
+    --ui-space-6: 32px;
+  }
+  [data-theme=dark] {
+    --ui-ink: #f5f7ff !important;
+    --ui-muted: #d1dbea !important;
+    --ui-surface: #182337 !important;
+    --ui-subtle: #101827 !important;
+    --ui-link: #bfd2ff !important;
+    --ui-control: #9aabc2 !important;
+    --ui-line: #52647e !important;
+    --ui-success: #bbf7d0 !important;
+    --ui-success-surface: #102b20 !important;
+    --ui-warning: #fde68a !important;
+    --ui-warning-surface: #342312 !important;
+    --ui-danger: #fecaca !important;
+    --ui-danger-surface: #3b171b !important;
+    --card-shadow: none;
+  }
+  html, body, button, input, select, textarea, code, pre, kbd, samp, .leaflet-container {
+    font-family: var(--ui-font) !important;
+  }
+  body { line-height: 1.6 !important; font-weight: 400; }
+  h1, h2, h3, h4, strong, b { font-synthesis: none; }
+  input, select, textarea { font-size: 1rem !important; line-height: 1.5 !important; }
+  :where(button, [role=button], summary) { font-weight: 500; }
+  :where(button, [role=button], summary, a[href]) { touch-action: manipulation; }
+  :where(button, [role=button], summary):not(.leaflet-control-attribution *) {
+    min-height: 44px !important;
+  }
+  :where(button, input, select, textarea, summary, a[href]):focus-visible {
+    outline: 3px solid var(--ui-focus) !important;
+    outline-offset: 3px !important;
+  }
+  :where(p, label, h1, h2, h3, h4, strong, small, dd, button) {
+    overflow-wrap: break-word;
+  }
+  :where(.ui-card,.ops-card,.market-card,.hire-card,.hire-comparison-card,
+    .customer-booking-card,.contract-card,.cc-card,.cc-section,.home-plan-card,
+    .rp-post,.rp-opportunity-card,.rp-job-card,.rp-company-card,.wn-project,
+    .wn-discussion,.wn-connection,.account-category,.business-empty,
+    .discovery-card,.service-preview-accordion,.b2b-product-card,.shop-b2b-listing,.b2b-request-card,.transport-card) {
+    min-width: 0 !important;
+    border: 1px solid var(--ui-line) !important;
+    border-radius: var(--card-radius) !important;
+    background: var(--ui-surface) !important;
+    color: var(--ui-ink) !important;
+    box-shadow: var(--card-shadow) !important;
+    text-align: start;
+  }
+  :where(.ui-card,.ops-card,.contract-card,.cc-card,.cc-section,.home-plan-card,
+    .wn-project,.wn-discussion,.transport-card) {
+    padding: var(--card-padding) !important;
+  }
+  :where(.market-card,.rp-opportunity-card,.customer-booking-card,.hire-card,
+    .service-preview-accordion,.account-category) { padding: 0 !important; }
+  :where(.ui-card h2,.ui-card h3,.ops-card h3,.contract-card h2,.cc-card h3,
+    .rp-opportunity-card h3,.market-card h3,.hire-card h3) {
+    margin: 0 !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    letter-spacing: -.015em !important;
+    color: var(--ui-ink) !important;
+  }
+  :where(.ui-card p,.ops-card>p,.contract-card>p,.cc-card>p,
+    .rp-opportunity-description,.market-card-sub) {
+    margin-block: 8px !important;
+    font-size: .875rem !important;
+    line-height: 1.65 !important;
+    color: var(--ui-muted) !important;
+  }
+  :where(.ui-card-header,.ui-card-row) { display: flex; gap: 12px; align-items: center; min-width: 0; }
+  :where(.ui-card-header>div,.ui-card-row>div) { flex: 1; min-width: 0; }
+  :where(.ui-card-footer) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--ui-line); }
+  :where(.market-grid,.hire-card-grid,.contract-grid,.cc-grid,.rp-opportunities-grid,.ops-grid) {
+    gap: 16px !important;
+    align-items: stretch;
+  }
+  :where(.market-card-body,.rp-opportunity-body,.hire-card-main) {
+    padding: var(--card-padding) !important;
+    min-width: 0 !important;
+  }
+  :where(.market-card-body,.rp-opportunity-body) { display: flex; flex-direction: column; gap: 8px; }
+  :where(.market-card-body>h3,.rp-opportunity-body>h3) { margin: 0 !important; }
+  :where(.market-card-body>p,.rp-opportunity-body>p) { margin: 0 !important; }
+  :where(.market-card-img-wrap,.rp-opportunity-image) { aspect-ratio: 16 / 11; height: auto !important; background: var(--ui-subtle) !important; }
+  :where(.market-card-img-wrap>img,.rp-opportunity-image>img) { width: 100%; height: 100% !important; object-fit: cover; }
+  :where(.market-card-manage,.rp-opportunity-actions,.hire-card-actions,.cc-card>.cc-actions) {
+    display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px !important;
+    margin-top: auto !important; padding-top: 12px !important; border-top: 1px solid var(--ui-line) !important;
+  }
+  .hire-card-actions { margin-inline: 16px !important; padding-bottom: 16px !important; }
+  .rp-opportunity-actions .rp-primary { flex: 1; }
+  :where(.market-card-tag,.rp-opportunity-kind,.rp-opportunity-condition,.cc-status,.contract-chip,.wn-tag) {
+    padding: 4px 8px !important; border-radius: 8px !important; font-size: .75rem !important;
+    font-weight: 500 !important; line-height: 1.5 !important;
+    background: var(--ui-subtle) !important; color: var(--ui-ink) !important;
+    text-transform: none !important; letter-spacing: 0 !important;
+  }
+  :where(.market-card-price-row,.rp-opportunity-price,.cc-money) { margin-block: 8px !important; align-items: baseline; }
+  :where(.market-card-price-row strong,.rp-opportunity-price strong,.cc-money strong) { font-size: 1.25rem !important; font-weight: 600 !important; color: var(--ui-ink) !important; font-variant-numeric: tabular-nums; }
+  :where(.business-page-header,.cc-heading,.hire-results-heading,.hire-section-heading,.ops-heading,.rp-section-heading) {
+    align-items: center !important; gap: 12px !important; min-width: 0;
+  }
+  :where(.business-page-header) {
+    padding: 20px !important; border-radius: 16px !important;
+    background: var(--ui-surface) !important; box-shadow: none !important;
+  }
+  :where(.business-page-header h1,.cc-heading h2,.hire-section-heading h2,.ops-heading h2) {
+    margin: 4px 0 0 !important; font-size: clamp(1.125rem,3vw,1.5rem) !important;
+    font-weight: 600 !important; line-height: 1.35 !important; letter-spacing: -.025em !important;
+  }
+  :where(.business-eyebrow,.cc-eyebrow,.hire-eyebrow) {
+    font-size: .75rem !important; font-weight: 500 !important; letter-spacing: .025em !important;
+    text-transform: none !important; color: var(--ui-link) !important;
+  }
+  :where(.business-tabs,.cc-tabs,.agent-list-filters,.hire-category-rail) { gap: 8px !important; scroll-padding-inline: 8px; }
+  :where(.business-tabs button,.cc-tabs button,.agent-list-filters button) { padding: 8px 12px !important; font-size: .8125rem !important; font-weight: 500 !important; border-radius: 10px !important; }
+  :where(.business-empty,.cc-empty,.wn-empty,.rp-empty) { padding: 28px 20px !important; border-radius: 16px !important; box-shadow: none !important; }
+  :where(.business-empty h2,.cc-empty h3,.rp-empty h3) { font-size: 1rem !important; font-weight: 600 !important; }
+  :where(.business-empty p,.cc-empty p,.rp-empty p) { max-width: 48ch; font-size: .875rem !important; line-height: 1.65 !important; color: var(--ui-muted) !important; }
+  :where(.market-form,.cc-form,.contract-form,.home-form-grid,.rp-form-grid) { gap: 16px !important; }
+  :where(.market-form label,.cc-form label,.contract-form label,.rp-form-grid label) { gap: 6px !important; font-size: .875rem !important; line-height: 1.5 !important; font-weight: 500 !important; }
+  :where(.market-form input,.market-form select,.market-form textarea,.cc-form input,.cc-form select,.cc-form textarea) { padding: 12px !important; border-radius: 10px !important; }
+  :where(.market-form input[type=checkbox],.cc-form input[type=checkbox]) { padding: 0 !important; }
+  :where(dialog.modal) { border-radius: 20px !important; border: 1px solid var(--ui-line) !important; box-shadow: 0 20px 64px #0b132b30 !important; }
+  :where(.app-modal-heading) { align-items: center !important; gap: 12px !important; padding-bottom: 16px !important; margin-bottom: 20px !important; border-bottom: 1px solid var(--ui-line); }
+  :where(.app-modal-heading h2) { padding: 0 !important; margin: 0 !important; font-size: 1.125rem !important; font-weight: 600 !important; line-height: 1.4 !important; }
+  :where(.app-modal-heading>button) { width: 44px !important; min-width: 44px !important; height: 44px !important; padding: 10px !important; }
+  .account-hub-heading { background: var(--ui-surface) !important; border-radius: 16px !important; padding: 20px !important; box-shadow: none !important; }
+  .account-hub-heading::before,.account-hub-heading::after { display: none !important; }
+  .account-hub-heading h1 { font-size: 1.5rem !important; font-weight: 600 !important; letter-spacing: -.03em !important; }
+  .account-hub-eyebrow { font-size: .75rem !important; font-weight: 500 !important; letter-spacing: .03em !important; text-transform: none !important; }
+  .account-category summary { padding: 16px !important; gap: 12px !important; }
+  .account-category-content { padding: 4px 12px 12px !important; }
+  .account-menu-action { padding: 12px 4px !important; gap: 12px !important; }
+  .account-menu-action strong,.account-category-copy strong { font-size: .875rem !important; font-weight: 600 !important; }
+  .account-menu-copy>span,.account-category-copy>span { font-size: .8125rem !important; line-height: 1.6 !important; }
+  .account-card-shortcuts { gap: 8px !important; }
+  .account-card-shortcuts button { padding: 12px !important; font-size: .8125rem !important; font-weight: 500 !important; }
+  .booking-card-status { padding: 12px 16px !important; border-bottom: 1px solid var(--ui-line); }
+  .booking-card-open { padding: 16px !important; }
+  .booking-card-more { margin: 0 16px 12px !important; }
+  .booking-card-service>span>strong { font-size: 1rem !important; font-weight: 600 !important; }
+  .booking-agent strong { font-size: .875rem !important; font-weight: 500 !important; }
+  .booking-card-action { padding-top: 12px !important; margin-top: 12px !important; border-top: 1px solid var(--ui-line); }
+  .app-feedback-stack .app-feedback-card { border-radius: 12px !important; padding: 16px !important; box-shadow: 0 8px 24px #0b132b24 !important; }
+  .app-feedback-stack .app-feedback-card strong { font-weight: 600 !important; }
+  .app-feedback-stack .app-feedback-card p { font-size: .8125rem !important; line-height: 1.6 !important; }
+  .app-feedback-stack .app-feedback-card button { min-width: 44px !important; min-height: 44px !important; margin: -8px -8px 0 0 !important; }
+  /* Pair action colours explicitly: module buttons must not inherit card ink. */
+  :where(.button-primary,.navy-button,.ops-primary,.rp-primary,.cc-primary) {
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    gap: 8px !important; padding: 10px 16px !important; border-radius: 10px !important;
+    background: var(--ui-primary) !important; color: #fff !important; font-weight: 600 !important;
+  }
+  button:disabled:not([aria-busy=true]) { background: var(--ui-subtle) !important; color: var(--ui-muted) !important; border-color: var(--ui-control) !important; cursor: not-allowed !important; box-shadow: none !important; }
+  :where(.cc-card>.cc-actions button,.rp-opportunity-actions button) { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; }
+  .account-hub-heading,.account-hub-heading h1 { color: var(--ui-ink) !important; }
+  .account-hub-heading p,.account-hub-eyebrow { color: var(--ui-muted) !important; }
+  .account-hub-location { white-space: nowrap; flex-shrink: 0; }
+  .customer-booking-card .booking-card-open { display: block !important; width: 100% !important; text-align: start !important; background: transparent !important; color: var(--ui-ink) !important; }
+  .booking-agent,.booking-card-more { background: var(--ui-surface) !important; color: var(--ui-ink) !important; }
+  .booking-visit,.booking-agent small,.booking-stage-summary small,.booking-card-more :is(p,dt,dd) { color: var(--ui-muted) !important; }
+  .booking-card-action,.booking-card-more summary { color: var(--ui-ink) !important; }
+  .booking-card-status small { font-size: .75rem !important; }
+  .booking-visit,.booking-agent small,.booking-stage-summary small,.booking-card-more summary { font-size: .75rem !important; }
+  .task-slide-nav-btn { min-width: 44px !important; }
+  /* Keep banner copy on a solid surface; photos never determine text contrast. */
+  .opportunity-home { aspect-ratio: auto !important; height: auto !important; min-height: 230px !important; border-radius: 16px !important; background: var(--ui-surface) !important; }
+  .opportunity-home .opportunity-slide { position: relative !important; display: grid !important; grid-template-columns: minmax(0,3fr) minmax(0,2fr); min-height: 230px !important; height: auto !important; }
+  .opportunity-home .opportunity-photo { grid-column: 2; position: absolute !important; width: 40% !important; height: 100% !important; object-position: 65% center !important; transform: none !important; animation: none !important; }
+  .opportunity-home .opportunity-copy { position: relative !important; inset: auto !important; width: auto !important; padding: 20px !important; gap: 10px !important; color: var(--ui-ink) !important; background: var(--ui-surface) !important; }
+  .opportunity-home .opportunity-copy strong { font-size: clamp(1.125rem,3vw,1.5rem) !important; line-height: 1.4 !important; font-weight: 600 !important; }
+  .opportunity-home .opportunity-copy small,.opportunity-home .opportunity-copy>span,.opportunity-home .opportunity-copy b { font-size: .75rem !important; line-height: 1.6 !important; letter-spacing: 0 !important; color: var(--ui-muted) !important; }
+  .opportunity-home .opportunity-copy>span { display: block !important; max-width: none !important; }
+  .opportunity-home .opportunity-copy b { color: var(--ui-link) !important; }
+  .opportunity-home .opportunity-scrim,.opportunity-home .opportunity-motion { display: none !important; }
+  .opportunity-carousel .opportunity-controls { background: var(--ui-surface) !important; color: var(--ui-ink) !important; }
+  .opportunity-carousel .opportunity-controls button { width: 44px !important; min-width: 44px !important; color: var(--ui-ink) !important; }
+  .opportunity-carousel .opportunity-controls>span { font-size: .75rem !important; }
+  .opportunity-market { min-height: 52px !important; }
+  .opportunity-market .opportunity-copy { width: calc(100% - 118px) !important; }
+  .opportunity-market .opportunity-copy small { display: none !important; }
+  .opportunity-market .opportunity-copy strong { font-size: .8125rem !important; }
+  .opportunity-market .opportunity-copy b { display: none !important; }
+  .repaido-service-micro-badge { font-size: .625rem !important; }
+  .repaido-badge-emerald { background: #ecfdf5 !important; color: #14532d !important; }
+  .repaido-badge-sky { background: #f0f9ff !important; color: #123a66 !important; }
+  .repaido-badge-amber,.repaido-badge-flame { background: #fff4e6 !important; color: #713f12 !important; }
+  .customer-home-plans-switch button:not([aria-pressed=true]) { color: #26364e !important; }
+  .story-label { overflow: clip !important; }
+  .repaido-customer-footer,.android-explore-screen,.service-stories,.uc-services-controls,.uc-discovery-main,.local-business-hub { background: var(--ui-subtle) !important; }
+  .home-greeting,.hydration-controls,.android-footer-slogan { background: var(--ui-subtle) !important; }
+  .trust-pillar-card,.marketplace-slide-card { background: var(--ui-surface) !important; }
+  .android-section-title { color: var(--ui-ink) !important; }
+  .trust-pillar-card h2,.trust-pillar-card p,.slide-card-title { color: var(--ui-ink) !important; }
+  .repaido-customer-footer :is(p,li),.android-footer-slogan :is(h3,p) { color: var(--ui-muted) !important; }
+  .service-stories .story-label,.service-stories .stories-heading h2 { color: var(--ui-ink) !important; }
+  .compact-story-controls button,.evidence-story-controls button { min-width: 44px !important; width: 44px !important; height: 44px !important; }
+  .compact-story-copy { padding-bottom: 56px !important; }
+  .hire-discovery-page .hire-category-cards>button { flex-basis: max(142px,9rem) !important; max-width: 100% !important; }
+  .hire-category-copy { width: 100% !important; max-width: 100% !important; }
+  .hire-category-copy :is(strong,small) { overflow-wrap: anywhere !important; }
+  .b2b-product-open { flex-direction: column !important; }
+  .b2b-product-open .b2b-product-image { flex: none !important; width: 100% !important; height: 160px !important; margin: 0 !important; border-radius: 0 !important; }
+  .b2b-product-open .b2b-product-image:not(:has(img)) { height: 88px !important; }
+  .b2b-product-image small { max-width: none !important; }
+  .b2b-product-copy { width: 100% !important; padding: var(--card-padding) !important; }
+  .b2b-rate strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+  .shop-b2b-metrics { display: flex !important; flex-wrap: wrap !important; }
+  .shop-b2b-metrics>div { flex: 1 1 90px; min-width: min-content; max-width: 100%; }
+  .shop-b2b-metrics span { overflow-wrap: anywhere; }
+  @media(min-width:768px) { :root { --card-padding: 20px; } }
+  @media(max-width:380px) {
+    .market-grid,.rp-opportunities-grid { grid-template-columns: minmax(0,1fr) !important; }
+    .account-card-shortcuts { grid-template-columns: minmax(0,1fr) !important; }
+  }
+  @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+}

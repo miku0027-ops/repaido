@@ -462,8 +462,8 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           </div>
 
           {section==='refurbished'&&<StoryCarousel label="Refurbished discovery" slides={[
- {id:'renew',eyebrow:'A REPAIDO SPECIALTY',title:'A second life. A considered choice.',description:'Explore refurbished products with the details that matter.',image:'/images/banners/refurbished.jpg'},
- {id:'inspect',eyebrow:'THE DETAILS FIRST',title:'Look closer before you choose.',description:'Compare declared repairs, tests, condition and included cover.',image:'/images/washer.jpg'},
+ {id:'renew',eyebrow:'A REPAIDO SPECIALTY',title:'Refurbished finds',description:'Explore refurbished products with the details that matter.',image:'/images/banners/refurbished.jpg'},
+ {id:'inspect',eyebrow:'THE DETAILS FIRST',title:'Condition and warranty',description:'Compare declared repairs, tests, condition and included cover.',image:'/images/washer.jpg'},
  {id:'value',eyebrow:'MAKE IT YOURS',title:'Good things deserve another home.',description:'Review the seller and item history, then choose with confidence.',image:'/images/banners/sell.jpg'}
  ]}/>}
           {sortBy==='popularity'&&sortedProducts.some(p=>p.prime?.active)&&<p className="prime-placement-note">Prime shops receive paid priority in these results. Price and newest sorts follow your selection.</p>}

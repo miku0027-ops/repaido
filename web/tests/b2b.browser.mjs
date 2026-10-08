@@ -94,6 +94,9 @@ async function fillRequest(page,quantity=25){
   return form;
 }
 async function loadAllShopListings(page){
+  // A saved form closes before its list refresh finishes. Wait for that refresh
+  // before deciding whether the next cursor is available.
+  await page.waitForFunction(()=>{const refresh=document.querySelector('.shop-b2b-panel .business-page-header button');return refresh&&!refresh.disabled;});
   for(let n=0;n<10;n++){
     const more=page.getByRole('button',{name:'Load more listings',exact:true});if(!await more.count())return;
     const count=await page.locator('.shop-b2b-listing').count();
@@ -128,7 +131,8 @@ try{
   const guest=await newPage(null);
   await guest.getByRole('heading',{name:'Wholesale listings are on the way'}).waitFor();
   assert.equal(await guest.getByText('OLD BROWSER SAMPLE MUST NOT APPEAR').count(),0);
-  assert.match(await guest.locator('.b2b-hub-container').innerText(),/Online wholesale checkout is unavailable/);
+  // The compact catalogue has no checkout action; agreement terms are checked in the quotation flow below.
+  assert.equal(await guest.getByRole('button',{name:/checkout|pay now/i}).count(),0);
   await guest.getByRole('tab',{name:'My requests',exact:true}).click();
   await guest.getByRole('button',{name:'Sign in',exact:true}).waitFor();
   assert.equal(await guest.locator('.b2b-request-card').count(),0);await layout(guest);await guest.context().close();
