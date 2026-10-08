@@ -1,6 +1,6 @@
 import {useState, type ComponentType, type ReactNode} from 'react';
 import {Bell, BookOpen, BriefcaseBusiness, CalendarDays, CalendarCheck, ChevronDown, ChevronRight, CircleHelp, FileCheck2, FileText, Headphones, Home, MapPin, Package, Receipt, Repeat2, ShieldCheck, ShoppingBag, Store, Users, Wrench} from 'lucide-react';
-import {AccountCard, type AccountCardProps} from './AccountCard';
+import {AccountCard, AccountSignOut, type AccountCardProps} from './AccountCard';
 import {AppPolicies, type AppPolicyId} from './AppPolicies';
 import './account-hub.css';
 
@@ -38,7 +38,7 @@ export function AccountHub(props: AccountHubProps) {
   const [policy, setPolicy] = useState<AppPolicyId | null>(null);
   return <div className="account-hub">
     <header className="account-hub-heading"><div><p className="account-hub-eyebrow">MADE FOR YOUR EVERYDAY</p><h1>Your space.</h1><p>Everything you need, in one place.</p></div><button className="account-hub-location" onClick={props.onLocation}><MapPin size={18} aria-hidden="true"/><span>{props.city}</span><ChevronRight size={16} aria-hidden="true"/></button></header>
-    <div className="account-hub-layout"><aside className="account-hub-profile"><AccountCard {...props}/></aside><div className="account-hub-menu">
+    <div className="account-hub-layout"><aside className="account-hub-profile"><AccountCard {...props} hideSignOut/></aside><div className="account-hub-menu">
       <AccountCategory icon={CalendarCheck} title="Bookings & work" description="Visits, home plans and hiring" initiallyOpen>
         <AccountAction icon={Wrench} label="My service bookings" description="View your visits and their progress" onClick={props.onBookings}/>
         <AccountAction icon={Home} label="Home plans & calendar" description="Manage your scheduled home services" onClick={props.onHomePlans}/>
@@ -70,6 +70,7 @@ export function AccountHub(props: AccountHubProps) {
         <AccountAction icon={BookOpen} label="About Repaido" onClick={() => setPolicy('about')}/>
       </AccountCategory>
     </div></div>
+    {props.identity && <footer className="account-hub-footer"><AccountSignOut onSignOut={props.onSignOut}/></footer>}
     {policy && <AppPolicies initialPolicy={policy} onClose={() => setPolicy(null)} onContactSupport={() => { setPolicy(null); props.onSupport(); }}/>}
   </div>;
 }

@@ -44,6 +44,7 @@ class Vehicle(Input):
     name:str=Field(min_length=3,max_length=100)
     registration:str=Field(min_length=5,max_length=20,pattern=r'^[A-Za-z0-9 -]+$')
     mode:Literal['cab','rental','both']='cab'
+    vehicle_kind:Literal['car','bike']='car'
     seats:int=Field(ge=1,le=12)
     transmission:Literal['manual','automatic']='manual'
     fuel:Literal['petrol','diesel','electric','hybrid','cng']='petrol'
@@ -59,6 +60,7 @@ class Vehicle(Input):
     active:bool=False
     @model_validator(mode='after')
     def rates(self):
+        if self.vehicle_kind=='bike' and self.seats!=1:raise ValueError('A bike may offer one passenger seat.')
         if self.mode in ('rental','both') and not self.daily_paise:raise ValueError('Set a daily rental rate.')
         return self
 class Search(Input):
@@ -79,6 +81,7 @@ class RideRequest(Input):
     license_document_id:str|None=None
     consent:Literal[True]
 class Command(Input):
+    position:Position|None=None
     action:Literal['accept','decline','depart','start','complete','confirm','cancel','dispute','inspect','agree','paid','received','settlement_received']
     expected_version:int=Field(ge=1)
     command_id:str=Field(min_length=16,max_length=100)
@@ -128,11 +131,21 @@ def document(u,identifier,uid):
 def schedule(start,end):
     if not all(isinstance(v,(int,float)) and math.isfinite(v) for v in (start,end)) or not time.time()+300<=start<=time.time()+180*86400 or not start+900<=end<=start+30*86400:fail('INVALID_DATES','Choose a pickup at least five minutes ahead and an end at least 15 minutes later, within 180 days.',422)
 def conflicts(u,vehicle,start,end,ignore=''):
-    rows=u.find('mobility_rides','owner_id',vehicle['owner_id'])
-    return any(r['id']!=ignore and r['state'] not in CLOSED and r['starts_at']<end and r['ends_at']>start for r in rows)
+    rows=u.find('mobility_rides','owner_id',vehicle['owner_id'])+u.find('shared_departures','owner_id',vehicle['owner_id'])
+    if vehicle.get('driver_id'):
+        rows+=u.find('mobility_rides','driver_id',vehicle['driver_id'])+u.find('shared_departures','driver_id',vehicle['driver_id'])
+    return any(r['id']!=ignore and r['state'] not in CLOSED and (r['starts_at']<end and r['ends_at']>start or r['state'] in ('on_the_way','in_progress','disputed') and r['ends_at']<time.time()) for r in rows)
+def reservation_guard(u,vehicle):
+    # A shared document serializes reservations even when both transaction queries
+    # originally returned no bookings (Firestore has no predicate write lock).
+    for resource in {'owner:'+vehicle['owner_id'],'vehicle:'+vehicle['id'],*(['driver:'+vehicle['driver_id']] if vehicle.get('driver_id') else [])}:
+        old=u.get('mobility_availability',resource) or {'generation':0}
+        u.put('mobility_availability',resource,{'generation':old['generation']+1})
 def live_vehicle(u,v,mode,start,end,ignore=''):
     if not v or not v.get('active') or v.get('status')!='approved' or v.get('valid_until',0)<end or v['mode'] not in (mode,'both'):return False
     p=u.get('business_partners',v['owner_id']) or {}
+    driver=u.get('business_partners',v['driver_id']) if v.get('driver_id') else None
+    if v.get('driver_id') and (not driver or driver.get('role')!='driver' or driver.get('status')!='approved' or driver.get('valid_until',0)<end):return False
     return p.get('status')=='approved' and p.get('valid_until',0)>=end and p.get('role') in ('cab_owner','driver') and not conflicts(u,v,start,end,ignore)
 def vehicle_public(u,v):
     p=u.get('business_partners',v['owner_id']) or {}
@@ -149,7 +162,7 @@ def replay(u,uid,body):
     return key,old
 def view(row,uid):
     result=copy.deepcopy(row)
-    mine=uid in (row['customer_id'],row.get('owner_id'))
+    mine=uid in (row['customer_id'],row.get('owner_id'),row.get('driver_id'))
     result.pop('candidate_owner_ids',None)
     if not mine:
         # Candidates see service area and scope, never the customer's address/contact.
@@ -231,6 +244,8 @@ def install(core):
         phone(user)
         def save(u):
             old=u.get('business_partners',user['id']) or {'version':0}
+            if not old['version'] and u.get('workers',user['id']):fail('ROLE_LOCKED','This account is registered for service work. Contact support to change its work category.',409)
+            if old.get('role') and body.role!=old['role']:fail('ROLE_LOCKED','Your registered work category cannot be changed here. Contact support.',409)
             if old['version']!=body.expected_version:fail('STALE','Refresh your business profile before saving.',409)
             for identifier in body.document_ids:document(u,identifier,user['id'])
             if old.get('status')=='approved' and body.role!=old['role']:fail('ROLE_REVIEW','Contact support before changing an approved business role.',409)
@@ -292,12 +307,12 @@ def install(core):
     def vehicle(identifier:str,body:Vehicle,user=Depends(core.current_user)):
         if len(identifier)>80 or not all(c.isalnum() or c=='-' for c in identifier):fail('INVALID_ID','Use a valid vehicle identifier.',422)
         def save(u):
-            current(u,user['id'],('cab_owner','driver'));old=u.get('mobility_vehicles',identifier)
+            current(u,user['id'],('cab_owner',));old=u.get('mobility_vehicles',identifier)
             if old and old['owner_id']!=user['id']:fail('NOT_FOUND','Vehicle not found.',404)
             if (old or {}).get('version',0)!=body.expected_version:fail('STALE','Reload the vehicle before changing it.',409)
             if not old and len(u.find('mobility_vehicles','owner_id',user['id']))>=20:fail('VEHICLE_LIMIT','Contact support to add more vehicles.',422)
             for doc in body.document_ids:document(u,doc,user['id'])
-            verification_changed=not old or any(old[k]!=body.model_dump()[k] for k in ('name','registration','document_ids','mode','seats','fuel','transmission'))
+            verification_changed=not old or any(old.get(k,'car' if k=='vehicle_kind' else None)!=body.model_dump()[k] for k in ('vehicle_kind','name','registration','document_ids','mode','seats','fuel','transmission'))
             row={**(old or {}),**body.model_dump(exclude={'expected_version'}),'id':identifier,'owner_id':user['id'],'status':'pending' if verification_changed else old['status'],'version':body.expected_version+1,'updated_at':time.time()}
             u.put('mobility_vehicles',identifier,row);return row
         return store.run(save)
@@ -355,7 +370,7 @@ def install(core):
             if quotes[0]['mode']=='rental':
                 if not body.license_document_id:fail('LICENCE_REQUIRED','Upload your driving licence for owner review before a self-drive rental.',422)
                 document(u,body.license_document_id,user['id'])
-            q=quotes[0];row={**body.model_dump(exclude={'request_id','quote_ids'}),'id':key,'request_hash':fingerprint(body),'customer_id':user['id'],'customer_name':user.get('name','Customer'),'candidate_owner_ids':list(dict.fromkeys(x['owner_id'] for x in quotes)),'quotes':quotes,'state':'requested','owner_id':None,'starts_at':q['starts_at'],'ends_at':q['ends_at'],'mode':q['mode'],'trip':q['trip'],'pickup':q['pickup'],'dropoff':q['dropoff'],'offer_expires_at':time.time()+300,'created_at':time.time(),'version':1,'events':[],'advance_paid_paise':0,'balance_paid_paise':0}
+            q=quotes[0];row={**body.model_dump(exclude={'request_id','quote_ids'}),'id':key,'request_hash':fingerprint(body),'customer_id':user['id'],'customer_name':user.get('name','Customer'),'candidate_owner_ids':list(dict.fromkeys(x['owner_id'] for x in quotes)),'quotes':quotes,'state':'requested','owner_id':None,'starts_at':q['starts_at'],'ends_at':q['ends_at'],'mode':q['mode'],'trip':q['trip'],'pickup':q['pickup'],'dropoff':q['dropoff'],'offer_expires_at':time.time()+300,'created_at':time.time(),'version':1,'events':[],'geofencing':True,'advance_paid_paise':0,'balance_paid_paise':0}
             u.put('mobility_rides',key,row);inbox(u,'rides',row)
             for owner in row['candidate_owner_ids']:notice(u,owner,row,'New transport request')
             return view(row,user['id'])
@@ -363,7 +378,7 @@ def install(core):
     @r.get('/rides')
     def rides(user=Depends(core.current_user)):
         def read(u):
-            rows=own_records(u,'rides',user['id'])
+            rows=list({x['id']:x for x in own_records(u,'rides',user['id'])+u.find('mobility_rides','driver_id',user['id'])}.values())
             for row in rows:
                 if row['state']=='requested' and row['offer_expires_at']<=time.time():row['state']='expired';event(u,row,'RequestExpired','scheduler');u.put('mobility_rides',row['id'],row)
             return {'rides':[view(x,user['id']) for x in sorted(rows,key=lambda x:x['created_at'],reverse=True)[:100]],'server_time':time.time()}
@@ -379,20 +394,21 @@ def install(core):
     def ride_command(identifier:str,body:Command,user=Depends(core.current_user)):
         def save(u):
             row=u.get('mobility_rides',identifier);uid=user['id']
-            if not row or (uid not in (row['customer_id'],row.get('owner_id')) and uid not in row['candidate_owner_ids']):fail('NOT_FOUND','Ride unavailable.',404)
+            if not row or (uid not in (row['customer_id'],row.get('owner_id'),row.get('driver_id')) and uid not in row['candidate_owner_ids']):fail('NOT_FOUND','Ride unavailable.',404)
             key,old=replay(u,uid,body)
             if old:
                 if old['record_id']!=identifier:fail('IDEMPOTENCY_CONFLICT','Action belongs to another record.',409)
                 return view(row,uid)
             if row['version']!=body.expected_version:fail('STALE','This booking changed. Refresh before continuing.',409)
-            owner=uid==row.get('owner_id');customer=uid==row['customer_id'];a=body.action;state=row['state']
+            owner=uid==row.get('owner_id');operator=owner or uid==row.get('driver_id');customer=uid==row['customer_id'];a=body.action;state=row['state']
             if a=='accept':
                 current(u,uid,('cab_owner','driver'))
                 if state!='requested' or uid not in row['candidate_owner_ids'] or row['offer_expires_at']<=time.time():fail('ALREADY_ASSIGNED','This request has expired or another owner accepted first.',409)
                 q=next(x for x in row['quotes'] if x['owner_id']==uid);v=u.get('mobility_vehicles',q['vehicle_id'])
                 if not v or q['expires_at']<=time.time() or v['version']!=q['vehicle_version'] or not live_vehicle(u,v,row['mode'],row['starts_at'],row['ends_at']):fail('UNAVAILABLE','This vehicle or driver is no longer available.',409)
                 if uid==row['customer_id']:fail('SELF_BOOKING','Choose another customer booking.',422)
-                row.update(owner_id=uid,quote=q,vehicle_id=v['id'],total_paise=q['total_paise'],state='accepted',accepted_at=time.time())
+                reservation_guard(u,v)
+                row.update(owner_id=uid,driver_id=v.get('driver_id'),quote=q,vehicle_id=v['id'],total_paise=q['total_paise'],state='accepted',accepted_at=time.time())
                 if row['mode']=='rental':row.update(vehicle_pickup_location=v['location'],vehicle_pickup_address=v['origin_address'])
                 notice(u,row['customer_id'],row,'Your vehicle owner accepted')
             elif a=='decline':
@@ -400,21 +416,35 @@ def install(core):
                 row['candidate_owner_ids'].remove(uid)
                 if not row['candidate_owner_ids']:row['state']='expired'
             elif a=='depart':
-                if not owner or state!='reserved' or row['mode']!='cab' or row.get('advance_paid_paise')!=ADVANCE or row.get('financial_hold'):fail('ADVANCE_REQUIRED','A verified ₹500 advance is required before departure.',409)
+                if not operator or state!='reserved' or row['mode']!='cab' or row.get('advance_paid_paise')!=ADVANCE or row.get('financial_hold'):fail('ADVANCE_REQUIRED','A verified ₹500 advance is required before departure.',409)
                 current(u,uid,('cab_owner','driver'))
                 if not live_vehicle(u,u.get('mobility_vehicles',row['vehicle_id']),row['mode'],row['starts_at'],row['ends_at'],row['id']):fail('APPROVAL_REQUIRED','The assigned vehicle documents or availability need review.',409)
                 if time.time()>row['ends_at']:fail('PICKUP_WINDOW','The booked journey window has ended. Cancel for an advance refund.',409)
                 row.update(state='on_the_way',departed_at=time.time())
             elif a=='start':
-                if not owner or state not in ('reserved','on_the_way') or row.get('advance_paid_paise')!=ADVANCE or row.get('financial_hold'):fail('ADVANCE_REQUIRED','Verify the advance before starting.',409)
+                if not operator or state not in ('reserved','on_the_way') or row.get('advance_paid_paise')!=ADVANCE or row.get('financial_hold'):fail('ADVANCE_REQUIRED','Verify the advance before starting.',409)
                 if not row['starts_at']-3600<=time.time()<=row['ends_at']:fail('PICKUP_WINDOW','Start within the booked pickup window.',409)
                 if body.odometer_km is None or len(body.note.strip())<10:fail('INSPECTION_REQUIRED','Record the odometer and pickup condition; for rentals confirm the original driving licence.',422)
                 current(u,uid,('cab_owner','driver'))
                 if not live_vehicle(u,u.get('mobility_vehicles',row['vehicle_id']),row['mode'],row['starts_at'],row['ends_at'],row['id']):fail('APPROVAL_REQUIRED','The assigned vehicle documents or availability need review.',409)
+                if row.get('geofencing'):
+                    from mobility_journeys import fresh
+                    if not body.position:fail('GEOFENCE_REQUIRED','Allow precise GPS to confirm pickup.',409)
+                    fresh(body.position)
+                    pin=row.get('vehicle_pickup_location') if row['mode']=='rental' else row['pickup']
+                    if metres(body.position.model_dump(),pin)+body.position.accuracy>300:fail('GEOFENCE_REQUIRED','Confirm pickup within 300 metres of the agreed pin.',409)
+                    row['boarding_position']=body.position.model_dump()
                 row.update(state='in_progress',started_at=time.time(),start_odometer_km=body.odometer_km,pickup_condition=body.note)
             elif a=='complete':
-                if not owner or state!='in_progress':fail('INVALID_ACTION','Only the assigned owner can submit an active journey for completion.',409)
+                if not operator or state!='in_progress':fail('INVALID_ACTION','Only the assigned owner can submit an active journey for completion.',409)
                 if body.odometer_km is None or body.odometer_km<row['start_odometer_km'] or len(body.note.strip())<10:fail('INSPECTION_REQUIRED','Record the final odometer and return condition.',422)
+                if row.get('geofencing'):
+                    from mobility_journeys import fresh
+                    if not body.position:fail('GEOFENCE_REQUIRED','Allow precise GPS to confirm the final stop.',409)
+                    fresh(body.position)
+                    pin=row.get('vehicle_pickup_location') if row['mode']=='rental' else row['pickup'] if row['trip']=='round_trip' else row['dropoff']
+                    if metres(body.position.model_dump(),pin)+body.position.accuracy>300:fail('GEOFENCE_REQUIRED','Confirm completion within 300 metres of the agreed return or drop-off pin.',409)
+                    row['completion_position']=body.position.model_dump()
                 row.update(state='completion_pending',submitted_at=time.time(),end_odometer_km=body.odometer_km,completion_note=body.note)
                 if row['mode']=='rental':
                     q=row['quote'];days=max(q['rental_days'],math.ceil((time.time()-row['started_at'])/86400));km=body.odometer_km-row['start_odometer_km'];extra=max(0,km-days*q['vehicle']['included_daily_km']);subtotal=days*q['vehicle']['daily_paise']+extra*q['vehicle']['per_km_paise'];tax=(subtotal*q['vehicle']['gst_bps']+5000)//10000
@@ -433,7 +463,9 @@ def install(core):
                 row.update(dispute_previous_state=row['state'],state='disputed',dispute_note=body.note,financial_hold=True)
             else:fail('INVALID_ACTION','Unsupported ride action.',422)
             event(u,row,a,uid);u.put('mobility_rides',identifier,row);u.put('business_commands',key,{'record_id':identifier,'fingerprint':fingerprint(body)})
-            if row.get('owner_id'):notice(u,row['customer_id'] if owner else row['owner_id'],row,'Transport booking updated')
+            if row.get('owner_id'):
+                for target in {row['customer_id'],row['owner_id'],row.get('driver_id')}:
+                    if target and target!=uid:notice(u,target,row,'Transport booking updated')
             return view(row,uid)
         return store.run(save)
     @r.post('/rides/{identifier}/payment-order')
@@ -560,13 +592,13 @@ def install(core):
     def scrap_command(identifier:str,body:Command,user=Depends(core.current_user)):
         def save(u):
             row=u.get('scrap_collections',identifier);uid=user['id']
-            if not row or (uid not in (row['customer_id'],row.get('owner_id')) and uid not in row['candidate_owner_ids']):fail('NOT_FOUND','Collection unavailable.',404)
+            if not row or (uid not in (row['customer_id'],row.get('owner_id'),row.get('driver_id')) and uid not in row['candidate_owner_ids']):fail('NOT_FOUND','Collection unavailable.',404)
             key,old=replay(u,uid,body)
             if old:
                 if old['record_id']!=identifier:fail('IDEMPOTENCY_CONFLICT','Action belongs to another collection.',409)
                 return view(row,uid)
             if row['version']!=body.expected_version:fail('STALE','Collection changed. Refresh first.',409)
-            owner=uid==row.get('owner_id');customer=uid==row['customer_id'];a=body.action
+            owner=uid==row.get('owner_id');operator=owner or uid==row.get('driver_id');customer=uid==row['customer_id'];a=body.action
             if a=='accept':
                 current(u,uid,('scrap_owner',))
                 if row['state']!='requested' or uid not in row['candidate_owner_ids'] or row['starts_at']<time.time():fail('ALREADY_ASSIGNED','This collection is expired or already assigned.',409)

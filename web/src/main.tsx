@@ -3,9 +3,10 @@ import {AppExperience} from './components/AppExperience';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import {GuestJourney} from './components/JourneyTracking';
 import './styles.css';
 import './design-system.css';
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /><AppExperience /></React.StrictMode>);
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode>{new URLSearchParams(location.search).has('ride-share')?<GuestJourney/>:<><App /><AppExperience /></>}</React.StrictMode>);
 if (import.meta.env.DEV && new URLSearchParams(location.search).has('uiAudit')) {
   void import('./dev/uiAudit').then(({startUiAudit}) => startUiAudit());
 }

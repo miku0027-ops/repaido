@@ -1248,3 +1248,6 @@ import transactional_mail
 
 import local_business
 local_business.install(sys.modules[__name__])
+
+import mobility_journeys
+mobility_journeys.install(sys.modules[__name__])

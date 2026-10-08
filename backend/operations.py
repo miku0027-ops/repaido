@@ -211,7 +211,7 @@ class Unit:
 
     def find(self, kind, field, value):
         """Indexed equality lookups with transaction-local writes overlaid."""
-        allowed = {'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','active','status'}, 'mobility_rides': {'owner_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
+        allowed = {'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
                    'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
@@ -531,7 +531,10 @@ def install(core):
     def worker_me(user=Depends(worker_user)):
         def read(u):
             worker=u.get('workers',user['id'])
-            return {'worker':own_worker_projection(u, worker),'verification_uploads_available':bool(__import__('os').getenv('REPAIDO_KYC_BUCKET'))}
+            profile=u.get('worker_profiles',user['id']) or {}
+            business=u.get('business_partners',user['id'])
+            role=business['role'] if business else ('contractor' if worker and worker.get('contractor_verified') else 'technician' if worker else None)
+            return {'worker':own_worker_projection(u, worker),'registered_role':role,'portrait_url':f"/api/operations/professional-media/{profile['portrait_id']}" if worker and worker.get('status')=='approved' and profile.get('portrait_id') else None,'verification_uploads_available':bool(__import__('os').getenv('REPAIDO_KYC_BUCKET'))}
         return store.run(read)
 
     @router.post('/worker/onboarding')
@@ -554,6 +557,7 @@ def install(core):
             fail('UNKNOWN_CATEGORY', 'Choose a category in the live catalogue.', 422)
         def save(u):
             old = u.get('workers', user['id'])
+            if u.get('business_partners',user['id']):fail('ROLE_LOCKED','This account has a registered business category. Open its dedicated workspace.',409)
             if old and old['status'] == 'approved': fail('ALREADY_APPROVED', 'Your account is already onboarded.')
             if not old:
                 from account_profile import require_email

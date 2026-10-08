@@ -456,6 +456,9 @@ def install(core):
     @router.post('/tracking/position')
     def tracking_position(body: TrackingPing,authorization: str=Header(default='')):
         def save(u):
+            from mobility_journeys import native_position
+            journey=native_position(u,authorization,body)
+            if journey is not None:return journey
             session,j=tracking_auth(u,authorization);now=time.time()
             if body.sequence<=session['sequence']: return {'status':'already_received'}
             if now-session.get('last_at',0)<10: fail('POSITION_RATE_LIMIT','Wait before sending another reading.',429)
@@ -481,6 +484,9 @@ def install(core):
     @router.post('/tracking/stop')
     def tracking_stop(authorization: str=Header(default='')):
         def save(u):
+            from mobility_journeys import native_position
+            journey=native_position(u,authorization)
+            if journey is not None:return journey
             session,j=tracking_auth(u,authorization)
             j.update(tracking_consent=False);j.pop('position',None);j.pop('tracking_generation',None)
             u.put('jobs',j['id'],j);audit(u,'BackgroundTrackingStopped',session['worker_id'],job_id=j['id'])

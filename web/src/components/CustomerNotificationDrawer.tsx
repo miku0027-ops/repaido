@@ -47,7 +47,7 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenContract,
   const unread=notifications.filter(n=>!n.read_at).length;
   useEffect(()=>{if(!loading&&!error)onUnreadCountChange?.(unread);},[unread,loading,error,onUnreadCountChange]);
   const discoveryJob=(n:RawNotification)=>n.destination==='repaidians'&&n.kind==='job_discovery'?(n.community_job_id||n.project_id):undefined;
-  const filtered=useMemo(()=>notifications.filter(n=>filter==='all'||filter==='unread'&&!n.read_at||filter==='bookings'&&!!n.job_id&&!discoveryJob(n)||filter==='offers'&&!!n.campaign_id||filter==='contracts'&&n.destination==='custom_contract'||filter==='discoveries'&&!!discoveryJob(n)),[notifications,filter]);
+  const filtered=useMemo(()=>notifications.filter(n=>filter==='all'||filter==='unread'&&!n.read_at||filter==='bookings'&&(!!n.job_id&&!discoveryJob(n)||n.kind==='local_business'&&n.destination==='mobility')||filter==='offers'&&!!n.campaign_id||filter==='contracts'&&n.destination==='custom_contract'||filter==='discoveries'&&!!discoveryJob(n)),[notifications,filter]);
   const mark=async(id?:string)=>{
     if(busy)return;setBusy(id||'all');setError('');
     try{
@@ -76,10 +76,10 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenContract,
     else if(n.job_id&&!communityJob&&onOpenJob){onClose();onOpenJob(n.job_id);}
     else if(n.campaign_id&&onOpenPromotion){onClose();onOpenPromotion(n.campaign_id);}
     else if(n.plan_id&&onOpenHomePlan){onClose();onOpenHomePlan(n.plan_id);}
-    else if(n.kind==='local_business'&&onNavigateTab){onClose();onNavigateTab('ShopSpares',n.destination==='scrap'?'scrap':'mobility');}
+    else if(n.kind==='local_business'&&onNavigateTab){onClose();if(n.destination==='scrap')onNavigateTab('ShopSpares','scrap');else onNavigateTab('Bookings','rides');}
     else if(n.destination==='b2b_quotation'&&onNavigateTab){onClose();onNavigateTab('ShopSpares','b2b');}
   };
-  const label=(n:RawNotification)=>discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
+  const label=(n:RawNotification)=>n.kind==='local_business'?(n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
   const actionable=(n:RawNotification)=>!!((n.kind==='local_business'&&onNavigateTab)||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
   const actionLabel=(n:RawNotification)=>discoveryJob(n)?'View matching job':n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
   const date=(n:RawNotification)=>n.created_at?new Date(n.created_at*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Date unavailable';

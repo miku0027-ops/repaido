@@ -28,3 +28,86 @@ Approved scrap buyers within 8 km receive collection requests. The assigned buye
 ## Validation
 
 From `backend`, run `REPAIDO_STORAGE=sqlite .venv/bin/python -m pytest -q`. From `web`, run `npm test` and `npm run build`. For browser checks, start Vite on local port 5187, then run `node web/tests/refinement.browser.mjs` and `node web/tests/customer-experience.browser.mjs` from the repository root with `PLAYWRIGHT_MODULE` set if needed. The scripts create isolated SQLite databases and local API servers, and do not use production accounts or payment providers. Preview entries under `web/tests` are excluded from the production bundle.
+
+
+## Registered roles and scheduled shared journeys
+
+The signed-in work portal resolves its registered category from `/operations/worker/me`.
+An existing business application cannot change its role, and a service worker cannot
+create a second business-category profile. Cab owners manage vehicles and tariffs;
+approved drivers accept vehicle invitations and operate assigned journeys. Existing
+contractor verification determines the contractor workspace. Account display metadata
+never grants a backend permission.
+
+Owners publish car/bike departures with real origin/destination pins, times, available
+passenger seats, a total price per seat and written terms. Google Routes provides the
+road polyline (`DRIVE` for cars, `TWO_WHEELER` for bikes). Search requires pickup and
+drop-off within 2 km of that road and at least 500 m forward along it. The accepted
+meeting pin is on the route; customers must check safe access. Search does not promise
+walking navigation or pickup at a searched address away from the route.
+
+Seat requests reserve capacity only upon atomic owner acceptance. Customers see the
+decision in notifications and Bookings → Rides. Departure calendars include shared
+journeys. Shared-ride fares are paid directly to the owner; passenger-reported payment
+and owner-confirmed receipt are separate records, not gateway verification. The ₹500
+credited advance/minimum continues to apply to dedicated cabs and rental quotes;
+it is not imposed on owner-priced shared seats.
+
+Boarding and drop-off require GPS received in the last 75 seconds within 300 m of the
+agreed stop (including reported accuracy). Dedicated cab/rental pickup and completion
+also require fresh GPS for new bookings. A bike offers at most one passenger seat.
+The owner/driver cannot start a shared journey before marking a passenger boarded, or
+finish while a passenger remains boarded. Vehicle, owner and assigned-driver conflicts
+are checked across dedicated, rental and shared work, including active overruns.
+
+## Tracking and family links
+
+The map uses the existing Leaflet/CARTO layer. Driver phone readings and installed
+vehicle tracker readings are labelled; renter phone coordinates are never labelled as
+vehicle GPS. Web sharing requires the page to remain open. The existing Agent Android
+foreground tracking service uses the scoped, expiring native capability issued by
+`/journeys/{rides|shared}/{id}/tracking-session`, through the existing tracking endpoint.
+Location consent and current approval are checked on the server. Readings older than
+75 seconds disappear from the live map. Map updates preserve user zoom.
+
+A passenger can create a random 256-bit family link for their boarded, in-progress
+journey. The browser link keeps the token in its fragment. Guest reads require no
+account, use no-store/referrer protection, contain no customer contact details, and
+recheck the journey and passenger state every time. Drop-off, cancellation, completion,
+revocation or a 24-hour maximum lifetime invalidates access. Creating another link
+revokes the earlier one. Server storage contains only token hashes.
+
+A rental owner's installed tracker is an external hardware prerequisite. Pairing in
+Vehicles → Driver & installed tracker issues a 90-day rotating device secret. The
+installer sends HTTPS `POST /api/operations/local-business/vehicles/{id}/telemetry`
+with `X-Vehicle-Token` and JSON `{lat,lng,accuracy,captured_at}` (Unix seconds, precise
+GPS under 100 m, at most 120 seconds old). Never put the secret in a URL or logs.
+The server accepts this only for an active booking; rental telemetry additionally
+requires the renter's explicit location consent. Without a device or phone reading,
+the app shows waiting for location. Installing this software cannot locate a car
+without a source of GPS telemetry.
+
+## Day-hire activation and current production prerequisites
+
+The policy editor now strips public readiness metadata before saving. Confirmed jobs
+reserve the configured `day_hours`, rather than a hardcoded eight-hour interval.
+The existing request → professional response → driving quote → customer confirmation
+→ visit, completion, collection and settlement lifecycle remains in place.
+
+The read-only production policy check during this change reports routing and payments
+unconfigured and the day-hire policy disabled. Hours per day, applicable GST, membership
+amount and final policy terms need business values. These must not be guessed. In
+Operations → Day-hire policy, supply those values with a new version, after connecting
+`GOOGLE_ROUTES_API_KEY` to Cloud Run and enabling the Routes API for that key. Runtime
+secrets are preserved by Cloud Build; a code deployment does not create them. Payment
+collection also needs the existing Razorpay credential/webhook setup and
+`REPAIDO_PAYMENTS_ENABLED`. No fake route, payment, member, approved vehicle or price
+is seeded to bypass these requirements. The cloud workspace currently has no usable
+GCP outbound identity, so it cannot change production secrets or the policy store.
+
+Additional validation: `backend/test_mobility_journeys.py` covers actual isolated HTTP
+requests, capacity contention, guest link expiry/revocation, native capability checks,
+role locking, owner/driver separation, rental telemetry consent, geofences and configured
+day duration. `web/tests/journeys.browser.mjs` exercises real local owner publication,
+customer search/join, acceptance notifications and maps, plus account and staged layouts
+at 320/465/1440 px, light/dark themes and 100/200% text.

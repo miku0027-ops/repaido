@@ -3,7 +3,7 @@ import os,sys,time
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'backend'))
 os.environ.update(REPAIDO_STORAGE='sqlite',REPAIDO_DB=sys.argv[1],REPAIDO_ADMIN_KEY='test-operator-key',REPAIDO_KYC_BUCKET='test-only')
-import main,local_business,pytest,uvicorn
+import main,local_business,mobility_journeys,pytest,uvicorn
 from fastapi import Header,HTTPException
 from fastapi.testclient import TestClient
 from test_operations import onboard,book,command,PIN
@@ -16,6 +16,7 @@ def actor(authorization:str=Header(default='')):
     return dict(id=uid,name=uid,email=uid+'@example.test',phone='+919876543210',phone_verified=True,phone_authenticated=True)
 main.app.dependency_overrides[main.current_user]=actor
 patch=pytest.MonkeyPatch();local_business.route_metres=lambda a,b:10000
+mobility_journeys.road_route=lambda a,b:{'points':[a,b],'distance_metres':11132}
 photos={}
 local_business.upload_object=lambda key,data:photos.update({key:data})
 local_business.download_object=lambda key:photos[key]

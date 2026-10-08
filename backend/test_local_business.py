@@ -32,6 +32,9 @@ def latest(api,row,uid='customer',kind='rides'):
     r=api.get(BASE+'/'+kind,headers=auth(uid));assert r.status_code==200,r.text
     return next(x for x in r.json()['rides' if kind=='rides' else 'collections'] if x['id']==row['id'])
 def act(api,row,action,uid='customer',kind='rides',status=200,**extra):
+    if action in ('start','complete') and kind=='rides' and 'position' not in extra:
+        pin=row.get('vehicle_pickup_location',PIN) if row.get('mode')=='rental' else row.get('pickup',PIN) if action=='start' or row.get('trip')=='round_trip' else row.get('dropoff',PIN)
+        extra['position']={**pin,'accuracy':5,'captured_at':time.time()}
     row=latest(api,row,uid,kind);r=api.post(f'{BASE}/{kind}/{row["id"]}/commands',headers=auth(uid),json=dict(action=action,expected_version=row['version'],command_id=str(uuid.uuid4()),**extra));assert r.status_code==status,r.text;return r.json()
 @pytest.fixture
 def gateway(monkeypatch):
