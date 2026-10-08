@@ -33,7 +33,7 @@ try{
  assert(await form.getByRole('button',{name:'Publish listing',exact:true}).isDisabled());
  await form.getByLabel('Product photo',{exact:true}).setInputFiles({name:'test-photo.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64')});
  await form.getByText('Photo selected',{exact:true}).waitFor();assert.equal(photoCalls,0,'Selection is not an upload');
- await form.getByRole('button',{name:'Publish listing',exact:true}).click();await stack.getByText('Check your details',{exact:true}).waitFor();assert.equal(listingCalls,0);assert.equal(await form.locator('[name=name]').getAttribute('aria-invalid'),'true');
+ await form.getByRole('button',{name:'Publish listing',exact:true}).click();await stack.getByText('Check your details',{exact:true}).waitFor();assert.match(await stack.locator('.app-feedback-card p').textContent(),/^Product Name:/);assert.equal(await stack.locator('.app-feedback-card p').evaluate(el=>getComputedStyle(el).color),'rgb(225, 234, 255)');assert.equal(listingCalls,0);assert.equal(await form.locator('[name=name]').getAttribute('aria-invalid'),'true');
  await layout();await page.screenshot({path:evidence+'/validation-mobile.png'});await dismiss();
  for(const [name,value] of Object.entries({name:'Test appliance',brand:'Test brand',purchase:'5000',age:'12',year:'2025',condition:'Used appliance in working condition',warranty:'No warranty',reason:'Upgrading to another appliance'}))await form.locator(`[name=${name}]`).fill(value);
  await form.getByLabel('Selling Price (₹)',{exact:true}).fill('1500');await form.getByRole('checkbox').check();

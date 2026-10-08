@@ -42,11 +42,11 @@ export function AppExperience(){
  },[visible,portalTarget]);
  useEffect(()=>{let uid=auth.currentUser?.uid;return onIdTokenChanged(auth,user=>{if(user?.uid!==uid){uid=user?.uid;clearFeedback();}});},[]);
  useEffect(()=>{
-  let first=true;
   const invalid=(event:Event)=>{
    const field=event.target;if(!(field instanceof HTMLInputElement||field instanceof HTMLTextAreaElement||field instanceof HTMLSelectElement))return;
    if(!field.hasAttribute('aria-invalid')){field.dataset.feedbackInvalid='true';field.setAttribute('aria-invalid','true');}
-   if(!first)return;first=false;queueMicrotask(()=>{first=true;});
+   const firstInvalid=field.form&&Array.from(field.form.elements).find(control=>control.matches('input:invalid,select:invalid,textarea:invalid'));
+   if(firstInvalid&&firstInvalid!==field)return;
    const label=field.getAttribute('aria-label')||field.labels?.[0]?.textContent?.trim().split('\n')[0]?.slice(0,100)||'This field';
    notifyFeedback({tone:'error',title:'Check your details',message:`${label}: ${field.validationMessage}`},'validation');
   };

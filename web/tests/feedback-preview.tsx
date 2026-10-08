@@ -1,10 +1,10 @@
+import {AppExperience} from '../src/components/AppExperience';
 // Isolated browser fixture, excluded from the production entry.
 import {createRoot} from 'react-dom/client';
 import {useState} from 'react';
 import {auth} from '../src/firebase';
 import {Marketplace} from '../src/components/Marketplace';
 import {HireRequests} from '../src/components/Hiring';
-import {AppExperience} from '../src/components/AppExperience';
 import {Modal} from '../src/components/ui';
 import {operation} from '../src/services/operations';
 import {cartService} from '../src/services/cartService';
