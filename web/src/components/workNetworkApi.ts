@@ -1,3 +1,4 @@
+import {notifyFeedback} from '../services/actionFeedback';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {operation} from '../services/operations';
 export type NetworkRow=Record<string,any>;
@@ -11,5 +12,5 @@ export function useNetworkRead(path:string,interval=0,contract=false){
  useEffect(()=>{setData(null);void refresh();const timer=interval?setInterval(()=>{if(!document.hidden)void refresh();},interval):undefined;return()=>{generation.current++;clearInterval(timer);};},[refresh,interval]);
  return {data,error,busy,refresh,setData};
 }
-export function useNetworkAction(){const [busy,setBusy]=useState(false),[error,setError]=useState('');const gate=useRef(false);const run=async(action:()=>Promise<unknown>)=>{if(gate.current)return;gate.current=true;setBusy(true);setError('');try{await action();}catch(e){setError((e as Error).message);}finally{gate.current=false;setBusy(false);}};return {busy,error,run};}
+export function useNetworkAction(){const [busy,setBusy]=useState(false),[error,setError]=useState('');const gate=useRef(false);const run=async(action:()=>Promise<unknown>)=>{if(gate.current)return;gate.current=true;setBusy(true);setError('');try{await action();}catch(e){setError((e as Error).message);notifyFeedback({tone:'error',title:'Action needs attention',message:(e as Error).message},'network-action');}finally{gate.current=false;setBusy(false);}};return {busy,error,run};}
 export function useRequestKey(){const key=useRef({payload:'',id:''});const get=(payload:object)=>{const encoded=JSON.stringify(payload);if(key.current.payload!==encoded)key.current={payload:encoded,id:crypto.randomUUID()};return key.current.id;};get.clear=()=>{key.current={payload:'',id:''};};return get;}

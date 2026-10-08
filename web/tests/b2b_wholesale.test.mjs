@@ -1,3 +1,4 @@
+import {feedbackImports} from './feedback-module.mjs';
 import assert from 'node:assert/strict';
 import {beforeEach,test} from 'node:test';
 import {readFile} from 'node:fs/promises';
@@ -7,7 +8,7 @@ import {slabRatePaise,quotationTotals} from '../src/services/b2bMath.mjs';
 // Actual service code; only transport, Firebase identity and loading presentation
 // are injected. Account scope, payload conversion, shared pricing and errors run.
 const sources=await Promise.all(['api.ts','operations.ts','b2bService.ts'].map(name=>readFile(new URL('../src/services/'+name,import.meta.url),'utf8')));
-const compile=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+const compile=source=>feedbackImports(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
 const moduleUrl=(source,revision)=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64')+'#'+revision;
 const authImport=/^import \{ auth \} from ['"]\.\.\/firebase['"];?$/m;
 const loadingImport=/^import \{\s*beginLoading\s*\} from ['"]\.\/loading['"];?$/m;

@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import {notifyFeedback} from './actionFeedback';
 
 export interface CartItem {
   id: string;
@@ -104,6 +105,7 @@ class CartService {
   }
 
   public addItem(item: Partial<CartItem> & { id: string; title: string; price_paise: number }, qty: number = 1): void {
+    const priorCount=this.getItemCount();
     const existingIndex = this.items.findIndex((i) => i.id === item.id);
     const maxStock = item.stock && item.stock > 0 ? item.stock : 99;
 
@@ -126,6 +128,7 @@ class CartService {
       });
     }
     this.saveToStorage();
+    notifyFeedback({tone:this.getItemCount()>priorCount?'success':'info',title:this.getItemCount()>priorCount?'Added to cart':'Available quantity reached',message:this.getItemCount()>priorCount?`${item.title} · ${this.getItemCount()} item${this.getItemCount()===1?'':'s'} in your cart. Review your cart when ready.`:'Your cart already contains the available quantity of this item.'},'cart');
   }
 
   public updateQuantity(id: string, delta: number): void {

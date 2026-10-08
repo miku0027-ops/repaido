@@ -1,5 +1,6 @@
 import { useEffect, useRef, type InputHTMLAttributes, type ReactNode } from 'react';
-import { X, ArrowUpRight, Search } from 'lucide-react';
+import { X, ArrowUpRight, Search, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import './app-experience.css';
 import RepaidoBrand from './RepaidoBrand';
 
 export function Brand({compact=false}:{compact?:boolean}) {
@@ -33,3 +34,4 @@ export function Modal({title,children,onClose,className='',frameless=false}:{tit
 }
 export function Empty({title,description,action}:{title:string;description:string;action?:ReactNode}) {return <div className="rounded-2xl border bg-surface px-6 py-16 text-center"><h2 className="text-xl font-semibold">{title}</h2><p className="mx-auto mt-2 max-w-md text-muted">{description}</p>{action&&<div className="mt-6">{action}</div>}</div>;}
 export function ArrowLink(){return <ArrowUpRight size={18} strokeWidth={1.8} aria-hidden="true"/>;}
+export function ActionStatus({title,children,tone='success'}:{title:string;children?:ReactNode;tone?:'success'|'info'|'error'}){const Icon=tone==='error'?AlertCircle:tone==='success'?CheckCircle2:Info;return <div className="action-inline-status" data-tone={tone} role={tone==='error'?'alert':'status'}><Icon size={20} aria-hidden="true"/><div><strong>{title}</strong>{children&&<p>{children}</p>}</div></div>;}

@@ -1,5 +1,6 @@
 import {auth} from '../firebase';
 import {apiFetch} from './api';
+import {withActionFeedback} from './actionFeedback';
 import {createReadCache} from './readCache.mjs';
 import type {ContractFreshLocation,ContractReaction,CustomContractCommentsPage,CustomContractDetails,CustomContractDraft,CustomContractMessagesPage,CustomContractInterestsPage,CustomContractsPage} from '../types/customContracts';
 import {readDeviceLocation} from './deviceLocation.mjs';
@@ -14,6 +15,9 @@ async function capturedIdentity(){await auth.authStateReady();const user=auth.cu
 export function invalidateCustomContractReads(){generation++;reads.invalidate();window.dispatchEvent(new Event(UPDATE));}
 export function subscribeCustomContracts(listener:()=>void){window.addEventListener(UPDATE,listener);return()=>window.removeEventListener(UPDATE,listener);}
 async function request<T>(path:string,init:RequestInit={},owner?:Awaited<ReturnType<typeof capturedIdentity>>):Promise<T>{
+  return withActionFeedback(path,init,()=>performRequest<T>(path,init,owner));
+}
+async function performRequest<T>(path:string,init:RequestInit,owner?:Awaited<ReturnType<typeof capturedIdentity>>):Promise<T>{
   if(!path.startsWith('/')||path.startsWith('//')||/[?#].*https?:/i.test(path))throw new Error('Expected a local contract API path.');
   const captured=owner||await capturedIdentity();if(syncIdentity()!==captured.scope)throw new CustomContractError('Your account changed. Reopen this contract.',409,'ACCOUNT_CHANGED');
   const response=await apiFetch('/api/operations'+path,{...init,headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+captured.token,...init.headers},signal:init.signal||AbortSignal.timeout(30000)},{background:true});

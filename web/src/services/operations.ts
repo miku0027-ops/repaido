@@ -4,6 +4,7 @@ import { apiFetch } from './api';
 import { auth } from '../firebase';
 import {beginLoading} from './loading';
 import {createReadCache} from './readCache.mjs';
+import {withActionFeedback} from './actionFeedback';
 const operationCache=createReadCache();
 let cacheAccount='';
 function accountScope(){return auth.currentUser?.uid||localStorage.getItem('repaido.token')||'';}
@@ -49,6 +50,9 @@ export interface LiveWorker {
   completed_tasks:number; rating_sum:number; rating_count:number; review_reason?:string;
 }
 export async function operation<T>(path:string, init:RequestInit={}, options:{background?:boolean;force?:boolean}={}):Promise<T> {
+  return withActionFeedback(path,init,()=>performOperation<T>(path,init,options));
+}
+async function performOperation<T>(path:string, init:RequestInit, options:{background?:boolean;force?:boolean}):Promise<T> {
   await auth.authStateReady();
   const scope=syncAccount();
   const token = auth.currentUser?await auth.currentUser.getIdToken():localStorage.getItem('repaido.token');
@@ -57,7 +61,7 @@ export async function operation<T>(path:string, init:RequestInit={}, options:{ba
   const cached=path==='/jobs'||path==='/notifications';
   const done=(options.background??read)?()=>{}:beginLoading(path);
   const load=async()=>{
-    const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal||AbortSignal.timeout(15000), headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true});
+    const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal||AbortSignal.timeout(15000), headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});
     const body = await response.json().catch(()=>({}));
     if (!response.ok) throw new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.'));
     if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');

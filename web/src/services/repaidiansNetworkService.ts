@@ -1,4 +1,5 @@
 import {auth} from '../firebase';
+import {withActionFeedback} from './actionFeedback';
 import {CommunityError} from './repaidiansService';
 import {createReadCache} from './readCache.mjs';
 import type {NetworkConnection,NetworkConnectionsPage,NetworkEndorsementsPage,NetworkPreferences,NetworkProfileDetails,NetworkProfilePatch,NetworkProfessionalProfile,NetworkRecommendation,NetworkRecommendationsPage} from '../types/repaidiansNetwork';
@@ -24,6 +25,9 @@ async function capturedIdentity(){
   return {identity,epoch,token};
 }
 async function request<T>(path:string,init:RequestInit={},captured?:Awaited<ReturnType<typeof capturedIdentity>>):Promise<T>{
+  return withActionFeedback('/community'+path,init,()=>performRequest<T>(path,init,captured));
+}
+async function performRequest<T>(path:string,init:RequestInit,captured?:Awaited<ReturnType<typeof capturedIdentity>>):Promise<T>{
   if(!path.startsWith('/')||path.startsWith('//')||/[?#].*https?:/i.test(path))throw new Error('Expected a Repaidians network API path.');
   const owner=captured||await capturedIdentity();
   if(syncIdentity()!==owner.identity)throw new CommunityError('Your account changed. Reopen this view.',409,'ACCOUNT_CHANGED');

@@ -111,3 +111,28 @@ role locking, owner/driver separation, rental telemetry consent, geofences and c
 day duration. `web/tests/journeys.browser.mjs` exercises real local owner publication,
 customer search/join, acceptance notifications and maps, plus account and staged layouts
 at 320/465/1440 px, light/dark themes and 100/200% text.
+
+## Visible action feedback
+
+Customer and work-portal writes now share immediate progress and server-confirmed
+completion notices, including operations, contracts, account updates, wholesale
+and community actions. Notices use the browser top layer inside the active dialog,
+so nested modals cannot hide them. Errors persist until dismissed; successful
+notices remain for nine seconds and pause while hovered or focused. They do not
+move focus, lock the page, or replace the form's saved state. Feedback is cleared
+on account changes and is never stored in local storage.
+
+Searches, automatic reads, location telemetry, device registration, view counts
+and activity receipts do not announce a saved submission. Payment/provider checks
+announce a status check, never infer payment from an HTTP response or checkout
+callback. File selection is a preview, confirmed upload is a separate step, and
+listing publication is announced only from the server's returned state. Failed
+listing submissions retain their draft and reuse an already-confirmed photo.
+Native field validation now gives a visible summary and marks invalid fields;
+hiring decisions keep their confirmed outcome on the request card.
+
+Run `npm test` and `npm run build` in `web`, then run
+`node web/tests/action-feedback.browser.mjs` against Vite on port 5187 (set
+`PLAYWRIGHT_MODULE` if needed). This isolated browser check simulates slow and
+failed writes, retries, upload confirmation, hiring decisions, nested dialogs,
+cart quantity limits, dark mode and 200% text without touching production data.

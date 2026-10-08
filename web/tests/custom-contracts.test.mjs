@@ -1,3 +1,4 @@
+import {feedbackImports} from './feedback-module.mjs';
 import {beforeEach,test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -6,6 +7,7 @@ import {createReadCache} from '../src/services/readCache.mjs';
 
 const source=await readFile(new URL('../src/services/customContractsService.ts',import.meta.url),'utf8');
 let executable=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+executable=feedbackImports(executable);
 for(const [dependency,injected] of [['../firebase','const auth=globalThis.__contractAuth;'],['./api','const apiFetch=globalThis.__contractFetch;'],['./readCache.mjs','const createReadCache=globalThis.__contractCache;'],['./deviceLocation.mjs','const readDeviceLocation=globalThis.__contractLocation;']]){
   const pattern=new RegExp(`^import .+ from ['"]${dependency.replaceAll('.','\\.')}['"];?$`,'m');assert.match(executable,pattern);executable=executable.replace(pattern,injected);
 }

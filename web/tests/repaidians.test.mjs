@@ -1,3 +1,4 @@
+import {feedbackImports} from './feedback-module.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {beforeEach,test} from 'node:test';
@@ -9,6 +10,7 @@ import {createReadCache} from '../src/services/readCache.mjs';
 const source=await readFile(new URL('../src/services/repaidiansService.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 let executable=compiled;
+executable=feedbackImports(executable);
 for(const [pattern,replacement] of [
   [/^import \{ auth \} from ['"]\.\.\/firebase['"];?$/m,'const auth = globalThis.__communityAuth;'],
   [/^import \{ onAuthStateChanged \} from ['"]firebase\/auth['"];?$/m,'const onAuthStateChanged = globalThis.__communityOnAuthStateChanged;'],

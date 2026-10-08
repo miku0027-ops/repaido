@@ -3,7 +3,8 @@ import {Plus,MapPin,Tag,Sparkles,Share2,PhoneCall,SlidersHorizontal,Search} from
 import {operation,currentPosition,money} from '../services/operations';
 import {apiFetch,apiAssetUrl} from '../services/api';
 import {auth} from '../firebase';
-import {Modal,CustomerSearchField} from './ui';
+import {Modal,CustomerSearchField,ActionStatus} from './ui';
+import {notifyFeedback} from '../services/actionFeedback';
 import {loadCheckout} from './PaymentPanel';
 import {LocationPickerModal} from './LocationPickerModal';
 import './operations.css';
@@ -156,7 +157,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
    </form>
   </Modal>}
 
-  {message&&<p role="status" className="market-status-msg">{message}</p>}
+  {message&&<ActionStatus title="Listing update">{message}</ActionStatus>}
   {listingError&&<div className="ops-error" role="alert">{listingError}<button onClick={()=>void loadInitialListing()}>Retry listing</button></div>}
   {error&&<div className="ops-error" role="alert">{error}<button onClick={()=>void load()}>Retry</button>{onSignIn&&error.toLowerCase().includes('sign')&&<button onClick={onSignIn}>Sign in</button>}</div>}
   {busy&&<p role="status" className="market-busy-msg">Updating listings…</p>}
@@ -203,6 +204,8 @@ function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void
  const [photoPreview,setPhotoPreview]=useState<string>('');
  const [value,setValue]=useState('');
  const [busy,setBusy]=useState(false);
+ const [phase,setPhase]=useState<'idle'|'uploading'|'saving'>('idle');
+ const submitting=useRef(false);
  const [error,setError]=useState('');
  const [requestId]=useState(()=>crypto.randomUUID());
  const [photoId,setPhotoId]=useState('');
@@ -224,14 +227,16 @@ function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void
  const handleFileSelect = (f: File | null) => {
    setPhotoId('');
    if(f&&(!['image/jpeg','image/png'].includes(f.type)||f.size>5*1024*1024)){
-     setFile(null);setError('Choose a JPG or PNG photo no larger than 5 MB.');return;
+     setFile(null);setError('Choose a JPG or PNG photo no larger than 5 MB.');notifyFeedback({tone:'error',title:'Photo not selected',message:'Choose a JPG or PNG photo no larger than 5 MB.'},'market-photo');return;
    }
    setFile(f);setError('');
  };
 
  return <Modal title={mode==='exchange'?'List for Exchange':'Sell Your Used Item on Repaido'} className="market-form-modal" onClose={onClose}>
-  <form className="operations market-form" onSubmit={async e=>{
+  <form className="operations market-form" aria-busy={busy} onSubmit={async e=>{
     e.preventDefault();
+    if(submitting.current)return;
+    submitting.current=true;
     const f=new FormData(e.currentTarget);
     setBusy(true);
     setError('');
@@ -240,6 +245,7 @@ function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void
       if(!file)throw new Error('Choose a product photo before saving your listing.');
       let pid=photoId;
       if(!pid){
+        setPhase('uploading');
         await auth.authStateReady();
         const token=await auth.currentUser?.getIdToken();
         if(!token)throw new Error('Sign in to upload your product photo. Your draft will stay open.');
@@ -249,6 +255,7 @@ function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void
         if(typeof body.id!=='string'||!body.id)throw new Error('Your photo was not confirmed. Please retry.');
         pid=body.id;setPhotoId(pid);
       }
+      setPhase('saving');
       const saved=await operation<Item>('/market/listings',{
           method:'POST',
           body:JSON.stringify({
@@ -277,7 +284,9 @@ function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void
       onSaved(saved);
     }catch(e){
       setError((e as Error).message);
+      notifyFeedback({tone:'error',title:'Listing not confirmed',message:(e as Error).message},'/market/listings');
     }finally{
+      submitting.current=false;setPhase('idle');
       setBusy(false);
     }
   }}>
@@ -285,6 +294,7 @@ function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void
       <Sparkles size={14} className="text-amber-500"/>
       <span>{free===null?'Free eligibility will be confirmed by Repaido.':free?mode==='exchange'?'Eligible: your first exchange listing is free for 30 days.':'Eligible: this listing can use your seller’s 90-day free period.':'Your free period is unavailable. Save your listing, then review its fee before publishing.'}</span>
     </div>
+    {file&&<ActionStatus title={phase==='uploading'?'Uploading photo…':photoId?'Photo uploaded':'Photo selected'} tone={photoId?'success':'info'}>{file.name} · {Math.max(1,Math.round(file.size/1024))} KB. {phase==='uploading'?'Please wait for upload confirmation.':photoId?'Your photo is saved; finish submitting the listing.':'This is a preview. The photo uploads when you submit the listing.'}</ActionStatus>}
 
     <div className="ops-grid">
       <label>Product Name<input name="name" required minLength={3} maxLength={120} placeholder="e.g. Voltas 1.5T Inverter Split AC / Dell Inspiron 15"/></label>
@@ -354,8 +364,9 @@ function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void
 
     {eligibilityError&&<p role="status">Free eligibility could not be checked: {eligibilityError}</p>}
     {error&&<p role="alert" className="ops-error">{error}{onSignIn&&error.toLowerCase().includes('sign')&&<button type="button" onClick={onSignIn}>Sign in</button>}</p>}
-    <button className="ops-primary market-submit-btn" disabled={busy||!file}>
-      {busy?'Saving photo & listing…':free===true?'Publish listing':'Save listing'}
+    {!file&&<p className="hire-small">Add a product photo to enable submission.</p>}
+    <button className="ops-primary market-submit-btn" disabled={busy||!file} aria-busy={busy}>
+      {busy?phase==='uploading'?'Uploading photo…':'Saving listing…':free===true?'Publish listing':'Save listing'}
     </button>
   </form>
   {map&&<LocationPickerModal isOpen onClose={()=>setMap(false)} onConfirmLocation={p=>{setPin(p);setMap(false);}}/>}
@@ -415,7 +426,7 @@ function MarketDetails({item,onClose,onShare,onSignIn}:{item:Item;onClose:()=>vo
           setBusy(false);
         }
       }}>
-        <PhoneCall size={16}/> View Seller Contact Details
+        <PhoneCall size={16}/> {busy?'Loading seller details…':'View Seller Contact Details'}
       </button>
     ) : <p role="status">This listing is {item.status.replaceAll('_',' ')} and is not available for contact.</p>}
     {item.mode==='second_hand'&&published(item)&&onShare&&<button type="button" onClick={()=>onShare({source:'second_hand',id:item.id})}><Share2 size={16}/> Share on Repaidians</button>}
@@ -434,10 +445,10 @@ function MarketDetails({item,onClose,onShare,onSignIn}:{item:Item;onClose:()=>vo
         }finally{
           setBusy(false);
         }
-      }}>Submit Report</button>
+      }}>{busy?'Submitting…':'Submit Report'}</button>
     </details>
     {error&&<p role="alert" className="ops-error">{error}{onSignIn&&error.toLowerCase().includes('sign')&&<button type="button" onClick={onSignIn}>Sign in</button>}</p>}
-    {message&&<p role="status" className="market-status-msg">{message}</p>}
+    {message&&<ActionStatus title="Report submitted">{message}</ActionStatus>}
   </div>
  </Modal>;
 }
