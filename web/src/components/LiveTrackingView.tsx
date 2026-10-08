@@ -209,7 +209,7 @@ export function LiveTrackingView({
     moved.current=false;fitted.current=false;
     const map=L.map(mapContainer.current,{zoomControl:true,attributionControl:true,scrollWheelZoom:true,touchZoom:true,dragging:true}).setView([job.location.lat,job.location.lng],14);
     mapInstance.current=map;
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}).addTo(map);
     L.marker([job.location.lat,job.location.lng],{icon:L.divIcon({className:'clean-map-pin',html:'<span class="rt-home-marker">⌂</span>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip('Service address');
     const interaction=()=>{moved.current=true;};
     const container=map.getContainer();container.addEventListener('pointerdown',interaction);container.addEventListener('wheel',interaction,{passive:true});container.addEventListener('keydown',interaction);

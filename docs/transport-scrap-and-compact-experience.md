@@ -62,7 +62,7 @@ are checked across dedicated, rental and shared work, including active overruns.
 
 ## Tracking and family links
 
-The map uses the existing Leaflet/CARTO layer. Driver phone readings and installed
+Tracking uses Leaflet and the same OpenStreetMap street tiles as the existing pickup and service-location maps. CARTO tracking URLs returned an “API key required” image; those URLs were replaced in customer, shared-ride and shop-agent tracking, with attribution preserved. Driver phone readings and installed
 vehicle tracker readings are labelled; renter phone coordinates are never labelled as
 vehicle GPS. Web sharing requires the page to remain open. The existing Agent Android
 foreground tracking service uses the scoped, expiring native capability issued by

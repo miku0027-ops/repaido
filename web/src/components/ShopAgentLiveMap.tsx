@@ -270,8 +270,9 @@ export const ShopAgentLiveMap: React.FC<ShopAgentLiveMapProps> = ({
 
     mapInstanceRef.current = map;
 
-    // Crisp CartoDB Voyager tiles matching Repaido customer platform
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Use the same OpenStreetMap streets as pickup and service location maps.
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
       maxZoom: 19
     }).addTo(map);
 
