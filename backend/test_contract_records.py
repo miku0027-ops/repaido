@@ -661,3 +661,11 @@ def test_actual_purchase_receipts_and_calendar_records_are_in_private_reports(ap
     assert record['purchases'][0]['receipt_reference']=='INV-EXAMPLE-1'
     pdf=api.get(BASE+'/report.pdf',headers=auth());assert pdf.status_code==200 and pdf.content.startswith(b'%PDF')
     assert api.get(BASE+'/report.pdf',headers=auth('teammate')).status_code==404
+
+@pytest.mark.parametrize('kind',['summary','progress','payments','purchases','team','timeline','full'])
+def test_report_variants_remain_private_and_downloadable(api,kind):
+    result=api.get(BASE+'/report.pdf?kind='+kind,headers=auth())
+    assert result.status_code==200 and result.content.startswith(b'%PDF-')
+    assert result.headers['cache-control']=='private, no-store'
+    assert kind in result.headers['content-disposition']
+    assert api.get(BASE+'/report.pdf?kind='+kind,headers=auth('stranger')).status_code==404

@@ -254,6 +254,8 @@ def install(core):
             chosen=next((w for w in eligible if w['id']==body.worker_id),None)
             if not chosen:fail('NO_LONGER_AVAILABLE','This professional is no longer eligible or available. Refresh results.')
             h={**body.model_dump(), 'id':str(uuid.uuid4()),'customer_id':user['id'],'customer_name':user.get('name','Customer'),'worker_name':chosen['name'],'policy':copy.deepcopy(p),'state':'offered','version':1,'offer_expires_at':time.time()+300,'attempted_workers':[body.worker_id],'created_at':time.time(),'bonus_paise':0}
+            from professional_offers import quote_offer
+            h['professional_offer']=quote_offer(u,body.worker_id,'day:'+body.category,p['base_paise'],1) if not body.coupon_code else None
             if body.coupon_code:
                 from coupons import reserve
                 h['coupon']=reserve(u,user['id'],body.coupon_code,'hire',p['base_paise'],'hire:'+h['id'])
@@ -297,6 +299,8 @@ def install(core):
                 rows=candidates(u,area,exclude=h['attempted_workers'],request_id=h['id'])
                 if not rows:fail('NO_MATCH','No alternative is available within your agreed radius. Retry later or cancel.')
                 w=rows[0];h.update(worker_id=w['id'],worker_name=w['name'],state='offered',offer_expires_at=now+300,bonus_paise=h['policy']['base_paise']//10,wait_used=False)
+                from professional_offers import quote_offer
+                h['professional_offer']=quote_offer(u,w['id'],'day:'+h['category'],h['policy']['base_paise'],1) if not h.get('coupon') else None
                 h['attempted_workers'].append(w['id']);notify(u,h,w['id'],'Priority reassignment · 10% base-fee bonus','A customer is waiting after an earlier request. Company-funded bonus applies after completed, paid work.',True)
             elif a=='accept':
                 worker(u,user)
@@ -320,6 +324,8 @@ def install(core):
                 if h.get("coupon"):
                     from coupons import attach_job
                     attach_job(j,h["coupon"])
+                if q.get('professional_offer'):
+                    j['professional_offer']=q['professional_offer'];j['vendor_discount_paise']=q['professional_offer']['discount_paise']
                 snapshot_policy(u,j,w)
                 ep=j.get('settlement_policy')
                 if not ep or p['base_paise']*(10000-ep['worker_share_bps']-ep.get('bonus_reserve_bps',0))//10000<h['bonus_paise']:fail('EARNINGS_POLICY','Agent must accept an earnings policy that funds the promised bonus before confirmation.')
@@ -344,6 +350,8 @@ def install(core):
                 if row['version']!=h['version'] or row['state']!='quoting':fail('REQUEST_CHANGED','Request changed during route calculation. Refresh.')
                 p=row['policy'];travel=max(p['minimum_travel_paise'],((outbound+inbound)*p['travel_paise_per_km']+500)//1000);gst=((p['base_paise']+travel)*p['gst_bps']+5000)//10000
                 row.update(state='quoted',version=row['version']+1,quote_expires_at=time.time()+300,quote={'base_paise':p['base_paise'],'travel_paise':travel,'gst_paise':gst,'total_paise':p['base_paise']+travel+gst,'outbound_metres':outbound,'return_metres':inbound,'distance_source':'Google driving routes','origin_captured_at':row['accepted_position']['captured_at']})
+                if row.get('professional_offer'):
+                    row['quote']['professional_offer']=row['professional_offer'];row['quote']['total_paise']-=row['professional_offer']['discount_paise']
                 u.put('hires',hid,row);notify(u,row,row['customer_id'],'Review your day-hire quote','The professional responded. Review travel and tax before confirming.');return row
             h=store.run(quote)
         return safe(h,user['id'])

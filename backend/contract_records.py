@@ -554,7 +554,9 @@ def apply_provider_payment(u, payment):
     return row
 
 
-def report_pdf(record, photos=()):
+def report_pdf(record, photos=(), kind='full'):
+    report_names={'full':'Complete audit record','summary':'Executive summary','progress':'Progress and milestones','payments':'Payments and reconciliation','purchases':'Purchase and expense register','team':'Team and attendance','timeline':'Activity audit trail'}
+    if kind not in report_names:fail('INVALID_REPORT','Choose a supported contract report.',422)
     from reportlab.graphics.shapes import Drawing, Line, PolyLine, Rect, String
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
@@ -571,9 +573,11 @@ def report_pdf(record, photos=()):
         return datetime.fromtimestamp(value, IST).strftime('%d %b %Y %H:%M IST') if value else 'Not recorded'
     def money(value):
         return f'INR {value // 100:,}.{value % 100:02d}'
-    blocks = [Paragraph('REPAIDO | Contract record', styles['Heading1']), text(record['project']['title']),
+    blocks = [Paragraph('REPAIDO | '+report_names[kind], styles['Heading1']), text(record['project']['title']),
               text('Contract ' + record['project']['id']), text('Generated ' + date(record['generated_at'])), Spacer(1, 14)]
     def section(title, rows):
+        sections={'Payment position':('summary','payments'),'Accepted team':('team',),'Milestones and deadlines':('progress',),'Progress history':('progress',),'Payment timeline':('payments',),'Purchase log':('purchases',),'Contract timeline':('timeline',),'Attendance register':('team',)}
+        if title in sections and kind!='full' and kind not in sections[title]:return
         blocks.append(Paragraph(title, styles['Heading2']))
         table = Table([[text(a), text(b)] for a, b in rows], colWidths=[145, 370])
         table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F0F4F5')),
@@ -581,6 +585,11 @@ def report_pdf(record, photos=()):
                                   ('TOPPADDING', (0, 0), (-1, -1), 7), ('BOTTOMPADDING', (0, 0), (-1, -1), 7)]))
         blocks.extend([table, Spacer(1, 12)])
     p, financials = record['project'], record['financials']
+    digest=hashlib.sha256(json.dumps(record,sort_keys=True,default=str,separators=(',',':')).encode()).hexdigest()
+    section('Record control',[('Report',report_names[kind]),('Snapshot reference',digest),('Currency and time','INR; Indian Standard Time (UTC+05:30)'),('Evidence basis','Saved contract records as of the generation time. Contractor reports and customer confirmations are identified separately.')])
+    if kind=='summary':
+        latest=record.get('progress',[])[-1] if record.get('progress') else None
+        section('At a glance',[('Latest reported progress',str(latest['percent'])+'% | '+latest['status'] if latest else 'No progress report recorded'),('Milestones approved',str(sum(g.get('status')=='approved' for g in record.get('milestones',[])))+' of '+str(len(record.get('milestones',[])))),('Recorded purchases',money(sum(x.get('amount_paise',0) for x in record.get('purchases',[])))),('Purchase basis','Recorded expense total only; not an addition to the contract price or evidence of customer payment.')])
     if record.get('history_snapshot_status') == 'financial_summary_only_size_review_required':
         blocks.append(text('This payment report preserves the verified financial snapshot. Historical activity exceeded its storage budget and requires review; use the current contract report for the recorded activity timeline.'))
     section('Agreed work', [('Scope', p.get('scope', '')), ('Site', p.get('site', '')), ('Stage', p['status']),
@@ -593,40 +602,42 @@ def report_pdf(record, photos=()):
     blocks.append(text('Gateway collection does not confirm contractor payout. Pending or reported transfers are excluded from confirmed totals. This private contract record is not a tax invoice.'))
     section('Accepted team', [(m.get('name') or m.get('worker_id'), f"{m.get('role')} - {m.get('status')}") for m in record['team']] or [('Team', 'No accepted team recorded')])
     section('Milestones and deadlines', [(g.get('title', g.get('id')), f"{g.get('status')} | due {date(g.get('due_at'))}") for g in record['milestones']] or [('Milestones', 'No milestones recorded')])
-    progress = record['progress']
-    blocks.extend([Paragraph('Progress calendar and graph', styles['Heading2']), text(record['progress_source'])])
-    if progress:
-        graph = Drawing(510, 140)
-        graph.add(Line(35, 25, 495, 25, strokeColor=colors.HexColor('#9CB2BB')))
-        graph.add(Line(35, 25, 35, 125, strokeColor=colors.HexColor('#9CB2BB')))
-        graph.add(String(0, 120, '100%', fontSize=8)); graph.add(String(8, 25, '0%', fontSize=8))
-        points = []
-        start, end = min(x['created_at'] for x in progress), max(x['created_at'] for x in progress)
-        for entry in progress:
-            x = 35 + 460 * (entry['created_at'] - start) / max(1, end - start)
-            points.extend([x, 25 + entry['percent']])
-        if len(points) > 2:
-            graph.add(PolyLine(points, strokeColor=colors.HexColor('#236C84'), strokeWidth=2))
-        else:
-            graph.add(Rect(points[0] - 2, points[1] - 2, 4, 4, fillColor=colors.HexColor('#236C84')))
-        blocks.extend([graph, Spacer(1, 8)])
-    section('Progress history', [(date(x['created_at']), f"{x['percent']}% | {x['status']} | {x['note']} | Media references: " + ', '.join(e.get('kind', 'image') + ' ' + e['id'] for e in x.get('evidence', []))) for x in progress] or [('Progress', 'No progress reports recorded')])
-    if photos:
-        blocks.append(Paragraph('Private progress photo previews', styles['Heading2']))
-        for photo in photos:
-            blocks.append(text('Photo ' + photo['id']))
-            if photo.get('data'):
-                preview = PDFImage(io.BytesIO(photo['data']))
-                scale = min(1, 240 / preview.imageWidth, 180 / preview.imageHeight)
-                preview.drawWidth = preview.imageWidth * scale; preview.drawHeight = preview.imageHeight * scale
-                blocks.append(preview)
+    if kind in ('full','progress'):
+        progress = record['progress']
+        blocks.extend([Paragraph('Progress calendar and graph', styles['Heading2']), text(record['progress_source'])])
+        if progress:
+            graph = Drawing(510, 140)
+            graph.add(Line(35, 25, 495, 25, strokeColor=colors.HexColor('#9CB2BB')))
+            graph.add(Line(35, 25, 35, 125, strokeColor=colors.HexColor('#9CB2BB')))
+            graph.add(String(0, 120, '100%', fontSize=8)); graph.add(String(8, 25, '0%', fontSize=8))
+            points = []
+            start, end = min(x['created_at'] for x in progress), max(x['created_at'] for x in progress)
+            for entry in progress:
+                x = 35 + 460 * (entry['created_at'] - start) / max(1, end - start)
+                points.extend([x, 25 + entry['percent']])
+            if len(points) > 2:
+                graph.add(PolyLine(points, strokeColor=colors.HexColor('#236C84'), strokeWidth=2))
             else:
-                blocks.append(text('Preview unavailable; the saved private photo reference remains in the progress record.'))
-            blocks.append(Spacer(1, 8))
-        blocks.append(text('Up to ten recent authorized progress photos are previewed. All recorded photo and video references remain listed above; videos can be opened in the private contract timeline.'))
+                graph.add(Rect(points[0] - 2, points[1] - 2, 4, 4, fillColor=colors.HexColor('#236C84')))
+            blocks.extend([graph, Spacer(1, 8)])
+        section('Progress history', [(date(x['created_at']), f"{x['percent']}% | {x['status']} | {x['note']} | Media references: " + ', '.join(e.get('kind', 'image') + ' ' + e['id'] for e in x.get('evidence', []))) for x in progress] or [('Progress', 'No progress reports recorded')])
+        if photos:
+            blocks.append(Paragraph('Private progress photo previews', styles['Heading2']))
+            for photo in photos:
+                blocks.append(text('Photo ' + photo['id']))
+                if photo.get('data'):
+                    preview = PDFImage(io.BytesIO(photo['data']))
+                    scale = min(1, 240 / preview.imageWidth, 180 / preview.imageHeight)
+                    preview.drawWidth = preview.imageWidth * scale; preview.drawHeight = preview.imageHeight * scale
+                    blocks.append(preview)
+                else:
+                    blocks.append(text('Preview unavailable; the saved private photo reference remains in the progress record.'))
+                blocks.append(Spacer(1, 8))
+            blocks.append(text('Up to ten recent authorized progress photos are previewed. All recorded photo and video references remain listed above; videos can be opened in the private contract timeline.'))
     section('Payment timeline', [(date(x.get('confirmed_at') or x['created_at']), f"{money(x['amount_paise'])} | {x['method']} | {x['status']} | {x.get('source') or 'pending'} | Reference {x.get('reference') or x.get('payment_id') or x['id']}") for x in record['payments']] or [('Payments', 'No payment requests recorded')])
     section('Purchase log', [(date(x['purchased_at']), f"{x['title']} | {money(x['amount_paise'])} | {x['status']} | Vendor {x.get('vendor') or 'Not supplied'} | Receipt {x['receipt_reference']} | {x.get('note') or ''}") for x in record.get('purchases', [])] or [('Purchases', 'No purchases recorded')])
     blocks.append(text('Purchases are contractor-reported expenses, with customer review shown separately. They do not increase the agreed price, confirm a payment or create an extra payment request.'))
+    section('Attendance register',[(date(x.get('in_at')),str(x.get('worker_name') or x.get('worker_id') or 'Team member')+' | '+'Out '+date(x.get('out_at'))+' | Source '+str(x.get('source') or 'Member reported')) for x in record.get('attendance',[])] or [('Attendance','No attendance records')])
     section('Contract timeline', [(date(x.get('at') or x.get('occurred_at_server_time')), x.get('action') or x.get('event_type') or 'Recorded event') for x in record['timeline']] or [('Timeline', 'Awarded contract; no additional status events recorded')])
     blocks.append(text(record['location_source']))
     out = io.BytesIO()
@@ -1009,12 +1020,12 @@ def install(core):
         return Response(read(core, row['object']), media_type=row['mime'], headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})
 
     @router.get('/projects/{pid}/report.pdf')
-    def current_report(pid: str, user=Depends(core.current_user)):
+    def current_report(pid: str, kind: Literal['full','summary','progress','payments','purchases','team','timeline']='full', user=Depends(core.current_user)):
         def authorize(u):
             p, _ = _access(u, pid, user)
             return _snapshot(u, p, _ledger(u, p))
         record = store.run(authorize)
-        return Response(report_pdf(record, photos_for_report(record, user)), media_type='application/pdf', headers={'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="Repaido-contract-record.pdf"', 'X-Content-Type-Options': 'nosniff'})
+        return Response(report_pdf(record, photos_for_report(record, user) if kind in ('full','progress') else (),kind), media_type='application/pdf', headers={'Cache-Control': 'private, no-store', 'Content-Disposition': f'attachment; filename="Repaido-contract-{kind}.pdf"', 'X-Content-Type-Options': 'nosniff'})
 
     @router.get('/reports/{report_id}.pdf')
     def payment_report(report_id: str, user=Depends(core.current_user)):

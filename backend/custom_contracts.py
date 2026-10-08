@@ -476,6 +476,11 @@ def query_view(u, row, user):
                     can_use_cta=row['controls'].get('cta_enabled',True) and (owner or writable or winner),
                     can_message=row['status'] == 'awarded' and (owner or winner), can_view_site=owner or winner))
     if owner or winner: output.update(site=row['site'], location=row.get('location'))
+    if owner or winner:
+        project=u.get('contract_projects',row['winning_project_id']) if row.get('winning_project_id') else None
+        status=(project or {}).get('status')
+        output['project_status']=status
+        output['lifecycle']='completed' if status in ('completed','cancelled') or row['status']=='closed' else 'progress' if status in ('active','paused') else 'assigned' if row['status']=='awarded' else 'pending'
     interest = u.get('custom_contract_interests', social.digest(row['id'] + ':' + uid))
     output['my_interest'] = {key: interest.get(key) for key in ('id', 'worker_type', 'note', 'status', 'created_at')} if interest else None
     if owner:

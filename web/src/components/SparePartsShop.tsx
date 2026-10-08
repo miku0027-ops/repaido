@@ -1,3 +1,5 @@
+import {StoryCarousel} from './CompactExperience';
+import './market-refinement.css';
 import {CustomerCartDrawer} from './CustomerCartDrawer';
 import MarketOpportunities from './MarketOpportunities';
 import type {QuickMarket} from './HomeQuickActions';
@@ -433,15 +435,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                 {activeFilterCount > 0 && <span className="spare-filter-badge">{activeFilterCount}</span>}
               </button>
 
-              <button
-                className="spare-cart-button"
-                type="button"
-                aria-label={`View cart, ${totalItemsCount} items`}
-                onClick={()=>{setCheckoutStep('cart');setShowCartDrawer(true);}}
-              >
-                <ShoppingBag size={18}/>
-                <span>{totalItemsCount}</span>
-              </button>
+
             </div>
           </div>
 
@@ -467,10 +461,11 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             </div>
           </div>
 
-          {section==='refurbished'&&<section className="refurb-introduction" aria-labelledby="refurb-title">
-            <div className="refurb-intro-icon"><RotateCcw size={26} aria-hidden="true"/></div>
-            <div><span className="prime-eyebrow">A Repaido specialty</span><h2 id="refurb-title">A second life. The details first.</h2><p>Compare shop-declared condition, repairs, test results and cover before you choose.</p></div>
-          </section>}
+          {section==='refurbished'&&<StoryCarousel label="Refurbished discovery" slides={[
+ {id:'renew',eyebrow:'A REPAIDO SPECIALTY',title:'A second life. A considered choice.',description:'Explore refurbished products with the details that matter.',image:'/images/banners/refurbished.jpg'},
+ {id:'inspect',eyebrow:'THE DETAILS FIRST',title:'Look closer before you choose.',description:'Compare declared repairs, tests, condition and included cover.',image:'/images/washer.jpg'},
+ {id:'value',eyebrow:'MAKE IT YOURS',title:'Good things deserve another home.',description:'Review the seller and item history, then choose with confidence.',image:'/images/banners/sell.jpg'}
+ ]}/>}
           {sortBy==='popularity'&&sortedProducts.some(p=>p.prime?.active)&&<p className="prime-placement-note">Prime shops receive paid priority in these results. Price and newest sorts follow your selection.</p>}
 
       {/* 4. Flipkart-Style Product Grid ("more alligned cards with shadowed back") */}

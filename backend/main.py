@@ -1245,3 +1245,6 @@ contract_records.install(sys.modules[__name__])
 import account_profile
 account_profile.install(sys.modules[__name__])
 import transactional_mail
+
+import local_business
+local_business.install(sys.modules[__name__])

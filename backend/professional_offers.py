@@ -1,9 +1,19 @@
 """Professional-funded Home offers, published by their owner and frozen in quotes."""
-import re, time, uuid
+import re, time, uuid, calendar
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from pydantic import Field
 from operations import Input, fail
 from integrations import audit
+
+DAY_TERMS = 'Professional-funded saving on the agreed day-hire base service fee. Tax, materials, travel and extras excluded. No coupon stacking. Review the final quote before confirmation.'
+
+def offer_deadline(now):
+    dt=datetime.fromtimestamp(now,timezone.utc);month=dt.month+2;year=dt.year+(month-1)//12;month=(month-1)%12+1
+    return dt.replace(year=year,month=month,day=min(dt.day,calendar.monthrange(year,month)[1])).timestamp()
+
+def approved_services(u,w):
+    return list((u.get('home_availability',w['id']) or {}).get('approved_services',[]))+['day:'+category for category in w.get('categories',[]) if not category.startswith('home:')]
 
 TERMS = 'Professional-funded saving on the first billing period’s agreed service fee. Tax, materials, travel and extras excluded. No coupon stacking. Only completed, approved visits are billed. Availability and the written quote require confirmation.'
 
@@ -20,7 +30,7 @@ def active_offers(u, worker_id=None, city=None, offers=None):
         if not offer.get('active') or not offer['starts_at'] <= now < offer['ends_at']: continue
         if worker_id and offer['worker_id'] != worker_id: continue
         w = u.get('workers', offer['worker_id'])
-        approved = (u.get('home_availability', offer['worker_id']) or {}).get('approved_services', [])
+        approved = approved_services(u,w) if w else []
         if not w or w['status'] != 'approved' or offer['service_id'] not in approved: continue
         if city and w['city'].strip().casefold() != city.strip().casefold(): continue
         # A discount must fit inside the professional's accepted earnings share.
@@ -28,7 +38,7 @@ def active_offers(u, worker_id=None, city=None, offers=None):
         if w.get('settlement_policy_version') != policy.get('version') or offer['bps'] > policy.get('worker_share_bps', 0): continue
         name=re.sub(r'(?<!\w)(?:\+?\d[\s().-]*){8,15}(?!\w)', '[contact hidden]', w['name'])
         name=re.sub(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', '[contact hidden]', name)
-        rows.append({**offer, 'worker_name': name, 'terms': TERMS})
+        rows.append({**offer, 'worker_name': name, 'terms': DAY_TERMS if offer['service_id'].startswith('day:') else TERMS})
     return sorted(rows, key=lambda o: (-o['bps'], o['ends_at'], o['id']))
 
 def quote_offer(u, worker_id, service_id, base, visits):
@@ -52,18 +62,18 @@ def install(core):
         def load(u):
             w = own(u, user)
             from home_plans import OFFERINGS
-            approved = (u.get('home_availability', w['id']) or {}).get('approved_services', [])
-            return {'services': [s for s in OFFERINGS if s['id'] in approved],
-                    'offers': [o for o in u.all('professional_offers') if o['worker_id'] == w['id']], 'terms': TERMS}
+            approved = approved_services(u,w)
+            return {'services': [s for s in OFFERINGS if s['id'] in approved]+[{'id':c,'name':c[4:].replace('-',' ').title()+' · day hire'} for c in approved if c.startswith('day:')],
+                    'offers': [o for o in u.find('professional_offers','worker_id',w['id'])], 'terms': 'You fund the saving from your earnings. Home offers apply to the first billing period; day-hire offers apply to the base service fee. Tax, travel and extras are excluded. No coupon stacking.'}
         return store.run(load)
     @r.post('')
     def publish(body: Offer, user=Depends(core.current_user)):
         def save(u):
             w = own(u, user); now = time.time()
-            if not now + 60 < body.ends_at <= now + 90 * 86400:
-                fail('INVALID_EXPIRY', 'Choose an expiry within the next 90 days.', 422)
-            if body.service_id not in (u.get('home_availability', w['id']) or {}).get('approved_services', []):
-                fail('SERVICE_NOT_APPROVED', 'Publish offers only for your reviewed Home services.', 422)
+            if not now + 60 < body.ends_at <= offer_deadline(now):
+                fail('INVALID_EXPIRY', 'Choose an expiry within the next two months.', 422)
+            if body.service_id not in approved_services(u,w):
+                fail('SERVICE_NOT_APPROVED', 'Publish offers only for your reviewed hiring categories or Home services.', 422)
             policy = u.get('policies', 'current') or {}
             if not policy.get('version') or w.get('settlement_policy_version') != policy['version'] or body.percent * 100 > policy.get('worker_share_bps', 0):
                 fail('EARNINGS_REQUIRED', 'Accept the current earnings policy and keep the offer within your earnings share.', 422)

@@ -309,7 +309,7 @@ def profile(u,w,jobs,offers=None,*,include_membership=True,include_network=True)
     p=public_profile(u,w,jobs=jobs,include_membership=include_membership,include_network=include_network)
     for key in ('city','radius_km'):p.pop(key,None)
     for key in ('name','bio'):p[key]=text(p.get(key))
-    for key in ('skills','tools','languages','specialties'):p[key]=[text(v) for v in p.get(key,[])]
+    for key in ('skills','tools','languages','specialties'):p[key]=[text(v) for v in (p.get(key) or [])]
     for r in p['reviews']:
         for key in ('service','text','reply'):
             if r.get(key):r[key]=text(r[key])

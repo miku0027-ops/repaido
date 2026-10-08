@@ -5,6 +5,7 @@ export type ContractReaction='interested'|'useful'|'support';
 export interface ContractPublicMember {id:string;name:string;city?:string;role?:string;avatarUrl?:string;portrait_url?:string;repaidianBadge?:RepaidianBadgeMetadata|null;}
 export interface CustomContractBid {id:string;contractor_id:string;contractor_name:string;amount_paise:number;proposal:string;status:string;submitted_at:number;}
 export interface CustomContractQuery {
+  lifecycle?:'pending'|'assigned'|'progress'|'completed';project_status?:string;
   id:string;title:string;sector:string;work_trade:Trade;city:string;area:string;scope:string;skills:string[];minimum_experience:number;
   budget_paise:number;starts_at:number;ends_at:number;deadline:number;status:string;version:number;owner_id:string;owner_name:string;terms?:string;phase?:string;distance_km?:number;opening_project_id?:string;message_recipient_id?:string;message_recipients?:ContractPublicMember[];interest_access?:'membership'|'nearby_trial';
   controls:{reactions_enabled:boolean;comments_enabled:boolean;public_progress:boolean;cta_label?:string;cta_enabled?:boolean};

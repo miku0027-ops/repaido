@@ -32,15 +32,39 @@ def customer_network_profile(u, uid):
         return text(value) if isinstance(value,str) and key in text_fields else value
     return redact(profile_public(u,uid,None))
 
+def professional_performance(jobs):
+    """Distinct customer dimensions; no inference from generic star ratings."""
+    completed=[j for j in jobs if j.get('state')=='completed']
+    scores={}
+    for key in ('behavior','work_quality','skills'):
+        values=[v for j in completed if type(v:=(j.get('review') or {}).get('dimensions',{}).get(key)) is int and 1<=v<=5]
+        scores[key]={'score':round(sum(values)*20/len(values)) if values else None,'samples':len(values),'source':'verified_customer_dimension'}
+    punctual=[]
+    for j in completed:
+        # Compare customer-verified arrival for the current visit only. Historical
+        # reschedules without an arrival snapshot cannot establish punctuality.
+        arrival=j.get('verified_arrived_at');scheduled=j.get('verified_arrival_starts_epoch')
+        if isinstance(arrival,(int,float)) and isinstance(scheduled,(int,float)):
+            punctual.append(arrival<=scheduled+900)
+    scores['punctuality']={'score':round(sum(punctual)*100/len(punctual)) if punctual else None,'samples':len(punctual),'source':'arrival_records'}
+    dates=[j['completed_at'] for j in completed if isinstance(j.get('completed_at'),(int,float))]
+    return {'scores':scores,'last_completed_at':max(dates) if dates else None,
+            'method':'Specific verified customer ratings / 5. Punctuality is the share of customer-verified arrivals no more than 15 minutes after the agreed visit time. Missing evidence is not scored.'}
+
 def public_profile(u, w, jobs=None, *, include_membership=True, include_network=True):
     from repaidians_billing import membership_badge
     profile=u.get('worker_profiles',w['id']) or {}
     reviews=[]
-    for j in (u.for_workers('jobs',[w['id']]) if jobs is None else jobs):
+    jobs=[j for j in (u.for_workers('jobs',[w['id']]) if jobs is None else jobs) if j.get('worker_id')==w['id']]
+    completed=[j for j in jobs if j.get('state')=='completed']
+    for j in jobs:
         if j.get('worker_id')==w['id'] and j['state']=='completed' and j.get('review'):
             r=j['review']
-            reviews.append(dict(service=j['service_name'],rating=r['rating'],text=r.get('text',''),at=r.get('created_at',j.get('completed_at')),reply=(r.get('worker_reply') or {}).get('text'),verified=True))
+            reviews.append(dict(service=j['service_name'],rating=r['rating'],text=r.get('text',''),at=r.get('at',r.get('created_at',j.get('completed_at'))),reply=(r.get('worker_reply') or {}).get('text'),verified=True))
     return {**{k:w.get(k) for k in ('id','name','role','city','categories','skills','tools','experience_years','radius_km','completed_tasks')},
+        'completed_tasks':len(completed),
+        'performance':professional_performance(jobs),
+        'work_history':[{'service':j.get('service_name','Completed service'),'category':j.get('category',''),'completed_at':j.get('completed_at'),'rating':(j.get('review') or {}).get('rating')} for j in sorted(completed,key=lambda j:j.get('completed_at') or 0,reverse=True)[:12]],
         'bio':profile.get('bio',''),'languages':profile.get('languages',[]),'specialties':profile.get('specialties',[]),
         'portrait_url':f"/api/operations/professional-media/{profile['portrait_id']}" if profile.get('portrait_id') else None,
         'cover_url':f"/api/operations/professional-media/{profile['cover_id']}" if profile.get('cover_id') else None,

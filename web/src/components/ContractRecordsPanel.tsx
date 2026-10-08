@@ -6,9 +6,11 @@ import {downloadContractReport,privateContractBlob,rupeesToPaise,uploadContractE
 import {ContractError,ContractRefresh,contractDate,contractMoney,contractStatus,useCustomContractAction,useCustomContractResource} from './customContractUI';
 import ContractCalendar from './ContractCalendar';
 import './custom-contracts.css';
+import './contract-refinement.css';
 import {loadCheckout} from './PaymentPanel';
 
 export function ContractRecordsPanel({projectId,accountKey,mode}:{projectId:string;accountKey:string;mode:'customer'|'contractor'|'agent'}){
+  const [reportKind,setReportKind]=useState('summary');
   const resource=useCustomContractResource<ContractRecords>(accountKey+':records:'+projectId,(force,signal)=>contractRecords(projectId,force,signal),mode!=='agent'),action=useCustomContractAction(),record=resource.data;
   if(mode==='agent')return <p className="cc-note">Customer contract payment and progress records are private to the customer and awarded contractor. Your accepted placement stays in Apply Status.</p>;
   const refresh=()=>resource.refresh();
@@ -28,7 +30,7 @@ export function ContractRecordsPanel({projectId,accountKey,mode}:{projectId:stri
       <section className="cc-detail"><h4>Payment requests & confirmations</h4>{record.payments.length?<div className="cc-list">{record.payments.map(payment=><PaymentRecord key={payment.id} record={record} payment={payment} accountKey={accountKey} onChanged={refresh}/>)}</div>:<p className="cc-note">No payment requests are recorded.</p>}</section>
       {record.actions.can_request&&<PaymentRequestForm record={record} onSaved={refresh}/>}
       <details className="cc-section"><summary>Available payment methods</summary>{(['gateway','neft','rtgs'] as const).map(method=><p className="cc-note" key={method}><strong>{method==='gateway'?'Online gateway':method.toUpperCase()}</strong> · {record.payment_methods[method].available?'Connected':'Unavailable'} · {record.payment_methods[method].reason}</p>)}</details>
-      {record.actions.can_read_report&&<button disabled={action.busy} onClick={()=>void action.run(()=>downloadContractReport(record.report_url))}><Download size={16} aria-hidden="true"/>{action.busy?'Preparing private PDF…':'Download private contract report'}</button>}
+      {record.actions.can_read_report&&<div className="cc-report-picker"><label>Report<select aria-label="Contract report type" value={reportKind} onChange={e=>setReportKind(e.target.value)}>{[['summary','Executive summary'],['progress','Progress & milestones'],['payments','Payment reconciliation'],['purchases','Purchase register'],['team','Team & attendance'],['timeline','Activity audit trail'],['full','Complete audit record']].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label><button disabled={action.busy} onClick={()=>void action.run(()=>downloadContractReport(record.report_url+'?kind='+reportKind,'Repaido-contract-'+reportKind+'.pdf'))}><Download size={16} aria-hidden="true"/>{action.busy?'Preparing private PDF…':'Download private PDF'}</button></div>}
       <ContractError error={action.error}/><p className="cc-note"><LockKeyhole size={13} aria-hidden="true"/>Private records are available to the customer and awarded contractor.</p>
     </>}
   </section>;

@@ -229,13 +229,12 @@ export function TaskSlideshowRail({
       </div>
 
       {jobs.length > 1 && (
-        <div className="task-slide-dots" role="tablist" aria-label="Slideshow pages">
-          {jobs.map((j, i) => (
+        <div className="task-slide-dots" role="group" aria-label="Slideshow pages">
+          {jobs.map((j, i) => ({j,i})).slice(Math.max(0,Math.min(currentIndex-1,jobs.length-3)),Math.max(0,Math.min(currentIndex-1,jobs.length-3))+3).map(({j,i}) => (
             <button
               key={j.id}
               type="button"
-              role="tab"
-              aria-selected={i === currentIndex}
+              aria-pressed={i === currentIndex}
               aria-label={`${worker ? 'Task' : 'Booking'} ${i + 1}: ${j.service_name}`}
               className={`task-slide-dot ${i === currentIndex ? 'active' : ''}`}
               onClick={() => scrollToCard(i)}

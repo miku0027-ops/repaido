@@ -1,0 +1,8 @@
+import {apiFetch} from './api';
+import {operation} from './operations';
+export const business=<T=any,>(path:string,body?:object,method='POST')=>operation<T>('/local-business'+path,body?{method,body:JSON.stringify(body)}:{}, {background:true});
+export async function businessPublic<T=any>(path:string,body?:object):Promise<T>{const r=await apiFetch('/api/operations/local-business'+path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const data=await r.json();if(!r.ok)throw Error(data.detail?.message||'Could not load local services.');return data;}
+export async function businessDocument(file:File){if(!['image/jpeg','image/png'].includes(file.type)||file.size>5*1024*1024)throw Error('Choose a JPEG or PNG photo under 5 MB.');return operation<{id:string}>('/local-business/documents',{method:'POST',headers:{'Content-Type':file.type},body:file});}
+export async function businessPrivatePhoto(path:string){const {auth}=await import('../firebase');const token=await auth.currentUser?.getIdToken();if(!token)throw Error('Sign in to view this private photo.');const r=await apiFetch('/api/operations/local-business'+path,{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('Private evidence could not load.');return URL.createObjectURL(await r.blob());}
+export function businessAmount(value:FormDataEntryValue|null){const raw=String(value||'0');if(!/^\d+(\.\d{1,2})?$/.test(raw))throw Error('Enter a non-negative amount with up to two decimal places.');const [rupees,paise='']=raw.split('.');const result=Number(rupees)*100+Number(paise.padEnd(2,'0'));if(!Number.isSafeInteger(result))throw Error('Amount is too large.');return result;}
+export type BusinessLocation={lat:number;lng:number;address:string;city:string};

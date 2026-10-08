@@ -258,7 +258,7 @@ def install(core):
             if j['state'] not in ('arrived', 'in_progress'):fail('NOT_AT_SITE','Job must be in arrived stage before verifying arrival.')
             err=check_code(u,otp_id('arrival',j),body.code,now)
             if err:return {'error':err}
-            j['arrival_verified_visit']=j['visit_id'];j['version']+=1;event(u,j,'CustomerArrivalVerified',user['id']);u.put('jobs',jid,j);return {'status':'verified'}
+            j['arrival_verified_visit']=j['visit_id'];j.update(verified_arrived_at=now,verified_arrival_starts_epoch=j.get('starts_epoch'));j['version']+=1;event(u,j,'CustomerArrivalVerified',user['id']);u.put('jobs',jid,j);return {'status':'verified'}
         result=store.run(save)
         if result.get('error'):fail('INVALID_OTP',result['error'],422)
         return result

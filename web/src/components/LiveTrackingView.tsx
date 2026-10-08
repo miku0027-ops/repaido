@@ -1,3 +1,7 @@
+import {ProfessionalAvatar,ProfessionalDetails,ProfileHighlights,type Professional} from './Hiring';
+import {publicProfessionalDetails} from '../services/hireProfileCache';
+import {Modal} from './ui';
+import './tracking-refinement.css';
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -6,7 +10,7 @@ import {
   FileText, ArrowLeft, RefreshCw, AlertTriangle, Check, CheckCircle2,
   Store, User, Sparkles, ExternalLink, Star, Receipt, X
 } from 'lucide-react';
-import { operation, money, jobCommand, type Job } from '../services/operations';
+import { operation, money, jobCommand, currentPosition, type Job } from '../services/operations';
 import { taskProgress } from '../services/taskStages.mjs';
 import { PaymentPanel } from './PaymentPanel';
 
@@ -126,14 +130,20 @@ export function LiveTrackingView({
   const [reviewText, setReviewText] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
 
+  const [fullscreen,setFullscreen]=useState(false),[professional,setProfessional]=useState<Professional|null>(null),[profileOpen,setProfileOpen]=useState(false),[profileError,setProfileError]=useState(''),[profileAttempt,setProfileAttempt]=useState(0);
+  const [customerPosition,setCustomerPosition]=useState<{lat:number;lng:number;accuracy:number}|null>(null),[locationMessage,setLocationMessage]=useState(''),[clock,setClock]=useState(Date.now());
+  const [dimensions,setDimensions]=useState<Record<string,number>>({});
+  const moved=useRef(false),fitted=useRef(false),trackingReceivedAt=useRef(0);
+  const [motionPaused,setMotionPaused]=useState(false);
+
   // Close on Escape key
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape'&&!document.querySelector('dialog[open]')) {if(fullscreen)setFullscreen(false);else onClose();}
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+  }, [onClose,fullscreen]);
 
   const runCommand = async (action: string, payload: object = {}) => {
     setBusyAction(action);
@@ -174,7 +184,7 @@ export function LiveTrackingView({
     const fetchTracking = async () => {
       try {
         const data = await operation<Tracking>(`/jobs/${job.id}/tracking`,{}, {background:true});
-        if (!cancelled) setTracking(data);
+        if (!cancelled) {trackingReceivedAt.current=Date.now();setClock(Date.now());setTracking(data);}
       } catch {
         // Fallback gracefully
       }
@@ -187,128 +197,36 @@ export function LiveTrackingView({
     };
   }, [job.id]);
 
-  // Leaflet map setup
-  useEffect(() => {
-    if (!mapContainer.current) return;
-    if (mapInstance.current) {
-      mapInstance.current.remove();
-      mapInstance.current = null;
-    }
-
-    // Determine target location: Customer location or default
-    const custLat = job.location?.lat || 28.6139;
-    const custLng = job.location?.lng || 77.2090;
-
-    // Agent live position or fallback offset for visual navigation
-    const agentLat = tracking?.position?.lat || (job.state === 'en_route' ? custLat - 0.012 : custLat - 0.005);
-    const agentLng = tracking?.position?.lng || (job.state === 'en_route' ? custLng + 0.010 : custLng + 0.004);
-
-    const map = L.map(mapContainer.current, {
-      zoomControl: false,
-      attributionControl: false,
-      scrollWheelZoom: false,
-      dragging: true
-    }).setView([custLat, custLng], 14);
-
-    mapInstance.current = map;
-
-    // Tile Layer: Crisp Clean CartoDB Positron / Voyager style
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19
-    }).addTo(map);
-
-    // Custom Customer Pin
-    const customerIcon = L.divIcon({
-      className: 'clean-map-pin',
-      html: `
-        <div style="background:#0f172a;color:#ffffff;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:15px;box-shadow:0 4px 12px rgba(15,23,42,0.35);border:2.5px solid #ffffff;">
-          🏠
-        </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
-    });
-    L.marker([custLat, custLng], { icon: customerIcon })
-      .addTo(map)
-      .bindTooltip('Your Location', { permanent: true, direction: 'top', offset: [0, -14], className: 'map-tooltip-clean' });
-
-    // Custom Agent Live Moving Pin
-    const isEnRoute = ['en_route', 'collecting_parts'].includes(job.state);
-    const agentIcon = L.divIcon({
-      className: 'clean-map-pin',
-      html: `
-        <div class="live-agent-pulse-marker">
-          <div class="agent-pulse-ring"></div>
-          <div class="agent-pin-body">
-            ${isEnRoute ? '🛵' : '🔧'}
-          </div>
-        </div>
-      `,
-      iconSize: [38, 38],
-      iconAnchor: [19, 19]
-    });
-
-    agentMarker.current = L.marker([agentLat, agentLng], { icon: agentIcon })
-      .addTo(map)
-      .bindTooltip(job.worker_name ? `${job.worker_name.split(' ')[0]} (Live)` : 'Specialist', {
-        permanent: true,
-        direction: 'bottom',
-        offset: [0, 15],
-        className: 'map-tooltip-clean'
-      });
-
-    // Add Shop Marker if Collecting Parts
-    if (job.pickup_locations?.length) {
-      const shop = job.pickup_locations[0];
-      const shopIcon = L.divIcon({
-        className: 'clean-map-pin',
-        html: `
-          <div style="background:#0284c7;color:#ffffff;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;box-shadow:0 4px 12px rgba(2,132,199,0.35);border:2px solid #ffffff;">
-            🏬
-          </div>
-        `,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-      L.marker([shop.location.lat, shop.location.lng], { icon: shopIcon })
-        .addTo(map)
-        .bindTooltip(shop.name, { permanent: true, direction: 'top', offset: [0, -14], className: 'map-tooltip-clean' });
-    }
-
-    // Connect Route Polyline
-    routeLine.current = L.polyline(
-      [[agentLat, agentLng], [custLat, custLng]],
-      { color: '#2563eb', weight: 3.5, dashArray: '5, 7', opacity: 0.85 }
-    ).addTo(map);
-
-    // Fit bounds smoothly with compact padding
-    map.fitBounds([
-      [agentLat, agentLng],
-      [custLat, custLng]
-    ], { padding: [40, 40], maxZoom: 16 });
-
-    // Invalidate size once DOM layout settles
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-
-    return () => {
-      clearTimeout(timer);
-      map.remove();
-      mapInstance.current = null;
-    };
-  }, [job.location, job.pickup_locations, job.state, tracking?.position]);
-
-  // Update agent position if coordinates change
-  useEffect(() => {
-    if (tracking?.position && agentMarker.current && mapInstance.current) {
-      const p = tracking.position;
-      agentMarker.current.setLatLng([p.lat, p.lng]);
-      if (job.location) {
-        routeLine.current?.setLatLngs([[p.lat, p.lng], [job.location.lat, job.location.lng]]);
-      }
-    }
-  }, [tracking?.position, job.location]);
+  useEffect(()=>{const timer=setInterval(()=>setClock(Date.now()),10000);return()=>clearInterval(timer);},[]);
+  useEffect(()=>{setProfessional(null);setProfileError('');if(!job.worker_id)return;const controller=new AbortController();void publicProfessionalDetails<Professional>(job.worker_id,controller.signal).then(setProfessional).catch(e=>{if(!controller.signal.aborted)setProfileError(e.message);});return()=>controller.abort();},[job.worker_id,profileAttempt]);
+  const trackingAge=tracking?.position?Math.max(0,tracking.server_time-tracking.position.received_at+(clock-trackingReceivedAt.current)/1000):Infinity;
+  const livePosition=tracking?.status==='live'&&tracking.position&&trackingAge<=75?tracking.position:null;
+  const destination=customerPosition||job.location;
+  const distanceKm=livePosition&&destination?L.latLng(livePosition.lat,livePosition.lng).distanceTo(L.latLng(destination.lat,destination.lng))/1000:null;
+  const locateCustomer=async()=>{try{const p=await currentPosition(true);setCustomerPosition(p);setLocationMessage(`Your GPS accuracy: about ${Math.round(p.accuracy)} m.`);}catch(e){setLocationMessage((e as Error).message);}};
+  useEffect(()=>{
+    if(!mapContainer.current||!job.location)return;
+    moved.current=false;fitted.current=false;
+    const map=L.map(mapContainer.current,{zoomControl:true,attributionControl:true,scrollWheelZoom:true,touchZoom:true,dragging:true}).setView([job.location.lat,job.location.lng],14);
+    mapInstance.current=map;
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+    L.marker([job.location.lat,job.location.lng],{icon:L.divIcon({className:'clean-map-pin',html:'<span class="rt-home-marker">⌂</span>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip('Service address');
+    const interaction=()=>{moved.current=true;};
+    const container=map.getContainer();container.addEventListener('pointerdown',interaction);container.addEventListener('wheel',interaction,{passive:true});container.addEventListener('keydown',interaction);
+    const observer=new ResizeObserver(()=>map.invalidateSize({pan:false}));observer.observe(container);
+    return()=>{observer.disconnect();container.removeEventListener('pointerdown',interaction);container.removeEventListener('wheel',interaction);container.removeEventListener('keydown',interaction);map.remove();mapInstance.current=null;agentMarker.current=null;routeLine.current=null;};
+  },[job.id,job.location?.lat,job.location?.lng]);
+  useEffect(()=>{
+    const map=mapInstance.current;if(!map)return;
+    if(!livePosition){if(agentMarker.current)map.removeLayer(agentMarker.current);agentMarker.current=null;if(routeLine.current)map.removeLayer(routeLine.current);routeLine.current=null;return;}
+    const point:L.LatLngTuple=[livePosition.lat,livePosition.lng];
+    if(!agentMarker.current){
+      const name=document.createElement('span');name.textContent=job.worker_name||'Your professional';
+      agentMarker.current=L.marker(point,{keyboard:true,title:job.worker_name||'Professional profile',icon:L.divIcon({className:'clean-map-pin',html:'<span class="rt-agent-marker">🛵</span>',iconSize:[38,38],iconAnchor:[19,19]})}).addTo(map).bindTooltip(name,{permanent:true,direction:'bottom',offset:[0,14],className:'map-tooltip-clean'}).on('click',()=>setProfileOpen(true));
+    }else agentMarker.current.setLatLng(point);
+    if(job.location){const points:L.LatLngTuple[]=[point,[job.location.lat,job.location.lng]];if(routeLine.current)routeLine.current.setLatLngs(points);else routeLine.current=L.polyline(points,{color:'#244685',weight:2,dashArray:'4,8'}).addTo(map);if(!fitted.current&&!moved.current){map.fitBounds(points,{padding:[45,45],maxZoom:16});fitted.current=true;}}
+  },[livePosition?.lat,livePosition?.lng,!!livePosition,job.worker_name,job.id]);
+  useEffect(()=>{const timer=setTimeout(()=>mapInstance.current?.invalidateSize({pan:false}),80);return()=>clearTimeout(timer);},[fullscreen]);
 
   const currentStage = STAGE_CONFIG[job.state] || {
     label: job.state.replaceAll('_', ' '),
@@ -330,7 +248,7 @@ export function LiveTrackingView({
 
   return (
     <div
-      className="repaido-tracking-sheet"
+      className={`repaido-tracking-sheet${fullscreen?' rt-map-fullscreen':''}`}
       role="dialog"
       aria-modal="true"
       aria-label={`Live Tracking: ${job.service_name}`}
@@ -371,14 +289,14 @@ export function LiveTrackingView({
 
       {/* Map Viewport Area */}
       <div className="rt-map-area">
-        <div ref={mapContainer} className="rt-leaflet-container" />
+        <div ref={mapContainer} className="rt-leaflet-container" role="region" aria-label="Live agent map"/><button className="rt-fullscreen-button" onClick={()=>setFullscreen(v=>!v)} aria-label={fullscreen?'Exit fullscreen map':'Open fullscreen map'}>{fullscreen?'Close map':'Full screen'}</button>{!livePosition&&<p className="rt-location-status" role="status">{tracking?.status==='stale'?'Agent GPS is out of date':'Waiting for agent GPS'}</p>}
 
         {/* Floating Live Activity Chip Overlay */}
         <div className="rt-map-chip">
           <span className="rt-map-chip-icon">{currentStage.icon}</span>
           <div className="rt-map-chip-text">
             <strong>{currentStage.label}</strong>
-            <small>{currentStage.eta}</small>
+            <small>{distanceKm!==null?`${distanceKm.toFixed(2)} km straight-line`:currentStage.eta}</small>
           </div>
         </div>
 
@@ -431,7 +349,7 @@ export function LiveTrackingView({
         </div>
 
         {/* Current Step Status Banner */}
-        <div className="rt-hero-card">
+        <div className={`rt-hero-card${job.state==='en_route'?' rt-in-transit':''}`}>
           <div className="rt-hero-icon-wrap">
             <span>{currentStage.icon}</span>
           </div>
@@ -440,7 +358,7 @@ export function LiveTrackingView({
               STEP {Math.min(progress.completed + 1, 5)} OF 5 · {progress.status.toUpperCase()}
             </span>
             <h3>{currentStage.label}</h3>
-            <p>{currentStage.sub}</p>
+            {job.state==='en_route'?<><div className="rt-bike-road" aria-hidden="true"><span style={{animationPlayState:motionPaused?'paused':'running'}}>🛵</span><i>⌂</i></div><button onClick={()=>setMotionPaused(value=>!value)}>{motionPaused?'Play journey motion':'Pause journey motion'}</button><p>{distanceKm===null?'Waiting for live GPS':`${distanceKm.toFixed(2)} km from ${customerPosition?'your current location':'the service address'} · straight-line`}</p><small>{livePosition?`Updated ${Math.round(trackingAge)}s ago · GPS ±${Math.round(livePosition.accuracy)}m`:null}</small><button onClick={()=>void locateCustomer()}>Use my current location</button>{locationMessage&&<small role="status">{locationMessage}</small>}</>:<p>{currentStage.sub}</p>}
           </div>
         </div>
 
@@ -645,6 +563,7 @@ export function LiveTrackingView({
                     </button>
                   ))}
                 </div>
+                <div className="rt-review-dimensions">{['behavior','work_quality','skills'].map(key=><label key={key}>{key.replaceAll('_',' ')}<select value={dimensions[key]||''} onChange={e=>setDimensions(old=>{const next={...old};if(e.target.value)next[key]=Number(e.target.value);else delete next[key];return next;})}><option value="">Optional</option>{[1,2,3,4,5].map(value=><option key={value} value={value}>{value}/5</option>)}</select></label>)}</div>
                 <textarea
                   placeholder="Write a brief review (optional)…"
                   value={reviewText}
@@ -656,7 +575,7 @@ export function LiveTrackingView({
                   type="button"
                   className="rt-btn-primary rt-btn-blue w-full"
                   disabled={!!busyAction || selectedRating < 1}
-                  onClick={() => void runCommand('review', { rating: selectedRating, text: reviewText.trim() })}
+                  onClick={() => void runCommand('review', { rating: selectedRating, text: reviewText.trim(), dimensions })}
                 >
                   {busyAction === 'review' ? 'Submitting…' : 'Submit Verified Review'}
                 </button>
@@ -665,34 +584,8 @@ export function LiveTrackingView({
           </section>
         )}
 
-        {/* Technician Micro-Card */}
-        {job.worker_name && (
-          <div className="rt-pro-card">
-            <div className="rt-pro-avatar">
-              <User size={18} />
-            </div>
-            <div className="rt-pro-details">
-              <div className="rt-pro-name-row">
-                <strong>{job.worker_name}</strong>
-                <span className="rt-pro-rating">4.9 ★</span>
-              </div>
-              <span className="rt-pro-role">
-                <ShieldCheck size={12} color="#059669" /> Repaido Certified Specialist
-              </span>
-            </div>
-            {job.phone && (
-              <a
-                href={`tel:${job.phone}`}
-                className="rt-call-btn"
-                aria-label={`Call technician ${job.worker_name}`}
-                title={`Call ${job.worker_name}`}
-              >
-                <Phone size={14} />
-                <span>Call</span>
-              </a>
-            )}
-          </div>
-        )}
+        {job.worker_name&&<details className="rt-professional-panel"><summary className="rt-pro-card">{professional?<ProfessionalAvatar p={professional}/>:<span className="rt-pro-avatar"><User size={18}/></span>}<span className="rt-pro-details"><strong>{job.worker_name}</strong><small>{professional?.rating!=null?`${professional.rating.toFixed(1)} ★ · ${professional.review_count} reviews`:'Reviews available in profile'}</small></span><ChevronDown size={15}/></summary><div className="rt-professional-content">{professional?<><ProfileHighlights p={professional}/><div className="rt-quality-scores">{Object.entries(professional.performance?.scores||{}).map(([key,value])=><div key={key}><span>{key.replaceAll('_',' ')}</span><strong>{value.score===null?'Not rated':`${value.score}%`}</strong><progress max={100} value={value.score||0} aria-label={`${key}: ${value.score===null?'not rated':value.score+'%'}`}/><small>{value.samples} {value.source==='arrival_records'?'arrival records':'specific ratings'}</small></div>)}</div><button onClick={()=>setProfileOpen(true)}>Full profile & work history</button></>:<p>{profileError||'Loading profile…'}{profileError&&<button onClick={()=>setProfileAttempt(v=>v+1)}>Retry</button>}</p>}</div></details>}
+        {profileOpen&&<Modal title={job.worker_name||'Professional profile'} className="hire-professional-page" onClose={()=>setProfileOpen(false)}><div className="hire-profile-scroll">{professional?<ProfessionalDetails p={professional}/>:<p>{profileError||'Loading profile…'}</p>}</div></Modal>}
 
         {/* Address & Booking Metadata Strip */}
         <div className="rt-meta-strip">

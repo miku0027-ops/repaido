@@ -211,7 +211,7 @@ class Unit:
 
     def find(self, kind, field, value):
         """Indexed equality lookups with transaction-local writes overlaid."""
-        allowed = {'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
+        allowed = {'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','active','status'}, 'mobility_rides': {'owner_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
                    'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
@@ -878,6 +878,7 @@ def install(core):
                     err = check_code(u, otp_id('arrival', j), otp_code, now)
                     if not err:
                         j['arrival_verified_visit'] = j['visit_id']
+                        j.update(verified_arrived_at=now,verified_arrival_starts_epoch=j.get('starts_epoch'))
                         event(u, j, 'CustomerArrivalVerified', user['id'])
                     else:
                         fail('INVALID_OTP', err, 422)
@@ -992,14 +993,16 @@ def install(core):
                     except (KeyError, ValueError): fail('INVALID_SLOT', 'Choose a valid future appointment.', 422)
                     j.setdefault('schedule_history', []).append(dict(from_worker_id=j.get('worker_id'), **{'from':j['starts_at']}, to=start.isoformat(), at=now))
                     j.update(starts_at=start.isoformat(), starts_epoch=start.timestamp(), reminder_at=max(now, start.timestamp()-7200), attempted_workers=[], visit_id=str(uuid.uuid4()))
-                    for field in ('manual_arrival','reminder_ack_at', 'reminder_sent_at', 'departed_at', 'accepted_at'): j.pop(field, None)
+                    for field in ('verified_arrived_at','verified_arrival_starts_epoch','manual_arrival','reminder_ack_at', 'reminder_sent_at', 'departed_at', 'accepted_at'): j.pop(field, None)
                     assign(u, j, now)
                 j.pop('position', None)
                 j['tracking_consent'] = False
             elif a == 'review':
                 rating = p.get('rating')
                 if type(rating) is not int or not 1 <= rating <= 5: fail('INVALID_RATING', 'Choose a rating from one to five.', 422)
-                j['review'] = {'rating': rating, 'text': str(p.get('text', ''))[:2000], 'customer_id': user['id'], 'verified_booking': True, 'at': now}
+                dimensions=p.get('dimensions',{})
+                if not isinstance(dimensions,dict) or any(k not in ('behavior','work_quality','skills') or type(v) is not int or not 1<=v<=5 for k,v in dimensions.items()):fail('INVALID_REVIEW_DIMENSIONS','Choose optional dimension ratings from one to five.',422)
+                j['review'] = {'rating': rating, 'text': str(p.get('text', ''))[:2000], 'customer_id': user['id'], 'verified_booking': True, 'at': now, 'dimensions':dimensions}
                 w = u.get('workers', j['worker_id'])
                 w['rating_sum'] += rating
                 w['rating_count'] += 1

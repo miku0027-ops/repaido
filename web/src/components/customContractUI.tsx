@@ -17,6 +17,7 @@ export function useCustomContractResource<T>(key:string,load:(force:boolean,sign
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;generation.current++;controller.current?.abort();};},[]);
   useEffect(()=>subscribeCustomContracts(()=>setRevision(value=>value+1)),[]);
   useEffect(()=>{void refresh(false);return()=>{generation.current++;controller.current?.abort();};},[refresh,revision]);
+  useEffect(()=>{if(!enabled)return;const tick=()=>{if(!document.hidden)void refresh(true);};const timer=setInterval(tick,30000);document.addEventListener('visibilitychange',tick);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',tick);};},[refresh,enabled]);
   return {...(state.key===key?state:{key,data:null,busy:enabled,error:''}),refresh};
 }
 export function useCustomContractAction(){const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),gate=useRef(false),mounted=useRef(true);useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);const run=async(task:()=>Promise<void>,success='')=>{if(gate.current)return;gate.current=true;setBusy(true);setError('');setMessage('');try{await task();if(mounted.current&&success)setMessage(success);}catch(error){if(mounted.current)setError((error as Error).message);}finally{gate.current=false;if(mounted.current)setBusy(false);}};return {busy,error,message,run,setError,setMessage};}

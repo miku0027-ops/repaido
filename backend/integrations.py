@@ -81,6 +81,9 @@ class TrackingPing(Position):
 
 def apply_payment(u, payment):
     """Only called with an authenticated provider GET, never browser/webhook claims."""
+    from local_business import apply_provider_payment as apply_business_payment
+    business = apply_business_payment(u, payment)
+    if business is not None: return business
     from contract_records import apply_provider_payment as apply_contract_payment
     contract = apply_contract_payment(u, payment)
     if contract is not None: return contract
