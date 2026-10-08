@@ -11,7 +11,7 @@ import re
 import time
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import Field
 
 from operations import Input, fail
@@ -19,6 +19,7 @@ from operations import Input, fail
 SOURCE_KINDS = {'contract': 'contract_tenders', 'career': 'contract_projects',
                 'inventory': 'inventory', 'second_hand': 'market_listings'}
 NATIVE_SOURCES = {value: key for key, value in SOURCE_KINDS.items()}
+INDEX_VERSIONS = {'contract': 2}
 SCAN = 12
 PROOF_SCAN = 16
 REFURB_FIELDS = ('grade', 'cosmetic_condition', 'tested_functions', 'tested_on', 'repairs', 'known_defects',
@@ -39,7 +40,16 @@ def digest(value):
 
 
 def lane(source, mode='all', uid='', trade='all', city=''):
-    return 'rp_opportunities_' + digest(json.dumps([source, mode, uid, trade, city.casefold()], separators=(',', ':')))
+    fields = [source, mode, uid, trade, city.casefold()]
+    # Rebuild discovery lanes when their classification changes. Saved references
+    # keep their stable keys, so members retain existing bookmarks.
+    if source in INDEX_VERSIONS and mode in ('all', 'mine'):
+        fields.append(INDEX_VERSIONS[source])
+    return 'rp_opportunities_' + digest(json.dumps(fields, separators=(',', ':')))
+
+
+def backfill_key(source):
+    return source + ':v' + str(INDEX_VERSIONS[source]) if source in INDEX_VERSIONS else source
 
 
 def ref_key(source, key):
@@ -98,7 +108,8 @@ def index_query(u, kind, after='', limit=SCAN + 1):
 
 def _fields(source, row, u):
     if source == 'contract':
-        return row.get('owner_id', ''), trade_for(row.get('sector')), row.get('city', '')
+        trade = row.get('work_trade') if row.get('source_kind') == 'customer_custom_query' else trade_for(row.get('sector'))
+        return row.get('owner_id', ''), trade or 'spares', row.get('city', '')
     if source == 'career':
         from contract_work import hiring_trade
         hiring = row.get('hiring') or {}
@@ -132,7 +143,8 @@ def index_record(u, kind, key, row, origin='live'):
     if not source or not isinstance(row, dict):
         return
     marker = u.get('rp_opportunity_refs', ref_key(source, key))
-    if origin == 'legacy' and marker and marker.get('origin') == 'live':
+    version = INDEX_VERSIONS.get(source, 1)
+    if origin == 'legacy' and marker and marker.get('origin') == 'live' and marker.get('version', 1) == version:
         return
     owner, trade, city = _fields(source, row, u)
     modes = {('all', city.casefold()), ('all', '')}
@@ -151,7 +163,7 @@ def index_record(u, kind, key, row, origin='live'):
             u.put(channel, key, {**entry, 'active': False})
     for channel in channels:
         u.put(channel, key, entry)
-    u.put('rp_opportunity_refs', ref_key(source, key), dict(origin=origin, channels=sorted(channels)))
+    u.put('rp_opportunity_refs', ref_key(source, key), dict(origin=origin, channels=sorted(channels), version=version))
 
 
 def _blocks(u, uid, owner):
@@ -193,8 +205,19 @@ def resolve(u, source, key, actor):
     card = dict(source=source, id=key, trade=trade, city=city, ownerId=owner, saved=False,
                 available=True, imageUrl='', action=dict(route='contracts' if source == 'contract' else 'careers' if source == 'career' else 'market', source=source, id=key))
     if source == 'contract':
-        if row.get('source_kind') == 'customer_custom_query' or row.get('status') != 'open' or row.get('deadline', 0) <= now or row.get('ends_at', 0) <= now:
+        if row.get('status') != 'open' or row.get('deadline', 0) <= now or row.get('ends_at', 0) <= now:
             return None
+        if row.get('source_kind') == 'customer_custom_query':
+            from custom_contracts import access, match
+            if not uid or (uid != owner and not match(u, row, uid)['eligible']):
+                return None
+            try:
+                access(u, row, actor_user(actor))
+            except HTTPException as error:
+                if error.status_code in (402, 403, 404):
+                    return None
+                raise
+            card['action']['route'] = 'custom_contracts'
         card.update(kind='tender', status='open', title=row.get('title', ''), description=str(row.get('sector', ''))[:80],
                     budgetPaise=row.get('budget_paise'), deadline=int(row['deadline'] * 1000), ownerName=row.get('owner_name', ''),
                     manpowerNeeded=row.get('manpower_needed'))
@@ -234,6 +257,8 @@ def resolve(u, source, key, actor):
     if uid:
         card['saved'] = bool((u.get(lane(source, 'saved', uid), key) or {}).get('active'))
     card['shareable'] = bool(uid and (owner == uid or (source == 'inventory' and _purchased(u, uid, key))))
+    if card['action']['route'] == 'custom_contracts':
+        card['shareable'] = False
     return card
 
 
@@ -325,7 +350,7 @@ def page(u, actor, kind='all', trade='all', city='', mode='all', cursor=None, li
     uid = actor_user(actor).get('id', '')
     if mode != 'all':
         pro(u, actor)
-    filters = digest(json.dumps([kind, trade, city.casefold(), mode, uid if mode != 'all' else '']))
+    filters = digest(json.dumps([kind, trade, city.casefold(), mode, uid if mode != 'all' else '', INDEX_VERSIONS]))
     positions = _token_decode(cursor, filters)
     sources = [s for s in SOURCE_KINDS if kind == 'all' or (kind == 'tenders' and s == 'contract')
                or (kind == 'jobs' and s == 'career') or (kind == 'products' and s in ('inventory', 'second_hand'))]
@@ -345,7 +370,7 @@ def page(u, actor, kind='all', trade='all', city='', mode='all', cursor=None, li
             return {'items': items, 'nextCursor': _token_encode(positions, filters), 'indexing': True}
     for source in sources:
         pos = positions.setdefault(source, {'raw': '', 'index': '', 'rawDone': mode == 'saved', 'indexDone': False, 'legacy': False})
-        marker = u.get('rp_opportunity_backfill', source) or {'after': '', 'done': False}
+        marker = u.get('rp_opportunity_backfill', backfill_key(source)) or {'after': '', 'done': False}
         if not cursor and marker['done']:
             pos.update(rawDone=True, legacy=True)
         streams = []
@@ -387,7 +412,7 @@ def page(u, actor, kind='all', trade='all', city='', mode='all', cursor=None, li
             if stream == 'raw':
                 if done and marker['after'] == pos['raw']:
                     marker['done'] = True
-                u.put('rp_opportunity_backfill', source, marker)
+                u.put('rp_opportunity_backfill', backfill_key(source), marker)
             more |= not done
             if len(items) >= limit:
                 break
@@ -399,7 +424,7 @@ def page(u, actor, kind='all', trade='all', city='', mode='all', cursor=None, li
     if mode == 'shareable':
         more |= 'inventory' in sources and not positions.get('inventory', {}).get('purchaseRawDone', False)
     return {'items': items, 'nextCursor': _token_encode(positions, filters) if more else None,
-            'indexing': any(not (u.get('rp_opportunity_backfill', s) or {}).get('done', False) for s in sources)}
+            'indexing': any(not (u.get('rp_opportunity_backfill', backfill_key(s)) or {}).get('done', False) for s in sources)}
 
 
 def initialize(core):

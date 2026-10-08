@@ -6,13 +6,19 @@ import {CustomContractDetail} from './CustomContracts';
 import {customContractQueries,expressContractInterest,messageNearbyContractor,freshContractLocation,pendingContractOpportunities} from '../services/customContractsService';
 import {ContractError,ContractQueryCard,ContractRefresh,contractDate,useCustomContractAction,useCustomContractResource} from './customContractUI';
 import {WorkHub} from './repaidians/WorkHub';
+import {Modal} from './ui';
 import './custom-contracts.css';
+
+export function MatchedContractTenders(props:Omit<CustomContractHubProps,'mode'>){
+  const [selected,setSelected]=useState('');
+  return <section className="cc-hub" aria-label="Matched customer contracts"><MatchedContracts {...props} mode="contractor" onOpen={setSelected}/>{selected&&<Modal title="Customer contract requirement" className="contract-dialog" onClose={()=>setSelected('')}><CustomContractDetail key={props.accountKey+selected} {...props} id={selected} mode="contractor" onBack={()=>setSelected('')}/></Modal>}</section>;
+}
 
 export function ContractOpportunities(props:CustomContractHubProps&{mode:'contractor'|'agent'}){
   const [tab,setTab]=useState<'contracts'|'jobs'|'applications'>('contracts'),[selected,setSelected]=useState(props.focusContractId||'');
-  useEffect(()=>{if(props.focusContractId&&props.mode==='contractor'){setSelected(props.focusContractId);setTab('contracts');}},[props.focusContractId,props.mode]);
+  useEffect(()=>{if(props.focusContractId){setSelected(props.focusContractId);setTab('contracts');}},[props.focusContractId,props.mode]);
   if(!props.authenticated)return <section className="cc-hub"><div className="cc-empty"><ShieldCheck size={26} aria-hidden="true"/><h2>Sign in for your contract opportunities</h2><p>Use your approved professional profile to find work and manage private proposals.</p>{props.onSignIn&&<button className="cc-primary" onClick={props.onSignIn}>Sign in<ArrowRight size={16} aria-hidden="true"/></button>}</div></section>;
-  return <section className="cc-hub" aria-label="Professional contract opportunities"><nav className="cc-tabs" aria-label="Work opportunity sections"><button aria-pressed={tab==='contracts'} onClick={()=>setTab('contracts')}>{props.mode==='contractor'?'Matched contracts':'Nearby upcoming contracts'}</button><button aria-pressed={tab==='jobs'} onClick={()=>setTab('jobs')}>Open jobs</button><button aria-pressed={tab==='applications'} onClick={()=>setTab('applications')}>Apply Status</button></nav>{tab!=='contracts'?<WorkHub accountKey={props.accountKey} view={tab} onOpenProject={props.onOpenProject}/>:props.mode==='agent'?<NearbyContracts key={props.accountKey} {...props}/>:selected?<CustomContractDetail key={props.accountKey+selected} {...props} id={selected} mode="contractor" onBack={()=>setSelected('')}/>:<MatchedContracts {...props} onOpen={setSelected}/>}</section>;
+  return <section className="cc-hub" aria-label="Professional contract opportunities"><nav className="cc-tabs" aria-label="Work opportunity sections"><button aria-pressed={tab==='contracts'} onClick={()=>setTab('contracts')}>{props.mode==='contractor'?'Matched contracts':'Nearby upcoming contracts'}</button><button aria-pressed={tab==='jobs'} onClick={()=>setTab('jobs')}>Open jobs</button><button aria-pressed={tab==='applications'} onClick={()=>setTab('applications')}>Apply Status</button></nav>{tab!=='contracts'?<WorkHub accountKey={props.accountKey} view={tab} onOpenProject={props.onOpenProject}/>:selected?<CustomContractDetail key={props.accountKey+selected} {...props} id={selected} mode={props.mode} onBack={()=>setSelected('')}/>:props.mode==='agent'?<NearbyContracts key={props.accountKey} {...props}/>:<MatchedContracts {...props} onOpen={setSelected}/>}</section>;
 }
 function MatchedContracts({accountKey,onOpen,onOpenCommunityContract}:CustomContractHubProps&{onOpen:(id:string)=>void}){
   const resource=useCustomContractResource<CustomContractsPage>(accountKey+':custom:matched',(force,signal)=>customContractQueries('matched','',force,signal)),action=useCustomContractAction(),[extra,setExtra]=useState<CustomContractsPage|null>(null);

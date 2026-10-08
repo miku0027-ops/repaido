@@ -170,7 +170,7 @@ def test_old_native_records_backfill_with_bounded_keysets_and_no_global_scans(ap
         if not cursor:
             break
     assert len(ids) == len(set(ids)) == 37
-    marker = main.operations_store.run(lambda u: u.get('rp_opportunity_backfill', 'contract'))
+    marker = main.operations_store.run(lambda u: u.get('rp_opportunity_backfill', bridge.backfill_key('contract')))
     assert marker['done'] and marker['after'] == 'legacy036'
     assert [c['id'] for c in board(api, kind='tenders', limit=5)['items']] == ids[:5]
 

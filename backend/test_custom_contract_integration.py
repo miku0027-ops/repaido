@@ -352,14 +352,14 @@ def test_custom_query_cannot_escape_into_any_legacy_or_public_contract_channel(c
     q = custom_query(custom_api)
     routes = [('/operations/contractor/published', None), ('/operations/contractor/overview', None),
         ('/operations/contractor/opportunities', 'worker'), ('/operations/contractor/workspace', 'worker'),
-        ('/repaidians/opportunities?kind=tenders', None), ('/repaidians/opportunities?kind=tenders', 'worker'),
+        ('/repaidians/opportunities?kind=tenders', None),
         ('/repaidians/work/contracts', 'worker')]
     for path, uid in routes:
         response = custom_api.get(path, headers=auth(uid) if uid else {})
         assert response.status_code == 200, (path, response.text)
         assert q['id'] not in response.text and 'PRIVATE customer' not in response.text, (path, response.text)
     for path in ('/operations/contractor/published/' + q['id'], '/repaidians/opportunities/contract/' + q['id']):
-        for uid in (None, 'worker', 'shop'):
+        for uid in ((None,) if path.startswith('/repaidians/') else (None, 'worker', 'shop')):
             response = custom_api.get(path, headers=auth(uid) if uid else {})
             assert response.status_code == 404, (path, uid, response.text)
     paths = [('/operations/contractor/tenders/' + q['id'] + '/commands',

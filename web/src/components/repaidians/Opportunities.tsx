@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {BriefcaseBusiness,Building2,ClipboardList,Layers3,Package,Plus,SlidersHorizontal} from 'lucide-react';
+import {BriefcaseBusiness,Building2,ClipboardList,Layers3,Package,Plus,RefreshCw,SlidersHorizontal} from 'lucide-react';
 import {opportunities,trades} from '../../services/repaidiansService';
 import type {CommunityOpportunity,OpportunityFilters,OpportunityReference,OpportunitySource,Trade} from '../../types/repaidians';
 import {EmptyState} from './common';
@@ -18,6 +18,12 @@ export function Opportunities({onDestination,onManage,onShare,city:initialCity='
   const generation=useRef(0),loadedFilters=useRef('');
   useEffect(()=>setKind(initialKind),[initialKind]);
   useEffect(()=>{
+    const update=()=>{if(!document.hidden)setRefresh(value=>value+1);};
+    const timer=setInterval(update,30000);
+    window.addEventListener('repaido:operations-updated',update);document.addEventListener('visibilitychange',update);
+    return()=>{clearInterval(timer);window.removeEventListener('repaido:operations-updated',update);document.removeEventListener('visibilitychange',update);};
+  },[]);
+  useEffect(()=>{
     const controller=new AbortController();generation.current++;setBusy(true);setError('');const filterKey=JSON.stringify([kind,mode,trade,city.trim()]);if(loadedFilters.current!==filterKey)setItems([]);loadedFilters.current=filterKey;setCursor(null);setIndexing(false);
     const timer=setTimeout(()=>{void opportunities({kind,mode,trade,city:city.trim(),limit:12},controller.signal).then(data=>{if(controller.signal.aborted)return;setItems(data.items);setCursor(data.nextCursor);setIndexing(!!data.indexing);}).catch(error=>{if(!controller.signal.aborted)setError((error as Error).message);}).finally(()=>{if(!controller.signal.aborted)setBusy(false);});},150);
     return()=>{clearTimeout(timer);controller.abort();};
@@ -28,7 +34,7 @@ export function Opportunities({onDestination,onManage,onShare,city:initialCity='
   };
   const saved=(card:CommunityOpportunity,active:boolean)=>setItems(old=>mode==='saved'&&!active?old.filter(item=>item.source!==card.source||item.id!==card.id):old.map(item=>item.source===card.source&&item.id===card.id?{...item,saved:active}:item));
   return <section className="rp-opportunities" aria-label="Professional opportunities">
-    <div className="rp-section-heading"><div><h2>Work, projects & products</h2><p className="rp-fine">Published opportunities from across Repaido.</p></div><BriefcaseBusiness size={23}/></div>
+    <div className="rp-section-heading"><div><h2>Work, projects & products</h2><p className="rp-fine">Published opportunities from across Repaido.</p></div><button className="rp-secondary" aria-label="Refresh opportunities" disabled={busy} onClick={()=>setRefresh(value=>value+1)}><RefreshCw size={18}/></button></div>
     <div className="rp-opportunities-tabs" role="group" aria-label="Opportunity category">{kinds.map(item=><button key={item.id} aria-pressed={kind===item.id} onClick={()=>setKind(item.id)}><item.icon size={17}/>{item.label}</button>)}</div>
     <div className="rp-opportunities-modes" role="group" aria-label="Opportunity source">{([{id:'all',label:'Discover'},{id:'saved',label:'Saved opportunities'},{id:'mine',label:'My listings'}] as const).map(item=><button key={item.id} aria-pressed={mode===item.id} onClick={()=>setMode(item.id)}>{item.label}</button>)}</div>
     <details className="rp-opportunities-filters"><summary><SlidersHorizontal size={17}/>Filter opportunities{(trade!=='all'||city.trim())&&<span>Active</span>}</summary><div className="rp-form-grid"><label>Opportunity trade<select value={trade} onChange={event=>setTrade(event.target.value as Trade|'all')}><option value="all">All trades</option>{trades.map(trade=><option key={trade.id} value={trade.id}>{trade.name}</option>)}</select></label><label>Opportunity city<input maxLength={80} placeholder="Any city" value={city} onChange={event=>setCity(event.target.value)}/></label></div>{(trade!=='all'||city.trim())&&<button className="rp-secondary" onClick={()=>{setTrade('all');setCity('');}}>Clear opportunity filters</button>}</details>

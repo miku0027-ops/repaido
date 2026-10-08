@@ -1,5 +1,5 @@
 import './market-refinement.css';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {Gavel,Building2,GraduationCap,Hotel,House,HeartPulse,Store,Factory,Warehouse,Truck,HardHat,Zap,Wrench,Droplets,AirVent,Sun,Radio,Shield,TreePine,Waves,Paintbrush,BriefcaseBusiness,MapPin,Users,Clock,ArrowUpRight,ChevronRight,Search,Calculator,LockKeyhole,Trophy,Boxes,RefreshCw,SlidersHorizontal,X,FileText,CalendarDays,Plus} from 'lucide-react';
 import {apiFetch} from '../services/api';
 import {auth} from '../firebase';
@@ -12,6 +12,7 @@ import {ContractorPortal} from './ContractorPortal';
 import {ContractRecommendations,ContractWatch} from './ContractWatch';
 import './contract-work.css';
 import './tender-market.css';
+const MatchedContractTenders=lazy(()=>import('./ContractOpportunities').then(module=>({default:module.MatchedContractTenders})));
 
 const sectors=[
  {name:'All sectors',Icon:Gavel,copy:'Find published work across industries.'},
@@ -145,6 +146,7 @@ export function TendersPlatform({onOpenContractorPortal,onOpenB2BMarket,initialT
   <BusinessPageHeader eyebrow="Repaido contracts" title="Your next project starts here." icon={<Gavel size={16} aria-hidden="true"/>} actions={<button className="contract-primary" onClick={()=>onOpenContractorPortal(initialTenderId)}>Workspace<ArrowUpRight size={15}/></button>}/>
   <div className="tender-quick-actions" aria-label="Contract tools">{actor&&<button onClick={()=>setSuggestionsOpen(true)}>For you</button>}<button onClick={()=>setPrivateForm(true)}><Plus size={16}/>Private work request</button><button onClick={()=>setEstimate(true)}><Calculator size={16}/>Bid planner</button>{onOpenB2BMarket&&<button onClick={onOpenB2BMarket}><Boxes size={16}/>Materials</button>}<button onClick={()=>setRevision(v=>v+1)} disabled={busy} aria-label="Refresh opportunities"><RefreshCw size={16}/></button></div>
   {actor&&suggestionsOpen&&<Modal title="Your opportunity suggestions" onClose={()=>setSuggestionsOpen(false)}><ContractRecommendations key={actor} sector={sector==='All sectors'?'':sector} query={search} onOpen={id=>{void publicRead<{tender:Tender}>('/published/'+encodeURIComponent(id)).then(data=>setSelected(data.tender)).catch(error=>setIntentError(error.message));}}/></Modal>}
+  {access&&<Suspense fallback={<p role="status">Finding matched customer contracts…</p>}><MatchedContractTenders key={actor} accountKey={actor} authenticated onOpenProject={id=>setPrivateProject(id)}/></Suspense>}
   <section className="tender-discovery" aria-labelledby="tender-discovery-title">
    <div className="tender-section-heading"><div><h2 id="tender-discovery-title">Explore opportunities</h2><p>Choose a sector or search for work near you.</p></div><button aria-expanded={showSectors} aria-controls="contract-sector-options" onClick={()=>setShowSectors(v=>!v)}><SlidersHorizontal size={17}/>{showSectors?'Compact view':'All sectors'}</button></div>
    <nav ref={sectorRail} id="contract-sector-options" className={`tender-sector-rail ${showSectors?'tender-sector-grid':''}`} aria-label="Contract sectors">{sectors.map(({name,Icon})=><button key={name} aria-pressed={sector===name} onClick={()=>setSector(name)}><Icon size={18} aria-hidden="true"/><span>{name}</span></button>)}{extraSectors.map(name=><button key={name} aria-pressed={sector===name} onClick={()=>setSector(name)}><Gavel size={18} aria-hidden="true"/><span>{name}</span></button>)}</nav>
