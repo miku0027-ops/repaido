@@ -44,3 +44,10 @@ test('access rejection retires warm data and an offline refresh retains its last
  await service.operation('/hiring/requests');transport=async()=>response({detail:'Offline'},503);await assert.rejects(service.operation('/hiring/requests',{}, {force:true}),/Offline/);assert.ok(service.operationSnapshot('/hiring/requests'));
  transport=async()=>response({detail:'Sign in again'},401);await assert.rejects(service.operation('/hiring/requests',{}, {force:true}),error=>error.status===401);assert.equal(service.operationSnapshot('/hiring/requests'),null);
 });
+test('a late denial from another account cannot clear the current account cache',async()=>{
+ let release;transport=()=>new Promise(resolve=>release=resolve);const old=service.operation('/home/plans');await tick();
+ __ops.auth.currentUser={uid:'b',getIdToken:async()=>'b-token'};transport=async()=>response({jobs:[{id:'b-only'}]});await service.operation('/jobs');
+ release(response({detail:'Expired A session'},401));await assert.rejects(old,/account changed/);assert.equal(service.operationSnapshot('/jobs').jobs[0].id,'b-only');
+ transport=async()=>response({detail:'Restricted hiring'},403);await assert.rejects(service.operation('/hiring/requests'),error=>error.status===403);
+ assert.equal(service.operationSnapshot('/jobs').jobs[0].id,'b-only','A denied module does not reset unrelated bookings');
+});

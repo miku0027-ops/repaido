@@ -65,11 +65,12 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
   const load=async()=>{
     const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal, headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});
     const body = await response.json().catch(()=>({}));
+    if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
     if (!response.ok) {
-      if([401,402,403,404].includes(response.status))operationCache.invalidate();
+      if(response.status===401)operationCache.invalidate();
+      else if([402,403,404].includes(response.status))operationCache.invalidate(scope+':'+path);
       throw Object.assign(new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.')),{status:response.status});
     }
-    if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
     return body as T;
   };
   try {
