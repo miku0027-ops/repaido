@@ -1,0 +1,70 @@
+.shared-rides-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0}
+.shared-rides-toolbar h3{font-size:.875rem;margin:0;flex:1;min-width:110px;color:var(--ui-ink)}
+.shared-rides-filters{display:flex;gap:2px;padding:3px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-subtle)}
+.local-business-hub .shared-rides-filters button{border:0;background:transparent;color:var(--ui-muted);padding:8px 10px}
+.local-business-hub .shared-rides-filters button[aria-pressed=true]{background:var(--ui-primary);color:#fff}
+.local-business-hub .shared-rides-refresh{width:44px;padding:0;flex:none}
+.local-business-hub .shared-rides-publish{width:auto;font-size:.75rem;padding:9px 12px}
+.local-business-hub .shared-booking-card{padding:16px;margin:12px 0;background:var(--ui-surface);box-shadow:var(--card-shadow);color:var(--ui-ink)}
+.shared-booking-card>.shared-booking-vehicle{display:flex;align-items:flex-start;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--ui-line)}
+.shared-booking-vehicle>svg{flex:none;margin-top:2px;color:var(--ui-muted)}
+.shared-booking-vehicle>strong{flex:1;min-width:0;font-size:.875rem;font-weight:500;line-height:1.6}
+.shared-booking-vehicle>.business-state{flex:none;max-width:45%;font-size:.6875rem;text-transform:capitalize;font-weight:500;letter-spacing:0;line-height:1.6}
+.shared-booking-card .shared-booking-route{display:grid;grid-template-columns:18px minmax(0,1fr);gap:4px 8px;margin:14px 0;font-size:1rem;line-height:1.5;font-weight:600;color:var(--ui-ink)}
+.shared-booking-route>span{grid-column:2;min-width:0;overflow-wrap:anywhere}
+.shared-booking-route>svg{grid-column:1;grid-row:1 / span 2;align-self:center;color:var(--ui-muted)}
+.shared-booking-route small{display:block;font-size:.75rem;font-weight:400;color:var(--ui-muted);line-height:1.5}
+.shared-booking-facts{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(2,minmax(0,1fr));gap:8px;margin:0 0 16px}
+.shared-booking-facts>div{min-width:0}
+.shared-booking-facts dt{display:flex;align-items:center;gap:5px;font-size:.75rem;line-height:1.6;color:var(--ui-muted)}
+.shared-booking-facts dt svg{flex:none}
+.shared-booking-facts dd{margin:4px 0 0;font-size:.8125rem;font-weight:500;line-height:1.6;overflow-wrap:anywhere}
+.shared-booking-progress{padding:12px 0;border-top:1px solid var(--ui-line);border-bottom:1px solid var(--ui-line)}
+.shared-booking-progress>div{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.75rem;line-height:1.6}
+.shared-booking-progress strong{font-weight:500}
+.shared-booking-progress>div>span{color:var(--ui-muted)}
+.shared-booking-progress ol{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;list-style:none;margin:8px 0 0;padding:0}
+.shared-booking-progress li{height:4px;border-radius:4px;background:var(--ui-control)}
+.shared-booking-progress li[aria-current],.shared-booking-progress li[data-done=true]{background:var(--ui-link)}
+.shared-booking-status{font-size:.8125rem;color:var(--ui-muted)}
+.shared-booking-passengers{margin-top:16px}
+.shared-booking-passengers>header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.shared-booking-card .shared-booking-passengers>header h4{margin:0;font-size:.875rem;font-weight:600}
+.shared-booking-passengers>header>span{font-size:.75rem;color:var(--ui-muted)}
+.shared-booking-card .shared-booking-empty{font-size:.8125rem;line-height:1.6;color:var(--ui-muted);margin:8px 0}
+.shared-booking-card .shared-ride-passenger{margin:0;padding:12px 0;background:transparent;border:0;border-radius:0;border-bottom:1px solid var(--ui-line)}
+.shared-ride-passenger>header{display:flex;align-items:flex-start;gap:10px}
+.shared-passenger-avatar{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;flex:none;background:var(--ui-subtle);color:var(--ui-muted)}
+.shared-ride-passenger>header>div{min-width:0;flex:1}
+.shared-booking-card .shared-ride-passenger h4{margin:0;font-size:.875rem;font-weight:500;line-height:1.6;overflow-wrap:anywhere}
+.shared-booking-card .shared-ride-passenger p{font-size:.8125rem;line-height:1.6;color:var(--ui-muted);margin:4px 0}
+.shared-passenger-state{font-size:.75rem;line-height:1.6;padding:4px 7px;border-radius:8px;background:var(--ui-subtle);color:var(--ui-ink);max-width:38%;flex:none}
+.shared-passenger-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.local-business-hub .shared-passenger-actions>button{flex:1 1 160px;font-size:.75rem;padding:10px 12px}
+.shared-booking-card .shared-passenger-details{margin:4px 0 0;padding:0;font-size:.75rem}
+.shared-booking-card .shared-passenger-details summary{font-size:.75rem;color:var(--ui-link);padding:10px 0}
+.shared-booking-journey-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.local-business-hub .shared-booking-journey-actions>button{flex:1 1 180px;font-size:.8125rem}
+.local-business-hub .shared-booking-card button:disabled{opacity:1}
+.shared-booking-card .shared-booking-journey-actions>p{flex-basis:100%;order:1;margin:0;font-size:.75rem;line-height:1.6;color:var(--ui-muted)}
+.shared-booking-card .shared-booking-details{margin:12px 0 0;padding:0;border-top:1px solid var(--ui-line)}
+.shared-booking-card .shared-booking-details>summary{padding:12px 0;font-size:.8125rem;color:var(--ui-link)}
+.shared-booking-card .shared-booking-details p,.shared-booking-card .business-timeline{font-size:.8125rem;line-height:1.6;color:var(--ui-muted)}
+.shared-booking-card .shared-booking-details>button{margin-top:12px}
+@media(max-width:700px){
+ .suite-workspace[data-panel=shared] .suite-panel-header,
+ .suite-workspace[data-panel=shared] .suite-request-cue.has-requests{position:static}
+ .shared-rides-toolbar h3{flex-basis:100%}
+ .local-business-hub .shared-rides-publish{margin-left:auto}
+}
+@media(max-width:420px){
+ .local-business-hub .shared-booking-card{padding:12px}
+ .shared-booking-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .shared-booking-facts>div:first-child{grid-column:1 / -1}
+ .shared-booking-vehicle{flex-wrap:wrap}
+ .shared-passenger-state{max-width:100%}
+ .shared-ride-passenger>header{flex-wrap:wrap}
+ .shared-ride-passenger>header>div{flex-basis:calc(100% - 42px)}
+ .shared-ride-passenger>header>.shared-passenger-state{margin-left:42px}
+ .local-business-hub .shared-rides-publish{margin-left:0;flex:1 1 170px}
+}
