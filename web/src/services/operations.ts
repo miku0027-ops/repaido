@@ -60,7 +60,7 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
   if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
   if (!token) throw new Error('Sign in to view your account.');
   const read=(init.method||'GET').toUpperCase()==='GET';
-  const cached=['/jobs','/notifications','/hiring/requests','/home/plans','/local-business/rides','/local-business/scrap','/local-business/shared','/worker/profile-progress'].includes(path);
+  const cached=['/jobs','/notifications','/hiring/requests','/home/plans','/local-business/rides','/local-business/scrap','/local-business/shared','/worker/profile-progress'].includes(path)||/^\/local-business\/partner\?role=(cab_owner|driver|scrap_owner)$/.test(path)||path==='/local-business/driver-invitations';
   const done=(options.background??quietRequest(path,init))?()=>{}:beginLoading(path);
   const load=async()=>{
     const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal, headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});

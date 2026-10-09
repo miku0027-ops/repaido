@@ -1,5 +1,6 @@
 import {Modal} from './ui';
 import {LocalBusinessDesk} from './LocalBusiness';
+import {BusinessAppLauncher} from './BusinessSuites';
 import {useSavedTab} from '../services/navigation';
 import {PartnerAgreement} from './PartnerProgram';
 import {HomePlans} from './HomePlans';
@@ -44,6 +45,11 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
     }
     return 'technician';
   });
+  const selectedRole=useRef(loginRole);selectedRole.current=loginRole;
+  const explicitRole=useRef(['technician','contractor','cab_owner','driver','scrap_owner'].includes(new URLSearchParams(location.search).get('mode')||''));
+  const chooseRole=(role:typeof loginRole)=>{explicitRole.current=true;setLoginRole(role);try{localStorage.setItem('repaido.agent_login_role',role);}catch{}};
+  const [businessApps,setBusinessApps]=useState(false);
+  const [registeredRoles,setRegisteredRoles]=useState<string[]>([]);
   const [accountConflict,setAccountConflict]=useState(false);
   const [editing,setEditing]=useState(false);
   const [alertJob,setAlertJob]=useState<string|undefined>(),[locationError,setLocationError]=useState('');
@@ -57,7 +63,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
   const lastLocationAttempt=useRef(0);
   const observedSession=useRef<string|null>(null);
   const loadProgress=()=>operation<any>('/worker/profile-progress',{}, {background:true}).then(setProfileProgress).catch(()=>{});
-  useEffect(()=>{if(worker?.id)void loadProgress();else setProfileProgress(null);},[worker?.id,worker?.status,tab]);
+  useEffect(()=>{if(worker?.id&&['technician','contractor'].includes(loginRole))void loadProgress();else setProfileProgress(null);},[worker?.id,worker?.status,tab,loginRole]);
   const completeProfile=()=>{const target=profileProgress?.missing[0]?.target||null;if(target==='application'&&worker?.status!=='approved'){setEditing(true);return;}setProfileSection(target);setTab('Profile');};
   const [taskCounts,setTaskCounts]=useState({active:0,attention:0});
   const refreshTaskCounts=async()=>{
@@ -70,14 +76,14 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
     }catch{}
   };
   useEffect(()=>{
-    if(!signedIn||worker?.status!=='approved')return;
+    if(!signedIn||worker?.status!=='approved'||loginRole!=='technician')return;
     void refreshTaskCounts();
     const onJobUpdated=()=>void refreshTaskCounts();
     window.addEventListener('repaido:job-updated',onJobUpdated);
     const timer=setInterval(()=>{if(!document.hidden)void refreshTaskCounts();},15000);
     return()=>{window.removeEventListener('repaido:job-updated',onJobUpdated);clearInterval(timer);};
-  },[signedIn,worker?.status]);
-  const load=async()=>{const uid=auth.currentUser?.uid;setBusy(true);setError('');try{const result=await operation<{worker:LiveWorker|null;registered_role?:'technician'|'contractor'|'cab_owner'|'driver'|'scrap_owner'}>('/worker/me');if(auth.currentUser?.uid!==uid)return;setWorker(result.worker);if(result.registered_role)setLoginRole(result.registered_role);setChecked(true);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+  },[signedIn,worker?.status,loginRole]);
+  const load=async()=>{const uid=auth.currentUser?.uid;setBusy(true);setError('');try{const result=await operation<{worker:LiveWorker|null;registered_role?:'technician'|'contractor'|'cab_owner'|'driver'|'scrap_owner';registered_roles?:string[]}>('/worker/me');if(auth.currentUser?.uid!==uid)return;setWorker(result.worker);setRegisteredRoles(result.registered_roles||(result.registered_role?[result.registered_role]:[]));if(!explicitRole.current&&result.registered_role&&!result.registered_roles?.includes(selectedRole.current))setLoginRole(result.registered_role);setChecked(true);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
   useEffect(()=>onIdTokenChanged(auth,u=>{const identity=(u?.uid||'')+':'+(u?.phoneNumber||'');if(observedSession.current===identity)return;observedSession.current=identity;setReady(false);setChecked(false);setWorker(null);if(!u){setSignedIn(false);setWorker(null);setReady(true);return;}void u.getIdTokenResult().then(()=>{if(auth.currentUser?.uid!==u.uid)return;const verified=!!u.phoneNumber;setSignedIn(verified);setReady(true);if(verified){void load();if(nativeAvailable()&&localStorage.getItem('repaido.push-device'))void enableNativePush().catch(()=>{});}else setWorker(null);}).catch(e=>{if(auth.currentUser?.uid!==u.uid)return;setError(e.message);setSignedIn(!!u.phoneNumber);setReady(true);});}),[]);
   useEffect(()=>{if(!worker||worker.status==='approved'||editing)return;const timer=setInterval(()=>{if(!document.hidden)void operation<{worker:LiveWorker|null}>('/worker/me',{}, {background:true}).then(r=>setWorker(r.worker)).catch(()=>{});},30000);return()=>clearInterval(timer);},[worker?.id,worker?.status,editing]);
   useEffect(()=>{
@@ -109,8 +115,9 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
   const toggleAvailability=()=>submit(async()=>{if(!worker)return;const position=worker.online?undefined:await readPresenceLocation();if(!worker.online&&!position)return;const result=await operation<{worker:LiveWorker}>('/worker/availability',{method:'POST',body:JSON.stringify({online:!worker.online,position})});lastLocationAttempt.current=Date.now();setWorker(result.worker);setLocationError('');window.dispatchEvent(new Event('repaido:job-updated'));});
   const accountTools=<WorkerAccountTools busy={busy} onSignOut={()=>void submit(async()=>{await stopNativeSession();await logoutUser();setWorker(null);setSignedIn(false);})} onNotifications={()=>void submit(()=>enableNativePush())}/>;
   return <main className={`operations ops-worker${!signedIn?' worker-signin-shell':''}`}>
+    {signedIn&&businessApps&&<BusinessAppLauncher currentRole={loginRole} registeredRoles={registeredRoles} onClose={()=>setBusinessApps(false)}/>}
     {signedIn&&loginRole==='contractor'&&worker&&profileSection&&<Modal title="Professional profile" onClose={()=>setProfileSection(null)}><WorkerProfileEditor account={account} worker={worker} initialSection={profileSection} onSectionClose={()=>setProfileSection(null)} onEditPrivate={()=>setProfileSection('verification')} onRefresh={()=>{void load();void loadProgress();}}/></Modal>}
-    {!signedIn?<><a className="worker-signin-skip" href="#worker-signin-form">Skip to sign-in</a><header className="worker-signin-topbar"><RepaidoBrand size="md"/><button type="button" className="worker-signin-back" onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/><span>Customer app</span></button></header></>:<header className="ops-heading"><RepaidoBrand size="sm"/><div className="worker-header-actions"><button onClick={onBack}>Customer app</button>{loginRole==='technician'&&worker?.status==='approved'&&<button className={`worker-presence ${worker.online?'is-online':''}`} role="switch" aria-checked={worker.online} aria-label="Available for new task requests" disabled={busy} onClick={()=>void toggleAvailability()}><span aria-hidden="true" className="presence-dot"/>{busy?'Updating…':worker.online?'Online':'Go online'}</button>}</div></header>}
+    {!signedIn?<><a className="worker-signin-skip" href="#worker-signin-form">Skip to sign-in</a><header className="worker-signin-topbar"><RepaidoBrand size="md"/><button type="button" className="worker-signin-back" onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/><span>Customer app</span></button></header></>:<header className="ops-heading"><RepaidoBrand size="sm"/><div className="worker-header-actions"><button onClick={onBack}>Customer app</button><button onClick={()=>setBusinessApps(true)}>Business apps</button>{loginRole==='technician'&&worker?.status==='approved'&&<button className={`worker-presence ${worker.online?'is-online':''}`} role="switch" aria-checked={worker.online} aria-label="Available for new task requests" disabled={busy} onClick={()=>void toggleAvailability()}><span aria-hidden="true" className="presence-dot"/>{busy?'Updating…':worker.online?'Online':'Go online'}</button>}</div></header>}
     {signedIn&&worker?.status==='approved'&&loginRole==='technician'&&tab==='Profile'&&<WorkNetworkEntry/>}
     {error&&signedIn&&<div className="ops-error" role="alert">{error}{!checked&&<button onClick={()=>void load()}>Retry connection</button>}</div>}
     {signedIn&&!checked&&<button onClick={()=>void submit(()=>logoutUser())}>Use another phone number</button>}
@@ -118,36 +125,36 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
       <div className="worker-signin-layout">
         <section className="worker-signin-story" aria-labelledby="worker-signin-title">
           <span className="worker-signin-kicker">REPAIDO FOR PROFESSIONALS</span>
-          <h1 id="worker-signin-title">Good work.<br/><span>Great possibilities.</span></h1>
-          <p className="worker-signin-intro">A place for your skills, your projects, and the work you build every day.</p>
+          <h1 id="worker-signin-title">Your business.<br/><span>Your workday.</span></h1>
+          <p className="worker-signin-intro">Open the tools for your work. Keep every booking, journey and collection in its own workspace.</p>
           <WorkerSignInIllustration/>
           <ul className="worker-signin-benefits">
             <li><CalendarDays size={20} aria-hidden="true"/><span>Requests & visits</span></li>
             <li><Building2 size={20} aria-hidden="true"/><span>Projects & teams</span></li>
             <li><ClipboardList size={20} aria-hidden="true"/><span>Work records</span></li>
           </ul>
-          <p className="worker-signin-story-note">For independent agents, specialists and contractors.</p>
+          <p className="worker-signin-story-note">For agents, contractors, cab owners, drivers and scrap collectors.</p>
         </section>
         <div className="worker-signin-panel-wrap">
           <section className="worker-signin-panel" id="worker-signin-form" tabIndex={-1} aria-labelledby="worker-signin-form-title" aria-busy={busy}>
             <div className="worker-signin-lock"><LockKeyhole size={22} aria-hidden="true"/></div>
-            <span className="worker-signin-form-kicker">YOUR PROFESSIONAL WORKSPACE</span>
-            <h2 id="worker-signin-form-title">{codeSent?'Check your messages':'Welcome to your workday'}</h2>
+            <span className="worker-signin-form-kicker">YOUR BUSINESS WORKSPACE</span>
+            <h2 id="worker-signin-form-title">{codeSent?'Check your messages':loginRole==='cab_owner'?'Cab owner sign-in':loginRole==='driver'?'Driver sign-in':loginRole==='scrap_owner'?'Scrap collector sign-in':'Welcome to your workday'}</h2>
             <p className="worker-signin-form-intro">{codeSent?'Enter the 6-digit code sent to your mobile number.': 'Sign in with your mobile number to continue.'}</p>
             <div className="worker-signin-roles" role="group" aria-label="Choose your work desk">
-              <button type="button" aria-pressed={loginRole==='technician'} onClick={()=>{setLoginRole('technician');try{localStorage.setItem('repaido.agent_login_role','technician');}catch{}}}>
+              <button type="button" aria-pressed={loginRole==='technician'} onClick={()=>chooseRole('technician')}>
                 <Wrench size={21} aria-hidden="true"/><span><strong>Agent</strong><small>Technician & specialist</small></span>
               </button>
-              <button type="button" aria-pressed={loginRole==='contractor'} onClick={()=>{setLoginRole('contractor');try{localStorage.setItem('repaido.agent_login_role','contractor');}catch{}}}>
+              <button type="button" aria-pressed={loginRole==='contractor'} onClick={()=>chooseRole('contractor')}>
                 <Building2 size={21} aria-hidden="true"/><span><strong>Contractor</strong><small>Projects & teams</small></span>
               </button>
-              {(['cab_owner','driver','scrap_owner'] as const).map(value=><button key={value} type="button" aria-pressed={loginRole===value} onClick={()=>{setLoginRole(value);try{localStorage.setItem('repaido.agent_login_role',value);}catch{}}}><UserRound size={21}/><span><strong>{value==='cab_owner'?'Cab owner':value==='driver'?'Driver':'Scrap buyer'}</strong><small>Dedicated business desk</small></span></button>)}
+              {(['cab_owner','driver','scrap_owner'] as const).map(value=><button key={value} type="button" aria-pressed={loginRole===value} onClick={()=>chooseRole(value)}><UserRound size={21}/><span><strong>{value==='cab_owner'?'Cab owner':value==='driver'?'Driver':'Scrap collector'}</strong><small>Dedicated business desk</small></span></button>)}
             </div>
-            <p className="worker-signin-desk-note">{loginRole==='technician'?'Manage task requests, visits and your professional profile.':'Open your projects, tenders, team tools and work records.'}</p>
+            <p className="worker-signin-desk-note">{loginRole==='technician'?'Manage visits and your professional profile.':loginRole==='contractor'?'Manage projects, tenders and teams.':loginRole==='cab_owner'?'Manage your fleet, shared rides and self-drive rentals.':loginRole==='driver'?'Open assigned vehicles, pickups and journeys.':'Manage collections, weighing and customer payments.'}</p>
             {error&&<div className="ops-error worker-signin-error" role="alert">{error}</div>}
             <form aria-labelledby="worker-signin-form-title" onSubmit={e=>{e.preventDefault();void submit(async()=>{if(codeSent){try{await confirmPhoneOtp(otp);setAccountConflict(false);}catch(e){setAccountConflict(canContinueWithPhoneAccount());throw e;}}else{setAccountConflict(false);await sendPhoneOtp(phone,'worker-recaptcha',true);setCodeSent(true);}});}}>
               <label htmlFor="worker-signin-phone">Mobile number<input id="worker-signin-phone" type="tel" inputMode="tel" autoComplete="tel" required value={phone} disabled={codeSent} placeholder="+91 XXXXX XXXXX" aria-describedby="worker-signin-phone-help" onChange={e=>setPhone(e.target.value)}/></label>
-              <p id="worker-signin-phone-help" className="worker-signin-field-help">{codeSent?'Code sent by SMS. Your number stays the same until you change it.':'Use the mobile number linked to your Repaido account.'}</p>
+              <p id="worker-signin-phone-help" className="worker-signin-field-help">{codeSent?'Code sent by SMS. Your number stays the same until you change it.':'Use the same mobile number for all your Repaido business profiles.'}</p>
               {codeSent&&<label htmlFor="worker-signin-otp">6-digit code from SMS<input id="worker-signin-otp" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" required value={otp} onChange={e=>setOtp(e.target.value)} maxLength={6} autoFocus/></label>}
               <button className="ops-primary worker-signin-submit" disabled={busy||accountConflict}><span>{busy?(codeSent?'Verifying code…':'Sending code…'):codeSent?'Verify & continue':'Send sign-in code'}</span><ArrowRight size={18} aria-hidden="true"/></button>
               {codeSent&&<button type="button" className="worker-signin-resend" disabled={busy} onClick={()=>{clearPhoneAccountRecovery();setAccountConflict(false);setError('');setCodeSent(false);setOtp('');}}>Change number or resend code</button>}
@@ -157,7 +164,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
             <div className="worker-signin-join"><UserRound size={19} aria-hidden="true"/><p><strong>New to Repaido?</strong> Sign in to create a professional profile for review. Approval is required before receiving work.</p></div>
             {auth.currentUser&&<button className="worker-signin-resend" disabled={busy} onClick={()=>void submit(()=>logoutUser())}>Sign out to use a different account</button>}
           </section>
-          {!nativeAvailable()&&<aside className="worker-signin-download" aria-labelledby="worker-signin-download-title"><span className="worker-signin-app-icon"><Smartphone size={24} aria-hidden="true"/></span><div><h3 id="worker-signin-download-title">Take your workday with you</h3><p>The Repaido Android agent app has task alerts and tools for visits, location and photos.</p><a href="/downloads/repaido-agent.apk" download><Download size={16} aria-hidden="true"/>Download agent app</a></div></aside>}
+          {!nativeAvailable()&&<aside className="worker-signin-download" aria-labelledby="worker-signin-download-title"><span className="worker-signin-app-icon"><Smartphone size={24} aria-hidden="true"/></span><div><h3 id="worker-signin-download-title">Take your workday with you</h3><p>The Repaido Android app opens your business workspace with alerts, location and photo tools.</p><a href="/downloads/repaido-agent.apk" download><Download size={16} aria-hidden="true"/>Download business app</a></div></aside>}
           <p className="worker-signin-footnote"><LockKeyhole size={14} aria-hidden="true"/><span>SMS sign-in. Professional approval is reviewed separately.</span></p>
         </div>
       </div>

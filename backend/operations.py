@@ -532,9 +532,11 @@ def install(core):
         def read(u):
             worker=u.get('workers',user['id'])
             profile=u.get('worker_profiles',user['id']) or {}
-            business=u.get('business_partners',user['id'])
-            role=business['role'] if business else ('contractor' if worker and worker.get('contractor_verified') else 'technician' if worker else None)
-            return {'worker':own_worker_projection(u, worker),'registered_role':role,'portrait_url':f"/api/operations/professional-media/{profile['portrait_id']}" if worker and worker.get('status')=='approved' and profile.get('portrait_id') else None,'verification_uploads_available':bool(__import__('os').getenv('REPAIDO_KYC_BUCKET'))}
+            from local_business import partner_profiles
+            businesses=partner_profiles(u,user['id'])
+            work_role='contractor' if worker and worker.get('contractor_verified') else 'technician' if worker else None
+            roles=([work_role] if work_role else [])+[p['role'] for p in businesses]
+            return {'worker':own_worker_projection(u, worker),'registered_role':roles[0] if roles else None,'registered_roles':roles,'business_profiles':[{'role':p['role'],'status':p['status'],'valid_until':p.get('valid_until')} for p in businesses],'portrait_url':f"/api/operations/professional-media/{profile['portrait_id']}" if worker and worker.get('status')=='approved' and profile.get('portrait_id') else None,'verification_uploads_available':bool(__import__('os').getenv('REPAIDO_KYC_BUCKET'))}
         return store.run(read)
 
     @router.post('/worker/onboarding')
@@ -557,7 +559,6 @@ def install(core):
             fail('UNKNOWN_CATEGORY', 'Choose a category in the live catalogue.', 422)
         def save(u):
             old = u.get('workers', user['id'])
-            if u.get('business_partners',user['id']):fail('ROLE_LOCKED','This account has a registered business category. Open its dedicated workspace.',409)
             if old and old['status'] == 'approved': fail('ALREADY_APPROVED', 'Your account is already onboarded.')
             if not old:
                 from account_profile import require_email

@@ -95,14 +95,17 @@ def test_driver_assignment_and_owner_only_tariffs(api,monkeypatch):
     assert api.put(BASE+'/vehicles/'+vid,headers=auth('worker2'),json=data).status_code==403
     assert api.get('/operations/worker/me',headers=auth('worker2')).json()['registered_role']=='driver'
 
-def test_registered_roles_cannot_be_changed(api):
+def test_profile_versions_cannot_overwrite_another_business(api):
     register(api);p=api.get(BASE+'/partner',headers=auth('worker')).json()['partner']
     data={k:p[k] for k in ('name','city','address','location','document_ids','terms')};data.update(role='driver',expected_version=p['version'])
     assert api.put(BASE+'/partner',headers=auth('worker'),json=data).status_code==409
     onboard(api,'worker2')
     from test_local_business import doc
     data.update(expected_version=0,document_ids=[doc('worker2')])
-    assert api.put(BASE+'/partner',headers=auth('worker2'),json=data).status_code==409
+    application=api.put(BASE+'/partner',headers=auth('worker2'),json=data)
+    assert application.status_code==200 and application.json()['status']=='pending'
+    me=api.get('/operations/worker/me',headers=auth('worker2')).json()
+    assert me['worker']['status']=='approved' and set(me['registered_roles'])=={'technician','driver'}
 
 def test_departure_blocks_conflicting_cab_or_rental(api,monkeypatch,route):
     row,_=make(api,monkeypatch);vid=main.operations_store.run(lambda u:u.get('shared_departures',row['id']))['vehicle_id']

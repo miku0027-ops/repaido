@@ -359,8 +359,8 @@ def install(core):
             v=u.get('mobility_vehicles',identifier)
             if body.accept:
                 for collection in ('mobility_rides','shared_departures'):
-                    if any(x['state'] not in ('completed','cancelled','expired') for x in u.find(collection,'owner_id',v['owner_id'])):fail('BOOKED','Driver changes require the owner’s outstanding journeys to finish first.',409)
-                reservation_guard(u,v);v['driver_id']=user['id'];v['version']+=1;u.put('mobility_vehicles',identifier,v)
+                    if any(x.get('vehicle_id')==identifier and x['state'] not in ('completed','cancelled','expired') for x in u.find(collection,'owner_id',v['owner_id'])):fail('BOOKED','Finish this vehicle’s outstanding bookings before changing its driver.',409)
+                reservation_guard(u,v);reservation_guard(u,{**v,'driver_id':user['id']});v['driver_id']=user['id'];v['version']+=1;u.put('mobility_vehicles',identifier,v)
             i['state']='accepted' if body.accept else 'declined';u.put('driver_invitations',identifier,i);return i
         return store.run(save)
     @r.post('/vehicles/{identifier}/tracker')

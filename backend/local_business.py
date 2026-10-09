@@ -120,35 +120,49 @@ def digest(value):return hashlib.sha256(value.encode()).hexdigest()
 def fingerprint(body):return digest(json.dumps(body.model_dump(),sort_keys=True,separators=(',',':')))
 def phone(user):
     if not user.get('phone_verified'):fail('PHONE_REQUIRED','Use your verified mobile account to register this business.',403)
+BUSINESS_ROLES=('cab_owner','driver','scrap_owner')
+def partner_profile(u,uid,role):
+    # Existing accounts retain their original record and review history. Further
+    # memberships use separate records; every operational ID remains the auth UID.
+    legacy=u.get('business_partners',uid)
+    return u.get('business_partners',uid+':'+role) or (legacy if legacy and legacy.get('role')==role else None)
+def partner_profiles(u,uid):
+    return [p for role in BUSINESS_ROLES if (p:=partner_profile(u,uid,role))]
 def current(u,uid,role=None):
-    p=u.get('business_partners',uid)
-    if not p or p['status']!='approved' or p.get('valid_until',0)<=time.time() or (role and p['role'] not in role):fail('APPROVAL_REQUIRED','A currently approved business profile is required.',403)
-    return p
+    for category in role or BUSINESS_ROLES:
+        p=partner_profile(u,uid,category)
+        if p and p['status']=='approved' and p.get('valid_until',0)>time.time():return p
+    fail('APPROVAL_REQUIRED','An approved, current profile for this business is required.',403)
 def document(u,identifier,uid):
     row=u.get('business_documents',identifier)
     if not row or row['owner_id']!=uid:fail('DOCUMENT_REQUIRED','Upload your own private supporting document.',422)
     return row
 def schedule(start,end):
     if not all(isinstance(v,(int,float)) and math.isfinite(v) for v in (start,end)) or not time.time()+300<=start<=time.time()+180*86400 or not start+900<=end<=start+30*86400:fail('INVALID_DATES','Choose a pickup at least five minutes ahead and an end at least 15 minutes later, within 180 days.',422)
-def conflicts(u,vehicle,start,end,ignore=''):
+def conflicts(u,vehicle,start,end,ignore='',mode='cab'):
+    operator=(vehicle.get('driver_id') or vehicle['owner_id']) if mode=='cab' else None
     rows=u.find('mobility_rides','owner_id',vehicle['owner_id'])+u.find('shared_departures','owner_id',vehicle['owner_id'])
-    if vehicle.get('driver_id'):
-        rows+=u.find('mobility_rides','driver_id',vehicle['driver_id'])+u.find('shared_departures','driver_id',vehicle['driver_id'])
-    return any(r['id']!=ignore and r['state'] not in CLOSED and (r['starts_at']<end and r['ends_at']>start or r['state'] in ('on_the_way','in_progress','disputed') and r['ends_at']<time.time()) for r in rows)
-def reservation_guard(u,vehicle):
+    if operator:
+        rows+=u.find('mobility_rides','driver_id',operator)+u.find('shared_departures','driver_id',operator)
+        if operator!=vehicle['owner_id']:rows+=u.find('mobility_rides','owner_id',operator)+u.find('shared_departures','owner_id',operator)
+    return any(r['id']!=ignore and r['state'] not in CLOSED and
+               (r.get('vehicle_id')==vehicle['id'] or operator and r.get('mode','cab')!='rental' and (r.get('driver_id') or r['owner_id'])==operator) and
+               (r['starts_at']<end and r['ends_at']>start or r['state'] in ('on_the_way','in_progress','disputed') and r['ends_at']<time.time()) for r in rows)
+def reservation_guard(u,vehicle,mode='cab'):
     # A shared document serializes reservations even when both transaction queries
     # originally returned no bookings (Firestore has no predicate write lock).
-    for resource in {'owner:'+vehicle['owner_id'],'vehicle:'+vehicle['id'],*(['driver:'+vehicle['driver_id']] if vehicle.get('driver_id') else [])}:
+    # Owner-drivers and drivers assigned by another owner share the same lock.
+    for resource in {'owner:'+vehicle['owner_id'],'vehicle:'+vehicle['id'],*(['operator:'+(vehicle.get('driver_id') or vehicle['owner_id'])] if mode=='cab' else [])}:
         old=u.get('mobility_availability',resource) or {'generation':0}
         u.put('mobility_availability',resource,{'generation':old['generation']+1})
 def live_vehicle(u,v,mode,start,end,ignore=''):
     if not v or not v.get('active') or v.get('status')!='approved' or v.get('valid_until',0)<end or v['mode'] not in (mode,'both'):return False
-    p=u.get('business_partners',v['owner_id']) or {}
-    driver=u.get('business_partners',v['driver_id']) if v.get('driver_id') else None
-    if v.get('driver_id') and (not driver or driver.get('role')!='driver' or driver.get('status')!='approved' or driver.get('valid_until',0)<end):return False
-    return p.get('status')=='approved' and p.get('valid_until',0)>=end and p.get('role') in ('cab_owner','driver') and not conflicts(u,v,start,end,ignore)
+    p=partner_profile(u,v['owner_id'],'cab_owner') or {}
+    driver=partner_profile(u,v['driver_id'],'driver') if mode=='cab' and v.get('driver_id') else None
+    if mode=='cab' and v.get('driver_id') and (not driver or driver.get('role')!='driver' or driver.get('status')!='approved' or driver.get('valid_until',0)<end):return False
+    return p.get('status')=='approved' and p.get('valid_until',0)>=end and p.get('role')=='cab_owner' and not conflicts(u,v,start,end,ignore,mode)
 def vehicle_public(u,v):
-    p=u.get('business_partners',v['owner_id']) or {}
+    p=partner_profile(u,v['owner_id'],'cab_owner') or {}
     return {**{k:v[k] for k in ('id','name','mode','seats','transmission','fuel','base_paise','per_km_paise','daily_paise','included_daily_km','gst_bps','terms','version')},'owner_name':p.get('name','Vehicle owner'),'city':p.get('city','')}
 def event(u,row,kind,actor):
     row['version']+=1;row['updated_at']=time.time();row.setdefault('events',[]).append({'action':kind,'actor':actor,'at':time.time(),'version':row['version']})
@@ -171,7 +185,10 @@ def view(row,uid):
         if row.get('quotes'):
             own=next((q for q in row['quotes'] if q['owner_id']==uid),None)
             result['quote']={k:v for k,v in own.items() if k not in ('pickup','dropoff','origin','customer_id')} if own else None
-    if uid==row.get('owner_id') and result.get('quotes'):result['quotes']=[q for q in result['quotes'] if q['owner_id']==uid]
+    if uid in (row.get('owner_id'),row.get('driver_id')) and result.get('quotes'):result['quotes']=[q for q in result['quotes'] if q['owner_id']==row.get('owner_id')]
+    if uid==row.get('driver_id') and uid!=row.get('owner_id'):
+        result.pop('settlement',None)
+        result.pop('settlement_received_at',None)
     for field in ('request_hash','license_document_id'):result.pop(field,None)
     if uid==row.get('owner_id') and row.get('license_document_id'):result['has_license_document']=True
     if uid==row['customer_id']:
@@ -237,20 +254,23 @@ def install(core):
             return doc
         doc=store.run(read);return Response(download_object(doc['object']),media_type='image/jpeg',headers={'Cache-Control':'private, no-store'})
     @r.get('/partner')
-    def partner(user=Depends(core.current_user)):
-        return store.run(lambda u:{'partner':u.get('business_partners',user['id']),'vehicles':u.find('mobility_vehicles','owner_id',user['id'])})
+    def partner(role:Literal['cab_owner','driver','scrap_owner']|None=None,user=Depends(core.current_user)):
+        phone(user)
+        def read(u):
+            profiles=partner_profiles(u,user['id'])
+            selected=partner_profile(u,user['id'],role) if role else (profiles[0] if profiles else None)
+            return {'partner':selected,'profiles':profiles,'vehicles':u.find('mobility_vehicles','owner_id',user['id']) if role in (None,'cab_owner') else [],'account_id':user['id']}
+        return store.run(read)
     @r.put('/partner')
     def register(body:Partner,user=Depends(core.current_user)):
         phone(user)
         def save(u):
-            old=u.get('business_partners',user['id']) or {'version':0}
-            if not old['version'] and u.get('workers',user['id']):fail('ROLE_LOCKED','This account is registered for service work. Contact support to change its work category.',409)
-            if old.get('role') and body.role!=old['role']:fail('ROLE_LOCKED','Your registered work category cannot be changed here. Contact support.',409)
+            old=partner_profile(u,user['id'],body.role) or {'version':0}
             if old['version']!=body.expected_version:fail('STALE','Refresh your business profile before saving.',409)
             for identifier in body.document_ids:document(u,identifier,user['id'])
-            if old.get('status')=='approved' and body.role!=old['role']:fail('ROLE_REVIEW','Contact support before changing an approved business role.',409)
-            row={**body.model_dump(exclude={'expected_version'}),'id':user['id'],'status':'pending','version':old['version']+1,'created_at':old.get('created_at',time.time()),'updated_at':time.time()}
-            u.put('business_partners',user['id'],row);audit(u,'BusinessApplication',user['id'],role=body.role)
+            identifier=old.get('id') or (user['id']+':'+body.role if u.get('business_partners',user['id']) else user['id'])
+            row={**body.model_dump(exclude={'expected_version'}),'id':identifier,'user_id':user['id'],'status':'pending','version':old['version']+1,'created_at':old.get('created_at',time.time()),'updated_at':time.time()}
+            u.put('business_partners',identifier,row);audit(u,'BusinessApplication',user['id'],role=body.role)
             return row
         return store.run(save)
     @r.get('/admin/reviews')
@@ -298,7 +318,7 @@ def install(core):
             if not row:fail('NOT_FOUND','Application unavailable.',404)
             if row['version']!=body.expected_version:fail('STALE','Reload the application before reviewing.',409)
             if body.approved and not time.time()<body.valid_until<=time.time()+5*366*86400:fail('VALIDITY_REQUIRED','Set the earliest expiry of the verified identity, licence, permit or vehicle documents.',422)
-            for doc in row['document_ids']:document(u,doc,row['id'] if kind=='partner' else row['owner_id'])
+            for doc in row['document_ids']:document(u,doc,row.get('user_id',row['id']) if kind=='partner' else row['owner_id'])
             row.update(status='approved' if body.approved else 'rejected',valid_until=body.valid_until,review_reason=body.reason,review_reference=body.evidence_reference,reviewed_by=admin['id'],reviewed_at=time.time(),version=row['version']+1)
             u.put(collection,identifier,row);audit(u,'BusinessReview',admin['id'],kind=kind,record_id=identifier,approved=body.approved)
             return row
@@ -407,8 +427,8 @@ def install(core):
                 q=next(x for x in row['quotes'] if x['owner_id']==uid);v=u.get('mobility_vehicles',q['vehicle_id'])
                 if not v or q['expires_at']<=time.time() or v['version']!=q['vehicle_version'] or not live_vehicle(u,v,row['mode'],row['starts_at'],row['ends_at']):fail('UNAVAILABLE','This vehicle or driver is no longer available.',409)
                 if uid==row['customer_id']:fail('SELF_BOOKING','Choose another customer booking.',422)
-                reservation_guard(u,v)
-                row.update(owner_id=uid,driver_id=v.get('driver_id'),quote=q,vehicle_id=v['id'],total_paise=q['total_paise'],state='accepted',accepted_at=time.time())
+                reservation_guard(u,v,row['mode'])
+                row.update(owner_id=uid,driver_id=v.get('driver_id') if row['mode']=='cab' else None,quote=q,vehicle_id=v['id'],total_paise=q['total_paise'],state='accepted',accepted_at=time.time())
                 if row['mode']=='rental':row.update(vehicle_pickup_location=v['location'],vehicle_pickup_address=v['origin_address'])
                 notice(u,row['customer_id'],row,'Your vehicle owner accepted')
             elif a=='decline':
@@ -550,12 +570,12 @@ def install(core):
             if old:
                 if old['request_hash']!=fingerprint(body):fail('IDEMPOTENCY_CONFLICT','This request key has different details.',409)
                 return view(old,user['id'])
-            owners=[p for p in u.find('business_partners','role','scrap_owner') if p['status']=='approved' and p.get('valid_until',0)>=body.starts_at and metres(p['location'],body.location.model_dump())<=8000 and p['id']!=user['id']]
+            owners=[p for p in u.find('business_partners','role','scrap_owner') if p['status']=='approved' and p.get('valid_until',0)>=body.starts_at and metres(p['location'],body.location.model_dump())<=8000 and p.get('user_id',p['id'])!=user['id']]
             owners=sorted(owners,key=lambda p:(metres(p['location'],body.location.model_dump()),p['id']))[:20]
             if not owners:fail('NO_BUYERS','No approved scrap buyer is available within 8 km yet. No pickup was booked.',409)
-            row={**body.model_dump(exclude={'request_id'}),'id':key,'customer_id':user['id'],'customer_name':user.get('name','Customer'),'owner_id':None,'request_hash':fingerprint(body),'candidate_owner_ids':[p['id'] for p in owners],'state':'requested','version':1,'events':[],'created_at':time.time()}
+            row={**body.model_dump(exclude={'request_id'}),'id':key,'customer_id':user['id'],'customer_name':user.get('name','Customer'),'owner_id':None,'request_hash':fingerprint(body),'candidate_owner_ids':[p.get('user_id',p['id']) for p in owners],'state':'requested','version':1,'events':[],'created_at':time.time()}
             u.put('scrap_collections',key,row);inbox(u,'scrap',row)
-            for owner in owners:notice(u,owner['id'],row,'Scrap collection requested')
+            for owner in owners:notice(u,owner.get('user_id',owner['id']),row,'Scrap collection requested')
             return view(row,user['id'])
         return store.run(save)
     @r.get('/scrap')
@@ -602,7 +622,14 @@ def install(core):
             if a=='accept':
                 current(u,uid,('scrap_owner',))
                 if row['state']!='requested' or uid not in row['candidate_owner_ids'] or row['starts_at']<time.time():fail('ALREADY_ASSIGNED','This collection is expired or already assigned.',409)
-                row.update(owner_id=uid,state='accepted',accepted_at=time.time(),buyer_name=current(u,uid)['name'])
+                row.update(owner_id=uid,state='accepted',accepted_at=time.time(),buyer_name=current(u,uid,('scrap_owner',))['name'])
+            elif a=='decline':
+                current(u,uid,('scrap_owner',))
+                if row['state']!='requested' or uid not in row['candidate_owner_ids']:fail('INVALID_ACTION','This collection is no longer open to you.',409)
+                row['candidate_owner_ids'].remove(uid)
+                if not row['candidate_owner_ids']:
+                    row['state']='expired'
+                    notice(u,row['customer_id'],{**row,'version':row['version']+1},'No collector accepted; choose another pickup time')
             elif a=='agree':
                 if not customer or row['state']!='evaluated':fail('INVALID_ACTION','Review the weighing quote before accepting.',409)
                 row.update(state='agreed',agreed_at=time.time(),agreed_paise=row['evaluation']['total_paise'])
