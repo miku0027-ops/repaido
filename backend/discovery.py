@@ -165,11 +165,13 @@ def install(core):
         from home_plans import OFFERINGS
         catalog = core.catalog()
         services = [s for s in catalog['services'] if s.get('active', True)]+[{**s,'id':'home:'+s['id']} for s in OFFERINGS]
-        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}
+        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}|{'transport'}
         targets = []
         # Queries are resolved transiently; never store raw keywords, locations or form contents.
         if body.kind == 'search':
-            if len(body.query.strip()) >= 2:
+            if body.category == 'transport':
+                targets = ['transport']
+            elif len(body.query.strip()) >= 2:
                 scored = [(relevance(body.query, ' '.join([s['name'], s['category']])), s['category']) for s in services]
                 top = max((v for v, _ in scored), default=0)
                 targets = sorted({c for v, c in scored if v == top and v >= .67})[:3]
@@ -252,7 +254,8 @@ def install(core):
                           'reason':'Based on categories you explored' if category in interested else 'Explore another category',
                           'personalised':category in interested,
                           'service':{k:service[k] for k in ('id','name','category','description','price_paise','duration_minutes','included','excluded')}})
-        return {'cards':cards, 'personalised':enabled, 'covered':city in core.CITIES,
+        transport = row.get('signals', {}).get('transport', {})
+        return {'cards':cards, 'personalised':enabled, 'transport_interest':bool(enabled and transport.get('visits',0) and now-transport.get('at',0)<30*86400), 'covered':city in core.CITIES,
                 'policy_version':2, 'basis':'Repeated catalogue searches and service/category visits, with recent interests weighted more. Some categories stay varied. Suggestions do not diagnose a need or change prices. Availability is confirmed when booking.'}
 
     @router.get('/feed')

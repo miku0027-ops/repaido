@@ -262,6 +262,9 @@ class Unit:
 
     def put(self, kind, key, value):
         self.pending[kind, key] = copy.deepcopy(value)
+        if kind == 'shared_departures':
+            from transport_discovery import index_record as index_transport_record
+            index_transport_record(self, key, value)
         if kind in ('contract_tenders', 'contract_projects', 'inventory', 'market_listings', 'retail_orders'):
             from repaidians_opportunities import index_record
             index_record(self, kind, key, value)

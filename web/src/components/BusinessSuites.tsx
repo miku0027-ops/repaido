@@ -5,6 +5,7 @@ import {DriverInvitations,SharedRideBookings,useSharedRecords,VehicleConnections
 import {money} from '../services/operations';
 import {ContractError} from './customContractUI';
 import {Modal} from './ui';
+import {SharedRideRequestAlerts} from './SharedRideRequestAlerts';
 import './business-suites.css';
 
 type BusinessRole='cab_owner'|'driver'|'scrap_owner';
@@ -80,6 +81,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
  const panels:Panel[]=[{id:'overview',label:'Overview',icon:Home},{id:'shared',label:'Shared rides',icon:Users},{id:'cabs',label:'Cab bookings',icon:Car},{id:'rentals',label:'Self-drive',icon:CalendarDays},{id:'fleet',label:'Fleet & rates',icon:Truck},{id:'schedule',label:'Schedule',icon:CalendarDays},{id:'payments',label:'Payments',icon:Wallet},{id:'account',label:'Account',icon:UserRound},{id:'more',label:'More',icon:MoreHorizontal}];
  const open=(r:any)=>{setRecordId(r.id);setPanel(r.vehicle_name?'shared':r.mode==='rental'?'rentals':'cabs');};
  return <SuiteFrame role="cab_owner" title="Cab owner suite" description="Your fleet. Your routes. Your business." partner={partner} panels={panels} panel={panel} onPanel={setPanel} action={panel==='fleet'?<button className="ops-primary" onClick={()=>setEditing({id:crypto.randomUUID(),version:0})}>Add vehicle</button>:undefined}><ContractError error={records.error||shared.error} onRetry={()=>{void records.refresh();void shared.refresh();}}/>
+  <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open}/>
   {panel==='overview'&&<>
    <div className="suite-metrics"><Metric label="New booking requests" value={pending.length} onClick={()=>{setRecordId(pending[0]?.id||'');setPanel(pending[0]?.mode==='rental'?'rentals':'cabs');}}/><Metric label="Active vehicles" value={vehicles.filter(v=>v.active&&v.status==='approved'&&v.valid_until>Date.now()/1000).length} onClick={()=>setPanel('fleet')}/><Metric label="Shared departures" value={departures.filter(r=>!closed(r)).length} onClick={()=>setPanel('shared')}/><Metric label="Completed fares collected" value={money(received)} onClick={()=>setPanel('payments')}/></div>
    <NextWork rows={[...active,...departures]} onOpen={open} limit={1}/>
@@ -102,9 +104,10 @@ export function DriverSuite({partner,accountControls}:{partner:any;accountContro
  const [recordId,setRecordId]=useState('');
  const open=(row:any)=>{setRecordId(row.id);setPanel(row.vehicle_name?'shared':'journeys');};
  const [panel,setPanel]=useState('overview');const source=useBusinessRecords('rides'),shared=useSharedRecords();
- const records=only(source,r=>r.driver_id===source.uid&&r.mode==='cab'),departures=shared.rows.filter(r=>r.driver_id===source.uid),active=records.rows.filter(r=>!closed(r));
+ const records=only(source,r=>r.mode==='cab'&&(r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid)),departures=shared.rows.filter(r=>r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r));
  const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'My vehicles',icon:Car},{id:'account',label:'Account',icon:UserRound}];
  return <SuiteFrame role="driver" title="Driver suite" description="Your pickups, passengers and journeys." partner={partner} panels={panels} panel={panel} onPanel={setPanel}><ContractError error={records.error||shared.error}/>
+  <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} driver/>
   {panel==='overview'&&<>
    <div className="suite-metrics"><Metric label="Assigned cab journeys" value={active.length} onClick={()=>setPanel('journeys')}/><Metric label="Assigned shared rides" value={departures.filter(r=>!closed(r)).length} onClick={()=>setPanel('shared')}/><Metric label="Ready for pickup" value={active.filter(r=>['reserved','on_the_way'].includes(r.state)).length} onClick={()=>{const row=active.find(r=>['reserved','on_the_way'].includes(r.state));if(row)open(row);else setPanel('journeys');}}/><Metric label="Journeys in progress" value={[...active,...departures].filter(r=>r.state==='in_progress').length} onClick={()=>{const row=[...active,...departures].find(r=>r.state==='in_progress');if(row)open(row);else setPanel('journeys');}}/></div>
    <NextWork rows={[...active,...departures]} onOpen={open} limit={1}/>

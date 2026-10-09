@@ -29,8 +29,20 @@ Vehicle rates remain owner-defined. Cab bookings retain the ₹500 minimum fare 
 
 Account-scoped reads use warm snapshots and quiet background polling. Registration, uploads and operational commands happen only after a user action. Pending reviews, accepted bookings, quotes and receipts remain visible after submission.
 
+## Shared-ride discovery and request alerts
+
+Published departures enter pickup-area indexes in the same transaction as the departure. `GET /operations/local-business/transport/nearby` uses bounded future references and rechecks current vehicle/driver approval and remaining seats. It shows shared departures starting within 20 km; cab and rental catalogue coverage remains 8 km. Discovery responses contain public route pins and owner-set fares, without passenger records or private business documents. The actual joining search still requires forward travel and pickup/drop-off within 2 km of the verified road route.
+
+The Cabs screen and Repaidians Feed/Work & market show the native transport rail. Home shows it after transport searches when the customer's existing optional personalisation is enabled. Only the transport category interest is retained; raw search text and precise location are not saved for suggestions. Turning personalisation off or resetting history clears the signal. Nearby reads share short memory caches and refresh quietly; a card's booking flow rechecks dates, availability and the full price before submission.
+
+A join request atomically notifies both the owner and assigned driver. Their suites show a pending-request cue across panels, with a deliberate **Enable request bell** control because browsers require a user gesture for audio. Silencing the bell retains the request; new requests can ring again. The driver can open the exact shared ride and review passengers; the owner retains acceptance and pricing authority. Requests and decisions reach open suites through quiet polling, normally within five seconds, while backgrounded/offline pages refresh when visible again.
+
+Google road geometry is required for publication. The Cloud Run release binds `GOOGLE_ROUTES_API_KEY` to the existing `google-routes-api-key` secret, and checks routing readiness before promoting the candidate. Provider failures retain the form and do not create fake straight-line routes or departures.
+
 ## Validation
 
 Run the backend suite from `backend` with `.venv/bin/python -m pytest -q`; the membership and fleet regressions are in `test_business_profiles.py`. Run frontend unit tests and the production build with `npm --prefix web test` and `npm --prefix web run build`.
 
 With Vite on port 5187 and Playwright available, run `web/tests/business-suites.browser.mjs`. It starts a disposable SQLite API and exercises multi-role registration, independent approval, restricted driver panels, uploads, weighing and payment confirmation, quiet polling, and light/dark layouts at 320, 465 and 1440 pixels with 100%/200% text scaling. Cab checks cover the pinned navigation, grouped booking destinations, real worker portal, focus and breadcrumbs, multi-record selection, active/history changes, direct schedule entry and landscape text zoom. Accessibility scans include enhanced AAA text contrast. `web/tests/journeys.browser.mjs` also verifies shared departure publication, passenger joining and boarding, live location, guest tracking and link expiry. The fixtures never write to production.
+
+`test_transport_discovery.py` checks the 20 km boundary, approval/capacity filtering, date-line/polar cells, notification replay protection, route geometry and personalisation consent/reset. `web/tests/transport-discovery.browser.mjs` verifies native customer/Repaidians discovery, fare consent, driver audio and pending-request controls, enhanced contrast and idle polling without submissions.

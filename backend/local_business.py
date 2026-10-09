@@ -236,7 +236,7 @@ def apply_provider_payment(u,payment):
 def install(core):
     store=core.operations_store;r=APIRouter(prefix='/operations/local-business',tags=['Transport and scrap'])
     @r.get('/policy')
-    def policy():return {'radius_km':8,'minimum_total_paise':ADVANCE,'advance_paise':ADVANCE,'advance_credited':True,'payments_ready':payments_ready(),'routing_ready':configured('GOOGLE_ROUTES_API_KEY'),'offer_seconds':300,'tariffs':'Vehicle-owner defined; price snapshot requires customer approval.','scrap_payment':'Buyer pays the customer after inspection, weighing and customer acceptance. Customer confirms receipt; this is not gateway verification.'}
+    def policy():return {'radius_km':8,'shared_discovery_radius_km':20,'minimum_total_paise':ADVANCE,'advance_paise':ADVANCE,'advance_credited':True,'payments_ready':payments_ready(),'routing_ready':configured('GOOGLE_ROUTES_API_KEY'),'offer_seconds':300,'tariffs':'Vehicle-owner defined; price snapshot requires customer approval.','scrap_payment':'Buyer pays the customer after inspection, weighing and customer acceptance. Customer confirms receipt; this is not gateway verification.'}
     @r.post('/documents',status_code=201)
     async def upload(request:Request,user=Depends(core.current_user)):
         if not configured('REPAIDO_KYC_BUCKET'):fail('STORAGE_UNAVAILABLE','Private document storage is unavailable.',503)

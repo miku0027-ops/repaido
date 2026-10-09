@@ -1,10 +1,10 @@
 """Scheduled car/bike journeys and consented, expiring transport location access."""
 import copy, json, math, os, secrets, time, urllib.request, uuid
 from typing import Literal
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends, Header, Response, Query
 from pydantic import Field
 from operations import Input, Pin, Position, fail, metres
-from local_business import current, digest, event, fingerprint, live_vehicle, schedule, reservation_guard
+from local_business import current, digest, event, fingerprint, live_vehicle, schedule, reservation_guard, vehicle_public
 
 ACTIVE = {'on_the_way', 'in_progress'}
 PASSENGERS = {'accepted', 'boarded'}
@@ -50,15 +50,17 @@ class Share(Input):
     passenger_id:str|None=None
 
 def road_route(origin,destination,vehicle_kind="car"):
-    key=os.getenv('GOOGLE_ROUTES_API_KEY')
+    key=os.getenv('GOOGLE_ROUTES_API_KEY','').strip()
     if not key:fail('ROUTING_UNAVAILABLE','Route publication is unavailable until the driving route provider is connected.',503)
     point=lambda p:{'location':{'latLng':{'latitude':p['lat'],'longitude':p['lng']}}}
     req=urllib.request.Request('https://routes.googleapis.com/directions/v2:computeRoutes',data=json.dumps({'origin':point(origin),'destination':point(destination),'travelMode':'TWO_WHEELER' if vehicle_kind=='bike' else 'DRIVE','polylineQuality':'HIGH_QUALITY','polylineEncoding':'GEO_JSON_LINESTRING'}).encode(),headers={'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'routes.distanceMeters,routes.polyline.geoJsonLinestring'})
     try:
-        with urllib.request.urlopen(req,timeout=20) as response:r=json.load(response)['routes'][0]
+        with urllib.request.urlopen(req,timeout=12) as response:r=json.load(response)['routes'][0]
         points=[{'lat':float(p[1]),'lng':float(p[0])} for p in r['polyline']['geoJsonLinestring']['coordinates']]
         if not 2<=len(points)<=20000 or not 100<=r['distanceMeters']<=500000:raise ValueError()
-        return {'points':points,'distance_metres':r['distanceMeters']}
+        if any(not math.isfinite(p['lat']) or not math.isfinite(p['lng']) or not -90<=p['lat']<=90 or not -180<=p['lng']<=180 for p in points):raise ValueError()
+        if metres(origin,points[0])>2000 or metres(destination,points[-1])>2000:raise ValueError()
+        return {'points':points,'distance_metres':r['distanceMeters'],'provider':'google_routes'}
     except Exception:fail('ROUTE_FAILED','The road route could not be confirmed. Check the pins and retry.',503)
 
 def project(point,points):
@@ -85,7 +87,8 @@ def public(row,available):
     return {k:copy.deepcopy(row.get(k)) for k in ('id','vehicle_name','vehicle_kind','owner_name','origin','destination','origin_address','destination_address','starts_at','ends_at','seats','price_paise','pickup_mode','terms','state','version')}|{'available_seats':available}
 def notify(u,row,uid,title,discriminator=""):
     identifier=digest('journey:'+row['id']+':'+str(row['version'])+':'+uid+':'+title+':'+discriminator)
-    u.put('notifications',identifier,{'id':identifier,'user_id':uid,'title':title,'body':'Open Bookings → Rides for the pickup pin and journey status.','kind':'local_business','destination':'mobility','business_id':row['id'],'created_at':time.time(),'read':False})
+    body='Open Shared rides in your business app to review passengers and pickup details.' if actor(row,uid) else 'Open Bookings → Rides for the pickup pin and journey status.'
+    u.put('notifications',identifier,{'id':identifier,'user_id':uid,'title':title,'body':body,'kind':'local_business','destination':'mobility','business_id':row['id'],'created_at':time.time(),'read':False})
 def get_row(u,kind,identifier):
     row=u.get('shared_departures' if kind=='shared' else 'mobility_rides',identifier)
     if not row:fail('NOT_FOUND','Journey unavailable.',404)
@@ -140,6 +143,36 @@ def native_position(u,authorization,body=None):
 
 def install(core):
     store=core.operations_store;r=APIRouter(prefix='/operations/local-business',tags=['Shared journeys and tracking'])
+    @r.get('/transport/nearby')
+    def nearby(lat:float=Query(ge=-90,le=90),lng:float=Query(ge=-180,le=180)):
+        from transport_discovery import candidates, RADIUS_METRES
+        if not math.isfinite(lat) or not math.isfinite(lng):fail('LOCATION_REQUIRED','Choose your pickup area on the map.',422)
+        pin={'lat':lat,'lng':lng};now=time.time()
+        def read(u):
+            departures=[]
+            nearby_rows=sorted(candidates(u,pin,now),key=lambda row:(row['starts_at'],metres(pin,row['origin']),row['id']))
+            u.prefetch([('mobility_vehicles',row['vehicle_id']) for row in nearby_rows])
+            for row in nearby_rows:
+                distance=metres(pin,row['origin'])
+                if row['state']!='scheduled' or row['starts_at']<=now or distance>RADIUS_METRES:continue
+                available=capacity(u,row)
+                if available and live_vehicle(u,u.get('mobility_vehicles',row['vehicle_id']),'cab',row['starts_at'],row['ends_at'],row['id']):
+                    departures.append(public(row,available)|{'distance_metres':round(distance)})
+                    if len(departures)==16:break
+            vehicles=[]
+            catalogue=sorted(u.find('mobility_vehicles','status','approved'),key=lambda v:(metres(pin,v['location']),v['id']))
+            for v in catalogue:
+                distance=metres(pin,v['location'])
+                # Discovery is a catalogue, not a reservation or a final quote.
+                # Cab pickup coverage remains 8 km; shared departures use 20 km.
+                if distance>8000:break
+                modes=[mode for mode in ('cab','rental') if live_vehicle(u,v,mode,now+300,now+1200)]
+                if modes:
+                    vehicles.append(vehicle_public(u,v)|{'distance_metres':round(distance),'offered_modes':modes})
+                    if len(vehicles)==12:break
+            return {'radius_km':20,'vehicle_radius_km':8,'departures':sorted(departures,key=lambda row:(row['starts_at'],row['distance_metres'],row['id']))[:16],
+                    'vehicles':sorted(vehicles,key=lambda row:(row['distance_metres'],row['id']))[:12]}
+        return store.run(read)
     @r.post('/shared',status_code=201)
     def publish(body:Departure,user=Depends(core.current_user)):
         identifier=digest(user['id']+':departure:'+body.request_id)
@@ -202,7 +235,10 @@ def install(core):
             matched=match(row,body.pickup.model_dump(),body.dropoff.model_dump())
             if not matched or capacity(u,row)<body.seats:fail('NO_MATCH','The route direction or available seats no longer match.',409)
             p={'id':key,'departure_id':identifier,'customer_id':uid,'customer_name':user.get('name','Passenger'),'seats':body.seats,'state':'requested','price_paise':row['price_paise']*body.seats,'pickup_mode':row['pickup_mode'],'terms':row['terms'],'match':matched,'requested_pickup':body.pickup.model_dump(),'requested_dropoff':body.dropoff.model_dump(),'request_hash':fingerprint(body),'created_at':time.time()}
-            u.put('shared_passengers',key,p);notify(u,row,row['owner_id'],'New shared-ride join request',key);return p
+            u.put('shared_passengers',key,p)
+            for recipient in {row['owner_id'],row.get('driver_id')} - {None}:
+                notify(u,row,recipient,'New shared-ride join request',key)
+            return p
         return store.run(save)
     @r.post('/shared/{identifier}/commands')
     def command(identifier:str,body:Action,user=Depends(core.current_user)):
