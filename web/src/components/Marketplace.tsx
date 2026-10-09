@@ -65,7 +65,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
  const [rowsAreMine,setRowsAreMine]=useState(false);
 
  useEffect(()=>{if(initialCreate){setForm(true);}},[initialCreate]);
- const loadSequence=useRef(0);
+ const loadSequence=useRef(0),pendingLoad=useRef(false);
  const detailSequence=useRef(0);
  const loadInitialListing=async()=>{
    if(!initialListingId)return;
@@ -80,11 +80,11 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
    return()=>{detailSequence.current++;};
  },[initialListingId,mode]);
 
- const load=async(forMine=mine,snapshot=searchSnapshot.current)=>{
+ const load=async(forMine=mine,snapshot=searchSnapshot.current,background=false)=>{
+   if(background&&pendingLoad.current)return;
+   pendingLoad.current=true;
    const sequence=++loadSequence.current;
-   setRowsAreMine(false);
-   setBusy(true);
-   setError('');
+   if(!background){setRowsAreMine(false);setBusy(true);setError('');}
    try{
      let apiItems: Item[] = [];
      if(forMine){
@@ -99,16 +99,16 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
        apiItems=d.items;
      }
      
-     if(sequence===loadSequence.current){setRows(apiItems);setRowsAreMine(forMine);setLoaded(true);}
+     if(sequence===loadSequence.current){setRows(apiItems);setRowsAreMine(forMine);setLoaded(true);setError('');}
    }catch(e){
-     if(sequence===loadSequence.current){setRows([]);setError((e as Error).message);}
+     if(sequence===loadSequence.current){if(!background||[401,402,403,404].includes((e as Error&{status?:number}).status||0))setRows([]);setError((e as Error).message);}
    }finally{
-     if(sequence===loadSequence.current)setBusy(false);
+     if(sequence===loadSequence.current){pendingLoad.current=false;if(!background)setBusy(false);}
    }
  };
 
  useEffect(()=>{void load();},[mine,mode]);
- useEffect(()=>{const id=window.setInterval(()=>{if(document.visibilityState==='visible')void load();},60000);return()=>clearInterval(id);},[mine,mode]);
+ useEffect(()=>{const id=window.setInterval(()=>{if(document.visibilityState==='visible'&&navigator.onLine)void load(mine,searchSnapshot.current,true);},60000);return()=>clearInterval(id);},[mine,mode]);
  const run=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const pay=async(item:Item)=>{setBusy(true);setError('');try{const order=await operation<{key_id:string;order_id:string;amount:number;currency:string}>(`/market/${item.id}/payment-order`,{method:'POST'});await loadCheckout();const widget=new window.Razorpay!({key:order.key_id,order_id:order.order_id,amount:order.amount,currency:order.currency,name:'Repaido',description:`${mode==='exchange'?'Exchange':'Used item'} listing fee`,handler:()=>void run(()=>operation(`/market/${item.id}/payment-check`,{method:'POST'})),modal:{ondismiss:()=>setMessage('Checkout closed. If debited, use Check payment before retrying.')}});widget.on('payment.failed',()=>setError('Fee payment was not confirmed. Check payment before retrying.'));widget.open();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  

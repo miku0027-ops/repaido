@@ -19,6 +19,13 @@ test('invalidated in-flight reads cannot restore removed private data',async()=>
   assert.equal(cache.peek('account:a'),null);
   await cache.read('account:b',async()=> 'b');assert.equal(cache.peek('account:b'),'b');
 });
+test('a receipt can retire its own snapshot and pending read without clearing unrelated bookings',async()=>{
+ const cache=createReadCache();await cache.read('jobs',async()=> 'saved jobs');let release;
+ const old=cache.read('notifications',()=>new Promise(resolve=>release=resolve));await Promise.resolve();
+ cache.invalidate('notifications');assert.equal(cache.peek('jobs'),'saved jobs');
+ await cache.read('notifications',async()=> 'read receipts');release('unread snapshot');await old;
+ assert.equal(cache.peek('notifications'),'read receipts');assert.equal(cache.peek('jobs'),'saved jobs');
+});
 
 test('memory is bounded and stale data has a fixed expiry',async()=>{
   let now=0;const cache=createReadCache({maxEntries:2,now:()=>now});

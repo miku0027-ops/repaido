@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mkdtemp,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const origin=process.env.BOOKING_CACHE_PREVIEW||'http://127.0.0.1:5187';
+assert.equal(new URL(origin).hostname,'127.0.0.1');
+const evidence=await mkdtemp(tmpdir()+'/repaido-booking-cache-'),calls=[],errors=[],checks=[];
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+let holdReads=false,offline=false,deny=false,version=1;
+const hired=(account)=>({id:'hire-'+account,version,state:'quoted',worker_id:'professional',worker_name:account+' professional',category:'Cleaning',starts_at:new Date(Date.now()+86400000).toISOString(),notes:'A saved private request',bonus_paise:0,quote:{base_paise:49900,travel_paise:2000,gst_paise:0,total_paise:51900,outbound_metres:1000,return_metres:1000}});
+const worker=account=>({id:account,name:'Fixture worker',status:'approved',role:'technician',city:'Balasore',categories:['cleaning'],skills:[],tools:[],online:true,points:0,completed_tasks:0,rating_count:0,rating_sum:0});
+const count=(path,method='GET')=>calls.filter(call=>call.path===path&&call.method===method).length;
+try{
+ const context=await browser.newContext({viewport:{width:465,height:850},permissions:['geolocation'],geolocation:{latitude:21.4934,longitude:86.9135},reducedMotion:'reduce'});
+ const page=await context.newPage();page.setDefaultTimeout(10000);page.on('pageerror',error=>errors.push(error.message));
+ await page.clock.install();
+ await page.route('**/*',async route=>{
+  const request=route.request(),url=new URL(request.url()),path=url.pathname;
+  if(url.hostname!=='127.0.0.1')return route.abort();
+  if(path==='/@vite/client'){const response=await route.fetch();return route.fulfill({response,body:'class PreviewSocket{readyState=0;addEventListener(){};removeEventListener(){};send(){};close(){}}\n'+(await response.text()).replaceAll('new WebSocket(', 'new PreviewSocket(')});}
+  if(!path.startsWith('/api/'))return route.continue();
+  const account=(request.headers().authorization||'Bearer fixture-a').replace('Bearer ',''),method=request.method();calls.push({path,method,account});
+  if((method==='GET'||path.endsWith('/market/search'))&&holdReads)await wait(900);
+  if(offline&&method==='GET')return route.fulfill({status:503,json:{detail:'Connection interrupted. Try again.'}});
+  if(deny&&path.endsWith('/hiring/requests'))return route.fulfill({status:403,json:{detail:'This request is unavailable.'}});
+  let data={ok:true};
+  if(path.endsWith('/jobs'))data={jobs:[]};
+  else if(path.endsWith('/market/search'))data={items:[]};
+  else if(path.endsWith('/hiring/requests'))data={requests:[hired(account)]};
+  else if(path.endsWith('/home/plans'))data={plans:[{id:'plan-'+account,customer_id:account,version:1,state:'active',service_id:'maid',city:'Balasore',start_date:'2026-10-10',visits:[],changes:[],issues:[],invoices:[],periods:[]}]};
+  else if(path.endsWith('/home/catalog'))data={services:[{id:'maid',name:'Daily home help',requirements:[]}],cities:['Balasore'],durations:[],assurance:'Agreed work, clear visits.'};
+  else if(path.endsWith('/local-business/rides'))data={rides:[]};
+  else if(path.endsWith('/local-business/shared'))data={departures:[]};
+  else if(path.endsWith('/custom-contracts/queries'))data={items:[],members:[],nextCursor:null};
+  else if(path.endsWith('/worker/me'))data={worker:worker(account),registered_role:'technician'};
+  else if(path.endsWith('/worker/availability'))data={worker:worker(account)};
+  else if(path.endsWith('/worker/profile-progress'))data={percent:100,verified:true,missing:[]};
+  else if(path.endsWith('/worker/calendar'))data={days:[],components:[],suggestions:[],score:null,score_note:'No tasks yet',summary:{completed:0,points:0,earned_paise:0,paid_paise:0,deduction_paise:0,online_days:0,offline_days:0,working_days:0}};
+  else if(path.endsWith('/contractor/workspace'))data={user_id:account,projects:[],tenders:[]};
+  else if(path.endsWith('/account/profile'))data={id:account,name:'Fixture',email:'fixture@test.example',email_verified:true,email_required:false,verification:{ready:false}};
+  else if(path.endsWith('/notifications'))data={notifications:[]};
+  else if(path.endsWith('/coupons/launch'))data={show:false,coupons:[]};
+  else if(path.endsWith('/usage'))data={remainingMs:60000,subscription:null,trial:null,serverNow:Date.now()};
+  return route.fulfill({json:data});
+ });
+ await page.goto(origin+'/tests/bookings-cache-preview.html');await page.getByRole('heading',{name:'Booking checks'}).waitFor();
+ const nav=page.getByRole('navigation',{name:'Bookings'}),panel=page.getByRole('region',{name:'Selected bookings'});
+ async function tab(name){await nav.getByRole('button',{name,exact:true}).click();await wait(250);}
+ for(const name of ['Home plans','Hiring','Contracts','Rides','Visits'])await tab(name);
+ const initial={};for(const path of ['/jobs','/home/plans','/hiring/requests','/custom-contracts/queries','/local-business/rides','/local-business/shared'])initial[path]=count('/api/operations'+path);
+ holdReads=true;
+ for(let repeat=0;repeat<2;repeat++)for(const name of ['Home plans','Hiring','Contracts','Rides','Visits']){
+  await tab(name);
+  assert.equal(await panel.getByText(/^(Loading calendar|Loading your Hire requests|Loading your contract requests)/).count(),0,'Warm tab must not return to initial loading');
+ }
+ for(const path in initial)assert.equal(count('/api/operations'+path),initial[path],'Repeated tab switching reuses '+path);
+ assert.equal(count('/api/operations/home/catalog'),1,'Home catalogue is reused across tab mounts');
+ checks.push('Five booking tabs render warm snapshots immediately; repeated switching sends no duplicate list or catalogue requests');
+ await tab('Hiring');await page.getByRole('heading',{name:'Cleaning · fixture-a professional'}).waitFor();
+ await page.clock.runFor(31000);await wait(1100);
+ assert.deepEqual(await page.evaluate(()=>window.__bookingFixture.feedback),[],'Idle receipts and polls never announce a save');
+ assert.deepEqual(await page.evaluate(()=>window.__bookingFixture.loading),[],'Idle requests never create a global loading popup');
+ assert(count('/api/repaidians/usage','POST')>=2);assert(count('/api/operations/hiring/requests')<=6,'Polling is bounded');
+ checks.push('Idle browsing, discovery, coupon and location receipts remain quiet; polling stays bounded');
+ offline=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByText('Connection interrupted. Try again.',{exact:true}).waitFor();
+ await page.getByRole('heading',{name:'Cleaning · fixture-a professional'}).waitFor();checks.push('Offline refresh retains the last confirmed request and displays a recoverable error');
+ offline=false;version=2;await page.getByRole('button',{name:'Refresh',exact:true}).click();await wait(1100);assert.equal(await page.getByText('Connection interrupted. Try again.',{exact:true}).count(),0);
+ await page.getByRole('button',{name:'Save test profile'}).click();await page.getByText('Changes saved',{exact:true}).waitFor();checks.push('An intentional save still receives a confirmation');
+ await page.getByRole('button',{name:'Switch test account'}).click();await page.getByRole('heading',{name:'Cleaning · fixture-b professional'}).waitFor();assert.equal(await page.getByText('Cleaning · fixture-a professional',{exact:true}).count(),0);
+ deny=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByText('This request is unavailable.',{exact:true}).waitFor();assert.equal(await page.getByRole('heading',{name:'Cleaning · fixture-b professional'}).count(),0);checks.push('Account switches and access rejection retire private cached requests');
+ deny=false;holdReads=false;await page.clock.resume();
+ await page.goto(origin+'/tests/bookings-cache-preview.html?mode=market');await page.getByText('No listings match this category and area. Try another category, search or radius.',{exact:true}).waitFor();
+ holdReads=true;await page.clock.runFor(60000);assert.equal(await page.locator('.market-busy-msg').count(),0,'Scheduled market refresh must not show foreground loading');await wait(1100);
+ assert.deepEqual(await page.evaluate(()=>window.__bookingFixture.feedback),[]);checks.push('Scheduled marketplace refresh preserves the page without a loading or save popup');holdReads=false;
+ await page.goto(origin+'/tests/bookings-cache-preview.html?mode=worker');await page.getByText('Hello, Fixture',{exact:false}).waitFor();await wait(500);
+ const before=count('/api/operations/worker/me');await page.evaluate(()=>{for(let i=0;i<4;i++)window.__bookingFixture.emit();});await wait(400);
+ assert.equal(count('/api/operations/worker/me'),before,'Renewed tokens do not reset the worker portal');assert.deepEqual(await page.evaluate(()=>window.__bookingFixture.feedback),[]);
+ assert(count('/api/operations/worker/availability','POST')>0);checks.push('Worker heartbeats stay quiet and repeated token notifications do not reload the portal');
+ assert.deepEqual(errors,[]);await writeFile(evidence+'/report.json',JSON.stringify({passed:true,checks,calls,errors},null,2));console.log(JSON.stringify({passed:true,checks,evidence}));
+}catch(error){await writeFile(evidence+'/failure.json',JSON.stringify({checks,calls,errors,error:String(error)},null,2));console.error('Evidence: '+evidence);throw error;}finally{await browser.close();}

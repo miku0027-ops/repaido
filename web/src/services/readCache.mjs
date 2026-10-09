@@ -10,12 +10,12 @@ export function createReadCache({maxEntries=80,now=()=>Date.now()}={}) {
       if(pending.has(key))return pending.get(key);
       const epoch=generation;
       const request=Promise.resolve().then(load).then(value=>{
-        if(epoch===generation){entries.delete(key);entries.set(key,{at:now(),value});while(entries.size>maxEntries)entries.delete(entries.keys().next().value);}
+        if(epoch===generation&&pending.get(key)===request){entries.delete(key);entries.set(key,{at:now(),value});while(entries.size>maxEntries)entries.delete(entries.keys().next().value);}
         return value;
       });
       pending.set(key,request);
       try{return await request;}finally{if(pending.get(key)===request)pending.delete(key);}
     },
-    invalidate(){generation++;entries.clear();pending.clear();},
+    invalidate(key=''){if(key){entries.delete(key);pending.delete(key);}else{generation++;entries.clear();pending.clear();}},
   };
 }

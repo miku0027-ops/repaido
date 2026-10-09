@@ -1,7 +1,7 @@
+import {useOperationResource} from '../hooks/useOperationResource';
 import {SharedRideSearch,SharedRideBookings,useSharedRecords,DriverInvitations,VehicleConnections} from './SharedRides';
 import {JourneyTracking} from './JourneyTracking';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import {onIdTokenChanged} from 'firebase/auth';
 import {auth} from '../firebase';
 import {business,businessPublic,businessDocument,businessPrivatePhoto,businessAmount,type BusinessLocation} from '../services/localBusiness';
 import {money,currentPosition} from '../services/operations';
@@ -15,11 +15,8 @@ import './local-business.css';
 const date=(stamp:number)=>new Date(stamp*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const stamp=(value:string)=>new Date(value).getTime()/1000;
 export function useBusinessRecords(kind:'rides'|'scrap'){
- const [rows,setRows]=useState<any[]>([]),[error,setError]=useState(''),[uid,setUid]=useState(auth.currentUser?.uid||'');const generation=useRef(0),observedUid=useRef(auth.currentUser?.uid||'');
- useEffect(()=>onIdTokenChanged(auth,u=>{const next=u?.uid||'';if(next===observedUid.current)return;observedUid.current=next;setUid(next);setRows([]);generation.current++;}),[]);
- const refresh=async()=>{if(!uid)return;const epoch=++generation.current;try{const data=await business('/'+kind);if(epoch===generation.current&&auth.currentUser?.uid===uid){setRows(data[kind==='rides'?'rides':'collections']);setError('');}}catch(e){if(epoch===generation.current)setError((e as Error).message);}};
- useEffect(()=>{void refresh();const timer=setInterval(()=>{if(!document.hidden)void refresh();},15000);return()=>{clearInterval(timer);generation.current++;};},[uid,kind]);
- return {rows,error,refresh,uid};
+ const resource=useOperationResource<{rides?:any[];collections?:any[]}>('/local-business/'+kind,15000);
+ return {rows:resource.data?.[kind==='rides'?'rides':'collections']||[],error:resource.error,refresh:()=>resource.refresh(),uid:resource.uid};
 }
 function LocationButton({label,value,onClick}:{label:string;value:BusinessLocation|null;onClick:()=>void}){return <button type="button" className="business-location" onClick={onClick}><MapPin size={18}/><span><small>{label}</small><strong>{value?.address||value?.city||'Choose on the map'}</strong></span><ChevronRight size={15}/></button>;}
 function PrivatePhoto({path,label}:{path:string;label:string}){const [url,setUrl]=useState(''),action=useCustomContractAction();useEffect(()=>()=>{if(url)URL.revokeObjectURL(url);},[url]);return <><button type="button" disabled={action.busy} onClick={()=>void action.run(async()=>setUrl(await businessPrivatePhoto(path)))}>{label}</button><ContractError error={action.error}/>{url&&<Modal title={label} onClose={()=>setUrl('')}><img src={url} alt={label} style={{maxWidth:'100%',maxHeight:'65dvh',objectFit:'contain'}}/></Modal>}</>;}

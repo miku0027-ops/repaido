@@ -1,5 +1,5 @@
+import {useOperationResource} from '../hooks/useOperationResource';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import {onIdTokenChanged} from 'firebase/auth';
 import {auth} from '../firebase';
 import {business,businessPublic,businessAmount,type BusinessLocation} from '../services/localBusiness';
 import {money} from '../services/operations';
@@ -12,7 +12,7 @@ import {Modal} from './ui';
 const date=(t:number)=>new Date(t*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const epoch=(v:FormDataEntryValue|null)=>new Date(String(v)).getTime()/1000;
 function PickPin({label,value,onClick}:{label:string;value:BusinessLocation|null;onClick:()=>void}){return <button type="button" className="business-location" onClick={onClick}><MapPin size={18}/><span><small>{label}</small><strong>{value?.address||'Choose on the map'}</strong></span><ArrowRight size={16}/></button>;}
-export function useSharedRecords(){const [uid,setUid]=useState(auth.currentUser?.uid||''),[rows,setRows]=useState<any[]>([]),[error,setError]=useState('');const generation=useRef(0),observedUid=useRef(auth.currentUser?.uid||'');useEffect(()=>onIdTokenChanged(auth,u=>{const next=u?.uid||'';if(next===observedUid.current)return;observedUid.current=next;setUid(next);setRows([]);generation.current++;}),[]);const refresh=async()=>{if(!uid)return;const g=++generation.current;try{const data=await business('/shared');if(g===generation.current&&auth.currentUser?.uid===uid){setRows(data.departures);setError('');}}catch(e){if(g===generation.current)setError((e as Error).message);}};useEffect(()=>{void refresh();const timer=setInterval(()=>{if(!document.hidden)void refresh();},12000);return()=>{generation.current++;clearInterval(timer);};},[uid]);return {uid,rows,error,refresh};}
+export function useSharedRecords(){const resource=useOperationResource<{departures:any[]}>('/local-business/shared',12000);return {uid:resource.uid,rows:resource.data?.departures||[],error:resource.error,refresh:()=>resource.refresh()};}
 export function SharedRideSearch({onSignIn}:{onSignIn:()=>void}){
  const [pickup,setPickup]=useState<BusinessLocation|null>(null),[dropoff,setDropoff]=useState<BusinessLocation|null>(null),[map,setMap]=useState<'pickup'|'dropoff'|null>(null),[rows,setRows]=useState<any[]|null>(null),[seats,setSeats]=useState(1),[selected,setSelected]=useState<any>(null),[saved,setSaved]=useState(false);const action=useCustomContractAction(),key=useRef(crypto.randomUUID());
  const search=(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);void action.run(async()=>{if(!pickup||!dropoff)throw Error('Choose your pickup and drop-off pins.');const start=epoch(f.get('start'));const result=await businessPublic('/shared/search',{pickup:{lat:pickup.lat,lng:pickup.lng},dropoff:{lat:dropoff.lat,lng:dropoff.lng},starts_at:start,until:start+86400,seats});setRows(result.departures);setSaved(false);});};

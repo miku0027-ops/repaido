@@ -1,5 +1,6 @@
 import {beginLoading} from './loading';
 import {withActionFeedback} from './actionFeedback';
+import {quietRequest} from './actionMessages.mjs';
 // Production default points to the live Cloud Run API backend; dev uses Vite proxy.
 const defaultProdOrigin = 'https://repaido-api-rivzaqvyvq-uc.a.run.app';
 const configuredOrigin = (
@@ -14,7 +15,7 @@ if (configuredOrigin && (new URL(configuredOrigin).protocol !== 'https:' || new 
 export async function apiFetch(path: string, init?: RequestInit, options?: {background?:boolean;feedback?:boolean}): Promise<Response> {
   // Never forward authentication headers to an arbitrary URL supplied by a caller.
   if (!path.startsWith('/api/')) throw new Error('Expected a Repaido API path.');
-  const background=options?.background??((init?.method||'GET').toUpperCase()==='GET');
+  const background=options?.background??quietRequest(path,init);
   const done=background?()=>{}:beginLoading(path);
   try{
     // A caller's cancellation signal must not disable the request deadline.

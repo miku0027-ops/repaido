@@ -11,7 +11,7 @@ import {loadCheckout} from './PaymentPanel';
 
 export function ContractRecordsPanel({projectId,accountKey,mode}:{projectId:string;accountKey:string;mode:'customer'|'contractor'|'agent'}){
   const [reportKind,setReportKind]=useState('summary');
-  const resource=useCustomContractResource<ContractRecords>(accountKey+':records:'+projectId,(force,signal)=>contractRecords(projectId,force,signal),mode!=='agent'),action=useCustomContractAction(),record=resource.data;
+  const resource=useCustomContractResource<ContractRecords>(accountKey+':records:'+projectId,(force,signal)=>contractRecords(projectId,force,signal),mode!=='agent','/contracts/projects/'+encodeURIComponent(projectId)+'/records'),action=useCustomContractAction(),record=resource.data;
   if(mode==='agent')return <p className="cc-note">Customer contract payment and progress records are private to the customer and awarded contractor. Your accepted placement stays in Apply Status.</p>;
   const refresh=()=>resource.refresh();
   return <section className="cc-section" aria-label="Awarded contract records">

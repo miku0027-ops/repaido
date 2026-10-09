@@ -41,3 +41,12 @@ test('a rejected save returns the response, preserves the server error and ends 
  const response=await apiFetch('/api/operations/hiring/requests/one/decision',{method:'POST',body:'{}'});
  assert.equal(response.status,409);assert.equal(actionFeedback.getSnapshot()[0].message,'Review the updated quote.');assert.equal(actionFeedback.getSnapshot()[0].tone,'error');assert.deepEqual(loadingState.getSnapshot(),[]);
 });
+test('automatic POSTs and read-only searches remain quiet for the entire request',async()=>{
+ for(const path of ['/api/operations/coupons/launch','/api/operations/discovery/events','/api/operations/market/search','/api/operations/worker/availability']){
+  const deadlines=pendingTransport();
+  const request=apiFetch(path,{method:'POST',body:'{"heartbeat":true}'});
+  assert.deepEqual(loadingState.getSnapshot(),[],path);assert.deepEqual(actionFeedback.getSnapshot(),[],path);
+  deadlines[0].controller.abort(new DOMException('Timed out','TimeoutError'));
+  await assert.rejects(request,{name:'TimeoutError'});assert.deepEqual(actionFeedback.getSnapshot(),[],path);
+ }
+});

@@ -1,4 +1,5 @@
-import {feedbackImports} from './feedback-module.mjs';
+import {feedbackImports,feedbackModuleUrl} from './feedback-module.mjs';
+const {actionFeedback,clearFeedback}=await import(feedbackModuleUrl);
 import {beforeEach,test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -28,6 +29,22 @@ test('private contract reads coalesce but late results cannot cross accounts',as
   values.set('repaido.token','session-b');transport=async()=>response({items:[{id:'b-only'}]});assert.equal((await service.customContractQueries('mine')).items[0].id,'b-only');
   pending.resolve(response({items:[{id:'a-private'}]}));await assert.rejects(first,/account changed/i);await assert.rejects(second,/account changed/i);
   assert.equal((await service.customContractQueries('mine')).items[0].id,'b-only');
+});
+test('view receipts coalesce across reopened panels without save feedback or unrelated invalidations',async()=>{
+ clearFeedback();let updates=0;window.addEventListener('repaido:custom-contracts-updated',()=>updates++);window.addEventListener('repaido:operations-updated',()=>updates++);
+ transport=async()=>response({query:{id:'q',version:1}});await service.customContractDetails('q');
+ const pending=deferred();transport=()=>pending.promise;
+ const one=service.markCustomContractViewed('q'),two=service.markCustomContractViewed('q');await tick();assert.equal(calls.length,2);
+ pending.resolve(response({recorded:true,views:1}));await Promise.all([one,two]);await service.markCustomContractViewed('q');
+ assert.equal(calls.length,2);assert.equal(updates,0);assert.deepEqual(actionFeedback.getSnapshot(),[]);
+ assert.equal(service.customContractSnapshot('/custom-contracts/queries/q').query.id,'q');
+ await service.customContractDetails('q');assert.equal(calls.length,2);
+ values.set('repaido.token','session-b');assert.equal(service.customContractSnapshot('/custom-contracts/queries/q'),null);
+ transport=async()=>response({recorded:true,views:2});await service.markCustomContractViewed('q');assert.equal(calls.length,3);
+});
+test('rejected authorization retires a warm contract snapshot',async()=>{
+ transport=async()=>response({query:{id:'q'}});await service.customContractDetails('q');assert.ok(service.customContractSnapshot('/custom-contracts/queries/q'));
+ transport=async()=>response({detail:'This contract is private.'},403);await assert.rejects(service.customContractDetails('q',true),error=>error.status===403);assert.equal(service.customContractSnapshot('/custom-contracts/queries/q'),null);
 });
 test('an account switch while a Firebase bearer resolves sends no old credential',async()=>{
   const pending=deferred();globalThis.__contractAuth.currentUser={uid:'a',getIdToken:()=>pending.promise};const read=service.customContractDetails('private-query');await tick();

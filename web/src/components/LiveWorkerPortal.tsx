@@ -55,6 +55,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
   const [profileProgress,setProfileProgress]=useState<{percent:number;verified:boolean;missing:{id:string;label:string;target:string}[]} | null>(null);
   const [profileSection,setProfileSection]=useState<string|null>(null),[locationRetry,setLocationRetry]=useState(0),[presenceLocating,setPresenceLocating]=useState(false);
   const lastLocationAttempt=useRef(0);
+  const observedSession=useRef<string|null>(null);
   const loadProgress=()=>operation<any>('/worker/profile-progress',{}, {background:true}).then(setProfileProgress).catch(()=>{});
   useEffect(()=>{if(worker?.id)void loadProgress();else setProfileProgress(null);},[worker?.id,worker?.status,tab]);
   const completeProfile=()=>{const target=profileProgress?.missing[0]?.target||null;if(target==='application'&&worker?.status!=='approved'){setEditing(true);return;}setProfileSection(target);setTab('Profile');};
@@ -77,7 +78,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
     return()=>{window.removeEventListener('repaido:job-updated',onJobUpdated);clearInterval(timer);};
   },[signedIn,worker?.status]);
   const load=async()=>{const uid=auth.currentUser?.uid;setBusy(true);setError('');try{const result=await operation<{worker:LiveWorker|null;registered_role?:'technician'|'contractor'|'cab_owner'|'driver'|'scrap_owner'}>('/worker/me');if(auth.currentUser?.uid!==uid)return;setWorker(result.worker);if(result.registered_role)setLoginRole(result.registered_role);setChecked(true);}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
-  useEffect(()=>onIdTokenChanged(auth,u=>{setReady(false);setChecked(false);setWorker(null);if(!u){setSignedIn(false);setWorker(null);setReady(true);return;}void u.getIdTokenResult().then(()=>{if(auth.currentUser?.uid!==u.uid)return;const verified=!!u.phoneNumber;setSignedIn(verified);setReady(true);if(verified){void load();if(nativeAvailable()&&localStorage.getItem('repaido.push-device'))void enableNativePush().catch(()=>{});}else setWorker(null);}).catch(e=>{setError(e.message);setSignedIn(!!u.phoneNumber);setReady(true);});}),[]);
+  useEffect(()=>onIdTokenChanged(auth,u=>{const identity=(u?.uid||'')+':'+(u?.phoneNumber||'');if(observedSession.current===identity)return;observedSession.current=identity;setReady(false);setChecked(false);setWorker(null);if(!u){setSignedIn(false);setWorker(null);setReady(true);return;}void u.getIdTokenResult().then(()=>{if(auth.currentUser?.uid!==u.uid)return;const verified=!!u.phoneNumber;setSignedIn(verified);setReady(true);if(verified){void load();if(nativeAvailable()&&localStorage.getItem('repaido.push-device'))void enableNativePush().catch(()=>{});}else setWorker(null);}).catch(e=>{if(auth.currentUser?.uid!==u.uid)return;setError(e.message);setSignedIn(!!u.phoneNumber);setReady(true);});}),[]);
   useEffect(()=>{if(!worker||worker.status==='approved'||editing)return;const timer=setInterval(()=>{if(!document.hidden)void operation<{worker:LiveWorker|null}>('/worker/me',{}, {background:true}).then(r=>setWorker(r.worker)).catch(()=>{});},30000);return()=>clearInterval(timer);},[worker?.id,worker?.status,editing]);
   useEffect(()=>{
     if(!worker?.online||loginRole!=='technician')return;

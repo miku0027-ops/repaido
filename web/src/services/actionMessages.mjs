@@ -1,8 +1,22 @@
-// Only user mutations announce completion. Search, telemetry and background receipts stay quiet.
+// HTTP POST also carries reads and automatic receipts. Neither is a saved form.
+export function quietRequest(path, init = {}) {
+ const method = (init.method || 'GET').toUpperCase(), route = path.split('?')[0];
+ if (['GET','HEAD','OPTIONS'].includes(method)) return true;
+ if (/\/(search|leaderboard|feed|agent-opportunities|view|seen|read|read-all|heartbeat|position|telemetry|tracking-session)(\/|$)/.test(route) || /\/(devices|activity|presence)(\/|$)/.test(route)) return true;
+ if (/\/(hiring\/recommendations|discovery\/events|coupons\/launch|auth\/session|community\/usage|community\/work\/behavior)$/.test(route)) return true;
+ let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Binary uploads. */ }
+ return /\/worker\/availability$/.test(route) && body.heartbeat === true;
+}
+export function changesAccountData(path, init = {}) {
+ if (quietRequest(path, init)) return false;
+ // Estimates and validation acknowledge a user action without changing bookings.
+ return !/\/(quotes?|validate|coupons\/check)$/.test(path.split('?')[0]);
+}
+// Only intentional changes announce completion. Background receipts stay quiet.
 export function actionMessages(path, init = {}) {
  const method = (init.method || 'GET').toUpperCase();
  const route = path.split('?')[0];
- if (['GET','HEAD','OPTIONS'].includes(method) || /\/hiring\/recommendations$/.test(route) || /\/(search|leaderboard|feed|agent-opportunities|view|seen|read|heartbeat|position|telemetry|tracking-session)(\/|$)/.test(route) || /\/(devices|activity|presence)(\/|$)/.test(route)) return null;
+ if (quietRequest(path, init)) return null;
  let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Non-JSON uploads. */ }
  const action = body.action || '';
  const upload = /\/(photos?|attachments|documents|media|evidence|portrait)(\/|$)/.test(route) || typeof Blob !== 'undefined' && init.body instanceof Blob;
@@ -35,7 +49,8 @@ export function actionMessages(path, init = {}) {
   if (/\/(messages|comments|enquiries|agent-messages)$/.test(route)) return note('Message sent','Your message has been saved.');
   if (/\/support-tickets$/.test(route)) return note('Support request sent','Your request has been saved for the support team.');
   if (/\/(profile|settings|preferences|hiring-policy)$/.test(route)) return note('Changes saved','Your settings are up to date.');
-  if (/\/quote$/.test(route)) return note('Quote ready','Review the estimate and terms before confirming.', 'info');
+  if (/\/quotes?$/.test(route)) return note('Quote ready','Review the estimate and terms before confirming.', 'info');
+  if (/\/coupons\/check$/.test(route)) return note('Offer checked','The eligible offer is shown in your price summary.', 'info');
   if (/\/validate$/.test(route)) return note('Details checked','Review the validation result shown in this view.', 'info');
   if (status === 'pending' || status === 'pending_review' || status === 'submitted') return note('Submitted for review','Your submission was received. Approval is still pending.');
   return note('Update saved', 'Your changes are saved.');

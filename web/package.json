@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "build:cpanel": "tsc -b && vite build --mode cpanel --outDir dist-cpanel",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test tests/request-deadlines.test.mjs tests/action-feedback.test.mjs tests/booking.test.mjs tests/customer-bookings.test.mjs tests/repaidians.test.mjs tests/repaidians-network.test.mjs tests/custom-contracts.test.mjs tests/repaidians-work.test.mjs tests/repaidians-push.test.mjs tests/read-cache.test.mjs tests/b2b_wholesale.test.mjs tests/hire-categories.test.mjs tests/hire-presentation.test.mjs tests/hire-recommendations.test.mjs tests/account-profile.test.mjs tests/auth-identity.test.mjs tests/customer-experience.test.mjs",
+    "test": "node --test tests/request-deadlines.test.mjs tests/action-feedback.test.mjs tests/booking.test.mjs tests/customer-bookings.test.mjs tests/repaidians.test.mjs tests/repaidians-network.test.mjs tests/custom-contracts.test.mjs tests/repaidians-work.test.mjs tests/repaidians-push.test.mjs tests/read-cache.test.mjs tests/operations-cache.test.mjs tests/b2b_wholesale.test.mjs tests/hire-categories.test.mjs tests/hire-presentation.test.mjs tests/hire-recommendations.test.mjs tests/account-profile.test.mjs tests/auth-identity.test.mjs tests/customer-experience.test.mjs",
     "deploy": "npm run build && firebase deploy --only hosting"
   },
   "dependencies": {

@@ -6,12 +6,13 @@ import type {ContractFreshLocation,ContractReaction,CustomContractCommentsPage,C
 import {readDeviceLocation} from './deviceLocation.mjs';
 import {createContractWatcher} from './contractLive.mjs';
 
-const reads=createReadCache({maxEntries:64}),commands=new Map<string,string>();
+const reads=createReadCache({maxEntries:64}),commands=new Map<string,string>(),views=new Map<string,Promise<{recorded:boolean;views:number}>>();
 const UPDATE='repaido:custom-contracts-updated';
 let identity='',generation=0;
 export class CustomContractError extends Error{constructor(message:string,public status:number,public code=''){super(message);}}
 function scopeNow(){return auth.currentUser?.uid||localStorage.getItem('repaido.token')||'';}
-function syncIdentity(){const next=scopeNow();if(next!==identity){identity=next;generation++;reads.invalidate();commands.clear();}return next;}
+function syncIdentity(){const next=scopeNow();if(next!==identity){identity=next;generation++;reads.invalidate();commands.clear();views.clear();}return next;}
+export function customContractSnapshot<T>(path:string):T|null {const scope=syncIdentity();return scope?reads.peek(scope+':'+path) as T|null:null;}
 async function capturedIdentity(){await auth.authStateReady();const user=auth.currentUser,fallback=user?null:localStorage.getItem('repaido.token'),scope=syncIdentity(),epoch=generation;const token=user?await user.getIdToken():fallback;if(auth.currentUser?.uid!==user?.uid||(!user&&localStorage.getItem('repaido.token')!==fallback)||syncIdentity()!==scope)throw new CustomContractError('Your account changed. Reopen this contract.',409,'ACCOUNT_CHANGED');if(!token)throw new CustomContractError('Sign in to view your contract requests.',401,'AUTH_REQUIRED');return {scope,token,epoch};}
 export function invalidateCustomContractReads(){generation++;reads.invalidate();window.dispatchEvent(new Event(UPDATE));}
 export function subscribeCustomContracts(listener:()=>void){window.addEventListener(UPDATE,listener);return()=>window.removeEventListener(UPDATE,listener);}
@@ -50,7 +51,7 @@ async function performRequest<T>(path:string,init:RequestInit,owner?:Awaited<Ret
   if(!response.ok){const detail=body.detail;throw new CustomContractError(typeof detail==='string'?detail:detail?.message||(Array.isArray(detail)?detail.map((item:{msg:string})=>item.msg).join('. '):'')||(response.status===401?'Your sign-in expired. Sign in again.':'Could not load this contract. Retry.'),response.status,detail?.code||'');}return body as T;
 }
 function observeAbort<T>(value:Promise<T>,signal?:AbortSignal):Promise<T>{if(!signal)return value;if(signal.aborted){void value.catch(()=>{});return Promise.reject(new DOMException('Request cancelled.','AbortError'));}return new Promise((resolve,reject)=>{const cancelled=()=>reject(new DOMException('Request cancelled.','AbortError'));signal.addEventListener('abort',cancelled,{once:true});value.then(result=>{signal.removeEventListener('abort',cancelled);if(!signal.aborted)resolve(result);},error=>{signal.removeEventListener('abort',cancelled);if(!signal.aborted)reject(error);});});}
-export async function contractRead<T>(path:string,force=false,signal?:AbortSignal):Promise<T>{if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');const owner=await capturedIdentity();if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');const value=reads.read(owner.scope+':'+path,async()=>{const result=await request<T>(path,{},owner);if(syncIdentity()!==owner.scope||generation!==owner.epoch)throw new CustomContractError('Contract details changed. Refresh this view.',409,'CONTRACT_CHANGED');return result;},{freshMs:8000,force}) as Promise<T>;return observeAbort(value,signal);}
+export async function contractRead<T>(path:string,force=false,signal?:AbortSignal):Promise<T>{if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');const owner=await capturedIdentity();if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');const value=reads.read(owner.scope+':'+path,async()=>{let result:T;try{result=await request<T>(path,{},owner);}catch(error){if(error instanceof CustomContractError&&[401,402,403,404].includes(error.status)&&syncIdentity()===owner.scope)reads.invalidate();throw error;}if(syncIdentity()!==owner.scope||generation!==owner.epoch)throw new CustomContractError('Contract details changed. Refresh this view.',409,'CONTRACT_CHANGED');return result;},{freshMs:8000,force}) as Promise<T>;return observeAbort(value,signal);}
 export async function contractMutation<T>(path:string,body:Record<string,unknown>,method='POST'):Promise<T>{const owner=await capturedIdentity(),key=owner.scope+':'+method+':'+path+':'+JSON.stringify(body),requestId=commands.get(key)||crypto.randomUUID();commands.set(key,requestId);while(commands.size>64)commands.delete(commands.keys().next().value!);const result=await request<T>(path,{method,body:JSON.stringify({...body,request_id:requestId})},owner);commands.delete(key);invalidateCustomContractReads();window.dispatchEvent(new Event('repaido:operations-updated'));return result;}
 export async function contractPostRead<T>(path:string,body:Record<string,unknown>,signal?:AbortSignal):Promise<T>{const owner=await capturedIdentity();return request<T>(path,{method:'POST',body:JSON.stringify(body),signal},owner);}
 const queryPath=(id:string)=>'/custom-contracts/queries/'+encodeURIComponent(id);
@@ -67,7 +68,15 @@ export const customContractMessages=(id:string,cursor='',force=false,signal?:Abo
 export const sendCustomContractMessage=(id:string,text:string)=>contractMutation(queryPath(id)+'/messages',{text:text.trim()});
 export const enquireCustomContract=(id:string,bidId:string,text:string)=>contractMutation(queryPath(id)+'/enquiries',{bid_id:bidId,text:text.trim()});
 export const customContractEnquiries=(id:string,cursor='',force=false,signal?:AbortSignal)=>contractRead<CustomContractMessagesPage>(queryPath(id)+'/enquiries?'+paging(cursor),force,signal);
-export const markCustomContractViewed=(id:string)=>contractMutation<{recorded:boolean;views:number}>(queryPath(id)+'/view',{});
+// An automatic view receipt is not an edit. It must not clear booking caches
+// or cause every mounted contract panel to reload itself.
+export async function markCustomContractViewed(id:string){
+  const owner=await capturedIdentity(),key=owner.scope+':'+id;
+  const prior=views.get(key);if(prior)return prior;
+  const receipt=request<{recorded:boolean;views:number}>(queryPath(id)+'/view',{method:'POST',body:JSON.stringify({request_id:crypto.randomUUID()})},owner);
+  views.set(key,receipt);while(views.size>64)views.delete(views.keys().next().value!);
+  void receipt.catch(()=>{if(views.get(key)===receipt)views.delete(key);});return receipt;
+}
 export const freshContractLocation=()=>readDeviceLocation(navigator.geolocation,{secure:window.isSecureContext}) as Promise<ContractFreshLocation>;
 export const pendingContractOpportunities=(location:ContractFreshLocation|null,cursor='',signal?:AbortSignal)=>contractPostRead<CustomContractsPage>('/custom-contracts/agent-opportunities',{...(location?{location,location_consent:true}:{}),limit:20,...(cursor?{cursor}: {})},signal);
 export const expressContractInterest=(id:string,note:string,workerType:string,location:ContractFreshLocation|null)=>contractMutation(queryPath(id)+'/interest',{note:note.trim(),available:true,worker_type:workerType,...(location?{location,location_consent:true}:{})});

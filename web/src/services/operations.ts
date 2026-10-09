@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import {beginLoading} from './loading';
 import {createReadCache} from './readCache.mjs';
 import {withActionFeedback} from './actionFeedback';
+import {quietRequest,changesAccountData} from './actionMessages.mjs';
 const operationCache=createReadCache();
 let cacheAccount='';
 function accountScope(){return auth.currentUser?.uid||localStorage.getItem('repaido.token')||'';}
@@ -56,20 +57,26 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
   await auth.authStateReady();
   const scope=syncAccount();
   const token = auth.currentUser?await auth.currentUser.getIdToken():localStorage.getItem('repaido.token');
+  if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
   if (!token) throw new Error('Sign in to view your account.');
   const read=(init.method||'GET').toUpperCase()==='GET';
-  const cached=path==='/jobs'||path==='/notifications';
-  const done=(options.background??read)?()=>{}:beginLoading(path);
+  const cached=['/jobs','/notifications','/hiring/requests','/home/plans','/local-business/rides','/local-business/scrap','/local-business/shared','/worker/profile-progress'].includes(path);
+  const done=(options.background??quietRequest(path,init))?()=>{}:beginLoading(path);
   const load=async()=>{
     const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal, headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});
     const body = await response.json().catch(()=>({}));
-    if (!response.ok) throw new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.'));
+    if (!response.ok) {
+      if([401,402,403,404].includes(response.status))operationCache.invalidate();
+      throw Object.assign(new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.')),{status:response.status});
+    }
     if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
     return body as T;
   };
   try {
     const result=read&&!init.signal?await operationCache.read(scope+':'+path,load,{freshMs:cached?10000:0,force:options.force}):await load();
-    if(!read)invalidateOperationReads();
+    if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
+    if(!read&&/^\/notifications\/(?:[^/]+\/read|read-all)$/.test(path))operationCache.invalidate(scope+':/notifications');
+    if(changesAccountData(path,init))invalidateOperationReads();
     return result as T;
   }finally{done();}
 }

@@ -1,9 +1,9 @@
 import {Card} from './Card';
 import {notifyFeedback} from '../services/actionFeedback';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {createContext,useContext,useCallback,useEffect,useRef,useState} from 'react';
 import {ArrowRight,CalendarDays,Eye,MapPin,MessageCircle,RefreshCw,Users} from 'lucide-react';
 import type {ContractPublicMember,CustomContractQuery} from '../types/customContracts';
-import {CustomContractError,subscribeCustomContracts,watchCustomContract,type ContractLiveState} from '../services/customContractsService';
+import {CustomContractError,customContractSnapshot,subscribeCustomContracts,watchCustomContract,type ContractLiveState} from '../services/customContractsService';
 import {RepaidianBadge} from './RepaidianBadge';
 import {apiAssetUrl} from '../services/api';
 
@@ -18,15 +18,24 @@ export function useContractLive(queryId:string,accountKey:string){
   return state;
 }
 
-export function useCustomContractResource<T>(key:string,load:(force:boolean,signal:AbortSignal)=>Promise<T>,enabled=true){
-  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>({key,data:null,busy:enabled,error:''}),[revision,setRevision]=useState(0);
+export const ContractResourceVisibility=createContext(true);
+export function useCustomContractResource<T>(key:string,load:(force:boolean,signal:AbortSignal)=>Promise<T>,enabled=true,path=''){
+  enabled=useContext(ContractResourceVisibility)&&enabled;
+  const snapshot=()=>enabled&&path?customContractSnapshot<T>(path):null;
+  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>(()=>{const data=snapshot();return {key,data,busy:enabled&&!data,error:''};}),[revision,setRevision]=useState(0);
   const loader=useRef(load),controller=useRef<AbortController|null>(null),generation=useRef(0),mounted=useRef(true);loader.current=load;
-  const refresh=useCallback(async(force=true)=>{if(!enabled)return;controller.current?.abort();const abort=new AbortController();controller.current=abort;const epoch=++generation.current;setState(prior=>({key,data:prior.key===key?prior.data:null,busy:true,error:''}));try{const data=await loader.current(force,abort.signal);if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState({key,data,busy:false,error:''});}catch(error){if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState(prior=>({...prior,data:error instanceof CustomContractError&&[401,402,403,404].includes(error.status)?null:prior.data,busy:false,error:(error as Error).message}));}},[key,enabled]);
+  const refresh=useCallback(async(force=true,background=false)=>{
+    if(!enabled)return;
+    controller.current?.abort();const abort=new AbortController();controller.current=abort;const epoch=++generation.current;
+    setState(prior=>{const data=prior.key===key?prior.data:(path?customContractSnapshot<T>(path):null);return {key,data,busy:!background||!data,error:''};});
+    try{const data=await loader.current(force,abort.signal);if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState({key,data,busy:false,error:''});}
+    catch(error){if(mounted.current&&epoch===generation.current&&!abort.signal.aborted)setState(prior=>({...prior,data:error instanceof CustomContractError&&[401,402,403,404].includes(error.status)?null:prior.data,busy:false,error:(error as Error).message}));}
+  },[key,enabled,path]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;generation.current++;controller.current?.abort();};},[]);
   useEffect(()=>subscribeCustomContracts(()=>setRevision(value=>value+1)),[]);
-  useEffect(()=>{void refresh(false);return()=>{generation.current++;controller.current?.abort();};},[refresh,revision]);
-  useEffect(()=>{if(!enabled)return;const tick=()=>{if(!document.hidden)void refresh(true);};const timer=setInterval(tick,30000);document.addEventListener('visibilitychange',tick);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',tick);};},[refresh,enabled]);
-  return {...(state.key===key?state:{key,data:null,busy:enabled,error:''}),refresh};
+  useEffect(()=>{void refresh(false,true);return()=>{generation.current++;controller.current?.abort();};},[refresh,revision]);
+  useEffect(()=>{if(!enabled)return;const tick=()=>{if(!document.hidden&&navigator.onLine)void refresh(true,true);};const timer=setInterval(tick,30000);document.addEventListener('visibilitychange',tick);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',tick);};},[refresh,enabled]);
+  return {...(state.key===key?state:{key,data:snapshot(),busy:enabled&&!snapshot(),error:''}),refresh};
 }
 export function useCustomContractAction(){const [busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),gate=useRef(false),mounted=useRef(true);useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);const run=async(task:()=>Promise<void>,success='')=>{if(gate.current)return;gate.current=true;setBusy(true);setError('');setMessage('');try{await task();if(mounted.current&&success)setMessage(success);}catch(error){if(mounted.current)setError((error as Error).message);notifyFeedback({tone:'error',title:'Action needs attention',message:(error as Error).message},'contract-action');}finally{gate.current=false;if(mounted.current)setBusy(false);}};return {busy,error,message,run,setError,setMessage};}
 export function ContractError({error,onRetry}:{error:string;onRetry?:()=>void}){return error?<div className="cc-error" role="alert"><p>{error}</p>{onRetry&&<button onClick={onRetry}>Retry</button>}</div>:null;}
