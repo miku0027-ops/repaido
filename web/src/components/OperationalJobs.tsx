@@ -11,6 +11,7 @@ import {AgentTaskWorkspace} from './AgentTaskWorkspace';
 import {LiveTrackingView} from './LiveTrackingView';
 import {TaskReport} from './WorkerRecords';
 import {Modal} from './ui';
+import {BookingSignIn} from './BookingSignIn';
 import './operations.css';
 const labels:Record<string,string>={offered:'Response needed',accepted:'Accepted',en_route:'On the way',arrived:'At site',in_progress:'Working',collecting_parts:'Collecting parts',follow_up_scheduled:'Next visit booked',completion_pending:'Customer review',completed:'Completed',cancelled:'Cancelled',disputed:'Under review',searching:'Finding a professional',stop_requested:'Work paused'};
 
@@ -256,6 +257,7 @@ export function OperationalJobs({worker=false,onSignIn,onRebook,initialJobId,vis
   const mounted=useRef(true),loads=useRef(0);
   const load=async(_background=true,force=false)=>{
     const id=++loads.current;
+    if(!auth.currentUser){setJobs([]);setError('');setLoading(false);return;}
     try {
       const data=await operation<{jobs:Job[]}>('/jobs',{}, {background:true,force});
       if(!mounted.current||id!==loads.current)return;
@@ -310,6 +312,7 @@ export function OperationalJobs({worker=false,onSignIn,onRebook,initialJobId,vis
     return active;
   };
 
+  if(!worker&&!auth.currentUser)return <BookingSignIn onSignIn={onSignIn}/>;
   return <section className={`operations ${worker?'agent-job-list':'reference-bookings'}`} aria-label={worker?'Assigned tasks':'Live bookings'}>
     <div className="ops-heading"><h2>{worker?'Your tasks':'Your bookings'}</h2><div className="ops-actions"><button aria-label={worker?"Refresh tasks":"Refresh bookings"} disabled={loading||refreshing||!!busy} onClick={async()=>{setRefreshing(true);try{await load(true,true);}finally{setRefreshing(false);}}}><RefreshCw size={17} className={refreshing?"booking-refreshing":""}/></button>{worker&&<button onClick={()=>void enableSound()} aria-pressed={sound}><Bell size={17}/>{sound?'Sound on':'Enable alerts'}</button>}</div></div>
     <div className="agent-list-filters">{[{id:'active',title:'Active',count:active.length},{id:'attention',title:'Needs you',count:attentionJobs.length},{id:'in_progress',title:'On site',count:inProgressJobs.length},{id:'history',title:'History',count:history.length}].map(f=><button key={f.id} data-filter={f.id} aria-pressed={filter===f.id} onClick={()=>setFilter(f.id)}>{f.title}<strong>{f.count}</strong></button>)}</div>

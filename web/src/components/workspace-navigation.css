@@ -1,0 +1,26 @@
+.portal-sidebar-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.operations .portal-menu-toggle{display:none}
+.portal-breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 16px;font-size:.8125rem;color:var(--ui-muted)}
+.operations .portal-breadcrumb button{padding:8px 0;background:transparent;border:0;color:var(--ui-link)}
+.portal-page-heading h1:focus{outline:none}
+.portal-sidebar nav button{font-size:.875rem;line-height:1.5}
+.portal-topbar>span{min-width:0;overflow-wrap:anywhere}
+.portal-topbar small{font-size:.75rem;line-height:1.6;color:var(--ui-muted)}
+@media(max-width:700px){
+ .portal-sidebar{padding:16px;border-bottom:1px solid var(--ui-line);border-right:0;gap:8px}
+ .portal-sidebar-heading .repaido-brand{flex:none;width:120px;max-width:40%}
+ .operations .portal-menu-toggle{display:inline-flex;gap:8px;min-width:44px;max-width:60%;padding:10px 12px;font-size:.8125rem;line-height:1.5;text-align:start}
+ .portal-menu-toggle svg{flex:none}
+ .operations .portal-menu-toggle[aria-expanded=true]{max-width:none;white-space:nowrap;flex:none}
+ .portal-sidebar>.ops-eyebrow{margin:0;font-size:.75rem}
+ .portal-sidebar[data-menu-open=false]>nav,.portal-sidebar[data-menu-open=false]>.portal-sidebar-bottom{display:none}
+ .portal-sidebar[data-menu-open=true]>nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:8px;padding-top:12px;overflow:visible}
+ .operations .portal-sidebar nav button{white-space:normal;min-width:0;text-align:start;align-items:center;font-size:.8125rem;padding:10px;line-height:1.5;background:var(--ui-subtle);border:1px solid var(--ui-line)}
+ .portal-sidebar nav button svg{flex:none}
+ .portal-sidebar-bottom{padding-top:12px;border-top:1px solid var(--ui-line)}
+ .portal-topbar{padding:12px 16px;gap:8px;font-size:.8125rem}
+ .portal-body main{padding:16px 16px 32px}
+ .portal-page-heading{margin-bottom:16px}
+ .portal-page-heading h1{font-size:1.5rem}
+ .portal-breadcrumb{margin-bottom:8px}
+}

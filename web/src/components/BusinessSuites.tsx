@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
-import {ArrowRight,Building2,CalendarDays,Car,ClipboardList,Home,MapPin,MoreHorizontal,Recycle,Route,Scale,ShieldCheck,Truck,UserRound,Users,Wallet,Wrench,type LucideIcon} from 'lucide-react';
+import {ArrowRight,Building2,CalendarDays,Car,ClipboardList,Home,MoreHorizontal,Recycle,Route,Scale,ShieldCheck,Truck,UserRound,Users,Wallet,Wrench,type LucideIcon} from 'lucide-react';
 import {BusinessCalendar,BusinessRecords,VehicleEditor,useBusinessRecords} from './LocalBusiness';
 import {DriverInvitations,SharedRideBookings,useSharedRecords,VehicleConnections} from './SharedRides';
 import {money} from '../services/operations';
@@ -22,19 +22,22 @@ export function BusinessAppLauncher({currentRole,registeredRoles,onClose}:{curre
 }
 function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,children}:{role:BusinessRole;title:string;description:string;partner:any;panels:Panel[];panel:string;onPanel:(p:string)=>void;action?:ReactNode;children:ReactNode}){
  const heading=useRef<HTMLHeadingElement>(null),frame=useRef<HTMLElement>(null),navigation=useRef<HTMLElement>(null),panelHeader=useRef<HTMLDivElement>(null),first=useRef(true);
- const mobility=role!=='scrap_owner',owner=role==='cab_owner';
+ const mobility=role!=='scrap_owner',owner=role==='cab_owner',scrap=role==='scrap_owner';
  const bookingPanels=panels.filter(p=>['cabs','shared','rentals'].includes(p.id));
- const inBookings=owner&&bookingPanels.some(p=>p.id===panel),inMore=owner&&['more','payments','account'].includes(panel);
+ const inBookings=owner&&bookingPanels.some(p=>p.id===panel),inMore=owner?['more','payments','account'].includes(panel):scrap&&['more','calendar','account'].includes(panel);
  const primary:Panel[]=owner?[
   {id:'overview',label:'Home',icon:Home},{id:'bookings',label:'Bookings',icon:ClipboardList},
   {id:'fleet',label:'Fleet',icon:Car},{id:'schedule',label:'Schedule',icon:CalendarDays},
+  {id:'more',label:'More',icon:MoreHorizontal}
+ ]:scrap?[
+  {id:'overview',label:'Home',icon:Home},{id:'requests',label:'Collect',icon:Truck},
+  {id:'weighing',label:'Inspect',icon:Scale},{id:'payments',label:'Payments',icon:Wallet},
   {id:'more',label:'More',icon:MoreHorizontal}
  ]:panels;
  const group=inBookings?'bookings':inMore?'more':panel;
  const label=panels.find(p=>p.id===panel)?.label||'Overview';
  const select=(id:string)=>onPanel(id==='bookings'?'cabs':id);
  useEffect(()=>{
-  if(!mobility)return;
   const measure=()=>{
    frame.current?.style.setProperty('--suite-nav-height',`${navigation.current?.getBoundingClientRect().height||0}px`);
    frame.current?.style.setProperty('--suite-header-height',`${panelHeader.current?.getBoundingClientRect().height||0}px`);
@@ -43,16 +46,16 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   if(navigation.current)observer.observe(navigation.current);
   if(panelHeader.current)observer.observe(panelHeader.current);
   measure();return()=>observer.disconnect();
- },[mobility]);
+ },[]);
  useEffect(()=>{
   if(first.current){first.current=false;return;}
-  if(mobility&&panelHeader.current&&frame.current&&frame.current.getBoundingClientRect().top<0){const top=window.scrollY+(panelHeader.current.parentElement?.getBoundingClientRect().top||0);window.scrollTo({top:Math.max(0,top),behavior:'instant'});}
+  if(panelHeader.current&&frame.current&&frame.current.getBoundingClientRect().top<0){const top=window.scrollY+(panelHeader.current.parentElement?.getBoundingClientRect().top||0);window.scrollTo({top:Math.max(0,top),behavior:'instant'});}
   heading.current?.focus({preventScroll:true});
  },[panel,mobility]);
- return <section ref={frame} className={'local-business-hub business-suite suite-'+role+(mobility?' suite-mobility':'')} aria-label={title}>
+ return <section ref={frame} className={'local-business-hub business-suite suite-workspace suite-'+role+(mobility?' suite-mobility':'')} aria-label={title}>
   <header className="suite-hero"><span className="suite-emblem" aria-hidden="true">{role==='cab_owner'?<Car/>:role==='driver'?<Route/>:<Recycle/>}</span><div><small>REPAIDO BUSINESS</small><h1>{title}</h1><p>{description}</p><span className="suite-business-name"><ShieldCheck size={15} aria-hidden="true"/>{partner.name} · {partner.city}</span></div></header>
   <div className="suite-layout">
-   <nav ref={navigation} className="suite-navigation" aria-label={title+' navigation'}>{primary.map(({id,label,icon:Icon})=><button key={id} aria-label={role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label} aria-current={group===id?'page':undefined} onClick={()=>select(id)}><Icon size={21} aria-hidden="true"/><span>{role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label}</span></button>)}</nav>
+    <nav ref={navigation} className="suite-navigation" aria-label={title+' navigation'}>{primary.map(({id,label,icon:Icon})=><button key={id} aria-label={scrap&&id==='requests'?'Collections':scrap&&id==='weighing'?'Inspection':role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label} aria-current={group===id?'page':undefined} onClick={()=>select(id)}><Icon size={21} aria-hidden="true"/><span>{role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label}</span></button>)}</nav>
    <div className="suite-content">
     <div ref={panelHeader} className="suite-panel-header">
      <nav className="suite-breadcrumb" aria-label="Breadcrumb"><button onClick={()=>onPanel('overview')}>{title}</button>{inBookings&&<><span aria-hidden="true">/</span><button onClick={()=>onPanel('cabs')}>Bookings</button></>}{inMore&&panel!=='more'&&<><span aria-hidden="true">/</span><button onClick={()=>onPanel('more')}>More</button></>}<span aria-hidden="true">/</span><span aria-current="page">{label}</span></nav>
@@ -121,16 +124,19 @@ export function DriverSuite({partner,accountControls}:{partner:any;accountContro
 }
 
 export function ScrapCollectorSuite({partner,accountControls}:{partner:any;accountControls?:ReactNode}){
+ const [recordId,setRecordId]=useState('');
  const [panel,setPanel]=useState('overview');const source=useBusinessRecords('scrap'),records=only(source,r=>r.customer_id!==source.uid&&(r.owner_id===source.uid||r.state==='requested'));
  const active=records.rows.filter(r=>!closed(r)),newRequests=active.filter(r=>r.state==='requested'),weighing=only(records,r=>['accepted','evaluated','agreed'].includes(r.state)),payments=only(records,r=>['agreed','payment_reported','completed','disputed'].includes(r.state));
  const paid=records.rows.filter(r=>r.state==='completed'&&r.payment_source==='customer_confirmed_receipt').reduce((s,r)=>s+(r.agreed_paise||0),0);
- const panels:Panel[]=[{id:'overview',label:'Overview',icon:Home},{id:'requests',label:'Collections',icon:Truck},{id:'weighing',label:'Inspection',icon:Scale},{id:'payments',label:'Payments',icon:Wallet},{id:'calendar',label:'Schedule',icon:CalendarDays},{id:'account',label:'Account',icon:UserRound}];
+ const panels:Panel[]=[{id:'overview',label:'Overview',icon:Home},{id:'requests',label:'Collections',icon:Truck},{id:'weighing',label:'Inspection',icon:Scale},{id:'payments',label:'Payments',icon:Wallet},{id:'calendar',label:'Schedule',icon:CalendarDays},{id:'account',label:'Account',icon:UserRound},{id:'more',label:'More',icon:MoreHorizontal}];
+ const open=(row:any)=>{setRecordId(row.id);setPanel(['agreed','payment_reported'].includes(row.state)?'payments':row.state==='requested'?'requests':'weighing');};
  return <SuiteFrame role="scrap_owner" title="Scrap collection suite" description="Clear weights. Agreed prices. Confirmed receipts." partner={partner} panels={panels} panel={panel} onPanel={setPanel}><ContractError error={records.error} onRetry={()=>void records.refresh()}/>
-  {panel==='overview'&&<><div className="suite-metrics"><Metric label="New collection requests" value={newRequests.length} onClick={()=>setPanel('requests')}/><Metric label="Inspection & approval" value={weighing.rows.length} onClick={()=>setPanel('weighing')}/><Metric label="Receipt confirmation pending" value={active.filter(r=>r.state==='payment_reported').length} onClick={()=>setPanel('payments')}/><Metric label="Customer-confirmed payments" value={money(paid)} onClick={()=>setPanel('payments')}/></div><NextWork rows={active} onOpen={r=>setPanel(['agreed','payment_reported'].includes(r.state)?'payments':'weighing')}/><div className="suite-service-grid"><PanelCard title="Collection area" description={'New requests come from customers within 8 km of your business base in '+partner.city+'.'}><MapPin size={20} aria-hidden="true"/></PanelCard><PanelCard title="Every collection, accounted for" description="Inspect the material, record gross and tare weight, send the quote for approval, then pay the customer."/></div></>}
-  {panel==='requests'&&<><p className="suite-intro">Review the material and pickup time. The customer’s exact address is shared after you accept.</p><BusinessRecords kind="scrap" records={records} owner managementRole="scrap_owner" heading="Collection requests"/></>}
-  {panel==='weighing'&&<><PanelCard title="Inspect → Weigh → Customer approves" description="Record the grade, gross weight, tare and your price per kilogram. Upload the weighing photo. Wait for the customer’s approval before collection and payment."/><BusinessRecords kind="scrap" records={weighing} owner managementRole="scrap_owner" heading="Inspection & weighing"/></>}
-  {panel==='payments'&&<><div className="suite-metrics"><Metric label="Customer-confirmed payments" value={money(paid)}/><Metric label="Approved amount to pay" value={money(active.filter(r=>r.state==='agreed').reduce((s,r)=>s+(r.agreed_paise||0),0))}/></div><p className="suite-intro">Record the actual payment reference after paying. The customer confirms receipt. A recorded reference alone does not confirm payment.</p><BusinessRecords kind="scrap" records={payments} owner managementRole="scrap_owner" heading="Customer payments"/></>}
+  {panel==='overview'&&<><div className="suite-metrics"><Metric label="New collection requests" value={newRequests.length} onClick={()=>setPanel('requests')}/><Metric label="Inspection & approval" value={weighing.rows.length} onClick={()=>setPanel('weighing')}/><Metric label="Receipt confirmation pending" value={active.filter(r=>r.state==='payment_reported').length} onClick={()=>setPanel('payments')}/><Metric label="Customer-confirmed payments" value={money(paid)} onClick={()=>setPanel('payments')}/></div><NextWork rows={active} onOpen={open} limit={1}/><div className="suite-quick-actions" role="group" aria-label="Manage collections">{[{id:'requests',label:'Collections',icon:Truck},{id:'weighing',label:'Inspection',icon:Scale},{id:'calendar',label:'Schedule',icon:CalendarDays}].map(({id,label,icon:Icon})=><button key={id} onClick={()=>setPanel(id)}><Icon size={19} aria-hidden="true"/><span>{label}</span></button>)}</div><p className="suite-intro">Collection area: within 8 km of your business base in {partner.city}.</p></>}
+  {panel==='requests'&&<><p className="suite-intro">Review the material and pickup time. The customer’s exact address is shared after you accept.</p><BusinessRecords kind="scrap" records={records} owner managementRole="scrap_owner" initialRecordId={recordId} heading="Collection requests"/></>}
+  {panel==='weighing'&&<><p className="suite-intro">Record the grade, weights and price per kilogram. The customer reviews your quote before you collect and pay.</p><BusinessRecords kind="scrap" records={weighing} owner managementRole="scrap_owner" initialRecordId={recordId} heading="Inspection & weighing"/></>}
+  {panel==='payments'&&<><div className="suite-metrics"><Metric label="Customer-confirmed payments" value={money(paid)}/><Metric label="Approved amount to pay" value={money(active.filter(r=>r.state==='agreed').reduce((s,r)=>s+(r.agreed_paise||0),0))}/></div><p className="suite-intro">Record the actual payment reference after paying. The customer confirms receipt. A recorded reference alone does not confirm payment.</p><BusinessRecords kind="scrap" records={payments} owner managementRole="scrap_owner" initialRecordId={recordId} heading="Customer payments"/></>}
   {panel==='calendar'&&<CalendarPanel rows={records.rows.filter(r=>r.owner_id===source.uid)}>{month=><BusinessRecords kind="scrap" records={records} owner managementRole="scrap_owner" dateFilter={month} heading="Scheduled collections"/>}</CalendarPanel>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
+  {panel==='more'&&<div className="suite-menu">{[{id:'calendar',label:'Schedule',description:'Upcoming collections and work history',icon:CalendarDays},{id:'account',label:'Account',description:'Business profile and account settings',icon:UserRound}].map(({id,label,description,icon:Icon})=><button key={id} onClick={()=>setPanel(id)}><Icon size={22} aria-hidden="true"/><span><strong>{label}</strong><small>{description}</small></span><ArrowRight size={18} aria-hidden="true"/></button>)}</div>}
  </SuiteFrame>;
 }

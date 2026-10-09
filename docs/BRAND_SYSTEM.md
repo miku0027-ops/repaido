@@ -36,6 +36,11 @@ on larger screens, with a 16px radius. Form controls keep 16px text; primary
 interactive targets are at least 44px high. Layouts must remain usable at 320px
 and with 200% text. Do not truncate essential prices, status or error messages.
 
+Supporting labels in worker and business suites use at least 0.75rem; operating
+instructions use 0.875rem. Use relative font sizes so reading preferences enlarge
+the text. Calendar labels may wrap instead of clipping; text markers identify each day’s state without relying on colour. Fixed navigation measures
+its actual height and reserves that space below the final record and action.
+
 ## Colour and accessibility
 
 | Role | Light theme | Dark theme |
@@ -76,13 +81,29 @@ might already have succeeded.
 - `brand-system.browser.mjs` checks actual card/account components in both themes,
   at 320/465/1280px and enlarged text, with AAA contrast enabled.
 - `brand-screens.browser.mjs` checks customer navigation and marketplace sections
-  against a disposable local SQLite API, in both themes.
+  against a disposable local SQLite API, in both themes, at mobile/desktop widths
+  and 200% text. It checks Poppins, AAA contrast and all five guest Bookings panels.
+- `business-suites.browser.mjs` checks cab, driver, scrap and agent panels, fixed
+  navigation, collection and journey actions, uploads, role permissions and idle
+  states. `company-admin.browser.mjs` checks the compact mobile menu, content in
+  both themes, independent loading, recovery and account changes.
 - Existing market, wholesale, hiring, action-feedback and custom-contract browser suites
   exercise submission errors, recovery and confirmed outcomes with isolated data.
 
 The Android customer app renders the same web interface. Native Poppins family
 resources and their licence also live in the customer and agent Android apps; those require an APK
 build to update the native launch screen.
+
+Guest Bookings uses one sign-in card per panel. A normal sign-in requirement is
+not an error or a failed connection and must not start a retry loop. Market empty
+states offer Clear filters only when a filter is active; the page does not add a
+second viewport of blank space inside the app shell. Carousel page controls use
+a 44px target around a small visual dot, rather than displaying oversized dots.
+
+The company/shop workspace uses a sidebar on desktop and an explicit workspace
+menu on phones. Selecting a destination closes the phone menu, updates the
+breadcrumb and focuses the new heading. All destinations remain available; API
+errors do not change the selected workspace or erase already loaded records.
 
 Customer contract details use the same spacing and status hierarchy as booking
 cards: a breadcrumb, a summary card, a four-stage trail and named management

@@ -9,7 +9,7 @@ const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAY
 const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdtemp(resolve(tmpdir(),'repaido-admin-')),api='http://127.0.0.1:8056',origin='http://127.0.0.1:5187';
 const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/company_admin_api.py',work+'/test.db','8056'],{cwd:resolve(web,'../backend'),stdio:['ignore','pipe','pipe']});let log='',browser;for(const stream of [server.stdout,server.stderr])stream.on('data',data=>log+=data);
 const checks=[],errors=[],requests=[],writes=[],pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let failWorkers=true,failJobs=true,slowJobs=false;
-async function tab(page,name){await page.getByRole('navigation',{name:'Company workspace'}).getByRole('button',{name,exact:true}).click();await page.getByRole('heading',{name,exact:true,level:1}).waitFor();}
+async function tab(page,name){const menu=page.getByRole('button',{name:'Workspace menu',exact:true});if(await menu.isVisible()&&await menu.getAttribute('aria-expanded')==='false')await menu.click();await page.getByRole('navigation',{name:'Company workspace'}).getByRole('button',{name,exact:true}).click();await page.getByRole('heading',{name,exact:true,level:1}).waitFor();}
 async function records(path,token='admin-a'){const response=await fetch(api+'/operations'+path,{headers:{Authorization:'Bearer '+token}});assert(response.ok);return response.json();}
 try{
  for(let i=0;i<120;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}
@@ -28,7 +28,7 @@ try{
  for(const width of [320,465,800,1440])for(const theme of ['light','dark'])for(const scale of [100,200]){
   await page.setViewportSize({width,height:850});await page.evaluate(({theme,scale})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=scale+'%';},{theme,scale});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'overview overflow '+width+' '+theme+' '+scale);
-  const issues=await page.evaluate(async()=>(await window.axe.run('#portal-content',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']}})).violations.map(issue=>({id:issue.id,nodes:issue.nodes.map(node=>({target:node.target,summary:node.failureSummary}))})));
+  const issues=await page.evaluate(async()=>(await window.axe.run('#portal-content',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}})).violations.map(issue=>({id:issue.id,nodes:issue.nodes.map(node=>({target:node.target,summary:node.failureSummary}))})));
   assert.deepEqual(issues,[],'overview accessibility '+width+' '+theme+' '+scale);
  }
  await page.setViewportSize({width:465,height:850});await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});checks.push('overview loading and failure panels have accessible feedback, AAA contrast and responsive layouts');
@@ -46,6 +46,16 @@ try{
   if(name==='Moderation')await page.getByText('No evidence corrections or review reports yet.',{exact:true}).waitFor();
 
  }
+ for(const name of ['Transport & scrap','Workers','Shops','Activity','Finance','Support','Moderation','Rentals','Procurement']){
+  await tab(page,name);await page.waitForTimeout(250);
+  for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);const issues=await page.evaluate(async()=>(await window.axe.run('#portal-content',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}})).violations.map(issue=>({id:issue.id,nodes:issue.nodes.map(node=>({target:node.target,summary:node.failureSummary}))})));assert.deepEqual(issues,[],name+' content accessibility '+theme);}
+ }
+ await page.evaluate(()=>document.documentElement.dataset.theme='light');
+ const menu=page.getByRole('button',{name:'Workspace menu',exact:true});await menu.click();await page.setViewportSize({width:320,height:850});await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+ assert.equal(await page.getByRole('navigation',{name:'Company workspace'}).getByRole('button').count(),17);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'expanded company menu reflows at 200%');
+ const menuIssues=await page.evaluate(async()=>(await window.axe.run('.portal-sidebar',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}})).violations.map(v=>v.id));assert.deepEqual(menuIssues,[]);
+ await page.screenshot({path:work+'/company-menu-320-200.png',fullPage:true});await page.setViewportSize({width:465,height:850});await page.evaluate(()=>document.documentElement.style.fontSize='100%');await menu.click();
+ checks.push('company content and mobile menu: AAA contrast, 200% text, all destinations, breadcrumbs and focus');
  checks.push('all remaining company tabs render and fetch their own authorized API during an overview outage');
 
  failWorkers=false;await tab(page,'Overview');await page.getByRole('button',{name:'Refresh overview',exact:true}).click();await page.locator('.portal-metrics strong').filter({hasText:/^2$/}).waitFor();await page.getByRole('button',{name:'Retry bookings',exact:true}).waitFor();checks.push('partial recovery displays actual worker count while bookings failure remains isolated');

@@ -192,7 +192,7 @@
     gap: 8px !important; padding: 10px 16px !important; border-radius: 10px !important;
     background: var(--ui-primary) !important; color: #fff !important; font-weight: 600 !important;
   }
-  button:disabled:not([aria-busy=true]) { background: var(--ui-subtle) !important; color: var(--ui-muted) !important; border-color: var(--ui-control) !important; cursor: not-allowed !important; box-shadow: none !important; }
+  button:disabled:not([aria-busy=true]) { background: var(--ui-subtle) !important; color: var(--ui-muted) !important; border-color: var(--ui-control) !important; opacity: 1 !important; cursor: not-allowed !important; box-shadow: none !important; }
   :where(.cc-card>.cc-actions button,.rp-opportunity-actions button) { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; }
   .account-hub-heading,.account-hub-heading h1 { color: var(--ui-ink) !important; }
   .account-hub-heading p,.account-hub-eyebrow { color: var(--ui-muted) !important; }
@@ -259,5 +259,103 @@
   .cc-workspace .cc-panel-toggle { background: var(--ui-surface) !important; color: var(--ui-ink) !important; border: 0 !important; padding: var(--card-padding) !important; border-radius: var(--ui-radius) !important; }
   .cc-workspace .cc-panel-content>.cc-section { padding: 0 !important; }
   .cc-workspace .cc-contract-stages li[aria-current]>span { color: #fff !important; }
+
+  /* Supporting copy remains readable and scales with the app's text setting. */
+  :where(.suite-card p,.suite-intro,.suite-empty p,.suite-launcher-note,
+    .market-detail-disclaimer,.market-detail-specs dd,.market-photo-label,
+    .market-form-promo-badge,.market-card-sub,.market-photo-controls,
+    .business-record>p,.business-note) { font-size: .875rem !important; line-height: 1.65 !important; }
+  :where(.market-card-loc,.market-card-hsn-badge,.market-detail-hsn,
+    .market-detail-specs dt,.market-policy-badge,.market-fee-note,
+    .market-report-details,.market-terms-check,.market-photo-placeholder,
+    .repaido-customer-footer .trust-pillar-card p,
+    .repaido-customer-footer .page-width>div:nth-child(2) p,
+    .repaido-customer-footer .footer-city-list,.repaido-customer-footer .page-width>p) {
+    font-size: .75rem !important; line-height: 1.6 !important;
+  }
+  :where(.market-card-loc,.market-detail-specs dt,.market-report-details) { color: var(--ui-muted) !important; }
+  :where(.market-card-hsn-badge,.market-detail-hsn,.market-photo-placeholder) {
+    background: var(--ui-subtle) !important; color: var(--ui-ink) !important;
+  }
+  .market-fee-note,.market-policy-badge { color: var(--ui-success) !important; }
+  .market-policy-badge { background: var(--ui-success-surface) !important; }
+  .market-detail-disclaimer { color: var(--ui-warning) !important; background: var(--ui-warning-surface) !important; }
+  .market-detail-verified-badge { color: var(--ui-success) !important; background: var(--ui-success-surface) !important; }
+  .market-photo-preview-wrap,.market-photo-placeholder { width: 96px !important; height: 96px !important; }
+  .market-photo-remove { width: 44px !important; height: 44px !important; min-width: 44px !important; padding: 8px !important; border-radius: 10px !important; background: #0b132b !important; color: #fff !important; }
+  :where(.market-card-manage button,.market-form-loc-btn,.market-contact-btn,.market-submit-btn) {
+    height: auto !important; font-size: .875rem !important; padding: 10px 12px !important;
+  }
+  .market-photo-box { flex-wrap: wrap; }
+  .market-photo-controls { min-width: min(100%,160px); max-width: 100%; }
+  .market-photo-controls input[type=file] { max-width: 100%; }
+  .spare-catalog-empty { padding: 28px 20px !important; border-radius: var(--card-radius) !important; box-shadow: var(--card-shadow) !important; }
+  .spare-catalog-empty p { font-size: .875rem !important; line-height: 1.65 !important; }
+  .market-experience .stores-mobile-app-shell { min-height: 0 !important; }
+  .market-experience .stores-hub-container { padding-bottom: 24px !important; }
+  :where(.suite-card,.worker-calendar,.worker-account-tools,.worker-completion) {
+    border-radius: var(--card-radius) !important; border-color: var(--ui-line) !important;
+  }
+  .operations.ops-worker:has(.ops-bottom-nav) { padding-bottom: calc(var(--worker-nav-height,100px) + 24px) !important; }
+  .ops-worker .worker-welcome-compact { flex-wrap: wrap; }
+  .ops-worker .worker-welcome-compact>div { min-width: 0; }
+  .ops-worker .ops-bottom-nav button { white-space: normal !important; height: auto !important; }
+  .ops-worker .ops-bottom-nav button span { font-size: .75rem !important; white-space: normal !important; overflow-wrap: anywhere !important; }
+  .ops-worker .worker-download span { background: #14532d !important; color: #fff !important; }
+  .task-slide-nav-btn { opacity: 1 !important; width: 44px !important; height: 44px !important; }
+  .task-slide-dot { position: relative; width: 44px !important; height: 44px !important; min-width: 44px !important; padding: 0 !important; border: 0 !important; border-radius: 10px !important; background: transparent !important; }
+  .task-slide-dot::before { content: ''; display: block; width: 8px; height: 8px; margin: auto; border-radius: 8px; background: var(--ui-control); }
+  .task-slide-dot.active::before { width: 24px; background: var(--ui-primary); }
+  [data-theme=dark] .task-slide-dot.active::before { background: var(--ui-link); }
+  .task-slideshow-header { flex-wrap: wrap; gap: 8px; }
+  .task-slide-counter { flex-wrap: wrap; }
+  .android-main-content { background: var(--ui-subtle) !important; }
+  .desktop-sidebar-nav { padding: 4px; max-height: calc(100dvh - var(--customer-header-height,80px) - 32px); overflow-y: auto; }
+  .desktop-sidebar-nav p { color: var(--ui-ink) !important; }
+  .desktop-sidebar-nav button { background: transparent !important; color: var(--ui-muted) !important; }
+  .desktop-sidebar-nav button:hover { background: var(--ui-surface) !important; color: var(--ui-ink) !important; }
+  .desktop-sidebar-nav button[aria-current=page] { background: var(--ui-primary) !important; color: #fff !important; }
+  .desktop-sidebar-nav button svg { color: inherit !important; }
+  .desktop-sidebar-nav :is(.bg-red-500,.bg-blue-600) { background: #17285c !important; color: #fff !important; }
+  .operations th { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  .operations :is(th,td) { border-color: var(--ui-line) !important; }
+  .work-network { color: var(--ui-ink) !important; }
+  .work-network :is(h2,h3,h4,label,strong,dt,dd) { color: var(--ui-ink) !important; }
+  .work-network :is(p,small,.wn-muted,.wn-intro,.wn-skills) { color: var(--ui-muted) !important; }
+  .work-network :is(.wn-empty,.wn-filters,.wn-avatar) { background: var(--ui-subtle) !important; color: var(--ui-muted) !important; }
+  .work-network .wn-empty>svg { color: inherit !important; }
+  .work-network :is(input:not([type=checkbox]),select,textarea,.wn-search) { background: var(--ui-surface) !important; color: var(--ui-ink) !important; border-color: var(--ui-control) !important; }
+  .work-network button { color: var(--ui-ink) !important; background: var(--ui-surface) !important; border-color: var(--ui-control) !important; }
+  .work-network :is(.wn-primary,.wn-tabs button[aria-pressed=true]) { background: var(--ui-primary) !important; color: #fff !important; border-color: var(--ui-primary) !important; }
+  .work-network .wn-pills button[aria-pressed=true] { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  :where(.work-kicker,.worker-profile-status>small,.agent-grid-title,.agent-grid-sub,
+    .work-month-metrics>span,.work-calendar-grid .weekday,.work-legend span,
+    .work-footnote,.work-accordion small,.work-score-row small,
+    .work-task-record small,.work-day-stats dt) { color: var(--ui-muted) !important; }
+  :where(.worker-welcome-compact h1,.worker-calendar h2,.worker-calendar h3,
+    .work-month-metrics strong,.work-accordion summary strong,.agent-grid-num) { color: var(--ui-ink) !important; }
+  :where(.worker-calendar,.worker-account-tools,.work-task-record,.worker-day-detail,
+    .ops-worker .agent-grid-btn) { background: var(--ui-surface) !important; color: var(--ui-ink) !important; }
+  :where(.worker-completion,.ops-worker .agent-grid-btn.is-selected) { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  .ops-worker .agent-badge-pill { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  .ops-worker .badge-emerald { background: var(--ui-success-surface) !important; color: var(--ui-success) !important; }
+  .ops-worker .badge-cyan { background: var(--ui-subtle) !important; color: var(--ui-link) !important; }
+  .ops-worker .worker-calendar [data-tone] { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  .ops-worker .worker-calendar [data-tone=earning] { background: var(--ui-success-surface) !important; color: var(--ui-success) !important; }
+  .ops-worker .worker-calendar :is([data-tone=penalty],[data-tone=mixed]) { background: var(--ui-warning-surface) !important; color: var(--ui-warning) !important; }
+  .ops-worker .worker-calendar [data-tone=online] { background: var(--ui-subtle) !important; color: var(--ui-link) !important; }
+  .ops-worker .worker-calendar [data-tone=worked] { background: #e8f6f3 !important; color: #064d49 !important; }
+  .ops-worker .worker-calendar [data-tone=scheduled] { background: #eeeafa !important; color: #44285e !important; }
+  .worker-download { background: var(--ui-success-surface) !important; color: var(--ui-success) !important; }
+  .ops-worker .worker-location-notice { background: var(--ui-warning-surface) !important; color: var(--ui-warning) !important; border-color: var(--ui-warning) !important; }
+  .worker-location-notice :is(p,summary) { color: inherit !important; }
+  .ops-worker :is(.worker-location-notice button,.worker-profile-status button) { background: var(--ui-surface) !important; color: var(--ui-ink) !important; border-color: var(--ui-control) !important; }
+  :where(dialog.work-network-sheet,.wn-entry,.contract-hiring-entry,.wn-plan) { background: var(--ui-surface) !important; color: var(--ui-ink) !important; border-color: var(--ui-line) !important; }
+  :where(.wn-profile-hero,.wn-stats>span,.wn-paywall,.wn-message,.wn-reply,.wn-plan.is-current,.wn-notice) { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  .wn-entry :is(strong,small) { color: inherit !important; }
+  .wn-entry-tag { background: var(--ui-subtle) !important; color: var(--ui-link) !important; }
+  .wn-error { background: var(--ui-danger-surface) !important; color: var(--ui-danger) !important; }
+  .wn-message.is-own { background: var(--ui-primary) !important; color: #fff !important; }
+  .work-network .wn-message.is-own :is(p,small,strong) { color: #fff !important; }
 
 }

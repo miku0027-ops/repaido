@@ -282,7 +282,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
 
 
   return (
-    <div className="spare-parts-shop-container stores-hub-container bg-slate-100/70 text-slate-800 min-h-screen pb-24 text-sm antialiased selection:bg-blue-600 selection:text-white font-sans">
+    <div className="spare-parts-shop-container stores-hub-container bg-slate-100/70 text-slate-800 pb-6 text-sm antialiased selection:bg-blue-600 selection:text-white font-sans">
       <div className="stores-mobile-app-shell">
         {/* 1. MASTER STORES HUB HEADER */}
       <header className="stores-hub-header">
@@ -469,15 +469,15 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           {sortBy==='popularity'&&sortedProducts.some(p=>p.prime?.active)&&<p className="prime-placement-note">Prime shops receive paid priority in these results. Price and newest sorts follow your selection.</p>}
 
       {/* 4. Flipkart-Style Product Grid ("more alligned cards with shadowed back") */}
-      <main className="max-w-7xl mx-auto p-2 sm:p-4 pt-1 sm:pt-2">
+      <section aria-label="Products" className="max-w-7xl mx-auto p-2 sm:p-4 pt-1 sm:pt-2">
         {catalogLoading?<p role="status" className="prime-placement-note">Loading shop inventory…</p>:catalogError?null:sortedProducts.length === 0 ? (
           <div className="spare-catalog-empty bg-white rounded-xl border border-slate-200 p-12 text-center shadow-md max-w-lg mx-auto space-y-3">
             <Package className="w-12 h-12 text-slate-300 mx-auto" />
             <h3 className="text-sm font-bold text-slate-900">{section==='refurbished'?'No refurbished products available':'No new parts available'}</h3>
             <p className="text-xs text-slate-500">
-              Only confirmed shop inventory appears here. Try other filters or check back after shops update their stock.
+              {activeFilterCount||searchQuery||selectedCategory!=='all'?'Try another category or clear your filters.':'Products appear here when local shops list their stock.'}
             </p>
-            <button
+            {(activeFilterCount>0||!!searchQuery||selectedCategory!=='all')&&<button
               type="button"
               onClick={() => {
                 setSearchQuery('');
@@ -488,8 +488,8 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               }}
               className="px-4 py-2 bg-[#2874f0] hover:bg-blue-600 text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
             >
-              Reset All Filters
-            </button>
+              Clear filters
+            </button>}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
@@ -574,7 +574,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             })}
           </div>
         )}
-      </main>
+      </section>
         </section>
       )}
 

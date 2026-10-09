@@ -13,7 +13,9 @@ One Firebase phone identity can hold a service-work profile and independently re
 
 Cab owners have five persistent bottom destinations: **Home**, **Bookings**, **Fleet**, **Schedule** and **More**. Bookings contains Shared rides, Cab bookings and Self-drive; More contains Payments and Account. Drivers have **Today**, **Cab rides**, **Shared rides**, **Vehicles** and **Account**. The same navigation works at mobile and desktop widths. Breadcrumbs show the current panel and provide a return to its parent.
 
-The compact home screen shows counts, the next scheduled booking and service shortcuts. Selecting the scheduled booking opens that record directly. Cab and shared-ride queues display one selected record with a native picker and previous/next controls, instead of stacking every full booking. Quiet polling retains the selected record when new requests arrive; a record that leaves the current filter falls back to an available record. Customer and scrap record lists retain their existing layout.
+Scrap collectors have five persistent destinations: **Home**, **Collect**, **Inspect**, **Payments** and **More**. More contains Schedule and Account. Each suite keeps its own work, actions and permissions.
+
+The compact home screen shows counts, the next scheduled booking and service shortcuts. Selecting the scheduled booking opens that record directly. Cab, shared-ride and scrap queues display one selected record with a native picker and previous/next controls, instead of stacking every full booking. Quiet polling retains the selected record when new requests arrive; a record that leaves the current filter falls back to an available record. Customer record lists retain their existing layout.
 
 Panel breadcrumbs, fleet creation and the current booking's operation controls remain visible while scrolling. Bottom clearance follows the measured navigation height, including increased text size and the device safe area. Short landscape screens use ordinary scrolling for panel headers and action controls. Journey actions precede the map. These layout changes do not alter approval, assignment, payment or journey authorization.
 
