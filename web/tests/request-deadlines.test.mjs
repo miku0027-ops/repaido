@@ -50,3 +50,21 @@ test('automatic POSTs and read-only searches remain quiet for the entire request
   await assert.rejects(request,{name:'TimeoutError'});assert.deepEqual(actionFeedback.getSnapshot(),[],path);
  }
 });
+
+for(const origin of ['https://repaido.web.app','https://repaido.firebaseapp.com']){
+ test('production '+origin+' uses its hosted API for admin reads and private media',async()=>{
+  const productionSource=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',"''").replaceAll('import.meta.env.DEV','false'));
+  const api=await import(moduleUrl('const location={origin:'+JSON.stringify(origin)+'};\n'+productionSource));
+  let request;globalThis.fetch=async(url,init)=>{request={url,init};return new Response('{}');};
+  await api.apiFetch('/api/operations/admin/workers',{headers:{Authorization:'Bearer fixture-admin'}});
+  assert.equal(request.url,'/api/operations/admin/workers');assert.equal(request.init.headers.Authorization,'Bearer fixture-admin');
+  assert.equal(api.apiAssetUrl('/api/operations/admin/documents/private'),'/api/operations/admin/documents/private');
+ });
+}
+test('explicit API deployments and the non-Firebase production fallback remain usable',async()=>{
+ for(const [configured,page,expected] of [['https://api.example.test/','https://repaido.web.app','https://api.example.test'],['','https://other.example.test','https://repaido-api-rivzaqvyvq-uc.a.run.app']]){
+  const code=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',JSON.stringify(configured)).replaceAll('import.meta.env.DEV','false'));
+  const api=await import(moduleUrl('const location={origin:'+JSON.stringify(page)+'};\n'+code));let sent;
+  globalThis.fetch=async(url)=>{sent=url;return new Response('{}');};await api.apiFetch('/api/operations/admin/jobs');assert.equal(sent,expected+'/api/operations/admin/jobs');
+ }
+});

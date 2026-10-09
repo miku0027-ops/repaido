@@ -16,6 +16,7 @@ import {VisitEvidence} from './VisitEvidence';
 import {useEffect,useState,type ReactNode} from 'react';
 import {LayoutDashboard,Users,Store,ClipboardList,Wallet,Headphones,ShieldCheck,LogOut,ArrowLeft} from 'lucide-react';
 import {operation,money,type Job,type LiveWorker} from '../services/operations';
+import {useOperationResource} from '../hooks/useOperationResource';
 import {logoutUser} from '../services/repaidoService';
 import RepaidoBrand from './RepaidoBrand';
 import PortalAccess from './PortalAccess';
@@ -34,15 +35,10 @@ function Workspace({onBack,shop}:{onBack:()=>void;shop:boolean}){
   return <div className="operations portal-shell"><a href="#portal-content" className="portal-skip">Skip to workspace</a><aside className="portal-sidebar"><RepaidoBrand size="md"/><p className="ops-eyebrow">{shop?'Shop partner':'Company admin'}</p><nav aria-label={shop?'Shop workspace':'Company workspace'}>{links.map(({name,Icon})=><button key={name} aria-current={tab===name?'page':undefined} onClick={()=>setTab(name)}><Icon size={20} aria-hidden="true"/>{name}</button>)}</nav><div className="portal-sidebar-bottom"><p>{shop?'Approval protects the quality of our partner network.':'Your role determines which records and actions you can access.'}</p><button onClick={onBack}><ArrowLeft size={18}/>Customer app</button><button onClick={()=>void logoutUser().catch(e=>setError(e.message))}><LogOut size={18}/>Sign out</button></div></aside><div className="portal-body"><header className="portal-topbar"><span>{shop?'Partner workspace':'Operations workspace'}{!shop&&auth.currentUser?.email&&<small style={{display:'block'}}>{auth.currentUser.email}</small>}</span><span className="ops-badge"><ShieldCheck size={16}/>Restricted access</span></header><main id="portal-content" tabIndex={-1}>{error&&<p role="alert" className="ops-error">{error}</p>}{shop?<ShopRegistration>{s=><AdminContent shop shopId={s.id} title={s.name} tab={tab} onTab={setTab}/>}</ShopRegistration>:<AdminContent shop={false} tab={tab} onTab={setTab}/>}</main></div></div>;
 }
 function AdminContent({shop,shopId,tab,onTab,title}:{shop:boolean;shopId?:string;tab:string;onTab:(t:string)=>void;title?:string}){
- const [workers,setWorkers]=useState<LiveWorker[]>([]),[jobs,setJobs]=useState<Job[]>([]),[orders,setOrders]=useState<{job_id:string;worker_name:string;items:{name:string;quantity:number}[]}[]>([]);
- const [error,setError]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[reason,setReason]=useState(''),[evidence,setEvidence]=useState('');
- const load=async()=>{setBusy(true);setError('');try{if(!shop)await auth.currentUser?.getIdToken(true);if(shop){setOrders((await operation<{orders:typeof orders}>('/shop/orders')).orders);}else{setWorkers((await operation<{workers:LiveWorker[]}>('/admin/workers')).workers);setJobs((await operation<{jobs:Job[]}>('/admin/jobs')).jobs);}setLoaded(true);}catch(e){setLoaded(false);setError((e as Error).message);}finally{setBusy(false);}};
- useEffect(()=>{void load();},[]);
- const review=async(w:LiveWorker,decision:string)=>{setBusy(true);setError('');try{await operation(`/admin/workers/${w.id}/review`,{method:'POST',body:JSON.stringify({decision,role:'technician',reason,evidence_reference:evidence})});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  let content:ReactNode=null;
- if(loaded&&shop)content=tab==='Rentals'?<ShopRentals/>:tab==='Shop Prime'?<ShopPrime/>:tab==='Inventory'?<ShopInventory/>:tab==='B2B Wholesale'?<ShopB2BSection shopId={shopId||''} shopName={title||'Partner Hub'}/>:tab==='Earnings'?<ShopPayables/>:<ShopPurchaseOrders/>;
- if(loaded&&!shop){
-  if(tab==='Overview')content=<><div className="portal-metrics">{[['Workers',workers.length,'Registered professionals'],['Bookings',jobs.filter(j=>!['completed','cancelled'].includes(j.state)).length,'Open service tasks'],['Shops','Review','Applications and verification']].map(([name,value,label])=><button key={name} onClick={()=>onTab(String(name))}><span>{name}</span><strong>{value}</strong><span>{label}</span></button>)}</div><section className="ops-card"><h2>Today’s operations</h2><p>Review new shop and worker applications, follow active bookings and resolve customer issues. Select a workspace from the sidebar.</p><div className="ops-actions"><button onClick={()=>onTab('Shops')}>Review shop applications</button><button onClick={()=>onTab('Bookings')}>Open bookings</button></div></section></>;
+ if(shop)content=tab==='Rentals'?<ShopRentals/>:tab==='Shop Prime'?<ShopPrime/>:tab==='Inventory'?<ShopInventory/>:tab==='B2B Wholesale'?<ShopB2BSection shopId={shopId||''} shopName={title||'Partner Hub'}/>:tab==='Earnings'?<ShopPayables/>:<ShopPurchaseOrders/>;
+ else {
+  if(tab==='Overview')content=<CompanyOverview onTab={onTab}/>;
   if(tab==='Partner programme')content=<PartnerAdmin/>;
   if(tab==='Home plans')content=<HomePlanAdmin/>;
   if(tab==='Global Control')content=<CampaignAdmin/>;
@@ -54,13 +50,35 @@ function AdminContent({shop,shopId,tab,onTab,title}:{shop:boolean;shopId?:string
   if(tab==='Workers')content=<OnboardingOverview/>;
   if(tab==='Rankings')content=<LocalLeaderboard/>;
   if(tab==='Activity')content=<AuditHistory/>;
-  if(tab==='Bookings')content=jobs.length?<div className="portal-card-grid">{jobs.map(j=><article className="ops-card" key={j.id}><h3>{j.service_name}</h3><p>{j.state} · {j.city} · {money(j.total_paise)}</p><p>{j.worker_name||'Awaiting assignment'} · payout {j.payout_status}</p><AdminRecovery job={j} onRefresh={load}/><details><summary>Private visit evidence</summary><VisitEvidence job={j} admin onRefresh={load}/></details></article>)}</div>:<p className="ops-empty">No bookings yet. Customer booking requests appear here.</p>;
+  if(tab==='Bookings')content=<CompanyBookings/>;
   if(tab==='Transport & scrap')content=<LocalBusinessAdmin/>;
   if(tab==='Finance')content=<><HiringAdmin/><FinanceReview/><RefundReview/></>;
   if(tab==='Support')content=<SupportCenter admin/>;
   if(tab==='Moderation')content=<><NetworkModeration/><EvidenceReview/></>;
  }
- return <><div className="ops-heading portal-page-heading"><div><span className="ops-eyebrow">{shop?'Approved shop':'Repaido operations'}</span><h1>{title||tab}</h1><p>{shop?'Manage parts orders and collections.':'A dedicated workspace for your company team.'}</p></div><button disabled={busy} onClick={()=>void load()}>{busy?'Loading…':'Refresh'}</button></div>{error&&<p role="alert" className="ops-error">{error}</p>}{!loaded&&!busy&&<p>Access could not be loaded. Sign in with an authorized account or retry the connection. Company roles cannot be self-registered.</p>}{content}</>;
+ return <><div className="ops-heading portal-page-heading"><div><span className="ops-eyebrow">{shop?'Approved shop':'Repaido operations'}</span><h1>{title||tab}</h1><p>{shop?'Manage parts orders and collections.':'A dedicated workspace for your company team.'}</p></div></div>{content}</>;
+}
+
+function CompanyOverview({onTab}:{onTab:(tab:string)=>void}){
+ const workers=useOperationResource<{workers:LiveWorker[]}>('/admin/workers',60000),jobs=useOperationResource<{jobs:Job[]}>('/admin/jobs',60000);
+ const refresh=async()=>{await Promise.all([workers.refresh(),jobs.refresh()]);};
+ return <><button disabled={workers.busy||jobs.busy} onClick={()=>void refresh()}>{workers.busy||jobs.busy?'Refreshing overview…':'Refresh overview'}</button>
+  <div className="portal-metrics">
+   <button onClick={()=>onTab('Workers')}><span>Workers</span><strong>{workers.data?workers.data.workers.length:workers.busy?'Loading…':'Unavailable'}</strong><span>Registered professionals</span></button>
+   <button onClick={()=>onTab('Bookings')}><span>Bookings</span><strong>{jobs.data?jobs.data.jobs.filter(job=>!['completed','cancelled'].includes(job.state)).length:jobs.busy?'Loading…':'Unavailable'}</strong><span>Open service tasks</span></button>
+   <button onClick={()=>onTab('Shops')}><span>Shops</span><strong>Review</strong><span>Applications and verification</span></button>
+  </div>
+  <AdminResourceStatus name="workers" resource={workers}/><AdminResourceStatus name="bookings" resource={jobs}/>
+  <section className="ops-card"><h2>Today’s operations</h2><p>Review applications, follow bookings and resolve customer issues. Each workspace loads its own records.</p><div className="ops-actions"><button onClick={()=>onTab('Shops')}>Review shop applications</button><button onClick={()=>onTab('Bookings')}>Open bookings</button></div></section>
+ </>;
+}
+function AdminResourceStatus({name,resource}:{name:string;resource:{data:unknown;error:string;busy:boolean;refresh:()=>Promise<void>}}){
+ if(resource.error)return <div className="ops-notice" role="alert"><strong>Could not load {name}.</strong><p>{resource.error}</p>{resource.data!=null&&<p>Showing the last loaded records.</p>}<button disabled={resource.busy} onClick={()=>void resource.refresh()}>{resource.busy?'Retrying…':'Retry '+name}</button></div>;
+ return resource.data==null&&resource.busy?<p role="status">Loading {name}…</p>:null;
+}
+function CompanyBookings(){
+ const resource=useOperationResource<{jobs:Job[]}>('/admin/jobs',60000),jobs=resource.data?.jobs||[];
+ return <><button disabled={resource.busy} onClick={()=>void resource.refresh()}>{resource.busy?'Refreshing bookings…':'Refresh bookings'}</button><AdminResourceStatus name="bookings" resource={resource}/>{resource.data&&(jobs.length?<div className="portal-card-grid">{jobs.map(job=><article className="ops-card" key={job.id}><h3>{job.service_name}</h3><p>{job.state} · {job.city} · {money(job.total_paise)}</p><p>{job.worker_name||'Awaiting assignment'} · payout {job.payout_status}</p><AdminRecovery job={job} onRefresh={()=>resource.refresh()}/><details><summary>Private visit evidence</summary><VisitEvidence job={job} admin onRefresh={()=>resource.refresh()}/></details></article>)}</div>:<p className="ops-empty">No bookings yet. Customer booking requests appear here.</p>)}</>;
 }
 
 function AuditHistory(){

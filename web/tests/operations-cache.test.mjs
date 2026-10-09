@@ -51,3 +51,18 @@ test('a late denial from another account cannot clear the current account cache'
  transport=async()=>response({detail:'Restricted hiring'},403);await assert.rejects(service.operation('/hiring/requests'),error=>error.status===403);
  assert.equal(service.operationSnapshot('/jobs').jobs[0].id,'b-only','A denied module does not reset unrelated bookings');
 });
+
+test('company admin snapshots are quiet, account-scoped, refreshed explicitly and retired on access denial',async()=>{
+ for(const path of ['/admin/workers','/admin/jobs','/shop/orders']){
+  const before=calls.length;await service.operation(path,{}, {background:true});await service.operation(path,{}, {background:true});assert.equal(calls.length,before+1);assert.ok(service.operationSnapshot(path));
+  await service.operation(path,{}, {background:true,force:true});assert.equal(calls.length,before+2);
+ }
+ assert.equal(visible,0);assert.deepEqual(actionFeedback.getSnapshot(),[]);
+ __ops.auth.currentUser={uid:'another-admin',getIdToken:async()=>'another-token'};assert.equal(service.operationSnapshot('/admin/jobs'),null);
+ await service.operation('/admin/jobs',{}, {background:true});transport=async()=>response({detail:'Access removed'},403);
+ await assert.rejects(service.operation('/admin/jobs',{}, {force:true}),error=>error.status===403);assert.equal(service.operationSnapshot('/admin/jobs'),null);
+});
+test('a server error is distinguished from a disconnected browser without dropping last confirmed admin data',async()=>{
+ await service.operation('/admin/jobs');transport=async()=>new Response('Internal Server Error',{status:500});
+ await assert.rejects(service.operation('/admin/jobs',{}, {force:true}),error=>error.status===500&&/could not load this data/.test(error.message));assert.ok(service.operationSnapshot('/admin/jobs'));
+});

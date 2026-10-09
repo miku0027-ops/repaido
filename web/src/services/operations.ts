@@ -60,7 +60,7 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
   if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
   if (!token) throw new Error('Sign in to view your account.');
   const read=(init.method||'GET').toUpperCase()==='GET';
-  const cached=['/jobs','/notifications','/hiring/requests','/home/plans','/local-business/rides','/local-business/scrap','/local-business/shared','/worker/profile-progress'].includes(path)||/^\/local-business\/partner\?role=(cab_owner|driver|scrap_owner)$/.test(path)||path==='/local-business/driver-invitations';
+  const cached=['/admin/workers','/admin/jobs','/shop/orders','/jobs','/notifications','/hiring/requests','/home/plans','/local-business/rides','/local-business/scrap','/local-business/shared','/worker/profile-progress'].includes(path)||/^\/local-business\/partner\?role=(cab_owner|driver|scrap_owner)$/.test(path)||path==='/local-business/driver-invitations';
   const done=(options.background??quietRequest(path,init))?()=>{}:beginLoading(path);
   const load=async()=>{
     const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal, headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});
@@ -69,7 +69,7 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
     if (!response.ok) {
       if(response.status===401)operationCache.invalidate();
       else if([402,403,404].includes(response.status))operationCache.invalidate(scope+':'+path);
-      throw Object.assign(new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':'Unable to connect. Check your connection and retry.')),{status:response.status});
+      throw Object.assign(new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':response.status>=500?'Repaido could not load this data. Please retry shortly.':'Unable to connect. Check your connection and retry.')),{status:response.status});
     }
     return body as T;
   };

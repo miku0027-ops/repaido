@@ -1,11 +1,14 @@
 import {beginLoading} from './loading';
 import {withActionFeedback} from './actionFeedback';
 import {quietRequest} from './actionMessages.mjs';
-// Production default points to the live Cloud Run API backend; dev uses Vite proxy.
+// Firebase Hosting already forwards /api to the appropriate Cloud Run service.
+// Use that same-origin route, including for authenticated admin requests. Other
+// deployments can still configure an API origin or use the Cloud Run fallback.
 const defaultProdOrigin = 'https://repaido-api-rivzaqvyvq-uc.a.run.app';
+const hostedProxy = typeof location !== 'undefined' && ['https://repaido.web.app', 'https://repaido.firebaseapp.com'].includes(location.origin);
 const configuredOrigin = (
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? '' : defaultProdOrigin)
+  (import.meta.env.DEV || hostedProxy ? '' : defaultProdOrigin)
 ).replace(/\/+$/, '');
 
 if (configuredOrigin && (new URL(configuredOrigin).protocol !== 'https:' || new URL(configuredOrigin).origin !== configuredOrigin)) {
