@@ -2,19 +2,21 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {Bell,Check,CheckCheck,ChevronRight,RefreshCw,ShieldCheck,X} from 'lucide-react';
 import {operation,operationSnapshot} from '../services/operations';
 import type {B2BQuotation} from '../types/b2b';
-import {nativeAvailable,enableNativePush} from '../services/native';
 import {Modal} from './ui';
+import {auth} from '../firebase';
+import {TransportNotificationSettings} from './TransportNotificationSettings';
 import './customer-notifications.css';
 
 export interface RawNotification {
   id:string;title:string;body:string;job_id?:string;destination?:string;campaign_id?:string;plan_id?:string;
-  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;kind?:string;
+  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;kind?:string;business_id?:string;
   created_at?:number;read_at?:number|null;alert_kind?:string;event_type?:string;
 }
 type Filter='all'|'unread'|'bookings'|'offers'|'contracts'|'discoveries';
 interface Props {
   isOpen:boolean;onClose:()=>void;onOpenJob?:(id:string)=>void;
   onOpenCommunityJob?:(id:string)=>void;
+  onOpenSharedRide?:(id:string)=>void;
   onOpenContract?:(queryId:string,proposalId?:string)=>void;
   onOpenQuotationModal?:(quotation:B2BQuotation)=>void;onNavigateTab?:(tab:string,sub?:string)=>void;
   onOpenPromotion?:(id?:string)=>void;onOpenHomePlan?:(id?:string)=>void;onUnreadCountChange?:(count:number)=>void;
@@ -23,7 +25,7 @@ export function CustomerNotificationDrawer(props:Props){
   // Mount the actual dialog only while open: native modal focus and inert background.
   return props.isOpen?<NotificationPanel {...props}/>:null;
 }
-function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenContract,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
+function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenSharedRide,onOpenContract,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
   const cached=operationSnapshot<{notifications:RawNotification[]}>('/notifications');
   const [notifications,setNotifications]=useState(cached?.notifications||[]);
   const [loading,setLoading]=useState(!cached),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState('');
@@ -76,6 +78,7 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenContract,
     else if(n.job_id&&!communityJob&&onOpenJob){onClose();onOpenJob(n.job_id);}
     else if(n.campaign_id&&onOpenPromotion){onClose();onOpenPromotion(n.campaign_id);}
     else if(n.plan_id&&onOpenHomePlan){onClose();onOpenHomePlan(n.plan_id);}
+    else if(n.kind==='local_business'&&n.destination==='mobility'&&n.business_id&&onOpenSharedRide){onClose();onOpenSharedRide(n.business_id);}
     else if(n.kind==='local_business'&&onNavigateTab){onClose();if(n.destination==='scrap')onNavigateTab('ShopSpares','scrap');else onNavigateTab('Bookings','rides');}
     else if(n.destination==='b2b_quotation'&&onNavigateTab){onClose();onNavigateTab('ShopSpares','b2b');}
   };
@@ -93,7 +96,7 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenContract,
       <div className="notif-feed-container" aria-busy={loading}>
         {loading?<p role="status">Loading your notifications…</p>:!filtered.length?<div className="notif-empty-state"><Bell size={32} aria-hidden="true"/><h3>{error?'Notifications unavailable':filter==='unread'?'All caught up':'No notifications here yet'}</h3><p>{error?'Retry when your connection is ready.':filter==='all'?'Updates from your bookings, contract requests and account will appear here when something changes.':'Choose All to see your other updates.'}</p></div>:filtered.map(n=><article className={`notif-card${!n.read_at?' is-unread':''}`} key={n.id}><div className="notif-card-header"><span className="notif-micro-tag">{label(n)}</span>{!n.read_at&&<span className="notif-unread-dot" role="img" aria-label="Unread"/>}</div><h3 className="notif-card-title">{n.title}</h3><p className="notif-card-desc">{n.body}</p><time className="notif-time" dateTime={n.created_at?new Date(n.created_at*1000).toISOString():undefined}>{date(n)}</time><div className="notif-card-actions">{actionable(n)&&<button className="notif-action-btn" onClick={()=>open(n)}>{actionLabel(n)}<ChevronRight size={17}/></button>}{!n.read_at&&<button className="notif-mark-read-btn" disabled={!!busy} aria-label={`Mark ${n.title} as read`} onClick={()=>void mark(n.id)}><Check size={18}/>Mark read</button>}</div></article>)}
       </div>
-      <footer className="notif-drawer-footer"><p><ShieldCheck size={17} aria-hidden="true"/>Updates from your account</p>{nativeAvailable()&&<button className="notif-header-btn" onClick={async()=>{try{await enableNativePush();setNotice('Device notifications enabled.');}catch(e){setError((e as Error).message);}}}>Enable push</button>}</footer>
+      <footer className="notif-drawer-footer"><p><ShieldCheck size={17} aria-hidden="true"/>Updates from your account</p><details><summary>Ride notification settings</summary><TransportNotificationSettings accountKey={auth.currentUser?.uid||'guest'}/></details></footer>
     </section>
   </Modal>;
 }

@@ -5,11 +5,11 @@
 .local-business-hub .shared-rides-filters button[aria-pressed=true]{background:var(--ui-primary);color:#fff}
 .local-business-hub .shared-rides-refresh{width:44px;padding:0;flex:none}
 .local-business-hub .shared-rides-publish{width:auto;font-size:.75rem;padding:9px 12px}
-.local-business-hub .shared-booking-card{padding:16px;margin:12px 0;background:var(--ui-surface);box-shadow:var(--card-shadow);color:var(--ui-ink)}
+.local-business-hub .shared-booking-card{padding:16px;margin:16px 0;background:var(--ui-surface);box-shadow:0 8px 24px rgb(15 29 58 / .14),0 2px 6px rgb(15 29 58 / .08);border-top:3px solid var(--ui-primary);color:var(--ui-ink)}
 .shared-booking-card>.shared-booking-vehicle{display:flex;align-items:flex-start;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--ui-line)}
 .shared-booking-vehicle>svg{flex:none;margin-top:2px;color:var(--ui-muted)}
 .shared-booking-vehicle>strong{flex:1;min-width:0;font-size:.875rem;font-weight:500;line-height:1.6}
-.shared-booking-vehicle>.business-state{flex:none;max-width:45%;font-size:.6875rem;text-transform:capitalize;font-weight:500;letter-spacing:0;line-height:1.6}
+.shared-booking-vehicle>.business-state{flex:none;max-width:45%;font-size:.6875rem;text-transform:capitalize;font-weight:500;letter-spacing:0;line-height:1.6;background:var(--ui-primary);color:#fff}
 .shared-booking-card .shared-booking-route{display:grid;grid-template-columns:18px minmax(0,1fr);gap:4px 8px;margin:14px 0;font-size:1rem;line-height:1.5;font-weight:600;color:var(--ui-ink)}
 .shared-booking-route>span{grid-column:2;min-width:0;overflow-wrap:anywhere}
 .shared-booking-route>svg{grid-column:1;grid-row:1 / span 2;align-self:center;color:var(--ui-muted)}
@@ -51,6 +51,27 @@
 .shared-booking-card .shared-booking-details>summary{padding:12px 0;font-size:.8125rem;color:var(--ui-link)}
 .shared-booking-card .shared-booking-details p,.shared-booking-card .business-timeline{font-size:.8125rem;line-height:1.6;color:var(--ui-muted)}
 .shared-booking-card .shared-booking-details>button{margin-top:12px}
+.shared-ride-passenger>header{flex-wrap:wrap}
+.shared-passenger-primary{display:flex;gap:6px;flex:none;margin-left:auto}
+.local-business-hub .shared-passenger-primary button{font-size:.75rem;padding:9px 12px;min-height:44px}
+.local-business-hub .shared-passenger-actions>.shared-pin-button{flex:0 1 auto;font-size:.75rem;padding:7px 10px;min-height:44px}
+.shared-time-change,.shared-departure-cue,.shared-passenger-arrival{margin:12px 0;padding:12px;border-radius:12px;background:var(--ui-subtle);border:1px solid var(--ui-line);font-size:.8125rem;line-height:1.6}
+.shared-time-change{background:#fff3ce;color:#3d2600;border-color:#9a741e}
+.shared-booking-card .shared-time-change p,.shared-booking-card .shared-time-change small{color:#3d2600}
+.shared-time-change p,.shared-departure-cue p,.shared-passenger-arrival p{margin:5px 0;font-size:.75rem;line-height:1.6}
+.shared-time-change small,.shared-passenger-arrival small{display:block;font-size:.6875rem;line-height:1.6;color:var(--ui-muted)}
+.shared-departure-cue{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.shared-departure-cue>div{flex:1;min-width:180px}
+.shared-departure-cue>svg{flex:none;margin-top:3px}
+.local-business-hub .shared-departure-cue button,.local-business-hub .shared-passenger-arrival button{font-size:.75rem;min-height:44px;padding:8px 10px}
+.shared-cab-directions{display:inline-flex;align-items:center;gap:6px;color:var(--ui-link);font-weight:600;min-height:44px;margin:6px 10px 6px 0}
+.transport-notification-settings{color:var(--ui-ink);font-size:.8125rem;line-height:1.7}
+.transport-notification-settings h3{font-size:1rem;margin:0 0 8px}
+.transport-notification-settings p{color:var(--ui-muted)}
+.transport-setting-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0;border-top:1px solid var(--ui-line)}
+.transport-setting-row>div{flex:1;min-width:180px}
+.transport-setting-row small{display:block;color:var(--ui-muted);font-size:.75rem;line-height:1.7;margin-top:4px}
+.transport-setting-row button{display:inline-flex;align-items:center;gap:6px;min-height:44px;font:inherit;padding:10px 12px;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-surface);color:var(--ui-link)}
 @media(max-width:700px){
  .suite-workspace[data-panel=shared] .suite-panel-header,
  .suite-workspace[data-panel=shared] .suite-request-cue.has-requests{position:static}
@@ -66,5 +87,7 @@
  .shared-ride-passenger>header{flex-wrap:wrap}
  .shared-ride-passenger>header>div{flex-basis:calc(100% - 42px)}
  .shared-ride-passenger>header>.shared-passenger-state{margin-left:42px}
+ .shared-passenger-primary{flex-basis:100%;margin-left:42px}
+ .local-business-hub .shared-passenger-primary button{flex:1;min-width:0}
  .local-business-hub .shared-rides-publish{margin-left:0;flex:1 1 170px}
 }

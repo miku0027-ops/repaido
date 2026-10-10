@@ -20,6 +20,14 @@ MAX_SENDS_PER_DISPATCH = 64
 DISPATCH_SECONDS = 30
 
 
+def _delivery_allowed(u, row):
+    if row.get('event') == 'shared_transport':
+        from shared_departure_alerts import delivery_allowed
+    else:
+        from repaidians_work import delivery_allowed
+    return delivery_allowed(u, row)
+
+
 def _messaging_app():
     import firebase_admin
     from firebase_admin import credentials
@@ -125,13 +133,12 @@ def _owns_token(u, device):
 
 
 def _claim(u, key, now):
-    from repaidians_work import delivery_allowed
     row = u.get('rp_work_delivery', key)
     if not row or row.get('delivery_status') in ('sent', 'skipped', 'failed'):
         return None
     if row.get('lease_until', 0) > now or row.get('next_attempt_at', 0) > now:
         return None
-    if row.get('created_at', 0) + 86400 <= now or not delivery_allowed(u, row):
+    if row.get('created_at', 0) + 86400 <= now or not _delivery_allowed(u, row):
         row.update(delivery_status='skipped', reason='expired_or_no_access', lease_until=0)
         u.put('rp_work_delivery', key, row)
         return None
@@ -159,14 +166,13 @@ def _claim(u, key, now):
 
 
 def _prepare(u, key, lease, device_id, now):
-    from repaidians_work import delivery_allowed
     row = u.get('rp_work_delivery', key)
     if not row or row.get('lease_token') != lease or row.get('delivery_status') != 'leased':
         return None
     if row.get('device_states', {}).get(device_id) in ('sent', 'invalid', 'skipped'):
         return None
     device = u.get('devices', device_id)
-    if (row.get('created_at', 0) + 86400 <= now or not delivery_allowed(u, row)
+    if (row.get('created_at', 0) + 86400 <= now or not _delivery_allowed(u, row)
             or not device or not device.get('active') or not device.get('token')
             or device.get('user_id') != row['recipient_id'] or device.get('updated_at', 0) <= now - DEVICE_MAX_AGE
             or not _owns_token(u, device)):
@@ -255,12 +261,17 @@ def process_deliveries(core, limit=50):
                         'work_event': row.get('event', row.get('type', '')),
                         'target_id': row['target_id'], 'recipient_id': row['recipient_id'],
                         'expires_at': str(int(time.time() + ttl))}
+                transport = row.get('event') == 'shared_transport'
+                if transport:
+                    ttl = max(1,min(ttl,int(row['expires_at']-time.time())))
+                    data.update(destination='mobility', business_id=row['target_id'], business_role=row['business_role'],
+                                alert_kind='shared_departure', transport_event=row['transport_event'], expires_at=str(int(time.time()+ttl)))
                 # Source details are loaded after authorization on tap; salary,
                 # full addresses and private contract terms never enter the push.
                 messaging.send(messaging.Message(token=device['token'], data=data,
-                    notification=messaging.Notification(title='Repaidians work update', body='Open Repaidians to view your latest work update.'),
-                    android=messaging.AndroidConfig(priority='normal', ttl=timedelta(seconds=ttl),
-                        notification=messaging.AndroidNotification(channel_id='repaido_tasks', tag=key, visibility='private'))),
+                    notification=messaging.Notification(title=('Departure time changed' if row['transport_event']=='rescheduled' else 'Your shared ride departs soon' if row['transport_event']=='departure_reminder' else 'Shared ride update') if transport else 'Repaidians work update', body='Open your shared ride for departure and passenger details.' if transport else 'Open Repaidians to view your latest work update.'),
+                    android=messaging.AndroidConfig(priority='high' if transport else 'normal', ttl=timedelta(seconds=ttl),
+                        notification=messaging.AndroidNotification(channel_id='repaido_requests_v2' if transport else 'repaido_tasks', sound='repaido_task_bell' if transport else 'default', tag=key, visibility='private'))),
                     app=_messaging_app())
             except messaging.UnregisteredError:
                 state = 'invalid'

@@ -272,14 +272,16 @@ class MainActivity : Activity() {
         val plan=source.getStringExtra("plan_id")
         val campaign=source.getStringExtra("campaign_id")
         val job=source.getStringExtra("job_id")
-        val suffix=if(plan!=null && plan.matches(Regex("[A-Za-z0-9_-]{1,100}"))) "?home-plan="+Uri.encode(plan)
+        val ride=source.getStringExtra("business_id")
+        val suffix=if(ride!=null && ride.matches(Regex("[a-f0-9]{64}"))) "?view=rides&shared-ride="+Uri.encode(ride)
+            else if(plan!=null && plan.matches(Regex("[A-Za-z0-9_-]{1,100}"))) "?home-plan="+Uri.encode(plan)
             else if(campaign!=null && campaign.matches(Regex("[A-Za-z0-9_-]{3,80}"))) "?campaign="+Uri.encode(campaign)
             else if(job!=null && job.matches(Regex("[A-Za-z0-9_-]{1,100}"))) "?booking="+Uri.encode(job) else ""
         web.loadUrl(customerPortalUrl+suffix)
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent);setIntent(intent)
-        if(intent.hasExtra("job_id") || intent.hasExtra("campaign_id") || intent.hasExtra("plan_id")) openNotification(intent)
+        if(intent.hasExtra("job_id") || intent.hasExtra("campaign_id") || intent.hasExtra("plan_id") || intent.hasExtra("business_id")) openNotification(intent)
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)

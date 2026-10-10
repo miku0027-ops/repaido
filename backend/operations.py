@@ -211,7 +211,7 @@ class Unit:
 
     def find(self, kind, field, value):
         """Indexed equality lookups with transaction-local writes overlaid."""
-        allowed = {'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
+        allowed = {'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
                    'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
@@ -265,6 +265,8 @@ class Unit:
         if kind == 'shared_departures':
             from transport_discovery import index_record as index_transport_record
             index_transport_record(self, key, value)
+            from shared_departure_alerts import index_record as index_departure_record
+            index_departure_record(self, key, value)
         if kind in ('contract_tenders', 'contract_projects', 'inventory', 'market_listings', 'retail_orders'):
             from repaidians_opportunities import index_record
             index_record(self, kind, key, value)
@@ -1050,7 +1052,10 @@ def install(core):
                     changed += 1
             changed += dispatch_waiting(u, now)
             return {'changed': changed}
-        return store.run(tick)
+        result = store.run(tick)
+        from shared_departure_alerts import process_departures
+        result['shared_departures'] = process_departures(core)
+        return result
 
     @router.post('/admin/tick', dependencies=[Depends(core.operator)])
     def tick(): return sweep()

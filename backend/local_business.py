@@ -236,7 +236,7 @@ def apply_provider_payment(u,payment):
 def install(core):
     store=core.operations_store;r=APIRouter(prefix='/operations/local-business',tags=['Transport and scrap'])
     @r.get('/policy')
-    def policy():return {'radius_km':8,'shared_discovery_radius_km':20,'minimum_total_paise':ADVANCE,'advance_paise':ADVANCE,'advance_credited':True,'payments_ready':payments_ready(),'routing_ready':configured('GOOGLE_ROUTES_API_KEY'),'offer_seconds':300,'tariffs':'Vehicle-owner defined; price snapshot requires customer approval.','scrap_payment':'Buyer pays the customer after inspection, weighing and customer acceptance. Customer confirms receipt; this is not gateway verification.'}
+    def policy():return {'radius_km':8,'shared_discovery_radius_km':20,'departure_reminder_minutes':15,'arrival_radius_metres':300,'minimum_total_paise':ADVANCE,'advance_paise':ADVANCE,'advance_credited':True,'payments_ready':payments_ready(),'routing_ready':configured('GOOGLE_ROUTES_API_KEY'),'offer_seconds':300,'tariffs':'Vehicle-owner defined; price snapshot requires customer approval.','scrap_payment':'Buyer pays the customer after inspection, weighing and customer acceptance. Customer confirms receipt; this is not gateway verification.'}
     @r.post('/documents',status_code=201)
     async def upload(request:Request,user=Depends(core.current_user)):
         if not configured('REPAIDO_KYC_BUCKET'):fail('STORAGE_UNAVAILABLE','Private document storage is unavailable.',503)
@@ -259,7 +259,7 @@ def install(core):
         def read(u):
             profiles=partner_profiles(u,user['id'])
             selected=partner_profile(u,user['id'],role) if role else (profiles[0] if profiles else None)
-            return {'partner':selected,'profiles':profiles,'vehicles':u.find('mobility_vehicles','owner_id',user['id']) if role in (None,'cab_owner') else [],'account_id':user['id']}
+            return {'partner':selected,'profiles':profiles,'vehicles':u.find('mobility_vehicles','owner_id',user['id']) if role in (None,'cab_owner') else [{k:v.get(k) for k in ('id','name','status','active','mode','seats','vehicle_kind','valid_until')} for v in u.find('mobility_vehicles','driver_id',user['id'])] if role=='driver' else [],'account_id':user['id']}
         return store.run(read)
     @r.put('/partner')
     def register(body:Partner,user=Depends(core.current_user)):

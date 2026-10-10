@@ -26,21 +26,25 @@ self.addEventListener('push',event=>{
   let payload={};try{payload=event.data?.json()||{};}catch{return;}
   const data=payload.data||{};
   const expires=Number(data.expires_at||0);if(expires&&expires*1000<Date.now())return;
-  if(data.destination!=='repaidians'||typeof data.recipient_id!=='string'||data.recipient_id.length>200)return;
+  if(!['repaidians','mobility'].includes(data.destination)||typeof data.recipient_id!=='string'||data.recipient_id.length>200)return;
+  if(data.destination==='mobility'&&!/^[a-f0-9]{64}$/.test(data.business_id||''))return;
   event.waitUntil((async()=>{
     const active=await accountFingerprint();
     if(!active||active!==await fingerprint(data.recipient_id))return;
     // Fetch source details after sign-in. Private pay, terms and full addresses
     // never appear on a lock screen or in a browser notification.
-    await self.registration.showNotification('Repaidians work update',{
-      body:'Open Repaidians to view your latest work update.',icon:'/favicon-192.png',
+    const ride=data.destination==='mobility';
+    const url=ride?(['cab_owner','driver'].includes(data.business_role)?'/worker?mode='+data.business_role+'&shared-ride='+data.business_id:'/?view=rides&shared-ride='+data.business_id):'/?repaidians&community=notifications';
+    await self.registration.showNotification(ride?(data.transport_event==='rescheduled'?'Departure time changed':data.transport_event==='departure_reminder'?'Your shared ride departs soon':'Shared ride update'):'Repaidians work update',{
+      body:ride?'Open your ride for the departure time, reason and directions.':'Open Repaidians to view your latest work update.',icon:'/favicon-192.png',silent:false,vibrate:ride?[200,100,200]:undefined,
       tag:'repaidians-work-'+String(data.notification_id||'update').slice(0,100),
-      data:{url:'/?repaidians&community=notifications'},
+      data:{url},
     });
   })().catch(()=>{}));
 });
 self.addEventListener('notificationclick',event=>{
-  event.notification.close();const url=new URL('/?repaidians&community=notifications',self.location.origin).href;
+  event.notification.close();const target=new URL(event.notification.data?.url||'/?repaidians&community=notifications',self.location.origin);
+  if(target.origin!==self.location.origin)return;const url=target.href;
   event.waitUntil((async()=>{
     const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     const existing=clients.find(client=>new URL(client.url).origin===self.location.origin);

@@ -308,6 +308,8 @@ public class AgentActivity extends Activity {
     private String destinationQuery(Intent intent) {
         String destination=intent.getStringExtra("destination");
         String plan=intent.getStringExtra("plan_id");
+        String ride=intent.getStringExtra("business_id"),role=intent.getStringExtra("business_role");
+        if("mobility".equals(destination)&&ride!=null&&ride.matches("[a-f0-9]{64}")&&("cab_owner".equals(role)||"driver".equals(role)))return "?mode="+role+"&shared-ride="+android.net.Uri.encode(ride);
         if("home_plan".equals(destination)&&plan!=null&&plan.matches("[A-Za-z0-9_-]{1,100}"))return "?home-plan="+android.net.Uri.encode(plan);
         return "wallet".equals(destination)?"?tab=wallet":"hire".equals(destination)?"?tab=hire":"";
     }

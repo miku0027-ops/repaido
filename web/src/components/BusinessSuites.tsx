@@ -58,7 +58,7 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
     <nav ref={navigation} className="suite-navigation" aria-label={title+' navigation'}>{primary.map(({id,label,icon:Icon})=><button key={id} aria-label={scrap&&id==='requests'?'Collections':scrap&&id==='weighing'?'Inspection':role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label} aria-current={group===id?'page':undefined} onClick={()=>select(id)}><Icon size={21} aria-hidden="true"/><span>{role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label}</span></button>)}</nav>
    <div className="suite-content">
     <div ref={panelHeader} className="suite-panel-header">
-     <nav className="suite-breadcrumb" aria-label="Breadcrumb"><button onClick={()=>onPanel('overview')}>{title}</button>{inBookings&&<><span aria-hidden="true">/</span><button onClick={()=>onPanel('cabs')}>Bookings</button></>}{inMore&&panel!=='more'&&<><span aria-hidden="true">/</span><button onClick={()=>onPanel('more')}>More</button></>}<span aria-hidden="true">/</span><span aria-current="page">{label}</span></nav>
+     {!mobility&&<nav className="suite-breadcrumb" aria-label="Breadcrumb"><button onClick={()=>onPanel('overview')}>{title}</button>{inMore&&panel!=='more'&&<><span aria-hidden="true">/</span><button onClick={()=>onPanel('more')}>More</button></>}<span aria-hidden="true">/</span><span aria-current="page">{label}</span></nav>}
      <div className="suite-title-row"><h2 ref={heading} tabIndex={-1} className="suite-panel-title">{label}</h2>{action}</div>
      {inBookings&&<nav className="suite-booking-navigation" aria-label="Booking types">{bookingPanels.map(p=><button key={p.id} aria-current={panel===p.id?'page':undefined} onClick={()=>onPanel(p.id)}>{p.label}</button>)}</nav>}
     </div>
@@ -75,8 +75,8 @@ function AccountPanel({partner,accountControls}:{partner:any;accountControls?:Re
 function CalendarPanel({rows,children}:{rows:any[];children?:(month:string)=>ReactNode}){const [month,setMonth]=useState(monthNow);return <><label className="business-month">Schedule · India time<input aria-label="Schedule month" type="month" value={month} onChange={e=>setMonth(e.target.value)}/></label><BusinessCalendar month={month} rows={rows}/>{children?.(month)}</>;}
 
 export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{partner:any;vehicles:any[];onRefresh:()=>Promise<unknown>;accountControls?:ReactNode}){
- const [recordId,setRecordId]=useState('');
- const [panel,setPanel]=useState('overview'),[editing,setEditing]=useState<any>(null);const source=useBusinessRecords('rides'),shared=useSharedRecords();
+ const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
+ const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).has('shared-ride')?'shared':'overview'),[editing,setEditing]=useState<any>(null);const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.customer_id!==source.uid&&(r.owner_id===source.uid||r.state==='requested'));
  const cabs=only(records,r=>r.mode==='cab'),rentals=only(records,r=>r.mode==='rental');
  const departures=shared.rows.filter(r=>r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r)),pending=active.filter(r=>r.state==='requested');
@@ -84,7 +84,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
  const panels:Panel[]=[{id:'overview',label:'Overview',icon:Home},{id:'shared',label:'Shared rides',icon:Users},{id:'cabs',label:'Cab bookings',icon:Car},{id:'rentals',label:'Self-drive',icon:CalendarDays},{id:'fleet',label:'Fleet & rates',icon:Truck},{id:'schedule',label:'Schedule',icon:CalendarDays},{id:'payments',label:'Payments',icon:Wallet},{id:'account',label:'Account',icon:UserRound},{id:'more',label:'More',icon:MoreHorizontal}];
  const open=(r:any)=>{setRecordId(r.id);setPanel(r.vehicle_name?'shared':r.mode==='rental'?'rentals':'cabs');};
  return <SuiteFrame role="cab_owner" title="Cab owner suite" description="Your fleet. Your routes. Your business." partner={partner} panels={panels} panel={panel} onPanel={setPanel} action={panel==='fleet'?<button className="ops-primary" onClick={()=>setEditing({id:crypto.randomUUID(),version:0})}>Add vehicle</button>:undefined}><ContractError error={records.error||shared.error} onRetry={()=>{void records.refresh();void shared.refresh();}}/>
-  <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open}/>
+  <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} settings={panel==='account'}/>
   {panel==='overview'&&<>
    <div className="suite-metrics"><Metric label="New booking requests" value={pending.length} onClick={()=>{setRecordId(pending[0]?.id||'');setPanel(pending[0]?.mode==='rental'?'rentals':'cabs');}}/><Metric label="Active vehicles" value={vehicles.filter(v=>v.active&&v.status==='approved'&&v.valid_until>Date.now()/1000).length} onClick={()=>setPanel('fleet')}/><Metric label="Shared departures" value={departures.filter(r=>!closed(r)).length} onClick={()=>setPanel('shared')}/><Metric label="Completed fares collected" value={money(received)} onClick={()=>setPanel('payments')}/></div>
    <NextWork rows={[...active,...departures]} onOpen={open} limit={1}/>
@@ -103,21 +103,21 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
  </SuiteFrame>;
 }
 
-export function DriverSuite({partner,accountControls}:{partner:any;accountControls?:ReactNode}){
- const [recordId,setRecordId]=useState('');
+export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;vehicles?:any[];accountControls?:ReactNode}){
+ const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
  const open=(row:any)=>{setRecordId(row.id);setPanel(row.vehicle_name?'shared':'journeys');};
- const [panel,setPanel]=useState('overview');const source=useBusinessRecords('rides'),shared=useSharedRecords();
+ const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).has('shared-ride')?'shared':'overview');const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.mode==='cab'&&(r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid)),departures=shared.rows.filter(r=>r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r));
  const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'My vehicles',icon:Car},{id:'account',label:'Account',icon:UserRound}];
  return <SuiteFrame role="driver" title="Driver suite" description="Your pickups, passengers and journeys." partner={partner} panels={panels} panel={panel} onPanel={setPanel}><ContractError error={records.error||shared.error}/>
-  <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} driver/>
+  <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} driver settings={panel==='account'}/>
   {panel==='overview'&&<>
    <div className="suite-metrics"><Metric label="Assigned cab journeys" value={active.length} onClick={()=>setPanel('journeys')}/><Metric label="Assigned shared rides" value={departures.filter(r=>!closed(r)).length} onClick={()=>setPanel('shared')}/><Metric label="Ready for pickup" value={active.filter(r=>['reserved','on_the_way'].includes(r.state)).length} onClick={()=>{const row=active.find(r=>['reserved','on_the_way'].includes(r.state));if(row)open(row);else setPanel('journeys');}}/><Metric label="Journeys in progress" value={[...active,...departures].filter(r=>r.state==='in_progress').length} onClick={()=>{const row=[...active,...departures].find(r=>r.state==='in_progress');if(row)open(row);else setPanel('journeys');}}/></div>
    <NextWork rows={[...active,...departures]} onOpen={open} limit={1}/>
    <div className="suite-menu"><button onClick={()=>setPanel('vehicles')}><Car size={22} aria-hidden="true"/><span><strong>Vehicle assignments</strong><small>Review your owner’s invitations</small></span><ArrowRight size={18} aria-hidden="true"/></button></div>
   </>}
   {panel==='journeys'&&<><p className="suite-intro">Confirm pickup, record the odometer and keep the journey status current.</p><BusinessRecords kind="rides" records={records} owner managementRole="driver" initialRecordId={recordId} heading="Assigned cab journeys"/></>}
-  {panel==='shared'&&<><p className="suite-intro">Check agreed pickup pins, mark passengers boarded and keep the journey status current.</p><SharedRideBookings owner managementRole="driver" initialRecordId={recordId}/></>}
+  {panel==='shared'&&<><p className="suite-intro">Check agreed pickup pins, mark passengers boarded and keep the journey status current.</p><SharedRideBookings owner managementRole="driver" vehicles={vehicles} initialRecordId={recordId}/></>}
   {panel==='vehicles'&&<DriverInvitations/>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
  </SuiteFrame>;

@@ -69,7 +69,13 @@ test('push worker filters recipient after restart/signout and opens only the loc
   const valid={data:{destination:'repaidians',recipient_id:'account-a',notification_id:'notice-one',url:'https://attacker.test/',salary:'private'}};
   waits=[];send(valid);await Promise.all(waits);assert.equal(shown.length,1);assert.equal(shown[0].options.data.url,'/?repaidians&community=notifications');assert.doesNotMatch(JSON.stringify(shown),/attacker|private|salary/);
   handlers={};restart();waits=[];send(valid);await Promise.all(waits);assert.equal(shown.length,2,'Hashed scope survives a worker restart');
-  await setAccount(null);waits=[];send(valid);await Promise.all(waits);assert.equal(shown.length,2,'Queued pushes after signout are suppressed');
+  const ride='c'.repeat(64),mobility={data:{destination:'mobility',recipient_id:'account-a',notification_id:'ride-note',business_id:ride,transport_event:'rescheduled',url:'https://attacker.test/',reason:'private reason'}};
+  waits=[];send({...mobility,data:{...mobility.data,recipient_id:'account-b'}});send({...mobility,data:{...mobility.data,business_id:'invalid'}});send({...mobility,data:{...mobility.data,expires_at:'1'}});await Promise.all(waits);assert.equal(shown.length,2,'Wrong recipient, invalid ride and expired reminders are rejected');
+  waits=[];send(mobility);await Promise.all(waits);assert.equal(shown.length,3);assert.equal(shown.at(-1).title,'Departure time changed');assert.equal(shown.at(-1).options.silent,false);assert.equal(shown.at(-1).options.data.url,'/?view=rides&shared-ride='+ride);assert.doesNotMatch(JSON.stringify(shown),/private reason|attacker/);
+  waits=[];handlers.notificationclick({notification:{data:shown.at(-1).options.data,close(){}},waitUntil:promise=>waits.push(promise)});await Promise.all(waits);assert.equal(navigated.pop(),'https://repaido.test/?view=rides&shared-ride='+ride);
+  waits=[];send({...mobility,data:{...mobility.data,business_role:'driver',transport_event:'departure_reminder'}});await Promise.all(waits);assert.equal(shown.at(-1).title,'Your shared ride departs soon');assert.equal(shown.at(-1).options.data.url,'/worker?mode=driver&shared-ride='+ride);
+  waits=[];handlers.notificationclick({notification:{data:{url:'https://attacker.test/'},close(){}},waitUntil:promise=>waits.push(promise)});await Promise.all(waits);assert.equal(navigated.length,0,'Notification clicks cannot navigate to another origin');
+  await setAccount(null);waits=[];send(valid);send(mobility);await Promise.all(waits);assert.equal(shown.length,4,'Queued pushes after signout are suppressed');
   waits=[];handlers.notificationclick({notification:{close(){}},waitUntil:promise=>waits.push(promise)});await Promise.all(waits);assert.deepEqual(navigated,['https://repaido.test/?repaidians&community=notifications']);
   assert.deepEqual([...records.values()],[null],'Only account hash or cleared scope is persisted');
 });

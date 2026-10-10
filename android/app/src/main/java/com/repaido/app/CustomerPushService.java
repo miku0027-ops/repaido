@@ -22,7 +22,8 @@ public class CustomerPushService extends FirebaseMessagingService {
         channels(this);
         Map<String,String> data=message.getData();
         boolean arrival="arrival".equals(data.get("alert_kind"));
-        if(arrival){try{if(Long.parseLong(data.getOrDefault("expires_at","0"))<=System.currentTimeMillis()/1000)return;}catch(Exception e){return;}}
+        boolean shared="mobility".equals(data.get("destination"));
+        if(arrival||shared){try{if(Long.parseLong(data.getOrDefault("expires_at","0"))<=System.currentTimeMillis()/1000)return;}catch(Exception e){return;}}
         boolean promo="promotion".equals(data.get("destination"));
         String id=data.get("notification_id");
         SharedPreferences prefs=getSharedPreferences("repaido_offers",MODE_PRIVATE);
@@ -35,12 +36,13 @@ public class CustomerPushService extends FirebaseMessagingService {
         }
         Intent open=new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
         open.putExtra("job_id",data.get("job_id"));open.putExtra("campaign_id",data.get("campaign_id"));open.putExtra("plan_id",data.get("plan_id"));
+        open.putExtra("business_id",data.get("business_id"));
         PendingIntent content=PendingIntent.getActivity(this,id==null?0:id.hashCode(),open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        String title=arrival?"Your professional is almost there":promo?data.getOrDefault("title","Repaido offer"):"Repaido task update";
-        String body=arrival?"Open your booking to complete arrival verification.":promo?data.getOrDefault("body","Explore available offers in Repaido."):"Open Repaido to view your latest task update.";
-        Notification n=new NotificationCompat.Builder(this,arrival?"repaido_requests_v2":promo?"repaido_offers":"repaido_tasks")
+        String title=shared?("rescheduled".equals(data.get("transport_event"))?"Departure time changed":"departure_reminder".equals(data.get("transport_event"))?"Your shared ride departs soon":"Shared ride update"):arrival?"Your professional is almost there":promo?data.getOrDefault("title","Repaido offer"):"Repaido task update";
+        String body=shared?"Open your ride for the departure time, reason and directions.":arrival?"Open your booking to complete arrival verification.":promo?data.getOrDefault("body","Explore available offers in Repaido."):"Open Repaido to view your latest task update.";
+        Notification n=new NotificationCompat.Builder(this,(arrival||shared)?"repaido_requests_v2":promo?"repaido_offers":"repaido_tasks")
             .setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(body)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).setContentIntent(content).build();
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOnlyAlertOnce(true).setAutoCancel(true).setContentIntent(content).build();
         getSystemService(NotificationManager.class).notify(id==null?1:id.hashCode(),n);
     }
 }

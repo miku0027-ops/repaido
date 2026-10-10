@@ -34,25 +34,28 @@ public class PushService extends FirebaseMessagingService {
     @Override public void onMessageReceived(RemoteMessage message) {
         channels(this);
         boolean arrival = "arrival".equals(message.getData().get("alert_kind"));
-        boolean request = arrival || "assignment".equals(message.getData().get("alert_kind")) || "hiring".equals(message.getData().get("alert_kind"));
+        boolean shared = "mobility".equals(message.getData().get("destination"));
+        boolean request = shared || arrival || "assignment".equals(message.getData().get("alert_kind")) || "hiring".equals(message.getData().get("alert_kind"));
         long expires = 0;
         try { expires = Long.parseLong(message.getData().get("expires_at")); } catch(Exception ignored) { }
         if (request && expires*1000 <= System.currentTimeMillis()) return;
         Intent open = new Intent(this, AgentActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         open.putExtra("destination", message.getData().get("destination"));
         open.putExtra("plan_id", message.getData().get("plan_id"));
+        open.putExtra("business_id", message.getData().get("business_id"));
+        open.putExtra("business_role", message.getData().get("business_role"));
         String id = message.getData().get("notification_id");
         PendingIntent content = PendingIntent.getActivity(this, id == null ? 1 : id.hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification n = new NotificationCompat.Builder(this, request ? "repaido_requests_v2" : "repaido_tasks")
-            .setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(arrival ? "You are almost there" : request ? "New task request — respond now" : "Repaido task update")
-            .setContentText(arrival ? "Arrival area reached. Continue with customer verification." : request ? "Open the Agent app to accept or decline." : "Open Repaido to view your latest task update.")
+            .setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(shared ? ("rescheduled".equals(message.getData().get("transport_event")) ? "Departure time changed" : "Shared ride update") : arrival ? "You are almost there" : request ? "New task request — respond now" : "Repaido task update")
+            .setContentText(shared ? "Open your shared ride for departure and passenger details." : arrival ? "Arrival area reached. Continue with customer verification." : request ? "Open the Agent app to accept or decline." : "Open Repaido to view your latest task update.")
             .setPriority(NotificationCompat.PRIORITY_HIGH).setCategory(NotificationCompat.CATEGORY_EVENT)
             .setTimeoutAfter(request ? Math.max(1, expires*1000-System.currentTimeMillis()) : 86400000)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setOnlyAlertOnce(true).setAutoCancel(true).setContentIntent(content).build();
         // Repeat the request bell until opened/dismissed or the server deadline expires.
         // Notification-channel volume and DND remain controlled by Android.
         // Foreground offers use the web bell, which stops as soon as the request is handled.
-        if (request && !appVisible) n.flags |= Notification.FLAG_INSISTENT;
+        if (request && !shared && !appVisible) n.flags |= Notification.FLAG_INSISTENT;
         getSystemService(NotificationManager.class).notify(id == null ? 1 : id.hashCode(), n);
     }
     // FCM rotates tokens. The authenticated web session re-registers the current token on resume.
