@@ -1,0 +1,40 @@
+# Configure a GitHub push trigger for ^main$ with the path filters in docs/continuous-deployment.md.
+# Use a dedicated build service account, not an Owner/Editor account.
+steps:
+  - id: verify-test-site
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        python3 -m unittest discover -s scripts -p 'test_prepare_test_hosting.py'
+        python3 scripts/prepare-test-hosting.py '$PROJECT_ID' '$BRANCH_NAME'
+  - id: test-and-build
+    name: node:24
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        npm install --global pnpm@11.19.0
+        cd web
+        pnpm install --frozen-lockfile
+        pnpm test
+        pnpm run build
+  - id: recheck-test-site
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
+    entrypoint: python3
+    args: ['scripts/prepare-test-hosting.py', '$PROJECT_ID', '$BRANCH_NAME']
+  - id: deploy-test-only
+    name: node:24
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        npm exec --yes --package=firebase-tools@14.19.1 -- firebase deploy \
+          --project repaido --config firebase.test.generated.json \
+          --only hosting --non-interactive \
+          --message "Cloud Build $BUILD_ID; commit $COMMIT_SHA"
+timeout: 1200s
+queueTtl: 600s
+options:
+  logging: CLOUD_LOGGING_ONLY
