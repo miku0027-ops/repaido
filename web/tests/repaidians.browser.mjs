@@ -67,13 +67,14 @@ async function newPage(account,width=390,clockMs){
   const context=await browser.newContext({viewport:{width,height:850},reducedMotion:'reduce'});
   // Shared workspace edits must not restart a running browser scenario.
   await context.routeWebSocket('**',socket=>socket.close());
-  await context.addInitScript(({token,clockMs})=>{
+  await context.addInitScript(({token,clockMs,user})=>{
     if(clockMs)Date.now=()=>clockMs;
     if(token)localStorage.setItem('repaido.token',token);
+    if(user)localStorage.setItem('repaidians.test-user',JSON.stringify(user));
     // A prior browser prototype must not become a public post or entitlement.
     localStorage.setItem('repaidians.v1.subscription.guest',JSON.stringify({plan:'demo-pro',provider:'mock',startsAt:0,endsAt:9999999999999}));
     localStorage.setItem('repaidians.v1.community',JSON.stringify({version:1,posts:[{id:'old-local-mock',caption:'OLD MOCK MUST NOT APPEAR'}]}));
-  },{token:account?.token||'',clockMs});
+  },{token:account?.token||'',clockMs,user:account?.user});
   await context.route('**/api/**',async route=>{
     const url=new URL(route.request().url());
     const response=await route.fetch({url:apiOrigin+url.pathname+url.search});
@@ -423,7 +424,7 @@ try{
   await api('/repaidians/publications/'+alicePost.id,alice,'DELETE');
   assert.equal((await api('/repaidians/feed?kind=post',bob)).items.some(p=>p.id===alicePost.id),false);
 
-  await page.goto(origin+'/?noSplash=1&tab=explore');
+  await page.goto(origin+'/tests/repaidians-app-preview.html?noSplash=1&tab=explore');
   const launcher=page.getByRole('button',{name:'Open quick actions',exact:true});await launcher.waitFor();
   const placeBefore=await page.evaluate(()=>localStorage.getItem('repaido.place'));
   await launcher.click();await page.getByRole('group',{name:'Quick actions'}).getByRole('button',{name:'Repaidians',exact:true}).click();await shell(page).waitFor();
@@ -575,8 +576,8 @@ try{
   assert.deepEqual((await api('/repaidians/feed?kind=post',bob)).items.find(post=>post.caption===secondHandCaption).reference,{source:'second_hand',id:nativeSecondHand.id});
 
   const appPage=await newPage(alice);
-  await appPage.goto(origin+'/?noSplash=1&tab=explore');
-  await appPage.getByRole('button',{name:'Open Repaidians community',exact:true}).click();await shell(appPage).waitFor();
+  await appPage.goto(origin+'/tests/repaidians-app-preview.html?noSplash=1&tab=explore');
+  await appPage.getByRole('button',{name:'Open quick actions',exact:true}).click();await appPage.getByRole('group',{name:'Quick actions'}).getByRole('button',{name:'Repaidians',exact:true}).click();await shell(appPage).waitFor();
   await openWork(appPage);
   const appBoard=shell(appPage).getByRole('region',{name:'Professional opportunities',exact:true});
   await appBoard.getByRole('group',{name:'Opportunity category',exact:true}).getByRole('button',{name:'Products',exact:true}).click();
@@ -668,9 +669,10 @@ try{
   });
   const laterLike=laterPost.getByRole('button',{name:'Like post',exact:true});await laterLike.scrollIntoViewIfNeeded();
   const scrollBeforeLike=await shell(paginationPage).locator('.rp-content').evaluate(content=>content.scrollTop);
-  const afterLike=reloadedFeed();await laterLike.click();
-  const likedReload=await(await afterLike).json();
-  assert.equal(likedReload.items.find(post=>post.id===paginationPosts[0].id).liked,true);
+  const afterLike=paginationPage.waitForResponse(response=>new URL(response.url()).pathname==='/api/repaidians/activity/likes/'+paginationPosts[0].id&&response.request().method()==='PUT');await laterLike.click();
+  const likedResult=await(await afterLike).json();
+  assert.equal(likedResult.active,true);
+  assert.equal((await api('/repaidians/publications/'+paginationPosts[0].id,carol)).item.liked,true);
   await paginationPage.waitForLoadState('networkidle');
   await laterPost.getByRole('button',{name:'Unlike post',exact:true}).waitFor();
   assert.ok(await shell(paginationPage).locator('.rp-post').count()>=loadedExtent,'Liking an item on the second page preserves the loaded feed extent.');
