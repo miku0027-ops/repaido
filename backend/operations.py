@@ -119,6 +119,7 @@ class Booking(Input):
     notes: str = Field(default='', max_length=1000)
     service_terms_version: int | None = None
     idempotency_key: str = Field(min_length=16, max_length=100)
+    preferred_worker_id: str | None = Field(default=None,min_length=1,max_length=128)
 
 
 class Command(Input):
@@ -337,7 +338,10 @@ def assign(u, job, now):
     occupied = {j['worker_id'] for j in u.all('jobs') if j['id'] != job['id'] and j.get('worker_id') and j['state'] not in ('completed', 'cancelled') and not (j.get('home_plan_id') and j['state']=='accepted' and abs(j['starts_epoch']-job['starts_epoch'])>(j.get('duration_minutes',120)+job.get('duration_minutes',120))*60+1800) and not (j['state']=='follow_up_scheduled' and abs(j['starts_epoch']-job['starts_epoch'])>=7200)}
     occupied |= {h['worker_id'] for h in u.all('hires') if h['state'] in ('offered','quoting','quoted') and (h.get('quote_expires_at',h.get('offer_expires_at',0))>now or h.get('quote_lease_until',0)>now)}
     candidates = []
-    for w in u.all('workers'):
+    requested=job.get('requested_worker_id')
+    pool=[u.get('workers',requested)] if requested else u.all('workers')
+    for w in pool:
+        if not w:continue
         if w['status'] != 'approved' or not w.get('online') or w['id'] in occupied or w['id'] in job['attempted_workers']:
             continue
         p = w.get('position')
@@ -762,7 +766,7 @@ def install(core):
         else:
             with core.db() as c: service = dict(core.service_by_id(c, body.service_id))
         key = hashlib.sha256((user['id']+body.idempotency_key).encode()).hexdigest()
-        fingerprint = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
+        fingerprint = hashlib.sha256(body.model_dump_json(exclude={'preferred_worker_id'} if body.preferred_worker_id is None else None).encode()).hexdigest()
         def save(u):
             old = u.get('booking_keys', key)
             if old:
@@ -791,7 +795,9 @@ def install(core):
                 reserve_discount(u,job,user['id'],body.promotion_id,service,body.city,now)
             job['service_terms']=copy.deepcopy(service_terms)
             event(u, job, 'BookingRequested', user['id'])
+            if body.preferred_worker_id:job['requested_worker_id']=body.preferred_worker_id
             assign(u, job, now)
+            if body.preferred_worker_id and job['state']!='offered':fail('PROFESSIONAL_UNAVAILABLE','This professional is no longer available for that visit. Choose another professional or time.',409)
             u.put('jobs', jid, job)
             u.put('booking_keys', key, {'id': jid, 'fingerprint': fingerprint})
             return public_job(u, job, user['id'])

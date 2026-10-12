@@ -116,6 +116,7 @@ async function contentRead<T>(path:string,force=false,signal?:AbortSignal):Promi
 function peekContent<T>(path:string):T|null{return contentReads.peek(syncIdentity()+':'+path,CONTENT_FRESH_MS) as T|null;}
 window.addEventListener(UPDATE,()=>{clearContent();});
 export async function communityRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if(path==='/milestones/preview'||/^\/live(?:\/|$)/.test(path))return performCommunityRequest<T>(path,init);
   return withActionFeedback('/community'+path,init,()=>performCommunityRequest<T>(path,init));
 }
 async function performCommunityRequest<T>(path: string, init: RequestInit): Promise<T> {

@@ -1,0 +1,63 @@
+import time,uuid
+from test_repaidians import api,auth,grant,profile
+
+def seed(api,kind='jobs',id='real-work',**fields):
+    api.core.operations_store.run(lambda u:u.put(kind,id,{'id':id,'customer_id':'customer','worker_id':'alice','state':'in_progress','city':'Balasore','address':'SECRET ADDRESS','phone':'SECRET PHONE','total_paise':999999,'notes':'SECRET NOTES',**fields}))
+
+def draft(source='service',id='real-work',**fields):return {'kind':'post','trade':'spares','visibility':'public','caption':'Sharing a work update','media':[],'clientId':str(uuid.uuid4()),'milestone':{'source':source,'id':id},**fields}
+
+def test_customer_can_share_only_verified_own_work_and_replay_once(api):
+    seed(api);body=draft()
+    r=api.post('/repaidians/milestones/preview',headers=auth('customer'),json=body['milestone']);assert r.status_code==200,r.text
+    assert r.json()['label']=='Work in progress' and 'SECRET' not in r.text
+    post=api.post('/repaidians/publications',headers=auth('customer'),json=body);assert post.status_code==201,post.text
+    replay=api.post('/repaidians/publications',headers=auth('customer'),json=body)
+    assert replay.json()['item']['id']==post.json()['item']['id']
+    assert 'milestone' not in post.json()['item'] and 'SECRET' not in post.text and '999999' not in post.text
+    assert post.json()['item']['milestoneCard']['label']=='Work in progress'
+    denied=api.post('/repaidians/publications',headers=auth('bob'),json=draft());assert denied.status_code==404
+    plain=api.post('/repaidians/publications',headers=auth('customer'),json={k:v for k,v in draft().items() if k!='milestone'});assert plain.status_code==403
+
+def test_public_feed_does_not_expose_record_ids_or_private_fields_and_tracks_state(api):
+    seed(api);post=api.post('/repaidians/publications',headers=auth(),json=draft()).json()['item']
+    api.core.operations_store.run(lambda u:u.put('jobs','real-work',{**u.get('jobs','real-work'),'state':'completed'}))
+    feed=api.get('/repaidians/feed?kind=post').json()
+    assert next(p for p in feed['items'] if p['id']==post['id'])['milestoneCard']['label']=='Work completed'
+    assert 'real-work' not in str(feed) and 'SECRET' not in str(feed)
+    api.core.operations_store.run(lambda u:u.put('jobs','real-work',{**u.get('jobs','real-work'),'state':'cancelled'}))
+    feed=api.get('/repaidians/feed?kind=post').json()
+    assert next(p for p in feed['items'] if p['id']==post['id'])['milestoneUnavailable']
+
+def test_contract_award_and_fulfillment_use_actual_parties_and_project(api):
+    seed(api,'contract_tenders','contract-proof',owner_id='customer',awarded_contractor_id='alice',status='awarded',state='awarded',winning_project_id='project-proof')
+    seed(api,'contract_projects','project-proof',owner_id='alice',client_id='customer',state='completed',status='completed')
+    body=draft('contract','contract-proof')
+    r=api.post('/repaidians/publications',headers=auth('customer'),json=body);assert r.status_code==201,r.text
+    assert r.json()['item']['milestoneCard']['label']=='Work completed'
+    assert api.post('/repaidians/milestones/preview',headers=auth('bob'),json=body['milestone']).status_code==404
+
+def test_milestone_trade_visibility_uses_the_participants_actual_trade(api):
+    seed(api);profile(api,'alice','electrician');profile(api,'bob','plumber')
+    r=api.post('/repaidians/publications',headers=auth(),json=draft(visibility='trade',trade='spares'))
+    assert r.status_code==201,r.text
+    assert r.json()['item']['trade']=='electrician'
+    assert api.get('/repaidians/publications/'+r.json()['item']['id'],headers=auth('bob')).status_code==404
+    assert api.get('/repaidians/publications/'+r.json()['item']['id'],headers=auth()).status_code==200
+
+def test_shared_passenger_reference_is_private_and_rechecked_without_scanning(api,monkeypatch):
+    seed(api,'shared_departures','ride-proof',customer_id=None,worker_id=None,owner_id='alice',state='scheduled',origin={'lat':21.49,'lng':86.91},starts_at=time.time()+3600)
+    seed(api,'shared_passengers','passenger-proof',worker_id=None,departure_id='ride-proof',state='accepted')
+    r=api.post('/repaidians/publications',headers=auth('customer'),json=draft('shared','ride-proof'))
+    assert r.status_code==201,r.text
+    assert 'passenger-proof' not in r.text
+    item=api.core.operations_store.run(lambda u:u.get('rp_publications',r.json()['item']['id']))
+    assert item['milestone']['passenger_id']=='passenger-proof'
+    from operations import Unit
+    original=Unit.find
+    def no_passenger_scan(u,kind,*args,**kwargs):
+        assert kind!='shared_passengers'
+        return original(u,kind,*args,**kwargs)
+    monkeypatch.setattr(Unit,'find',no_passenger_scan)
+    assert api.get('/repaidians/feed?kind=post').json()['items'][0]['milestoneCard']['label']=='Booking confirmed'
+    api.core.operations_store.run(lambda u:u.put('shared_passengers','passenger-proof',{**u.get('shared_passengers','passenger-proof'),'state':'cancelled'}))
+    assert api.get('/repaidians/feed?kind=post').json()['items'][0]['milestoneUnavailable']

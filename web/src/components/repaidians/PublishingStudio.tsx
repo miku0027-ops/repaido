@@ -71,7 +71,7 @@ export function PublishingStudio({account,initialKind,defaultTrade,city,onClose,
       {kind==='story'&&<p className="rp-fine">Your story expires 24 hours after publication.</p>}
       {reference&&<p className="rp-fine">Your post links to the original listing. Customers can review its latest details before applying, bidding or purchasing.</p>}
       {error&&<p className="rp-error" role="alert">{error}</p>}
-      <button className="rp-primary" disabled={busy||referenceBusy||!!referenceError} aria-busy={busy}><Upload size={17}/>{busy?'Publishing…':'Share with Repaidians'}</button>
+      <button className="rp-primary" disabled={busy||referenceBusy||!!referenceError} aria-busy={busy}><Upload size={17}/>{busy?'Publishing…':'Share on Repaidians'}</button>
     </form>
   </Modal>;
 }

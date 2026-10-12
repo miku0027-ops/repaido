@@ -1,3 +1,4 @@
+import {ShareMilestone} from './ShareMilestone';
 import {StageTrail} from './CompactExperience';
 import './contract-refinement.css';
 import {useEffect,useId,useRef,useState,type FormEvent,type ReactNode} from 'react';
@@ -60,7 +61,7 @@ export function CustomContractDetail({id,accountKey,mode,onBack,focusProposalId,
     {query&&<>
       <header className="cc-section cc-workspace-header">
         <div className="cc-between"><span className="cc-status" data-status={query.status}>{contractStatus(query.status)}</span><ContractRefresh busy={resource.busy||action.busy} label="Refresh contract details" onRefresh={()=>void resource.refresh()}/></div>
-        <span className="cc-eyebrow">{query.sector}</span><h2>{query.title}</h2>
+        {manage&&query.status==='awarded'&&<ShareMilestone source="contract" id={query.id}/>}<span className="cc-eyebrow">{query.sector}</span><h2>{query.title}</h2>
         <div className="cc-facts"><span><MapPin size={15} aria-hidden="true"/>{query.area.trim().toLowerCase()===query.city.trim().toLowerCase()?query.city:query.area+', '+query.city}</span><span><CalendarDays size={15} aria-hidden="true"/>{contractDate(query.starts_at)} – {contractDate(query.ends_at)}</span></div>
         <div className="cc-money"><strong>{contractMoney(project?.contract_value_paise??query.budget_paise)}</strong><small>{project?'Agreed contract price':'Planned budget'}</small></div>
         <p className="cc-live-state" role="status" data-state={resource.error?'reconnecting':live}>{stateText}</p>

@@ -67,3 +67,5 @@
 @media(max-height:600px){.suite-request-cue.has-requests{position:static}}
 
 .business-suite .suite-request-cue.has-requests button{background:#fff;color:#422a00;border-color:#957140}.business-suite .suite-request-cue.has-requests p{color:#422a00}
+
+.suite-workspace .suite-hero{padding:12px 14px;margin-bottom:10px;border-radius:16px}.suite-workspace .suite-hero small{display:none}.suite-workspace .suite-hero h1{font-size:1.125rem;margin:0 0 4px}.suite-workspace .suite-panel-title{font-size:1.125rem;margin-bottom:10px}.suite-workspace .suite-metrics{gap:8px;margin-bottom:12px}.suite-workspace .suite-card{margin-bottom:10px;padding:14px}.suite-workspace .suite-card>p{margin:5px 0 8px}.suite-workspace .suite-business-name{font-size:.8125rem}

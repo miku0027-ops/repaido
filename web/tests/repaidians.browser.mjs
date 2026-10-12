@@ -109,7 +109,7 @@ const shell=page=>page.getByRole('dialog',{name:'Repaidians community',exact:tru
 async function nav(page,label){
   if(label==='Tenders')return shell(page).locator('.rp-toolbar').getByRole('button',{name:label,exact:true}).click();
   const mobile=shell(page).locator('.rp-bottom-nav').getByRole('button',{name:label,exact:true});
-  if(await mobile.count())return mobile.click();
+  if(page.viewportSize().width<1100&&['Home','Search','Works','Work & market','My profile'].includes(label))return mobile.click();
   return shell(page).locator('.rp-desktop-sidebar').getByRole('button',{name:label,exact:true}).click();
 }
 async function openWork(page){
@@ -166,6 +166,7 @@ try{
   }
   const alice=await register('Alice Electrician'),bob=await register('Bob Cleaning'),carol=await register('Carol Plumbing');
   for(const [account,trade] of [[alice,'electrician'],[bob,'cleaning'],[carol,'plumber']]){
+    nativeFixture('workers',account.user.id,{id:account.user.id,name:account.user.name,status:'approved',role:'technician',categories:[trade],city:'Balasore'});
     await api('/repaidians/state',account);
     await api('/repaidians/profile',account,'PATCH',{name:account.user.name,trade,bio:'Test account in an isolated community database.'});
   }
@@ -174,7 +175,11 @@ try{
   const professionalProfile=(await api('/repaidians/members/'+alice.user.id,bob)).member;
   for(const [key,value] of Object.entries(professional))assert.deepEqual(professionalProfile[key],value,'Professional profile persists '+key+'.');
   assert.equal(professionalProfile.professionalInfoSource,'profile');
-  assert.equal(!!professionalProfile.reviewed,false,'Choosing a professional role does not grant a reviewed Repaido badge.');
+  assert.equal(!!professionalProfile.reviewed,true,'The canonical approved fixture supplies the reviewed badge.');
+  const unapproved=await register('Unapproved customer');
+  assert.equal((await api('/repaidians/state',unapproved)).capabilities.professional,false);
+  const forbidden=await fetch(apiOrigin+'/repaidians/profile',{method:'PATCH',headers:{Authorization:'Bearer '+unapproved.token,'Content-Type':'application/json'},body:JSON.stringify(professional)});
+  assert.equal(forbidden.status,403,'Self-selected professional fields cannot grant canonical approval.');
   const professionalQuery='/repaidians/members?search=Alice&trade=electrician&city=balasore&workStatus=open_to_work&professionalType=specialist';
   assert.deepEqual((await api(professionalQuery,bob)).members.map(member=>member.id),[alice.user.id]);
   assert.deepEqual((await api(professionalQuery.replace('open_to_work','hiring'),bob)).members,[],'Professional discovery combines real profile and category filters.');
@@ -221,7 +226,7 @@ try{
   assert.equal(await shell(page).getByText('OLD MOCK MUST NOT APPEAR',{exact:false}).count(),0);
   assert.equal(await shell(page).locator('.rp-post').count(),1);
   const trialBadge=shell(page).getByRole('button',{name:/^Free trial:/});await trialBadge.waitFor();
-  assert.match(await trialBadge.getAttribute('aria-label'),/All Repaidians features included/);
+  assert.match(await trialBadge.getAttribute('aria-label'),/Browsing access included/);
   assert.ok((await trialBadge.getAttribute('aria-label')).includes(new Date(trialEnd).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})+' IST'),'The trial badge names the exact server-owned expiry in India time.');
   await trialBadge.click();
   const membership=page.getByRole('dialog',{name:'Repaidians membership',exact:true});await membership.waitFor();
@@ -262,11 +267,11 @@ try{
   await story.getByRole('button',{name:'Close story',exact:true}).click();
 
   await page.reload();await shell(page).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
-  await shell(page).getByRole('button',{name:'Create',exact:true}).click();
+  await shell(page).getByRole('button',{name:'Create publication',exact:true}).click();
   let studio=page.getByRole('dialog',{name:'Publishing studio',exact:true});
   await studio.getByLabel('Upload publication media',{exact:true}).setInputFiles(resolve(web,'public/images/electrical.jpg'));
   await studio.getByLabel('Caption & visual description',{exact:true}).fill('Electrical portfolio uploaded to the shared backend.');
-  await studio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await studio.waitFor({state:'hidden'});
+  await studio.getByRole('button',{name:'Share on Repaidians',exact:true}).click();await studio.waitFor({state:'hidden'});
   await shell(page).getByText('Electrical portfolio uploaded to the shared backend.',{exact:false}).waitFor();
   await page.reload();await shell(page).getByText('Electrical portfolio uploaded to the shared backend.',{exact:false}).waitFor();
   const alicePost=(await api('/repaidians/feed?kind=post',bob)).items.find(p=>p.authorId===alice.user.id);assert.ok(alicePost);
@@ -293,11 +298,11 @@ try{
   await api('/repaidians/publications/'+alicePost.id,bob,'DELETE',undefined,404);
   assert.ok((await api('/repaidians/feed?kind=post',bob)).items.some(p=>p.id===alicePost.id));
   await nav(page,'Home');
-  await shell(page).getByRole('button',{name:'Create',exact:true}).click();studio=page.getByRole('dialog',{name:'Publishing studio',exact:true});
+  await shell(page).getByRole('button',{name:'Create publication',exact:true}).click();studio=page.getByRole('dialog',{name:'Publishing studio',exact:true});
   await studio.getByRole('button',{name:'Work video',exact:true}).click();
   await studio.getByLabel('Upload publication media',{exact:true}).setInputFiles(clip);
   await studio.getByLabel('Caption & visual description',{exact:true}).fill('A work reel stored on the server.');
-  await studio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await studio.waitFor({state:'hidden'});await shell(page).locator('.rp-reel video').waitFor();
+  await studio.getByRole('button',{name:'Share on Repaidians',exact:true}).click();await studio.waitFor({state:'hidden'});await shell(page).locator('.rp-reel video').waitFor();
   await page.waitForFunction(()=>document.querySelector('.rp-reel video')?.readyState>=2);
   assert.equal(await shell(page).locator('.rp-reel video').evaluate(video=>video.paused),true,'Reduced motion starts reels paused.');
   await shell(page).getByRole('button',{name:'Play work video',exact:true}).click();await shell(page).getByRole('button',{name:'Pause work video',exact:true}).waitFor();
@@ -419,16 +424,16 @@ try{
   assert.equal((await api('/repaidians/feed?kind=post',bob)).items.some(p=>p.id===alicePost.id),false);
 
   await page.goto(origin+'/?noSplash=1&tab=explore');
-  const launcher=page.getByRole('button',{name:'Open Repaidians community',exact:true});await launcher.waitFor();
+  const launcher=page.getByRole('button',{name:'Open quick actions',exact:true});await launcher.waitFor();
   const placeBefore=await page.evaluate(()=>localStorage.getItem('repaido.place'));
-  await launcher.click();await shell(page).waitFor();
+  await launcher.click();await page.getByRole('group',{name:'Quick actions'}).getByRole('button',{name:'Repaidians',exact:true}).click();await shell(page).waitFor();
   await shell(page).getByRole('button',{name:'Close Repaidians',exact:true}).click();await launcher.waitFor();
   assert.equal(await page.evaluate(()=>localStorage.getItem('repaido.place')),placeBefore,'Closing the community preserves the customer location.');
 
   const skewed=await newPage(carol,390,new Date('2040-01-01T00:00:00Z').getTime());
   await shell(skewed).getByRole('button',{name:/^Free trial:/}).waitFor();
   await shell(skewed).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
-  await shell(skewed).getByRole('button',{name:'Create',exact:true}).click();
+  await shell(skewed).getByRole('button',{name:'Create publication',exact:true}).click();
   await skewed.getByRole('dialog',{name:'Publishing studio',exact:true}).waitFor();
   expireTrial(carol);
   await shell(skewed).getByText('Your free trial has ended.',{exact:true}).waitFor({timeout:20000});
@@ -462,7 +467,7 @@ try{
   const restored=await api('/repaidians/state',carol);
   assert.equal(restored.subscription.plan,'pro');assert.equal(restored.subscription.provider,'razorpay');assert.equal(restored.trial.status,'expired');
   await exhausted.reload();await shell(exhausted).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
-  await shell(exhausted).getByRole('button',{name:'Create',exact:true}).click();await exhausted.getByRole('dialog',{name:'Publishing studio',exact:true}).waitFor();
+  await shell(exhausted).getByRole('button',{name:'Create publication',exact:true}).click();await exhausted.getByRole('dialog',{name:'Publishing studio',exact:true}).waitFor();
   await exhausted.getByRole('dialog',{name:'Publishing studio',exact:true}).getByRole('button',{name:'Close dialog',exact:true}).click();
   assert.equal((await api('/repaidians/feed?kind=post',carol)).items.length,1);
 
@@ -545,7 +550,7 @@ try{
   await attachedStudio.getByText('Attached to your post',{exact:true}).waitFor();
   const purchaseCaption='A community update linked to my verified Repaido purchase.';
   await attachedStudio.getByLabel('Caption & visual description',{exact:true}).fill(purchaseCaption);
-  await attachedStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await attachedStudio.waitFor({state:'hidden'});
+  await attachedStudio.getByRole('button',{name:'Share on Repaidians',exact:true}).click();await attachedStudio.waitFor({state:'hidden'});
   const attachedPost=shell(opportunityPage).locator('.rp-post').filter({hasText:purchaseCaption});
   await attachedPost.getByText(nativeProduct.name,{exact:true}).waitFor();
   assert.equal(await attachedPost.locator('.rp-media-missing').count(),0,'A linked product post uses its listing card without a blank failed-media panel.');
@@ -558,14 +563,14 @@ try{
   const refreshedPurchase=shell(opportunityPage).locator('.rp-post').filter({hasText:purchaseCaption});
   await refreshedPurchase.getByText('₹2,699',{exact:true}).waitFor();
   assert.equal(await refreshedPurchase.getByText('₹2,499',{exact:true}).count(),0,'Refreshing a community publication replaces the previously loaded native price.');
-  await shell(opportunityPage).getByRole('button',{name:'Create',exact:true}).click();
+  await shell(opportunityPage).getByRole('button',{name:'Create publication',exact:true}).click();
   const listingStudio=opportunityPage.getByRole('dialog',{name:'Publishing studio',exact:true});
   await listingStudio.getByRole('button',{name:/^Attach an opportunity/}).click();
   await listingStudio.locator('.rp-studio-reference-option').filter({hasText:nativeSecondHand.name}).click();
   await listingStudio.getByText('Attached to your post',{exact:true}).waitFor();
   const secondHandCaption='My used electrical tools are listed for another member.';
   await listingStudio.getByLabel('Caption & visual description',{exact:true}).fill(secondHandCaption);
-  await listingStudio.getByRole('button',{name:'Share with Repaidians',exact:true}).click();await listingStudio.waitFor({state:'hidden'});
+  await listingStudio.getByRole('button',{name:'Share on Repaidians',exact:true}).click();await listingStudio.waitFor({state:'hidden'});
   await shell(opportunityPage).locator('.rp-post').filter({hasText:secondHandCaption}).getByText(nativeSecondHand.name,{exact:true}).waitFor();
   assert.deepEqual((await api('/repaidians/feed?kind=post',bob)).items.find(post=>post.caption===secondHandCaption).reference,{source:'second_hand',id:nativeSecondHand.id});
 

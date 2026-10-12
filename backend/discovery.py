@@ -165,12 +165,12 @@ def install(core):
         from home_plans import OFFERINGS
         catalog = core.catalog()
         services = [s for s in catalog['services'] if s.get('active', True)]+[{**s,'id':'home:'+s['id']} for s in OFFERINGS]
-        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}|{'transport'}
+        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}|{'transport','transport_cab','transport_shared','transport_self_drive','transport_rental'}
         targets = []
         # Queries are resolved transiently; never store raw keywords, locations or form contents.
         if body.kind == 'search':
-            if body.category == 'transport':
-                targets = ['transport']
+            if body.category in ('transport','transport_cab','transport_shared','transport_self_drive','transport_rental'):
+                targets = ['transport']+([body.category] if body.category!='transport' else [])
             elif len(body.query.strip()) >= 2:
                 scored = [(relevance(body.query, ' '.join([s['name'], s['category']])), s['category']) for s in services]
                 top = max((v for v, _ in scored), default=0)
@@ -255,7 +255,9 @@ def install(core):
                           'personalised':category in interested,
                           'service':{k:service[k] for k in ('id','name','category','description','price_paise','duration_minutes','included','excluded')}})
         transport = row.get('signals', {}).get('transport', {})
-        return {'cards':cards, 'personalised':enabled, 'transport_interest':bool(enabled and transport.get('visits',0) and now-transport.get('at',0)<30*86400), 'covered':city in core.CITIES,
+        modes={key.removeprefix('transport_'):signal for key,signal in row.get('signals',{}).items() if enabled and key in ('transport_cab','transport_shared','transport_self_drive','transport_rental') and now-signal.get('at',0)<30*86400}
+        preferred=max(modes,key=lambda key:modes[key].get('score',0)*math.exp(-max(0,now-modes[key].get('at',now))/(7*86400))) if modes else None
+        return {'cards':cards, 'personalised':enabled, 'preferred_transport_mode':preferred, 'transport_interest':bool(enabled and transport.get('visits',0) and now-transport.get('at',0)<30*86400), 'covered':city in core.CITIES,
                 'policy_version':2, 'basis':'Repeated catalogue searches and service/category visits, with recent interests weighted more. Some categories stay varied. Suggestions do not diagnose a need or change prices. Availability is confirmed when booking.'}
 
     @router.get('/feed')

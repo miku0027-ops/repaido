@@ -158,3 +158,25 @@ def test_professional_rating_and_experience_filters(api):
     assert len(search(api,location=PIN,min_rating=4.5,min_experience=5,sort='rating').json()['professionals'])==1
     assert not search(api,location=PIN,min_rating=4.6).json()['professionals']
     assert not search(api,location=PIN,min_experience=6,sort='experience').json()['professionals']
+
+
+def test_transport_type_preference_obeys_consent_decay_and_reset(api,monkeypatch):
+    import uuid
+    now=[int(time.time())];monkeypatch.setattr('discovery.time.time',lambda:now[0])
+    base='/operations/discovery';h=auth('customer')
+    assert api.get(base+'/feed').json()['preferred_transport_mode'] is None
+    api.put(base+'/preferences',headers=h,json={'enabled':True,'consent_version':2})
+    def emit(mode):return api.post(base+'/events',headers=h,json={'event_id':str(uuid.uuid4()),'kind':'search','category':'transport_'+mode})
+    assert emit('shared').json()['recorded']
+    feed=api.get(base+'/feed/personal',headers=h).json()
+    assert feed['transport_interest'] and feed['preferred_transport_mode']=='shared'
+    assert api.get(base+'/feed/personal',headers=auth('stranger')).json()['preferred_transport_mode'] is None
+    now[0]+=61;assert emit('self_drive').json()['recorded']
+    assert api.get(base+'/feed/personal',headers=h).json()['preferred_transport_mode']=='self_drive'
+    assert not emit('unknown').json()['recorded']
+    api.post(base+'/preferences/reset',headers=h)
+    assert api.get(base+'/feed/personal',headers=h).json()['preferred_transport_mode'] is None
+    now[0]+=61;emit('cab');now[0]+=31*86400
+    assert api.get(base+'/feed/personal',headers=h).json()['preferred_transport_mode'] is None
+    api.put(base+'/preferences',headers=h,json={'enabled':False})
+    assert emit('shared').status_code==403

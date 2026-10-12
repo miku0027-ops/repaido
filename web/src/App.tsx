@@ -1,3 +1,4 @@
+import {HomeDiscoveryHub} from './components/HomeDiscoveryHub';
 import {TransportRail} from './components/TransportRail';
 import {MobilityHub,ScrapHub,TransportBookings} from './components/LocalBusiness';
 import './components/market-refinement.css';
@@ -226,6 +227,7 @@ export default function App() {
   const [communityReturn,setCommunityReturn]=useState(false),[communityNative,setCommunityNative]=useState<{kind:'career';card:CommunityOpportunity}|{kind:'applications'}|{kind:'workspace';tab:'Tenders'|'Hiring';tenderId?:string;projectId?:string;agent?:boolean}|null>(null);
   const [communityTenderId,setCommunityTenderId]=useState<string>(),[communityRouteBusy,setCommunityRouteBusy]=useState(false),[communityRouteError,setCommunityRouteError]=useState('');
   const [homePreferred,setHomePreferred]=useState<{id:string;name:string}>();
+  const [preferredProfessional,setPreferredProfessional]=useState<{id:string;name:string}>();
   const [contractBookings,setContractBookings]=useState(()=>new URLSearchParams(location.search).has('custom-contract')||new URLSearchParams(location.search).get('view')==='contracts');
   const [rideBookings,setRideBookings]=useState(new URLSearchParams(location.search).get('view')==='rides');
   const [sharedRideId,setSharedRideId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
@@ -357,7 +359,7 @@ export default function App() {
   const [marketProfile,setMarketProfile]=useState<'exchange'|'second_hand'|null>(()=>new URLSearchParams(location.search).get('market')==='exchange'?'exchange':new URLSearchParams(location.search).get('market')==='second_hand'?'second_hand':null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedPromotion,setSelectedPromotion]=useState<string|undefined>();
-  const openPromotion=(c:Promotion)=>{if(c.home_service){setSelectedService(null);setSelectedPromotion(undefined);setHomeHub(c.home_service);return;}if(c.service){setSelectedPromotion(c.id);setSelectedService(promotionService(c));}};
+  const openPromotion=(c:Promotion)=>{if(c.home_service){setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);setHomeHub(c.home_service);return;}if(c.service){setSelectedPromotion(c.id);setSelectedService(promotionService(c));}};
   const [bookingStep, setBookingStep] = useState(0);
 
   // Booking Form State for 4-Step Android Booking Sheet
@@ -618,6 +620,7 @@ export default function App() {
   }
 
   function handleOpenBooking(service: Service) {
+    setPreferredProfessional(undefined);
     hydration.event({kind:'service_view',service_id:service.id});
     setHomeDetail(service);
     setBookingStep(0);
@@ -954,17 +957,9 @@ export default function App() {
 
               {!query && (
                 <>
-                  {/* Desktop: Hero + Trust side-by-side via desktop-hero-row */}
-                  <div className="desktop-hero-row">
-                    {/* 3. Hero Promo Banner Card */}
-                    <div className="repaido-hero-banner-container">
-                      <OpportunityCarousel variant="home" slides={[{id:'services',tag:'Home services',title:'A little help at home.',body:'Find local professionals for your everyday needs.',cta:'Browse services',image:'/images/family-home-care.jpg',alt:'A family spending time together at home'},...opportunities]} onOpen={slide=>{if(slide.id==='services'){setActiveCategory('all');setTab('Services');}else if(slide.id==='contracts'){setMarketSubTab('tenders');setTab('ShopSpares');}else if(slide.id==='sell'){openStoreSection('preowned');setMarketQuick({sell:true});}else if(slide.id==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else openStoreSection(slide.id as 'rentals'|'exchange');}}/>
-                    </div>
-
-                  </div>
+                  <HomeDiscoveryHub location={place} accountKey={user?.id||'guest'} onLocation={()=>setCustomerMapModalOpen(true)} onSignIn={()=>setSheet('auth')} personalised={hydration.enabled} transportInterest={hydration.feed?.transport_interest} repairInterest={hydration.feed?.cards.some(card=>card.personalised)} transportMode={hydration.feed?.preferred_transport_mode||undefined} onEvent={hydration.event} onBook={(service,professional)=>{setPreferredProfessional(professional);setSelectedPromotion(undefined);setSelectedService(service);}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}}/>
                   {user?.id&&<CustomerContractMatches key={user.id} accountKey={user.id} onOpen={openCustomContract}/>}
                   <HomeQuickActions city={place.city} location={place.confirmed&&typeof place.lat==='number'&&typeof place.lng==='number'?{lat:place.lat,lng:place.lng}:undefined} onLocation={()=>setCustomerMapModalOpen(true)} onMarket={(section,options)=>{openStoreSection(section);setMarketQuick(options||{});}} onHire={()=>setTab('Hire')} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} onService={handleOpenBooking} onCatalogue={()=>{setActiveCategory('all');setTab('Services');}} onOpenCart={()=>setShowCartDrawer(true)}/>
-                  {hydration.enabled&&hydration.feed?.transport_interest&&<TransportRail accountKey={user?.id||'guest'} location={place} onLocation={()=>setCustomerMapModalOpen(true)} onSignIn={()=>setSheet('auth')} onSearch={()=>hydration.event({kind:'search',category:'transport'})} title="Travel options for you"/>}
                   <div className="home-promotion-slot"><HomeEntry onOpen={()=>setHomeHub('')}/></div>
 
                   {/* 3-Column Service Category Grid with Modern Motion Graphics, 3D Option Slides, Offers & Depth Shadows */}
@@ -1099,7 +1094,7 @@ export default function App() {
               <div className="w-full market-experience">
                 <BusinessTabs label="Marketplace destination" panelId="market-destination-panel" value={marketSubTab} onChange={setMarketSubTab} items={[{id:'spares',label:'Marketplace'},{id:'b2b',label:'B2B Wholesale'},{id:'tenders',label:'Contracts'},{id:'mobility',label:'Cabs & cars'},{id:'scrap',label:'Sell scrap'}]}/>
                 <div id="market-destination-panel" role="tabpanel" aria-label={marketSubTab==='mobility'?'Cabs and car rentals':marketSubTab==='scrap'?'Sell scrap':marketSubTab==='spares'?'Marketplace':marketSubTab==='b2b'?'B2B Wholesale':'Contracts'}>
-                {marketSubTab === 'mobility' ? <MobilityHub onSearch={()=>hydration.event({kind:'search',category:'transport'})} key={'mobility:'+(auth.currentUser?.uid||'guest')} initialLocation={place} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'scrap' ? <ScrapHub key={'scrap:'+(auth.currentUser?.uid||'guest')} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'spares' ? (
+                {marketSubTab === 'mobility' ? <MobilityHub initialMode={hydration.feed?.preferred_transport_mode||undefined} onSearch={mode=>hydration.event({kind:'search',category:'transport_'+mode})} key={'mobility:'+(auth.currentUser?.uid||'guest')} initialLocation={place} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'scrap' ? <ScrapHub key={'scrap:'+(auth.currentUser?.uid||'guest')} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'spares' ? (
                   <SparePartsShop
                     onContracts={()=>setMarketSubTab('tenders')}
                     onSignIn={()=>setSheet('auth')}
@@ -1278,7 +1273,7 @@ export default function App() {
       {marketProfile&&<Modal title={marketProfile==='exchange'?'Let’s exchange':'My used items'} className="market-manager-modal" onClose={()=>setMarketProfile(null)}><Marketplace mode={marketProfile} manage onShare={shareNative} onSignIn={()=>setSheet('auth')}/></Modal>}
       {homeHub!==null&&<HomeHub preferredWorker={homePreferred} onEvent={hydration.event} city={place.city} initialService={homeHub||undefined} onClose={()=>{setHomeHub(null);setHomePreferred(undefined);}} onSignIn={()=>setSheet('auth')} onPlans={()=>{setHomeHub(null);setHomePreferred(undefined);setRideBookings(false);setContractBookings(false);setHomePlans(true);setTab('Bookings');}}/>}
       <CouponWelcome onExplore={scope=>{if(scope==='rental')openStoreSection('rentals');else if(scope==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else setTab('Services');}}/>
-      {selectedService && <LiveBooking service={selectedService} city={place.city} promotionId={selectedPromotion} onRemovePromotion={()=>setSelectedPromotion(undefined)} onPromotion={openPromotion} onClose={() => {setSelectedService(null);setSelectedPromotion(undefined);}} onSignIn={() => setSheet('auth')} onBooked={() => { setSelectedService(null);setSelectedPromotion(undefined);setRideBookings(false);setContractBookings(false);setHomePlans(false);setHireBookings(false); setTab('Bookings'); }} />}
+      {selectedService && <LiveBooking preferredWorker={preferredProfessional} service={selectedService} city={place.city} promotionId={selectedPromotion} onRemovePromotion={()=>setSelectedPromotion(undefined)} onPromotion={openPromotion} onClose={() => {setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);}} onSignIn={() => setSheet('auth')} onBooked={() => { setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);setRideBookings(false);setContractBookings(false);setHomePlans(false);setHireBookings(false); setTab('Bookings'); }} />}
 
       {/* Customer Service Location Selector */}
       {cityModalOpen && (

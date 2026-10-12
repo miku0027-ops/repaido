@@ -1,3 +1,4 @@
+import {ShareMilestone} from './ShareMilestone';
 import {ProfessionalAvatar,ProfessionalDetails,ProfileHighlights,type Professional} from './Hiring';
 import {publicProfessionalDetails} from '../services/hireProfileCache';
 import {Modal} from './ui';
@@ -317,7 +318,7 @@ export function LiveTrackingView({
       </div>
 
       {/* Underneath Body Content: High-Density Branded Elements */}
-      <div className="rt-body">
+      <div className="rt-body">{job.state!=='cancelled'&&<ShareMilestone source="service" id={job.id}/>}
         {/* 5-Step Segmented Milestone Tracker */}
         <div
           className="rt-milestone-bar"

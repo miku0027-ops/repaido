@@ -1,0 +1,31 @@
+import {useEffect,useRef,useState,type FormEvent} from 'react';
+import {ArrowRight,MapPin,Search,ShieldCheck,Star,Wrench} from 'lucide-react';
+import {apiFetch} from '../services/api';
+import {createReadCache} from '../services/readCache.mjs';
+import {seededServices} from '../data';
+import type {Service} from '../types';
+import type {TransportArea} from './TransportRail';
+import type {DiscoveryEvent} from './ServiceHydration';
+import {ContractError} from './customContractUI';
+const cache=createReadCache({maxEntries:16});
+type Professional={id:string;name:string;categories:string[];skills:string[];rating:number|null;rating_count:number;distance_km:number;role:string};
+type Results={services:any[];home_services:any[];professionals:Professional[];covered:boolean};
+function service(row:any):Service{const art=seededServices.find(s=>s.id===row.id)||seededServices.find(s=>s.category===row.category);return {...row,price:row.price_paise,duration:row.duration_minutes,image:art?.image||'',imageTile:art?.imageTile,imageAlt:row.name};}
+export function QuickRepairFinder({location,accountKey,onLocation,onBook,onHome,onEvent}:{location:TransportArea;accountKey:string;onLocation:()=>void;onBook:(service:Service,person?:{id:string;name:string})=>void;onHome:(service:string,person:{id:string;name:string})=>void;onEvent?:(event:DiscoveryEvent)=>void}){
+ const [query,setQuery]=useState(''),[submitted,setSubmitted]=useState(''),[retry,setRetry]=useState(0),[data,setData]=useState<Results|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const generation=useRef(0);
+ const valid=location.confirmed&&Number.isFinite(location.lat)&&Number.isFinite(location.lng);
+ useEffect(()=>{setQuery('');setSubmitted('');setData(null);setError('');},[accountKey]);
+ useEffect(()=>{if(!submitted)return;let alive=true;const revision=++generation.current,body={query:submitted,city:location.city||'',location:valid?{lat:location.lat,lng:location.lng}:null,radius_km:6,sort:'relevance'},key=accountKey+':'+JSON.stringify(body);setBusy(true);setError('');setData(null);
+  void cache.read(key,async()=>{const r=await apiFetch('/api/operations/discovery/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(12000)},{background:true,feedback:false});if(!r.ok)throw Error('Search could not load. Please try again.');return r.json();},{freshMs:20000,force:retry>0}).then(result=>{if(alive&&revision===generation.current)setData(result);}).catch(e=>{if(alive)setError(e.message);}).finally(()=>{if(alive)setBusy(false);});return()=>{alive=false;};
+ },[submitted,location.city,location.lat,location.lng,valid,accountKey,retry]);
+ const submit=(e:FormEvent)=>{e.preventDefault();const next=query.trim();if(!next)return;setSubmitted(next);setRetry(n=>n+1);onEvent?.({kind:'search',query:next});};
+ return <section className="quick-repair-finder" aria-label="Quick repair discovery"><form onSubmit={submit}><label htmlFor="quick-repair-query">Describe the work</label><div className="quick-repair-input"><Wrench size={19} aria-hidden="true"/><input id="quick-repair-query" type="search" required maxLength={120} value={query} onChange={e=>setQuery(e.target.value)} placeholder="For example, AC not cooling or a leaking tap"/><button disabled={busy} aria-busy={busy} type="submit"><Search size={18} aria-hidden="true"/>{busy?'Finding…':'Find help'}</button></div></form><button className="discovery-area-button" onClick={onLocation}><MapPin size={16} aria-hidden="true"/>{valid?location.city:'Set service location'}<ArrowRight size={15} aria-hidden="true"/></button><ContractError error={error} onRetry={()=>setRetry(n=>n+1)}/>
+  {busy&&<p role="status">Checking nearby professionals…</p>}
+  {data&&!busy&&<div className="quick-repair-results" aria-label="Repair search results">{!valid?<p>Set your location to see nearby professionals.</p>:!data.covered?<p>Booking is not available in this city yet.</p>:!data.professionals.length?<p>No available professionals match right now. You can still request a listed service.</p>:<div className="quick-professional-grid">{data.professionals.slice(0,6).map(person=><RepairCandidate key={person.id} person={person} data={data} onBook={onBook} onHome={onHome}/>)}</div>}{!data.professionals.length&&data.services.slice(0,3).map(row=><button key={row.id} className="quick-repair-service" onClick={()=>onBook(service(row))}>{row.name}<ArrowRight size={16} aria-hidden="true"/></button>)}{!data.professionals.length&&!data.services.length&&<p>Try a specific skill or appliance, such as plumbing, fridge or electrical repair.</p>}</div>}
+ </section>;
+}
+function RepairCandidate({person,data,onBook,onHome}:{person:Professional;data:Results;onBook:(s:Service,p?:{id:string;name:string})=>void;onHome:(s:string,p:{id:string;name:string})=>void}){
+ const options=[...data.services.filter(s=>person.categories.includes(s.category)).map(s=>({...s,kind:'service'})),...data.home_services.filter(s=>person.categories.includes(s.category)).map(s=>({...s,kind:'home'}))];
+ const [chosen,setChosen]=useState('');const choice=options.find(s=>s.id===chosen)||options[0];
+ return <article className="quick-professional-card"><header><span className="quick-professional-avatar" aria-hidden="true">{person.name.slice(0,1)}</span><div><h3>{person.name}</h3><p>{person.role==='specialist'?'Specialist':'Technician'} · {person.distance_km} km</p></div><ShieldCheck size={19} aria-label="Approved professional"/></header><p className="quick-professional-rating"><Star size={14} aria-hidden="true"/>{person.rating===null?'No reviews yet':person.rating+' · '+person.rating_count+' reviews'}</p><p className="quick-professional-skills">{person.skills.slice(0,3).join(' · ')}</p>{options.length>1&&<label>Work to request<select value={choice?.id||''} onChange={e=>setChosen(e.target.value)}>{options.map(s=><option key={s.kind+s.id} value={s.id}>{s.name}</option>)}</select></label>}{choice?<button onClick={()=>choice.kind==='home'?onHome(choice.id,{id:person.id,name:person.name}):onBook(service(choice),{id:person.id,name:person.name})}>Request {person.name.split(' ')[0]}<ArrowRight size={15} aria-hidden="true"/></button>:<p>No matching bookable service is listed.</p>}</article>;
+}

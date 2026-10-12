@@ -1,3 +1,4 @@
+import type {TravelMode} from './MobilityExperience';
 import RepaidoBrand from './RepaidoBrand';
 import {setLoadingInterests} from '../services/loading';
 import {useCallback,useEffect,useRef,useState} from 'react';
@@ -13,7 +14,7 @@ import type {Service} from '../types';
 
 export type DiscoveryEvent={kind:'search'|'category_view'|'service_view'|'banner_open';query?:string;category?:string;service_id?:string};
 type Card={category:string;category_name:string;reason:string;personalised:boolean;service:{id:string;name:string;category:Service['category'];description:string;price_paise:number;duration_minutes:number;included:string[];excluded:string[]}};
-type Feed={cards:Card[];personalised:boolean;transport_interest?:boolean;covered:boolean;basis:string};
+type Feed={cards:Card[];personalised:boolean;transport_interest?:boolean;preferred_transport_mode?:TravelMode|null;covered:boolean;basis:string};
 export function useServiceHydration(profileUid:string|undefined,city:string,active:boolean){
  const [verifiedUid,setVerifiedUid]=useState<string|undefined>();
  useEffect(()=>onIdTokenChanged(auth,user=>setVerifiedUid(user?.uid)),[]);

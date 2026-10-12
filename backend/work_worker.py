@@ -73,6 +73,7 @@ def create_app(core=None):
             import custom_contracts
             import transactional_mail
             import shared_departure_alerts
+            import repaidians_live
             result = {'profiles_indexing': repaidians.reindex_professional_members(core, limit=min(body.limit, 5)),
                       'indexing': repaidians_work.backfill(core, limit=min(body.limit, 20)),
                       'devices': work_push.backfill_devices(core, limit=min(body.limit, 20)),
@@ -80,6 +81,7 @@ def create_app(core=None):
                       'updates': repaidians_work.process_updates(core, limit=body.limit),
                       'shared_backfill': shared_departure_alerts.backfill(core, limit=min(body.limit,20)),
                       'shared_reminders': shared_departure_alerts.process_departures(core, limit=body.limit),
+                      'live_cleanup': repaidians_live.expire(core,limit=min(body.limit,12)),
                       'push': work_push.process_deliveries(core, limit=body.limit),
                       'email': transactional_mail.dispatch(core, limit=min(body.limit, 20))}
             logger.info('work_dispatch completed indexing=%s updates=%s push=%s',

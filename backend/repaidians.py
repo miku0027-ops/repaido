@@ -88,6 +88,8 @@ class PublicationReference(Input):
     id: str = Field(pattern=r'^[A-Za-z0-9_-]{1,100}$')
 
 
+from repaidians_milestones import Reference as MilestoneReference
+
 class Publication(Input):
     kind: Kind
     caption: str = Field(default='', max_length=2200)
@@ -102,6 +104,7 @@ class Publication(Input):
     contact: str | None = Field(default=None, max_length=150)
     clientId: uuid.UUID | None = None
     reference: PublicationReference | None = None
+    milestone: MilestoneReference | None = None
 
 
 class Bid(Input):
@@ -366,12 +369,15 @@ def pro(u, actor):
 
 
 def capabilities(u, actor):
-    """Only the canonical reviewed worker record grants professional features."""
+    """Canonical reviewed worker or current business membership grants social features."""
     uid = (actor.get('user') or {}).get('id')
     worker = u.get('workers', uid) if uid else None
     approved = bool(worker and worker.get('status') == 'approved')
+    if uid and not approved:
+        from local_business import partner_profile
+        approved=any((partner:=partner_profile(u,uid,role)) and partner.get('status')=='approved' and partner.get('valid_until',0)>time.time() for role in ('cab_owner','driver','scrap_owner'))
     return {'professional': approved, 'communityWrite': approved,
-            'role': 'contractor' if approved and worker.get('contractor_verified') else 'agent' if approved else 'customer'}
+            'role': 'contractor' if approved and worker and worker.get('contractor_verified') else 'agent' if approved else 'customer'}
 
 
 def professional(u, actor):
@@ -417,7 +423,7 @@ def target(u, target_id, actor):
 
 
 def clean_item(item, u=None, actor=None):
-    private = {'sortKey', 'deleted', 'mediaIds', 'contact', 'ownerId'}
+    private = {'sortKey', 'deleted', 'mediaIds', 'contact', 'ownerId','milestone'}
     out = {k: v for k, v in item.items() if k not in private}
     if item['kind'] == 'tender':
         out['contact'] = ''
@@ -430,6 +436,10 @@ def clean_item(item, u=None, actor=None):
         # projected afresh from native records; withdrawn sources expose none.
         out['referenceCard'] = card
         out['referenceUnavailable'] = card is None
+    if item.get('milestone'):
+        from repaidians_milestones import preview
+        out['milestoneCard']=preview(u,item['milestone'],item['authorId'],False) if u else None
+        out['milestoneUnavailable']=out['milestoneCard'] is None
     if u is not None and actor:
         uid = (actor.get('user') or {}).get('id')
         for action, flag in (('likes', 'liked'), ('saved', 'saved')):
@@ -509,6 +519,10 @@ def feed_page(u, actor, kind='post', trade='all', mode='all', cursor=None, limit
     if references:
         from repaidians_opportunities import reference_pairs
         u.prefetch(reference_pairs(references))
+    milestones=[item['milestone'] for item in items if item.get('milestone')]
+    if milestones:
+        from repaidians_milestones import prefetch
+        prefetch(u,milestones)
     return {'items': [clean_item(item, u, actor) for item in items], 'members': members_for(u, [item['authorId'] for item in items], actor),
             'nextCursor': cursor_encode(examined) if more else None}
 
@@ -793,7 +807,12 @@ def install(core):
     def publish(body: Publication, a=Depends(actor)):
         user = signed(a)
         def save(u):
-            professional(u, a)
+            if body.milestone:
+                pro(u,a)
+                if body.kind!='post' or body.reference:fail('MILESTONE_POST_REQUIRED','Share a work milestone in its own post.',422)
+                from repaidians_milestones import preview
+                preview(u,body.milestone.model_dump(),user['id'])
+            else:professional(u,a)
             prior = replay(u, user['id'], body, 'publish')
             if prior:
                 original = u.get('rp_publications', prior['item']['id'])
@@ -803,7 +822,8 @@ def install(core):
             member = member_ensure(u, user)
             rate(u, user['id'], 'publish', 30)
             stamp = now_ms()
-            if body.visibility == 'trade' and body.trade != member['trade']:
+            publication_trade=member['trade'] if body.milestone and body.visibility=='trade' else body.trade
+            if body.visibility == 'trade' and publication_trade != member['trade']:
                 fail('TRADE_REQUIRED', 'Private trade posts must match your profile trade.', 422)
             if body.reference:
                 if body.kind != 'post':
@@ -818,7 +838,7 @@ def install(core):
                 if body.media:
                     fail('INVALID_MEDIA', 'Tender cards use structured project details.', 422)
             elif body.kind == 'post':
-                if not body.media and not body.reference or any(m.kind != 'image' for m in body.media):
+                if not body.media and not body.reference and not body.milestone or any(m.kind != 'image' for m in body.media):
                     fail('PHOTO_REQUIRED', 'Choose photos or an available native opportunity/product for a post.', 422)
             elif len(body.media) != 1 or (body.kind == 'reel' and body.media[0].kind != 'video'):
                 fail('MEDIA_REQUIRED', 'Choose one video for a reel or one photo/video for a story.', 422)
@@ -836,13 +856,16 @@ def install(core):
                 u.put('rp_media', mid, asset)
                 media_ids.append(mid)
                 medias.append(m.model_dump())
-            item = dict(id=key, authorId=user['id'], kind=body.kind, createdAt=stamp, trade=body.trade,
+            item = dict(id=key, authorId=user['id'], kind=body.kind, createdAt=stamp, trade=publication_trade,
                         visibility=body.visibility, sample=False, caption=body.caption.strip(),
                         sortKey=sort_key(stamp, key), deleted=False, mediaIds=media_ids, likeCount=0, commentCount=0)
             if body.kind == 'post':
                 item['media'] = medias
                 if body.reference:
                     item['reference'] = body.reference.model_dump()
+                if body.milestone:
+                    from repaidians_milestones import stored_reference
+                    item['milestone']=stored_reference(u,body.milestone.model_dump(),user['id'])
             elif body.kind in ('story', 'reel'):
                 item['media'] = medias[0]
                 if body.kind == 'story':
@@ -854,12 +877,12 @@ def install(core):
             u.put('rp_publications', key, item)
             entry = {'id': key, 'publicationId': key, 'sortKey': item['sortKey'], 'active': True}
             u.put(lane('rp_author_' + body.kind, user['id']), key, entry)
-            lanes = ['rp_timeline_' + body.kind + '_' + body.visibility + '_' + body.trade]
+            lanes = ['rp_timeline_' + body.kind + '_' + body.visibility + '_' + publication_trade]
             if body.visibility == 'public':
                 lanes.append('rp_timeline_' + body.kind + '_public_all')
             for collection in lanes:
                 u.put(collection, key, entry)
-            publication_count(member, body.kind, body.visibility, body.trade, 1)
+            publication_count(member, body.kind, body.visibility, publication_trade, 1)
             u.put('rp_members', user['id'], member)
             return remember(u, user['id'], body, 'publish', {'item': clean_item(item, u, a)})
         return store.run(save)
@@ -1354,4 +1377,8 @@ def install(core):
 
     # Lifespan creates the base operations table. The SQLite query index must
     # be installed there as well; root wires initialize(core) after Store.init.
+    from repaidians_milestones import install as install_milestones
+    install_milestones(core,r,actor)
+    from repaidians_live import install as install_live
+    install_live(core,r,actor)
     core.app.include_router(r)

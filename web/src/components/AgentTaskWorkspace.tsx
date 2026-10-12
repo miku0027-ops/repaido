@@ -1,3 +1,4 @@
+import {ShareMilestone} from './ShareMilestone';
 import {TaskMarket} from './TaskMarket';
 import {AgentTravelMap} from './AgentTravelMap';
 import {HomeVisitChecks,HomeBrief} from './HomePlans';
@@ -42,7 +43,7 @@ export function AgentTaskWorkspace({job,busy,error,onClose,onRefresh,onRun,onSha
   return <Modal title={job.service_name} frameless className="agent-task-dialog" onClose={onClose}>
     <div className="agent-task-shell">
       <header className="agent-task-head"><button aria-label="Close task" onClick={onClose}><ArrowLeft size={19}/></button><div><small>Task {job.id.slice(0,8)} · {job.state.replaceAll('_',' ')}</small><h2>{job.service_name}</h2></div><button disabled={locked} aria-label="Refresh task" onClick={()=>void onRefresh()}><RefreshCw size={18}/></button></header>
-      <div className="agent-stage-navigation">
+      {job.state!=='cancelled'&&<ShareMilestone source="service" id={job.id}/>}<div className="agent-stage-navigation">
         <div className="agent-stage-tabs" role="tablist" aria-label="Task stages">{taskStages.map((s:string,i:number)=><button key={s} ref={el=>{tabs.current[i]=el;}} role="tab" id={`stage-${i}`} aria-selected={stage===i} aria-controls="agent-stage-panel" aria-label={`${s}, ${i<progress.completed?'completed':i===current?progress.status:'not reached'}`} data-complete={i<progress.completed} tabIndex={stage===i?0:-1} onClick={()=>move(i)} onKeyDown={e=>{if(['ArrowRight','ArrowLeft','Home','End'].includes(e.key)){e.preventDefault();move(e.key==='Home'?0:e.key==='End'?4:stage+(e.key==='ArrowRight'?1:-1),true);}}}><span className="agent-stage-number" aria-hidden="true">{i<progress.completed?<Check size={14}/>:i+1}</span><span className="agent-stage-name">{s}</span></button>)}</div>
         <div className="agent-task-progress" data-tone={progress.tone}>
           <div className="agent-progress-caption"><span>This visit · {progress.completed} of 5 stages done</span><strong>{progress.percent}%</strong></div>

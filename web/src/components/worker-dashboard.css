@@ -29,3 +29,5 @@
 .ops-worker .work-month>button{flex-shrink:0;width:38px;min-width:38px!important;min-height:42px!important}
 .ops-worker .worker-location-notice>span{min-width:0}.ops-worker .worker-location-notice>details{flex-shrink:0}
 .ops-worker .ops-bottom-nav button{padding-inline:2px!important;min-width:0!important}.ops-worker .ops-bottom-nav button span{white-space:normal;word-break:normal;overflow-wrap:anywhere;font-size:0.75rem}
+
+.ops-worker .worker-welcome-compact{margin:10px 0;gap:10px}.ops-worker .worker-welcome-compact h1{font-size:1.125rem;line-height:1.4}.ops-worker .agent-button-grid{gap:8px}.ops-worker .worker-welcome-compact .eyebrow{display:none}

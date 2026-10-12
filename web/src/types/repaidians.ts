@@ -2,7 +2,7 @@ import type {RepaidianBadgeMetadata} from '../components/RepaidianBadge';
 export type Trade = 'cleaning' | 'electrician' | 'plumber' | 'ac' | 'pest' | 'carpenter' | 'civil' | 'spares';
 export type Visibility = 'public' | 'trade';
 export type StudioKind = 'post' | 'reel' | 'story' | 'tender';
-export type CommunityTab = 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications' | 'jobs' | 'applications' | 'companies' | 'network' | 'contracts';
+export type CommunityTab = 'live' | 'feed' | 'reels' | 'tenders' | 'opportunities' | 'profile' | 'search' | 'inbox' | 'notifications' | 'jobs' | 'applications' | 'companies' | 'network' | 'contracts';
 export type WorkStatus = 'available' | 'open_to_work' | 'hiring' | 'not_looking';
 export type ProfessionalType = 'agent' | 'specialist' | 'contractor' | 'shop_owner' | 'member';
 export interface ProfessionalFields {
@@ -40,7 +40,7 @@ export interface CommunityMedia { url: string; kind: 'image' | 'video'; alt: str
 export interface CommunityItem {
   id: string; authorId: string; createdAt: number; trade: Trade; visibility: Visibility; sample: boolean;
 }
-export interface CommunityPost extends CommunityItem { caption: string; media: CommunityMedia[]; reference?:OpportunityReference;referenceCard?:CommunityOpportunity|null;referenceUnavailable?:boolean; likeCount?: number; commentCount?: number; liked?: boolean; saved?: boolean; }
+export interface CommunityPost extends CommunityItem { milestoneCard?:{title:string;label:string;city:string;source:string}|null;milestoneUnavailable?:boolean; caption: string; media: CommunityMedia[]; reference?:OpportunityReference;referenceCard?:CommunityOpportunity|null;referenceUnavailable?:boolean; likeCount?: number; commentCount?: number; liked?: boolean; saved?: boolean; }
 export interface CommunityStory extends CommunityItem { caption: string; media: CommunityMedia; expiresAt: number; }
 export interface CommunityReel extends CommunityItem { caption: string; media: CommunityMedia; likeCount?: number; commentCount?: number; liked?: boolean; saved?: boolean; }
 export interface CommunityTender extends CommunityItem {

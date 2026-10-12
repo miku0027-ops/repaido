@@ -1,3 +1,4 @@
+import {ShareMilestone} from './ShareMilestone';
 import {BusinessRecordPicker,useSelectedBusinessRecord} from './BusinessRecordPicker';
 import {RescheduleDeparture,SharedDepartureNotice,SharedPassengerArrival} from './SharedDepartureTools';
 import {useOperationResource} from '../hooks/useOperationResource';
@@ -65,6 +66,7 @@ function SharedBookingCard({row,own,operate,mine,busy,pending,tracking,onRun,onP
    {showTracking&&<button aria-expanded={tracking} aria-controls={'shared-location-'+row.id} onClick={onTracking}><MapPin size={16} aria-hidden="true"/>Live location & safety</button>}
   </div>}
   {tracking&&<div id={'shared-location-'+row.id}><JourneyTracking key={row.id} kind="shared" id={row.id} canSend={operate} canShare={!operate&&mine?.state==='boarded'} passengerId={mine?.id}/></div>}
+  {row.state!=='cancelled'&&(operate||mine&&['requested','accepted','boarded','completed'].includes(mine.state))&&<ShareMilestone source="shared" id={row.id}/>}
   <details className="shared-booking-details"><summary>Journey terms & activity</summary><p>{row.terms}</p><ol className="business-timeline">{row.events.map((e:any,i:number)=><li key={i}>{date(e.at)} · {e.action.replaceAll('_',' ')}</li>)}</ol>{own&&row.state==='scheduled'&&<button disabled={busy} aria-busy={working('cancel')} onClick={()=>onRun('cancel')}>{working('cancel')?'Cancelling…':'Cancel departure'}</button>}</details>
  </article>;
 }

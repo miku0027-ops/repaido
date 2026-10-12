@@ -187,7 +187,7 @@
   .app-feedback-stack .app-feedback-card p { font-size: .8125rem !important; line-height: 1.6 !important; }
   .app-feedback-stack .app-feedback-card button { min-width: 44px !important; min-height: 44px !important; margin: -8px -8px 0 0 !important; }
   /* Pair action colours explicitly: module buttons must not inherit card ink. */
-  :where(.button-primary,.navy-button,.ops-primary,.rp-primary,.cc-primary) {
+  :where(.button-primary,.navy-button,.ops-primary,.cc-primary) {
     display: inline-flex !important; align-items: center !important; justify-content: center !important;
     gap: 8px !important; padding: 10px 16px !important; border-radius: 10px !important;
     background: var(--ui-primary) !important; color: #fff !important; font-weight: 600 !important;

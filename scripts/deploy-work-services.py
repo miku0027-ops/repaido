@@ -117,10 +117,12 @@ def deploy(args):
         if not worker:
             # Only the scheduler worker sends email. The public discovery service
             # needs neither the mailbox password nor email ownership signing key.
-            for key in ('REPAIDO_SMTP_PASSWORD','REPAIDO_EMAIL_CHALLENGE_SECRET'):
+            for key in ('REPAIDO_SMTP_PASSWORD','REPAIDO_EMAIL_CHALLENGE_SECRET','CLOUDFLARE_STREAM_ACCOUNT_ID','CLOUDFLARE_STREAM_API_TOKEN','CLOUDFLARE_STREAM_KEY_ID','CLOUDFLARE_STREAM_SIGNING_PEM'):
                 values.pop(key,None)
-            service_secrets=[binding for binding in service_secrets if not binding.startswith(('REPAIDO_SMTP_PASSWORD=', 'REPAIDO_EMAIL_CHALLENGE_SECRET='))]
+            service_secrets=[binding for binding in service_secrets if not binding.startswith(('REPAIDO_SMTP_PASSWORD=', 'REPAIDO_EMAIL_CHALLENGE_SECRET=','CLOUDFLARE_STREAM_'))]
         if worker:
+            for key in ('CLOUDFLARE_STREAM_KEY_ID','CLOUDFLARE_STREAM_SIGNING_PEM'):values.pop(key,None)
+            service_secrets=[binding for binding in service_secrets if not binding.startswith(('CLOUDFLARE_STREAM_KEY_ID=','CLOUDFLARE_STREAM_SIGNING_PEM='))]
             values['REPAIDO_WORK_SCHEDULER_EMAIL'] = caller
             values['REPAIDO_PUSH_ENABLED'] = 'true'
             if previous:
