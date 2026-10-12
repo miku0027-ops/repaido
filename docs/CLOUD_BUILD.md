@@ -1,9 +1,18 @@
 # Cloud Build deployment
 
-Configure the GitHub push trigger for `miku0027-ops/repaido`, branch `^main$`,
-using the repository configuration file `/cloudbuild.yaml`.
-Include both frontend and backend changes in the trigger; do not filter it to
-only one subdirectory. The trigger must use project `repaido`.
+Release only when the user explicitly requests deployment. Keep development
+changes local or on a non-deploying branch and batch them into one or two
+requested releases per day. Disable the existing production GitHub push trigger
+for `miku0027-ops/repaido`; do not automatically deploy on `main` pushes or on a
+timer. See [cost controls](CLOUD_COST_CONTROLS.md) for the read-only audit and
+trigger-disable instructions.
+
+The first step fails before dependency installation, tests, image builds, or
+deployment unless the manual batch supplies `_RELEASE_APPROVED=true` and its full
+Git commit SHA. Keep this substitution false on automatic triggers. This guard
+is a fallback, not a substitute for disabling the trigger: a triggered guard
+failure still starts a small Cloud Build run. Repository edits alone do not
+disable an existing cloud trigger.
 
 The Python test step also installs Node.js: the camera metadata integration test
 executes the frontend's actual JavaScript encoder through a Node subprocess.
@@ -79,7 +88,7 @@ account receives FCM send capability; the current SDK account already has it.
 Future builds read enabled API status and skip enablement when it is complete.
 The build never runs this bootstrap or grants itself these project permissions.
 
-Inspect the trigger build in Cloud Build History after pushing. Verify the deployed
+Inspect the requested build in Cloud Build History after submission. Verify the deployed
 commit at `https://repaido.web.app/build-info.json` and API build IDs at
 `https://repaido.web.app/api/health` and
 `https://repaido.web.app/api/repaidians/work/health`. Only matching IDs establish that these components
@@ -89,11 +98,18 @@ Cloud Run's combined tag/service-name limit. The release-order step waits for
 earlier active runs from the same trigger before changing production traffic;
 an unreadable history or a wait exceeding 15 minutes fails the build.
 
-For manual submission from the repository root:
+For a requested manual batch, commit the reviewed changes and verify there are
+no pending tracked or untracked source changes. Submit from the repository root
+using the existing build service account; replace `BUILD_ACCOUNT_EMAIL` below.
+Do not run this command during development or while another production release
+is active. Manual builds have no trigger ID, so the trigger-specific ordering
+step does not serialize them.
 
 ```sh
+REPAIDO_RELEASE_COMMIT=$(git rev-parse HEAD)
 gcloud builds submit . --project=repaido --region=us-central1 \
   --config=cloudbuild.yaml \
+  --substitutions="_RELEASE_APPROVED=true,COMMIT_SHA=$REPAIDO_RELEASE_COMMIT" \
   --service-account=projects/repaido/serviceAccounts/BUILD_ACCOUNT_EMAIL
 ```
 
