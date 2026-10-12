@@ -112,3 +112,27 @@ html.reduce-motion :is(.home-discovery-hub,.mobility-experience,.quick-repair-fi
 .home-discovery-panel[hidden] *{animation:none!important;transition:none!important}
 html.reduce-motion :is(.home-discovery-hub button,.mobility-experience button,.mobility-mode-intro .discovery-scene,.quick-repair-intro .discovery-scene,.transport-card,.quick-professional-card),
 [data-reduced-motion=true] :is(.home-discovery-hub button,.mobility-experience button,.mobility-mode-intro .discovery-scene,.quick-repair-intro .discovery-scene,.transport-card,.quick-professional-card){transform:none!important}
+
+/* Small interaction details: a moving selection surface, tactile icons and quiet depth. */
+.home-discovery-switch{position:relative;isolation:isolate}
+.home-discovery-switch::before{content:'';position:absolute;z-index:-1;inset:4px auto 4px 4px;width:calc((100% - 12px)/2);border-radius:11px;background:var(--ui-primary);box-shadow:0 2px 5px #0b132b18,0 5px 12px #0b132b12;transition:transform 280ms var(--discovery-ease)}
+.home-discovery-hub[data-focus=repair] .home-discovery-switch::before{transform:translateX(calc(100% + 4px))}
+.home-discovery-switch button[aria-pressed=true]{background:transparent;box-shadow:none}
+.mobility-mode-icon svg,.discovery-location-chip svg,.quick-repair-examples svg,.mobility-find-button svg,.quick-professional-card>button svg{transition:transform 220ms var(--discovery-ease)}
+.mobility-mode-switch button:active .mobility-mode-icon svg{transform:scale(.9)}
+.mobility-mode-switch button[aria-pressed=true] .mobility-mode-icon{box-shadow:inset 0 1px 0 #ffffff30}
+.mobility-mode-intro,.quick-repair-intro{box-shadow:inset 0 1px 0 #ffffff20,0 3px 8px #0b132b0d,0 12px 26px #0b132b1c}
+.mobility-mode-art{border-radius:50%;background:radial-gradient(ellipse,#ffffff0c,transparent 68%)}
+.quick-repair-examples button[aria-pressed=true]{background:var(--ui-primary);color:#fff;border-color:var(--ui-primary);box-shadow:0 3px 8px #0b132b18}
+.quick-professional-card:nth-child(2),.transport-card:nth-child(2){animation-duration:380ms}
+.quick-professional-card:nth-child(3),.transport-card:nth-child(3){animation-duration:440ms}
+.quick-professional-card:nth-child(n+4),.transport-card:nth-child(n+4){animation-duration:500ms}
+.home-discovery-hub button:disabled,.mobility-experience button:disabled{cursor:default;transform:none;box-shadow:none}
+@media(hover:hover) and (pointer:fine){
+ .mobility-find-button:hover svg,.quick-professional-card>button:hover svg,.quick-repair-examples button:hover svg{transform:translateX(3px)}
+ .discovery-location-chip:hover svg{transform:translateY(-2px)}
+ .mobility-mode-switch button:not([aria-pressed=true]):hover .mobility-mode-icon svg{transform:translateY(-2px) rotate(-5deg)}
+}
+@media(prefers-reduced-motion:reduce){.home-discovery-switch::before{transition:none!important}.home-discovery-hub button svg,.mobility-experience button svg{transform:none!important}}
+html.reduce-motion .home-discovery-switch::before,[data-reduced-motion=true] .home-discovery-switch::before{transition:none!important}
+html.reduce-motion :is(.home-discovery-hub,.mobility-experience) button svg,[data-reduced-motion=true] :is(.home-discovery-hub,.mobility-experience) button svg{transform:none!important}

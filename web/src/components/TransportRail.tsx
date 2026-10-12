@@ -1,3 +1,4 @@
+import {InteractionMotion} from './InteractionMotion';
 import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {ArrowRight,Car,ChevronLeft,ChevronRight,RefreshCw} from 'lucide-react';
 import {apiFetch} from '../services/api';
@@ -42,17 +43,17 @@ export function TransportRail({location,onLocation,onSignIn,onSearch,title='Ride
  const signIn=()=>{setSelected(null);setVehicle(null);onSignIn();};
  return <section className="transport-discovery" aria-label={title}>
   <header><div>{!compact&&<small>REPAIDO · MOVE</small>}<h2>{title}</h2></div><div className="transport-rail-controls">{valid&&<button disabled={state.busy} aria-label="Refresh nearby transport" onClick={()=>setRevision(n=>n+1)}><RefreshCw size={18}/></button>}{data&&(departures.length+vehicles.length)>1&&<><button aria-label="Previous transport options" onClick={()=>move(-1)}><ChevronLeft size={18}/></button><button aria-label="Next transport options" onClick={()=>move(1)}><ChevronRight size={18}/></button></>}</div></header>
-  {!valid?<div className="transport-empty"><p>Choose a pickup area.</p><button onClick={chooseArea}>Set pickup area<ArrowRight size={16}/></button></div>:<>
+  {!valid?<div className="transport-empty discovery-state"><InteractionMotion kind="location" active={active}/><div><p>Choose a pickup area.</p><button onClick={chooseArea}>Set pickup area<ArrowRight size={16}/></button></div></div>:<>
    {!compact&&<p className="transport-caption">Shared departures within 20 km · Cab pickups and rentals within 8 km</p>}
    <ContractError error={state.key===key?state.error:''} onRetry={()=>setRevision(n=>n+1)}/>
-   {!data&&!state.error&&<div className="transport-loading"><p role="status">Finding nearby rides…</p><div className="transport-skeleton" aria-hidden="true"><span/><span/><span/></div></div>}
+   {!data&&!state.error&&<div className="transport-loading"><div className="discovery-state" role="status"><InteractionMotion kind="search" active={active}/><p>Finding nearby rides…</p></div><div className="transport-skeleton" aria-hidden="true"><span/><span/><span/></div></div>}
    {data&&!departures.length&&!vehicles.length&&<p className="transport-empty">Nothing nearby for this location yet. Try another pickup area.</p>}
    <div ref={rail} className="transport-card-rail" tabIndex={0} aria-label="Nearby transport options">
     {departures.map(row=><article className="transport-card" key={row.id}><span className="transport-type"><Car size={17} aria-hidden="true"/>Shared {row.vehicle_kind==='bike'?'bike':'car'} ride</span><h3>{row.origin_address} → {row.destination_address}</h3><p>{date(row.starts_at)}</p><p>{row.vehicle_name} · {row.owner_name}</p><p>{row.available_seats} seat{row.available_seats===1?'':'s'} · {(row.distance_metres/1000).toFixed(1)} km to start</p><strong className="transport-price">{money(row.price_paise)} <small>per seat</small></strong><button onClick={()=>setSelected(row)}>View ride<ArrowRight size={16}/></button></article>)}
     {vehicles.flatMap(row=>row.offered_modes.filter((m:string)=>modeFilter==='all'||m===modeFilter).map((mode:'cab'|'rental')=><article className="transport-card" key={row.id+mode}><span className="transport-type"><Car size={17} aria-hidden="true"/>{mode==='cab'?'Cab with driver':'Self-drive rental'}</span><h3>{row.name}</h3><p>{row.owner_name}</p><p>{row.seats} seats · {row.transmission} · {(row.distance_metres/1000).toFixed(1)} km nearby</p><strong className="transport-price">{money(mode==='cab'?row.per_km_paise:row.daily_paise)} <small>{mode==='cab'?'per km':'per day'}</small></strong><p className="transport-caption">{mode==='cab'?`${money(row.base_paise)} base fare. Review the full quote.`:'Check availability and terms for your dates.'}</p><button onClick={()=>setVehicle({row,mode})}>Check {mode==='cab'?'cab':'rental'}<ArrowRight size={16}/></button></article>))}
    </div>
   </>}
-  {notice&&<p className="transport-confirmation" role="status">{notice}</p>}
+  {notice&&<div className="discovery-state discovery-state-success" role="status"><InteractionMotion kind="success" active={active}/><p>{notice}</p></div>}
   {selected&&<Modal title="Shared ride details" onClose={()=>setSelected(null)}><SharedRideSearch departure={selected} onSignIn={signIn} onSearch={onSearch}/></Modal>}
   {vehicle&&<Modal title={vehicle.mode==='cab'?(cabExperience==='hire'?'Cab rental':'Book a cab'):'Self-drive rental'} onClose={()=>setVehicle(null)}><Suspense fallback={<p role="status">Opening booking…</p>}><RideWizard mode={vehicle.mode} experience={cabExperience} initialVehicleId={vehicle.row.id} initialLocation={area} onSignIn={signIn} onClose={()=>setVehicle(null)} onSearch={onSearch} onSaved={()=>{setVehicle(null);setNotice('Booking request sent. Follow the owner’s response in Bookings → Rides.');cache.invalidate(key);setRevision(n=>n+1);}}/></Suspense></Modal>}
   {picking&&<LocationPickerModal isOpen title="Your pickup area" onClose={()=>setPicking(false)} onConfirmLocation={pin=>{setArea({...pin,confirmed:true});setPicking(false);}}/>}

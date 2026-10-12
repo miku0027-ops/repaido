@@ -15,3 +15,12 @@
 [data-theme=dark] .action-inline-status{background:#14372b;color:#b7f1d0;border-color:#417963;}[data-theme=dark] .action-inline-status[data-tone=info]{background:#182e50;color:#d4e4ff;border-color:#5977a0;}
 @media(prefers-reduced-motion:reduce){.app-feedback-spinner{animation:none;}}
 @media(min-width:768px){.app-feedback-stack{bottom:24px;right:24px;}}
+.app-feedback-stack .app-feedback-card{grid-template-columns:44px minmax(0,1fr) auto;align-items:center;box-shadow:0 4px 10px #081a3620,0 16px 36px #081a3630;animation:feedback-arrive 220ms cubic-bezier(.22,1,.36,1)}
+.app-feedback-card>.interaction-motion{box-shadow:inset 0 1px #ffffff20;background:#ffffff0c}
+.app-feedback-card>svg{justify-self:center}
+.app-feedback-stack .app-feedback-card button{min-width:44px;min-height:44px;margin:-4px -6px -4px 0;transition:background-color 160ms ease,transform 160ms ease}
+.app-feedback-stack .app-feedback-card button:active{transform:scale(.94)}
+@keyframes feedback-arrive{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.app-feedback-stack .app-feedback-card,.app-feedback-stack .app-feedback-card button{animation:none;transition:none;transform:none}}
+html.reduce-motion .app-feedback-card,html.reduce-motion .app-feedback-spinner,[data-reduced-motion=true] .app-feedback-card,[data-reduced-motion=true] .app-feedback-spinner{animation:none!important}
+html.reduce-motion .app-feedback-card button,[data-reduced-motion=true] .app-feedback-card button{transition:none!important;transform:none!important}
