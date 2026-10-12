@@ -2,9 +2,10 @@ import type {TravelMode} from './MobilityExperience';
 import RepaidoBrand from './RepaidoBrand';
 import {setLoadingInterests} from '../services/loading';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {ArrowRight,ChevronLeft,ChevronRight,Sparkles} from 'lucide-react';
+import {ArrowRight,ChevronLeft,ChevronRight,Pause,Play,Sparkles} from 'lucide-react';
 import {apiFetch} from '../services/api';
 import {loadServiceSuggestions} from '../services/serviceSuggestions.mjs';
+import {createReadCache} from '../services/readCache.mjs';
 import {operation,money} from '../services/operations';
 import {auth} from '../firebase';
 import {onIdTokenChanged} from 'firebase/auth';
@@ -14,7 +15,8 @@ import type {Service} from '../types';
 
 export type DiscoveryEvent={kind:'search'|'category_view'|'service_view'|'banner_open';query?:string;category?:string;service_id?:string};
 type Card={category:string;category_name:string;reason:string;personalised:boolean;service:{id:string;name:string;category:Service['category'];description:string;price_paise:number;duration_minutes:number;included:string[];excluded:string[]}};
-type Feed={cards:Card[];personalised:boolean;transport_interest?:boolean;preferred_transport_mode?:TravelMode|null;covered:boolean;basis:string};
+type Feed={cards:Card[];personalised:boolean;transport_interest?:boolean;preferred_transport_mode?:TravelMode|null;preferred_discovery_focus?:'transport'|'repair'|null;preferred_repair_category?:string|null;covered:boolean;basis:string};
+const suggestionCache=createReadCache({maxEntries:16});
 export function useServiceHydration(profileUid:string|undefined,city:string,active:boolean){
  const [verifiedUid,setVerifiedUid]=useState<string|undefined>();
  useEffect(()=>onIdTokenChanged(auth,user=>setVerifiedUid(user?.uid)),[]);
@@ -22,24 +24,24 @@ export function useServiceHydration(profileUid:string|undefined,city:string,acti
  const uid=verifiedUid===profileUid?verifiedUid:undefined;
  const [enabled,setEnabled]=useState(false);
  const [feed,setFeed]=useState<Feed|null>(null),[error,setError]=useState(''),[pending,setPending]=useState(false),[dirty,setDirty]=useState(0);
- const generation=useRef(0),identity=useRef(uid);identity.current=uid;
- const refresh=useCallback((permission?:boolean)=>{if(typeof permission==='boolean')setEnabled(permission);setDirty(n=>n+1);},[]);
- useEffect(()=>{setFeed(null);setLoadingInterests([]);setError('');},[uid,city]);
- useEffect(()=>{let alive=true;setEnabled(false);if(uid)void operation<{enabled:boolean}>('/discovery/preferences',{}, {background:true}).then(p=>{if(alive)setEnabled(p.enabled);}).catch(()=>{});return()=>{alive=false;};},[uid]);
- useEffect(()=>{if(!active)return;const current=++generation.current;let alive=true;setPending(true);setError('');
+ const generation=useRef(0),preferenceRevision=useRef(0),identity=useRef(uid),permission=useRef(enabled);identity.current=uid;permission.current=enabled;
+ const refresh=useCallback((allowed?:boolean)=>{suggestionCache.invalidate();if(typeof allowed==='boolean'){preferenceRevision.current++;permission.current=allowed;setEnabled(allowed);setFeed(null);setLoadingInterests([]);}setDirty(n=>n+1);},[]);
+ useEffect(()=>{suggestionCache.invalidate();setFeed(null);setLoadingInterests([]);setError('');},[uid,city]);
+ useEffect(()=>{let alive=true;const revision=++preferenceRevision.current;setEnabled(false);if(uid)void operation<{enabled:boolean}>('/discovery/preferences',{}, {background:true}).then(p=>{if(alive&&revision===preferenceRevision.current)setEnabled(p.enabled);}).catch(()=>{});return()=>{alive=false;};},[uid]);
+ useEffect(()=>{if(!active){setPending(false);return;}const current=++generation.current;let alive=true;setPending(true);setError('');
   const load=async()=>{
    try{
     const general=async():Promise<Feed>=>{const r=await apiFetch('/api/operations/discovery/feed?city='+encodeURIComponent(city),{signal:AbortSignal.timeout(12000)},{background:true});if(!r.ok)throw Error('Suggestions could not load. Retry when you are connected.');return r.json();};
-    const {feed:result,notice}=await loadServiceSuggestions(uid,general,()=>operation<Feed>('/discovery/feed/personal?city='+encodeURIComponent(city),{}, {background:true}));
+    const {feed:result,notice}=await suggestionCache.read((uid||'guest')+':'+city,()=>loadServiceSuggestions(uid,general,()=>operation<Feed>('/discovery/feed/personal?city='+encodeURIComponent(city),{}, {background:true})),{freshMs:60000});
     if(alive&&current===generation.current){setFeed(result);setLoadingInterests(result.personalised?result.cards.map((c:Card)=>c.category):[]);setEnabled(result.personalised);setError(notice);}
-   }catch(e){if(alive){setFeed(null);setError((e as Error).message);}}
+   }catch(e){if(alive){setError((e as Error).message);}}
    finally{if(alive)setPending(false);}
   };void load();return()=>{alive=false;};
  },[uid,city,active,dirty]);
  const event=useCallback((body:DiscoveryEvent)=>{
   if(!uid||!enabled||auth.currentUser?.uid!==uid)return;
-  void operation<{recorded:boolean}>('/discovery/events',{method:'POST',body:JSON.stringify({...body,event_id:crypto.randomUUID()})},{background:true})
-   .then(result=>{if(identity.current===uid&&result.recorded){refresh();window.dispatchEvent(new Event('repaido:interests'));}}).catch(()=>{if(identity.current===uid)setError('Suggestions could not update. Browsing and booking still work.');});
+  void operation<{recorded:boolean;categories?:string[]}>('/discovery/events',{method:'POST',body:JSON.stringify({...body,event_id:crypto.randomUUID()})},{background:true})
+   .then(result=>{if(identity.current===uid&&permission.current&&result.recorded){refresh();window.dispatchEvent(new Event('repaido:interests'));window.dispatchEvent(new CustomEvent('repaido:discovery-intent',{detail:{accountKey:uid,categories:result.categories||[]}}));}}).catch(()=>{if(identity.current===uid&&permission.current)setError('Suggestions could not update. Browsing and booking still work.');});
  },[uid,enabled,refresh]);
  return {feed,error,pending,event,refresh,enabled,signedIn:!!uid};
 }
@@ -58,7 +60,7 @@ export function ServiceHydration({cards,slot,onOpen}:{cards:Card[];slot:number;o
  const p=card.service,art=seededServices.find(s=>s.id===p.id)||seededServices.find(s=>s.category===p.category);
  const service:Service={...p,price:p.price_paise,duration:p.duration_minutes,image:art?.image||'',imageTile:art?.imageTile,imageAlt:p.name};
  return <section className={`service-hydration hydration-tone-${slot%3}`} aria-roledescription="carousel" aria-label={`Service ideas ${slot+1}`} onMouseEnter={()=>setInteracting(true)} onMouseLeave={()=>setInteracting(false)} onFocusCapture={()=>setInteracting(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node|null))setInteracting(false);}}>
-  <div className="hydration-brand"><RepaidoBrand size="sm"/></div><div className="hydration-topline"><span><Sparkles size={14} aria-hidden="true"/>Repaido · Repair Your Lifestyle</span><div><span aria-hidden="true">{current+1} / {cards.length}</span><button aria-label={`Previous service idea ${slot+1}`} disabled={cards.length<2} onClick={()=>move(-1)}><ChevronLeft size={17}/></button><button aria-label={`Next service idea ${slot+1}`} disabled={cards.length<2} onClick={()=>move(1)}><ChevronRight size={17}/></button></div></div>
+  <div className="hydration-brand"><RepaidoBrand size="sm"/></div><div className="hydration-topline"><span><Sparkles size={14} aria-hidden="true"/>Service ideas</span><div><span aria-hidden="true">{current+1} / {cards.length}</span>{cards.length>1&&<button aria-label={`${paused?'Resume':'Pause'} service ideas ${slot+1}`} aria-pressed={paused} onClick={()=>setPaused(value=>!value)}>{paused?<Play size={17} aria-hidden="true"/>:<Pause size={17} aria-hidden="true"/>}</button>}<button aria-label={`Previous service idea ${slot+1}`} disabled={cards.length<2} onClick={()=>move(-1)}><ChevronLeft size={17}/></button><button aria-label={`Next service idea ${slot+1}`} disabled={cards.length<2} onClick={()=>move(1)}><ChevronRight size={17}/></button></div></div>
   <div className="hydration-slide" key={p.id} onTouchStart={e=>{touch.current={x:e.touches[0].clientX,y:e.touches[0].clientY};}} onTouchEnd={e=>{const start=touch.current;touch.current=null;if(!start)return;const dx=e.changedTouches[0].clientX-start.x,dy=e.changedTouches[0].clientY-start.y;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)move(dx<0?1:-1);}}>
    <div className="hydration-copy"><span className="hydration-category">{card.category_name}</span><h3>{p.name}</h3><span className="hydration-price">{money(p.price_paise)} <span>· {p.duration_minutes} min</span></span><button onClick={()=>onOpen(service)}>Explore this service <ArrowRight size={16} aria-hidden="true"/></button></div>
    <ServiceImage className="hydration-image" service={service} decorative/>

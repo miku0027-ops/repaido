@@ -178,7 +178,8 @@ def install(core):
             target = 'search:' + ','.join(targets)
         elif body.kind == 'category_view':
             if body.category not in categories: fail('CATEGORY_UNAVAILABLE', 'Choose a listed category.', 404)
-            targets = [body.category]; target = 'category:' + body.category
+            targets = (['transport', body.category] if body.category.startswith('transport_') else [body.category])
+            target = 'category:' + body.category
         else:
             service = next((s for s in services if s['id'] == body.service_id), None)
             if not service: fail('SERVICE_UNAVAILABLE', 'This service is no longer listed.', 404)
@@ -256,8 +257,23 @@ def install(core):
                           'service':{k:service[k] for k in ('id','name','category','description','price_paise','duration_minutes','included','excluded')}})
         transport = row.get('signals', {}).get('transport', {})
         modes={key.removeprefix('transport_'):signal for key,signal in row.get('signals',{}).items() if enabled and key in ('transport_cab','transport_shared','transport_self_drive','transport_rental') and now-signal.get('at',0)<30*86400}
-        preferred=max(modes,key=lambda key:modes[key].get('score',0)*math.exp(-max(0,now-modes[key].get('at',now))/(7*86400))) if modes else None
-        return {'cards':cards, 'personalised':enabled, 'preferred_transport_mode':preferred, 'transport_interest':bool(enabled and transport.get('visits',0) and now-transport.get('at',0)<30*86400), 'covered':city in core.CITIES,
+        # An explicit recent choice guides the next discovery visit. After two
+        # hours, fall back to decayed category strength. Existing consent, expiry,
+        # bounds and reset apply; no additional history or raw inputs are saved.
+        repair_signals={key:signal for key,signal in row.get('signals',{}).items()
+                        if enabled and (key in groups or key.startswith('home:')) and now-signal.get('at',0)<30*86400}
+        family_signals={key:signal for key,signal in row.get('signals',{}).items()
+                        if enabled and (key in repair_signals or key=='transport') and now-signal.get('at',0)<30*86400}
+        def preferred_signal(signals):
+            recent=[key for key,signal in signals.items() if now-signal.get('at',0)<=2*3600]
+            return (max(recent,key=lambda key:(signals[key].get('at',0),key)) if recent else
+                    max(signals,key=lambda key:(signals[key].get('score',0)*math.exp(-max(0,now-signals[key].get('at',now))/(7*86400)),key)) if signals else None)
+        intent=preferred_signal(family_signals)
+        preferred=preferred_signal(modes)
+        return {'cards':cards, 'personalised':enabled, 'preferred_transport_mode':preferred,
+                'preferred_discovery_focus':('transport' if intent=='transport' else 'repair') if intent else None,
+                'preferred_repair_category':preferred_signal(repair_signals),
+                'transport_interest':bool(enabled and transport.get('visits',0) and now-transport.get('at',0)<30*86400), 'covered':city in core.CITIES,
                 'policy_version':2, 'basis':'Repeated catalogue searches and service/category visits, with recent interests weighted more. Some categories stay varied. Suggestions do not diagnose a need or change prices. Availability is confirmed when booking.'}
 
     @router.get('/feed')

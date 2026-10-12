@@ -180,3 +180,37 @@ def test_transport_type_preference_obeys_consent_decay_and_reset(api,monkeypatch
     assert api.get(base+'/feed/personal',headers=h).json()['preferred_transport_mode'] is None
     api.put(base+'/preferences',headers=h,json={'enabled':False})
     assert emit('shared').status_code==403
+
+
+def test_discovery_focus_uses_recent_explicit_intent_then_decayed_strength(api, monkeypatch):
+    import uuid
+    now=[int(time.time())];monkeypatch.setattr('discovery.time.time',lambda:now[0])
+    base='/operations/discovery';h=auth('customer')
+    def feed(headers=h):return api.get(base+'/feed/personal',headers=headers).json()
+    def emit(**body):
+        result=api.post(base+'/events',headers=h,json={'event_id':str(uuid.uuid4()),**body})
+        assert result.status_code==200 and result.json()['recorded']
+        now[0]+=61
+        return result.json()
+    public=api.get(base+'/feed').json()
+    assert public['preferred_discovery_focus'] is None and public['preferred_repair_category'] is None
+    api.put(base+'/preferences',headers=h,json={'enabled':True,'consent_version':2})
+    for _ in range(6):emit(kind='search',category='transport_shared')
+    assert feed()['preferred_discovery_focus']=='transport'
+    emit(kind='search',query='AC')
+    assert feed()['preferred_discovery_focus']=='repair'
+    assert feed()['preferred_repair_category']=='ac'
+    assert feed(auth('stranger'))['preferred_discovery_focus'] is None
+    now[0]+=3*3600
+    assert feed()['preferred_discovery_focus']=='transport'
+    assert emit(kind='category_view',category='transport_self_drive')['categories']==['transport','transport_self_drive']
+    assert feed()['preferred_discovery_focus']=='transport'
+    assert feed()['preferred_transport_mode']=='self_drive'
+    stored=main.operations_store.run(lambda u:u.get('discovery_preferences','customer'))
+    assert 'query' not in stored and 'location' not in stored and 'AC' not in str(stored)
+    api.post(base+'/preferences/reset',headers=h)
+    assert feed()['preferred_discovery_focus'] is None and feed()['preferred_repair_category'] is None
+    emit(kind='search',query='AC');now[0]+=31*86400
+    assert feed()['preferred_discovery_focus'] is None
+    api.put(base+'/preferences',headers=h,json={'enabled':False})
+    assert feed()['preferred_discovery_focus'] is None and feed()['preferred_repair_category'] is None

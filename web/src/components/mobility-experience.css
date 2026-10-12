@@ -1,24 +1,114 @@
-.home-discovery-hub{padding:20px;border:1px solid var(--ui-line);border-radius:24px;background:var(--ui-surface);box-shadow:0 12px 28px rgb(15 29 58 / .12);color:var(--ui-ink);margin:0 0 16px;min-width:0;font-family:'Poppins',sans-serif}
-.home-discovery-heading,.mobility-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:0 0 16px}
-.home-discovery-heading span,.mobility-heading small{font-size:.6875rem;letter-spacing:.12em;font-weight:600;color:var(--ui-muted)}
-.home-discovery-heading h2,.mobility-heading h2{font-size:1.375rem;line-height:1.4;letter-spacing:-.025em;margin:4px 0 0;color:var(--ui-ink)}
-.home-discovery-switch{display:flex;padding:4px;gap:4px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-subtle)}
-.home-discovery-hub button,.mobility-experience button{font-family:inherit;cursor:pointer}
-.home-discovery-switch button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 12px;font-size:.8125rem;font-weight:500;border:0;border-radius:10px;background:transparent;color:var(--ui-ink)}
-.home-discovery-switch button[aria-pressed=true]{background:var(--ui-primary);color:#fff}
-.mobility-experience{min-width:0;padding:0!important;background:transparent!important}
-.mobility-mode-switch{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px}
-.local-business-hub .mobility-mode-switch button{display:flex;align-items:center;flex-direction:column;justify-content:center;gap:7px;padding:10px 7px;min-height:68px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-surface);color:var(--ui-ink);font-size:.8125rem;font-weight:500;line-height:1.5}
-.local-business-hub .mobility-mode-switch button[aria-pressed=true]{background:var(--ui-primary);color:#fff;border-color:var(--ui-primary);box-shadow:0 4px 12px rgb(15 29 58 / .14)}
-.mobility-mode-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;border-radius:18px;background:#152d50;color:#fff;margin-bottom:14px;min-width:0}
-.mobility-mode-shared{background:#103f35}.mobility-mode-self_drive{background:#302954}.mobility-mode-rental{background:#472a13}
-.mobility-mode-intro>div{min-width:0;flex:1}.mobility-mode-intro .mobility-type-label{font-size:.6875rem;letter-spacing:.08em;color:#fff;font-weight:500}.mobility-mode-intro h3{font-size:1.25rem;line-height:1.4;margin:6px 0;color:#fff;letter-spacing:-.025em}.mobility-mode-intro p{font-size:.8125rem;line-height:1.6;margin:0 0 14px;color:#fff}
-.local-business-hub .mobility-find-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:44px;padding:10px 14px;background:#fff;color:#152d50;border:1px solid #fff;border-radius:12px;font-size:.8125rem;font-weight:600}
-.mobility-mode-art{display:grid;justify-items:center;gap:8px;flex:none;width:112px;padding:15px 8px;border-radius:24px;border:1px solid #fff7;background:#ffffff12;color:#fff}.mobility-mode-art i{display:block;width:70px;border-top:2px dashed #fff}
-.mobility-embedded .transport-discovery{margin:0;padding:12px;border-radius:14px}.mobility-embedded .transport-discovery h2{font-size:.9375rem}.mobility-experience .transport-card{padding:14px;flex-basis:260px}.mobility-experience .transport-card h3{font-size:.875rem}.mobility-experience .transport-card p{font-size:.75rem}.mobility-experience .transport-price{font-size:1rem}
+.home-discovery-hub {
+ --discovery-ease:cubic-bezier(.22,1,.36,1);
+ --discovery-shadow:0 3px 8px #0b132b08,0 18px 40px #0b132b12;
+ --discovery-card-shadow:0 2px 5px #0b132b08,0 8px 18px #0b132b0c;
+ padding:20px;border:1px solid var(--ui-line);border-radius:24px;background:var(--ui-surface);
+ box-shadow:var(--discovery-shadow);color:var(--ui-ink);margin-bottom:20px;min-width:0;font-family:'Poppins',sans-serif;
+}
+.home-discovery-hub [hidden]{display:none!important}
+.home-discovery-panel{min-width:0;animation:discovery-panel-in 320ms var(--discovery-ease)}
+.home-discovery-heading,.mobility-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.home-discovery-heading>div{min-width:0;flex:1 1 200px}
+.home-discovery-heading .discovery-eyebrow,.mobility-heading small{font-size:.625rem;letter-spacing:.12em;font-weight:600;color:var(--ui-muted)}
+.home-discovery-heading h2,.mobility-heading h2{font-size:1.375rem;line-height:1.4;letter-spacing:-.035em;font-weight:600;margin:5px 0 0;color:var(--ui-ink)}
+.home-discovery-hub button,.mobility-experience button{font-family:inherit;cursor:pointer;transition:transform 180ms var(--discovery-ease),box-shadow 180ms ease,background-color 180ms ease}
+.home-discovery-hub button:active,.mobility-experience button:active{transform:scale(.98)}
+.home-discovery-hub .discovery-location-chip{display:inline-flex;gap:5px;align-items:center;min-height:44px;max-width:100%;padding:8px 10px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-subtle);color:var(--ui-ink);font-size:.75rem;font-weight:500;text-align:left}
+.discovery-location-chip svg{flex:none}
+.home-discovery-navigation{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.home-discovery-switch{display:flex;flex:1;min-width:min(100%,200px);padding:4px;gap:4px;border:1px solid var(--ui-line);border-radius:15px;background:var(--ui-subtle)}
+.home-discovery-switch button{display:flex;flex:1;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 12px;font-size:.8125rem;font-weight:600;border:0;border-radius:11px;background:transparent;color:var(--ui-ink)}
+.home-discovery-switch button[aria-pressed=true]{background:var(--ui-primary);color:#fff;box-shadow:0 2px 7px #0b132b24}
+.home-discovery-hub .discovery-suggested-button{display:grid;place-items:center;flex:none;width:44px;min-height:44px;padding:8px;font-size:.75rem;border:1px solid var(--ui-line);border-radius:11px;background:var(--ui-surface);color:var(--ui-ink)}
+.mobility-experience{--discovery-tone:#152d50;--discovery-light:#8eb7ff;--discovery-ease:cubic-bezier(.22,1,.36,1);min-width:0;padding:0!important;background:transparent!important}
+.mobility-experience[data-mode=shared]{--discovery-tone:#103f35;--discovery-light:#7ad6ba}
+.mobility-experience[data-mode=self_drive]{--discovery-tone:#302954;--discovery-light:#c4b7ff}
+.mobility-experience[data-mode=rental]{--discovery-tone:#472a13;--discovery-light:#f5c788}
+.mobility-mode-switch{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.local-business-hub .mobility-mode-switch button{position:relative;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:7px;padding:10px 6px;min-height:90px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-surface);color:var(--ui-ink);font-size:.8125rem;font-weight:500;line-height:1.5;text-align:center}
+.mobility-mode-icon{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:10px;background:var(--ui-subtle)}
+.local-business-hub .mobility-mode-switch button[aria-pressed=true]{background:var(--discovery-tone);color:#fff;border-color:var(--discovery-tone);box-shadow:0 3px 7px #0b132b13,0 8px 18px #0b132b16}
+.mobility-mode-switch button[aria-pressed=true] .mobility-mode-icon{background:#ffffff14;animation:discovery-icon-in 240ms var(--discovery-ease)}
+.mobility-mode-indicator{display:none;position:absolute;top:8px;right:8px;width:5px;height:5px;border-radius:50%;background:#fff}
+.mobility-mode-switch button[aria-pressed=true] .mobility-mode-indicator{display:block}
+.mobility-mode-intro{position:relative;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(120px,.85fr);grid-template-areas:'copy art' 'action art';align-items:center;column-gap:8px;row-gap:14px;padding:22px;border:1px solid #ffffff15;border-radius:20px;background:var(--discovery-tone);color:#fff;margin-bottom:16px;min-width:0;overflow:hidden;box-shadow:0 8px 20px #0b132b18;animation:discovery-panel-in 360ms var(--discovery-ease)}
+.mobility-mode-copy{grid-area:copy;min-width:0;position:relative;z-index:1}
+.mobility-type-label{font-size:.625rem;letter-spacing:.12em;font-weight:600}
+.mobility-mode-intro .mobility-type-label{color:#fff}
+.mobility-mode-intro h3{font-size:1.375rem;line-height:1.4;margin:6px 0;color:#fff;letter-spacing:-.035em;font-weight:600}
+.mobility-mode-intro p{font-size:.8125rem;line-height:1.6;margin:0;color:#fff;max-width:30ch}
+.local-business-hub .mobility-find-button{grid-area:action;justify-self:start;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;max-width:100%;padding:11px 14px;background:#fff;color:var(--discovery-tone);border:1px solid #fff;border-radius:12px;font-size:.8125rem;font-weight:600;position:relative;z-index:1;box-shadow:0 4px 10px #0002}
+.mobility-find-button svg{flex:none}
+.mobility-mode-art{grid-area:art;min-width:0;align-self:center;perspective:700px}
+.discovery-scene{display:block;width:100%;height:auto;overflow:visible;filter:drop-shadow(0 10px 10px #0002);transition:transform 400ms cubic-bezier(.22,1,.36,1);pointer-events:none}
+.discovery-scene-object{animation:discovery-object-in 650ms cubic-bezier(.22,1,.36,1);transform-box:fill-box;transform-origin:center}
+.discovery-scene-float{animation:discovery-float-in 800ms cubic-bezier(.22,1,.36,1);transform-box:fill-box;transform-origin:center}
+.discovery-scene-route{animation:discovery-route-in 900ms ease-out}
+.mobility-embedded .transport-discovery{margin:0;padding:14px;border-radius:18px;background:var(--ui-subtle);box-shadow:inset 0 1px #ffffff20}
+.mobility-embedded .transport-discovery h2{font-size:.9375rem;letter-spacing:-.02em;font-weight:600}
+.mobility-experience .transport-card{padding:16px;flex-basis:260px;transition:transform 220ms var(--discovery-ease),box-shadow 220ms ease;animation:discovery-panel-in 320ms var(--discovery-ease)}
+.mobility-experience .transport-card h3{font-size:.875rem;font-weight:600}.mobility-experience .transport-card p{font-size:.75rem}.mobility-experience .transport-price{font-size:1rem}
+.mobility-experience .transport-card-rail{padding:8px 2px 16px;gap:12px}
 .mobility-booking-history{padding:12px 0;margin-top:12px;border-top:1px solid var(--ui-line);font-size:.875rem}.mobility-booking-history>summary{min-height:44px;padding:12px 0;font-weight:600}
-.quick-repair-finder{font-size:.875rem;min-width:0}.quick-repair-finder label{display:grid;gap:7px;font-weight:500;font-size:.8125rem}.quick-repair-input{display:flex;align-items:center;gap:10px;border:1px solid var(--ui-control);padding:6px 6px 6px 12px;border-radius:14px;background:var(--ui-surface);margin:8px 0}.quick-repair-input>svg{flex:none;color:var(--ui-muted)}.quick-repair-input input{flex:1;min-width:0;min-height:44px;border:0;background:transparent;color:var(--ui-ink);font:inherit;font-size:.8125rem}.quick-repair-input input::placeholder{color:var(--ui-muted)}.quick-repair-input button{display:flex;align-items:center;gap:7px;min-height:44px;flex:none;padding:10px 12px;border:0;border-radius:10px;background:var(--ui-primary);color:#fff;font-size:.8125rem;font-weight:500}
-.discovery-area-button{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--ui-link);min-height:44px;padding:7px 0;font-size:.8125rem}.quick-repair-finder p{color:var(--ui-muted);line-height:1.6}
-.quick-professional-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.quick-professional-card{padding:14px;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-surface);box-shadow:0 4px 10px #1024460a;min-width:0}.quick-professional-card header{display:flex;gap:9px;align-items:flex-start}.quick-professional-card header>div{flex:1;min-width:0}.quick-professional-avatar{display:grid;place-items:center;flex:none;width:36px;height:36px;background:var(--ui-subtle);border-radius:12px;font-weight:600;color:var(--ui-ink)}.quick-professional-card h3{font-size:.875rem;line-height:1.5;margin:0;overflow-wrap:anywhere}.quick-professional-card p{font-size:.75rem;margin:5px 0}.quick-professional-rating{display:flex;gap:5px;align-items:center}.quick-professional-skills{min-height:24px}.quick-professional-card select{min-width:0;width:100%;min-height:44px;padding:8px;border:1px solid var(--ui-control);border-radius:9px;background:var(--ui-surface);color:var(--ui-ink);font:inherit;font-size:.75rem}.quick-professional-card>button,.quick-repair-service{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--ui-primary);border-radius:10px;background:var(--ui-primary);color:#fff;font-size:.8125rem;font-weight:500;margin-top:12px}.home-discovery-hub button:focus-visible,.mobility-experience button:focus-visible,.quick-repair-finder input:focus-visible,.quick-professional-card select:focus-visible{outline:3px solid var(--ui-link);outline-offset:3px}
-@media(max-width:600px){.home-discovery-hub{padding:16px;border-radius:20px}.mobility-mode-art{width:76px;padding:12px 5px}.mobility-mode-art>svg:first-child{width:42px;height:42px}.mobility-mode-art i{width:48px}.mobility-mode-intro{padding:16px;gap:10px}.quick-professional-grid{grid-template-columns:minmax(0,1fr)}}
-@media(max-width:420px){.home-discovery-heading h2{font-size:1.25rem}.mobility-mode-switch{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.local-business-hub .mobility-mode-switch button{flex-direction:row;min-height:52px;font-size:.8125rem}.mobility-mode-art{display:none}.quick-repair-input{flex-wrap:wrap}.quick-repair-input input{flex-basis:calc(100% - 34px)}.quick-repair-input button{width:100%;justify-content:center}.home-discovery-switch{width:100%}.home-discovery-switch button{flex:1}}
+.transport-skeleton{display:grid;gap:10px;border:1px solid var(--ui-line);border-radius:14px;padding:20px;margin-top:8px;min-height:142px;background:var(--ui-surface)}
+.transport-skeleton span{display:block;width:78%;height:12px;border-radius:6px;background:var(--ui-line)}.transport-skeleton span:nth-child(2){width:58%}.transport-skeleton span:nth-child(3){width:42%;height:30px;margin-top:8px}
+.quick-repair-finder{font-size:.875rem;min-width:0}
+.quick-repair-intro{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(120px,.85fr);gap:10px;align-items:center;padding:22px;border-radius:20px;background:#152d50;color:#fff;margin-bottom:18px;box-shadow:0 8px 20px #0b132b18;overflow:hidden}
+.quick-repair-intro>div{min-width:0}.quick-repair-intro h3{font-size:1.375rem;font-weight:600;line-height:1.4;letter-spacing:-.035em;margin:6px 0;color:#fff}.quick-repair-finder .quick-repair-intro p{font-size:.8125rem;line-height:1.6;margin:0;color:#fff}
+.quick-repair-finder label{display:grid;gap:7px;font-weight:500;font-size:.8125rem}
+.quick-repair-input{display:flex;align-items:center;gap:10px;border:1px solid var(--ui-control);padding:6px 6px 6px 12px;border-radius:14px;background:var(--ui-surface);margin:8px 0 12px;box-shadow:0 2px 6px #0b132b05;transition:box-shadow 160ms ease}
+.quick-repair-input:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-link) 15%,transparent)}
+.quick-repair-input>svg{flex:none;color:var(--ui-muted)}.quick-repair-input input{flex:1;min-width:0;min-height:44px;border:0;background:transparent;color:var(--ui-ink);font:inherit;font-size:.8125rem}.quick-repair-input input::placeholder{color:var(--ui-muted)}
+.quick-repair-input button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;flex:none;padding:10px 12px;border:0;border-radius:10px;background:var(--ui-primary);color:#fff;font-size:.8125rem;font-weight:500}
+.quick-repair-examples{display:flex;flex-wrap:wrap;gap:7px}.quick-repair-examples button{display:flex;align-items:center;gap:7px;min-height:44px;padding:8px 10px;background:var(--ui-subtle);color:var(--ui-ink);border:1px solid var(--ui-line);border-radius:12px;font-size:.75rem;font-weight:500}
+.discovery-area-button{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--ui-link);min-height:44px;padding:7px 0;font-size:.8125rem}
+.quick-repair-finder p{color:var(--ui-muted);line-height:1.6}.quick-repair-finder .quick-repair-result-count{font-size:.8125rem;font-weight:500;margin:8px 0;color:var(--ui-ink)}
+.quick-professional-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.quick-professional-card{padding:16px;border:1px solid var(--ui-line);border-radius:18px;background:var(--ui-surface);box-shadow:var(--discovery-card-shadow,0 3px 12px #0b132b12);min-width:0;transition:transform 220ms ease,box-shadow 220ms ease;animation:discovery-panel-in 320ms ease-out}
+.quick-professional-card header{display:flex;gap:10px;align-items:flex-start}.quick-professional-card header>div{flex:1;min-width:0}.quick-professional-avatar{display:grid;place-items:center;flex:none;width:42px;height:42px;background:var(--ui-subtle);border:1px solid var(--ui-line);border-radius:14px;font-weight:600;color:var(--ui-ink)}
+.quick-professional-card h3{font-size:.875rem;font-weight:600;line-height:1.5;margin:0;overflow-wrap:anywhere}.quick-professional-card p{font-size:.75rem;margin:6px 0}.quick-professional-rating{display:flex;gap:5px;align-items:center}.quick-professional-skills{min-height:24px}
+.quick-professional-card select{min-width:0;width:100%;min-height:44px;padding:8px;border:1px solid var(--ui-control);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);font:inherit;font-size:.75rem}
+.quick-professional-card>button,.quick-repair-service{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:11px 12px;border:1px solid var(--ui-primary);border-radius:11px;background:var(--ui-primary);color:#fff;font-size:.8125rem;font-weight:500;margin-top:12px}
+.quick-professional-card>button svg,.quick-repair-service svg{flex:none}
+.home-discovery-hub button:focus-visible,.mobility-experience button:focus-visible,.quick-repair-finder input:focus-visible,.quick-professional-card select:focus-visible{outline:3px solid var(--ui-link);outline-offset:3px}
+.mobility-mode-intro .mobility-find-button:focus-visible{outline-color:#fff}
+@layer repaido-brand {
+ .mobility-experience .transport-card{box-shadow:var(--discovery-card-shadow,0 3px 12px #0b132b12)!important}
+ .service-hydration{box-shadow:0 3px 8px #0b132b08,0 12px 26px #0b132b0d}
+}
+@media(hover:hover) and (pointer:fine){
+ .home-discovery-hub button:hover,.mobility-experience button:hover{transform:translateY(-1px);box-shadow:0 4px 10px #0b132b16}
+ .mobility-mode-intro:hover .discovery-scene,.quick-repair-intro:hover .discovery-scene{transform:translate3d(0,-4px,0) rotate(-2deg)}
+ .mobility-experience .transport-card:hover,.quick-professional-card:hover{transform:translateY(-3px)}
+}
+@media(max-width:600px){
+ .home-discovery-hub{padding:16px;border-radius:22px}.home-discovery-heading>div{flex-basis:180px}
+ .mobility-mode-intro,.quick-repair-intro{padding:18px;grid-template-columns:minmax(0,1fr) 110px}
+ .mobility-mode-intro{grid-template-areas:'copy art' 'action action';row-gap:16px}
+ .local-business-hub .mobility-find-button{justify-self:stretch;justify-content:space-between}
+ .mobility-mode-intro h3,.quick-repair-intro h3{font-size:1.25rem}.quick-professional-grid{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:420px){
+ .home-discovery-heading h2{font-size:1.25rem}.home-discovery-heading>div{flex-basis:160px}
+ .mobility-mode-switch{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .local-business-hub .mobility-mode-switch button{flex-direction:row;min-height:56px;padding:9px;font-size:.75rem;gap:6px}.mobility-mode-icon{width:27px;height:27px}
+ .mobility-mode-intro,.quick-repair-intro{padding:16px;grid-template-columns:minmax(0,1fr) 92px;gap:10px}
+ .mobility-mode-intro .mobility-type-label,.quick-repair-intro .mobility-type-label{letter-spacing:.06em}
+ .quick-repair-input{flex-wrap:wrap}.quick-repair-input input{flex-basis:calc(100% - 34px)}.quick-repair-input button{width:100%}
+ .home-discovery-navigation{gap:6px}.home-discovery-switch{min-width:0}
+}
+@media(max-width:340px){.mobility-mode-intro,.quick-repair-intro{grid-template-columns:minmax(0,1fr) 74px}}
+[data-theme=dark] .home-discovery-hub{--discovery-shadow:0 4px 14px #0003,0 20px 42px #0004;--discovery-card-shadow:0 2px 8px #0003,0 10px 22px #0002}
+@keyframes discovery-panel-in{from{opacity:.35;transform:translate3d(0,9px,0)}to{opacity:1;transform:none}}
+@keyframes discovery-icon-in{from{transform:scale(.88)}to{transform:scale(1)}}
+@keyframes discovery-object-in{from{opacity:0;transform:translate3d(14px,12px,0) scale(.94)}to{opacity:1;transform:none}}
+@keyframes discovery-float-in{from{opacity:0;transform:translate3d(0,18px,0) rotate(-6deg)}to{opacity:1;transform:none}}
+@keyframes discovery-route-in{from{opacity:0;stroke-dashoffset:40}to{opacity:1;stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){
+ .home-discovery-hub *,.mobility-experience *,.quick-repair-finder *{animation:none!important;transition:none!important}
+ .home-discovery-hub button,.mobility-experience button,.mobility-mode-intro .discovery-scene,.quick-repair-intro .discovery-scene,.mobility-experience .transport-card,.quick-professional-card{transform:none!important}
+}
+html.reduce-motion :is(.home-discovery-hub,.mobility-experience,.quick-repair-finder) *,[data-reduced-motion=true] :is(.home-discovery-hub,.mobility-experience,.quick-repair-finder) *,
+.home-discovery-panel[hidden] *{animation:none!important;transition:none!important}
+html.reduce-motion :is(.home-discovery-hub button,.mobility-experience button,.mobility-mode-intro .discovery-scene,.quick-repair-intro .discovery-scene,.transport-card,.quick-professional-card),
+[data-reduced-motion=true] :is(.home-discovery-hub button,.mobility-experience button,.mobility-mode-intro .discovery-scene,.quick-repair-intro .discovery-scene,.transport-card,.quick-professional-card){transform:none!important}

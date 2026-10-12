@@ -15,7 +15,7 @@ export type TransportArea={lat?:number;lng?:number;confirmed?:boolean;address?:s
 type Nearby={departures:any[];vehicles:any[];radius_km:number};
 const date=(time:number)=>new Date(time*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 
-export function TransportRail({location,onLocation,onSignIn,onSearch,title='Rides near you',accountKey='guest',modeFilter='all',compact=false,cabExperience}:{cabExperience?:'hire';modeFilter?:'all'|'cab'|'rental'|'shared';compact?:boolean;location?:TransportArea;onLocation?:()=>void;onSignIn:()=>void;onSearch?:()=>void;title?:string;accountKey?:string}){
+export function TransportRail({location,onLocation,onSignIn,onSearch,title='Rides near you',accountKey='guest',modeFilter='all',compact=false,cabExperience,active=true}:{cabExperience?:'hire';modeFilter?:'all'|'cab'|'rental'|'shared';compact?:boolean;location?:TransportArea;onLocation?:()=>void;onSignIn:()=>void;onSearch?:()=>void;title?:string;accountKey?:string;active?:boolean}){
  const [area,setArea]=useState<TransportArea|undefined>(location),[picking,setPicking]=useState(false);
  useEffect(()=>{setArea(location);setPicking(false);},[location?.lat,location?.lng,location?.confirmed,location?.address,location?.city,accountKey]);
  const chooseArea=()=>onLocation?onLocation():setPicking(true);
@@ -24,17 +24,18 @@ export function TransportRail({location,onLocation,onSignIn,onSearch,title='Ride
  const key=accountKey+':'+path,rail=useRef<HTMLDivElement>(null);
  const [state,setState]=useState<{key:string;data:Nearby|null;error:string;busy:boolean}>(()=>({key,data:cache.peek(key),error:'',busy:false}));
  const [selected,setSelected]=useState<any>(null),[vehicle,setVehicle]=useState<{row:any;mode:'cab'|'rental'}|null>(null),[notice,setNotice]=useState('');
- const [revision,setRevision]=useState(0);
+ const [revision,setRevision]=useState(0),lastLoad=useRef({key:'',revision:0});
  useEffect(()=>{setSelected(null);setVehicle(null);setNotice('');},[key,modeFilter,cabExperience]);
- useEffect(()=>{let alive=true;
+ useEffect(()=>{if(!active)return;let alive=true;
   const load=async(force=false)=>{if(!path)return;setState(old=>({key,data:old.key===key?old.data:cache.peek(key),error:'',busy:force}));
    try{const data=await cache.read(key,async()=>{const response=await apiFetch('/api/operations'+path,{}, {background:true,feedback:false});const result=await response.json();if(!response.ok)throw Error(result.detail?.message||'Nearby rides could not load. Please retry.');return result;},{freshMs:20000,force});if(alive)setState({key,data,error:'',busy:false});}
    catch(error){if(alive)setState(old=>({...old,error:(error as Error).message,busy:false}));}
   };
-  void load(revision>0);const update=()=>{if(!document.hidden&&navigator.onLine)void load();};const interval=setInterval(update,30000);
+  const force=lastLoad.current.key===key&&lastLoad.current.revision!==revision;lastLoad.current={key,revision};
+  void load(force);const update=()=>{if(!document.hidden&&navigator.onLine)void load();};const interval=setInterval(update,30000);
   window.addEventListener('online',update);document.addEventListener('visibilitychange',update);
   return()=>{alive=false;clearInterval(interval);window.removeEventListener('online',update);document.removeEventListener('visibilitychange',update);};
- },[key,path,revision]);
+ },[key,path,revision,active]);
  const data=state.key===key?state.data:null;
  const departures=(modeFilter==='all'||modeFilter==='shared')?data?.departures||[]:[];const vehicles=(data?.vehicles||[]).filter(row=>row.offered_modes.some((m:string)=>modeFilter==='all'||m===modeFilter));
  const move=(direction:number)=>rail.current?.scrollBy({left:direction*(rail.current.clientWidth*.85),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
@@ -44,7 +45,7 @@ export function TransportRail({location,onLocation,onSignIn,onSearch,title='Ride
   {!valid?<div className="transport-empty"><p>Choose a pickup area.</p><button onClick={chooseArea}>Set pickup area<ArrowRight size={16}/></button></div>:<>
    {!compact&&<p className="transport-caption">Shared departures within 20 km · Cab pickups and rentals within 8 km</p>}
    <ContractError error={state.key===key?state.error:''} onRetry={()=>setRevision(n=>n+1)}/>
-   {!data&&!state.error&&<p role="status">Finding nearby rides…</p>}
+   {!data&&!state.error&&<div className="transport-loading"><p role="status">Finding nearby rides…</p><div className="transport-skeleton" aria-hidden="true"><span/><span/><span/></div></div>}
    {data&&!departures.length&&!vehicles.length&&<p className="transport-empty">Nothing nearby for this location yet. Try another pickup area.</p>}
    <div ref={rail} className="transport-card-rail" tabIndex={0} aria-label="Nearby transport options">
     {departures.map(row=><article className="transport-card" key={row.id}><span className="transport-type"><Car size={17} aria-hidden="true"/>Shared {row.vehicle_kind==='bike'?'bike':'car'} ride</span><h3>{row.origin_address} → {row.destination_address}</h3><p>{date(row.starts_at)}</p><p>{row.vehicle_name} · {row.owner_name}</p><p>{row.available_seats} seat{row.available_seats===1?'':'s'} · {(row.distance_metres/1000).toFixed(1)} km to start</p><strong className="transport-price">{money(row.price_paise)} <small>per seat</small></strong><button onClick={()=>setSelected(row)}>View ride<ArrowRight size={16}/></button></article>)}
