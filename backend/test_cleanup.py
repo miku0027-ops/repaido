@@ -108,9 +108,9 @@ def test_cancel_and_photo_reuse_do_not_earn_points(api):
 
 def test_captain_threshold_and_daily_report_limit(api):
     def seed(u):
-        for i in range(10):u.put('cleanup_points',str(i),{'user_id':'customer','points':10})
+        for i in range(10):u.put('cleanup_points',str(i),{'user_id':'customer','points':10,'created_at':time.time()})
     main.operations_store.run(seed)
-    result=api.get(BASE+'/reports',headers=auth('customer')).json();assert result['badge']=='Swachh Bharat Captain' and result['points']==100
+    result=api.get(BASE+'/reports',headers=auth('customer')).json();assert result['badge']=='Swachh Bharat Captain · Gold' and result['points']==100
     for i in range(5):assert report(api,location={'lat':21.49+i*.01,'lng':86.91})[0].status_code==201
     assert report(api,location={'lat':21.9,'lng':86.91})[0].status_code==429
 

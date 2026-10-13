@@ -1250,6 +1250,8 @@ import local_business
 local_business.install(sys.modules[__name__])
 import cleanup
 cleanup.install(sys.modules[__name__])
+import captain_rewards
+captain_rewards.install(sys.modules[__name__])
 
 import mobility_journeys
 mobility_journeys.install(sys.modules[__name__])

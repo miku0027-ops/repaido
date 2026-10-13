@@ -39,6 +39,9 @@ def wallet(u,uid,now=None):
 
 def validate(u,uid,code,scope,now=None):
     code=code.strip().upper();now=time.time() if now is None else now
+    if code.startswith('CAPTAIN'):
+        from captain_rewards import validate as captain_validate
+        return captain_validate(u,uid,code,scope,now)
     match=next((r for r in wallet(u,uid,now) if r['code']==code),None)
     normalized='service' if scope in ('service','hire','home') else scope
     if not match or match['scope']!=normalized:fail('COUPON_UNAVAILABLE','This code is not eligible for this checkout, is already reserved or has expired.',409)
@@ -46,6 +49,9 @@ def validate(u,uid,code,scope,now=None):
 
 def reserve(u,uid,code,scope,base,reference,now=None):
     now=time.time() if now is None else now;rule=RULES.get(code.strip().upper())
+    if code.strip().upper().startswith('CAPTAIN'):
+        from captain_rewards import reserve as captain_reserve
+        return captain_reserve(u,uid,code,scope,base,reference,now)
     if not rule:fail('COUPON_UNAVAILABLE','Check the promo code and its terms.',409)
     cid=key(uid,rule['family']);old=u.get('coupons',cid)
     if old and old.get('reference')==reference:

@@ -42,6 +42,27 @@ try{
  await admin.getByRole('button',{name:'Record actual cash payment',exact:true}).click();await admin.getByRole('textbox',{name:'Case / receipt reference'}).fill('fixture-cash-receipt-123');await admin.getByRole('textbox',{name:'Review / explanation'}).fill('Fixture cash handed to the reporting customer');await admin.getByRole('dialog').getByRole('button',{name:'Record cash payment',exact:true}).click();await admin.getByText('Cash payment recorded; receipt pending',{exact:false}).waitFor();
  await page.getByRole('button',{name:'Refresh cleanup reports'}).click();await page.getByRole('button',{name:'I received ₹50.00 in cash',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Confirm cash received'}).click();await page.getByRole('button',{name:'History',exact:true}).click();await page.locator('.cleanup-reward').getByText('Cash receipt confirmed',{exact:false}).waitFor();assert(await page.getByText('10 points · 1 verified cleanup',{exact:true}).count());
  await variants(page,'.cleanup-hub','verified-impact');
+ await page.getByRole('button',{name:'My rewards',exact:true}).click();await page.getByText('Small efforts. Cleaner streets.',{exact:true}).waitFor();
+ await variants(page,'.captain-club','captain-impact');
+ await page.getByRole('button',{name:'Profile photo & leaderboard privacy',exact:true}).click();
+ await page.getByRole('textbox',{name:'Leaderboard display name'}).fill('Balasore Captain');
+ await page.getByRole('dialog').locator('input[type=file]').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer:image});
+ await page.getByRole('checkbox',{name:'Show my name, photo and contribution on my city’s leaderboard.'}).check();
+ await page.getByRole('button',{name:'Save profile',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'Local leaders',exact:true}).click();await page.getByText('Balasore Captain · You',{exact:true}).waitFor();
+ await page.locator('.captain-avatar img').evaluate(image=>image.decode());
+ await variants(page,'.captain-club','captain-leaderboard');
+ await fetch(api+'/fixture/gold',{method:'POST'});await page.reload();await page.getByRole('button',{name:'My rewards',exact:true}).click();await page.getByText('Your impact shines.',{exact:true}).waitFor();
+ await variants(page,'.captain-club','captain-gold');
+ await page.getByRole('button',{name:'Rewards',exact:true}).click();await page.getByRole('button',{name:'Copy CAPTAINREFURB25',exact:true}).waitFor();
+ assert.equal(await page.getByText('Terms being finalised',{exact:true}).count(),4);
+ await variants(page,'.captain-club','captain-offers');
+ await page.getByRole('button',{name:'Profile photo & leaderboard privacy',exact:true}).click();
+ await variants(page,'.captain-settings','captain-settings');
+ await page.getByRole('checkbox',{name:'Show my name, photo and contribution on my city’s leaderboard.'}).uncheck();await page.getByRole('button',{name:'Save profile',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'Local leaders',exact:true}).click();await page.getByText('A cleaner city starts with someone.',{exact:true}).waitFor();
+ await page.goto(origin+'/tests/cleanup-preview.html?goldnav=1');await page.locator('.android-bottom-nav[data-captain-gold=true]').waitFor();await variants(page,'.android-bottom-nav','captain-gold-navigation');
+ checks.push('private profile upload, opt-in local ranking, Gold eligibility, locked uncapped rewards and leaderboard opt-out');
  checks.push('independent admin verifies points and records Repaido cash; only the reporter confirms receipt');assert.deepEqual(errors,[]);
  console.log(JSON.stringify({passed:true,checks,work}));
 }catch(error){console.error(error);console.error(log.slice(-1600));if(page)await page.screenshot({path:work+'/failure.png',fullPage:true});process.exitCode=1;}finally{await writeFile(work+'/report.json',JSON.stringify({checks,errors},null,2));await browser?.close();server.kill('SIGTERM');console.log('Evidence: '+work);}

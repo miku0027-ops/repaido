@@ -1,3 +1,4 @@
+import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
 import {HomeDiscoveryHub} from './components/HomeDiscoveryHub';
 import {TransportRail} from './components/TransportRail';
 import {MobilityHub,ScrapHub,TransportBookings} from './components/LocalBusiness';
@@ -408,6 +409,8 @@ export default function App() {
   useEffect(()=>{setCommunityNative(null);setCommunityReference(undefined);setCommunityJobId(undefined);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityRouteError('');},[user?.id]);
   const customerIdentity=useCustomerIdentity(user,portal);
   const accountProfile=useAccountProfile(user?.id);
+  const captainMembership=useCaptain();
+  const captainPhoto=useCaptainPhoto(captainMembership.data?.profile.photo_id);
   const [emailProfileOpen,setEmailProfileOpen]=useState(()=>!!emailVerificationLink());
   useEffect(()=>{setEmailProfileOpen(!!emailVerificationLink());},[user?.id]);
   const [offerSettings,setOfferSettings]=useState(false);
@@ -1132,7 +1135,7 @@ export default function App() {
               <>
                 <AccountHub
                   key={user?.id || 'guest'}
-                  identity={user ? {name:customerIdentity.name,label:customerIdentity.accountLabel,email:accountProfile.profile?.email||undefined,phone:user.phone,photoURL:customerIdentity.photoURL||user.photoURL,agentLabel:customerIdentity.agentLabel} : null}
+                  identity={user ? {name:customerIdentity.name,label:customerIdentity.accountLabel,email:accountProfile.profile?.email||undefined,phone:user.phone,photoURL:captainPhoto||customerIdentity.photoURL||user.photoURL,agentLabel:customerIdentity.agentLabel} : null}
                   emailStatus={accountProfile.profile?.verification_status}
                   onCompleteEmail={user?()=>setEmailProfileOpen(true):undefined}
                   city={place.city}
@@ -1172,7 +1175,7 @@ export default function App() {
           </main>
 
           {/* Mobile Bottom Navigation Bar */}
-          <nav className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
+          <nav data-captain-gold={captainMembership.gold} className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
             <button
               className={`android-nav-item ${tab === 'Explore' ? 'active' : ''}`}
               onClick={() => navigate('Explore')}

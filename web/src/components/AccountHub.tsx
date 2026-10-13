@@ -3,6 +3,9 @@ import {Bell, BookOpen, BriefcaseBusiness, CalendarDays, CalendarCheck, ChevronD
 import {AccountCard, AccountSignOut, type AccountCardProps} from './AccountCard';
 import {AppPolicies, type AppPolicyId} from './AppPolicies';
 import './account-hub.css';
+import {Modal} from './ui';
+import {ContractError} from './customContractUI';
+import {CaptainProfileSettings,useCaptain} from './CaptainClub';
 
 type AccountActionProps = {icon: ComponentType<{size?: number; 'aria-hidden'?: boolean}>; label: string; description?: string; onClick: () => void};
 function AccountAction({icon: Icon, label, description, onClick}: AccountActionProps) {
@@ -35,10 +38,12 @@ export type AccountHubProps = AccountCardProps & {
 };
 
 export function AccountHub(props: AccountHubProps) {
+  const captain=useCaptain();
+  const [photoSettings,setPhotoSettings]=useState(false);
   const [policy, setPolicy] = useState<AppPolicyId | null>(null);
   return <div className="account-hub">
     <header className="account-hub-heading"><div><p className="account-hub-eyebrow">Your Repaido account</p><h1>Account</h1><p>Bookings, orders and your account details.</p></div><button className="account-hub-location" onClick={props.onLocation}><MapPin size={18} aria-hidden="true"/><span>{props.city}</span><ChevronRight size={16} aria-hidden="true"/></button></header>
-    <div className="account-hub-layout"><aside className="account-hub-profile"><AccountCard {...props} hideSignOut/></aside><div className="account-hub-menu">
+    <div className="account-hub-layout"><aside className="account-hub-profile"><AccountCard {...props} hideSignOut gold={captain.gold}/></aside><div className="account-hub-menu">
       <AccountCategory icon={CalendarCheck} title="Bookings & work" description="Visits, home plans and hiring" initiallyOpen>
         <AccountAction icon={Wrench} label="My service bookings" description="View your visits and their progress" onClick={props.onBookings}/>
         <AccountAction icon={Home} label="Home plans & calendar" description="Manage your scheduled home services" onClick={props.onHomePlans}/>
@@ -56,6 +61,7 @@ export function AccountHub(props: AccountHubProps) {
       </AccountCategory>
       <AccountCategory icon={ShieldCheck} title="Account & privacy" description="Your details, alerts and reading choices">
         {props.identity && props.onCompleteEmail && <AccountAction icon={FileCheck2} label="Account details & email" onClick={props.onCompleteEmail}/>}
+        {props.identity&&<AccountAction icon={Users} label="Profile photo & leaderboard privacy" onClick={()=>setPhotoSettings(true)}/>}
         <AccountAction icon={MapPin} label="Service location" description={props.city} onClick={props.onLocation}/>
         <AccountAction icon={Bell} label="Notifications & offers" description="Choose your offer preferences" onClick={props.onOffers}/>
         <AccountAction icon={BriefcaseBusiness} label="Professional account" description="Register or switch to your professional workspace" onClick={props.onAgentAccount}/>
@@ -71,6 +77,8 @@ export function AccountHub(props: AccountHubProps) {
       </AccountCategory>
     </div></div>
     {props.identity && <footer className="account-hub-footer"><AccountSignOut onSignOut={props.onSignOut}/></footer>}
+    {photoSettings&&captain.data&&<CaptainProfileSettings data={captain.data} onClose={()=>setPhotoSettings(false)} onSaved={()=>{setPhotoSettings(false);void captain.refresh();}}/>}
+    {photoSettings&&!captain.data&&<Modal title="Profile photo & privacy" onClose={()=>setPhotoSettings(false)}>{captain.error?<ContractError error={captain.error} onRetry={()=>void captain.refresh()}/>:<p role="status">Loading profile settings…</p>}</Modal>}
     {policy && <AppPolicies initialPolicy={policy} onClose={() => setPolicy(null)} onContactSupport={() => { setPolicy(null); props.onSupport(); }}/>}
   </div>;
 }

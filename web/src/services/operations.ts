@@ -50,17 +50,17 @@ export interface LiveWorker {
   categories:string[]; skills:string[]; tools:string[]; online:boolean; points:number;
   completed_tasks:number; rating_sum:number; rating_count:number; review_reason?:string;
 }
-export async function operation<T>(path:string, init:RequestInit={}, options:{background?:boolean;force?:boolean}={}):Promise<T> {
-  return withActionFeedback(path,init,()=>performOperation<T>(path,init,options));
+export async function operation<T>(path:string, init:RequestInit={}, options:{background?:boolean;force?:boolean;feedback?:boolean}={}):Promise<T> {
+  return options.feedback===false?performOperation<T>(path,init,options):withActionFeedback(path,init,()=>performOperation<T>(path,init,options));
 }
-async function performOperation<T>(path:string, init:RequestInit, options:{background?:boolean;force?:boolean}):Promise<T> {
+async function performOperation<T>(path:string, init:RequestInit, options:{background?:boolean;force?:boolean;feedback?:boolean}):Promise<T> {
   await auth.authStateReady();
   const scope=syncAccount();
   const token = auth.currentUser?await auth.currentUser.getIdToken():localStorage.getItem('repaido.token');
   if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
   if (!token) throw new Error('Sign in to view your account.');
   const read=(init.method||'GET').toUpperCase()==='GET';
-  const cached=['/admin/workers','/admin/jobs','/shop/orders','/jobs','/notifications','/hiring/requests','/home/plans','/local-business/rides','/local-business/scrap','/local-business/shared','/worker/profile-progress'].includes(path)||/^\/local-business\/partner\?role=(cab_owner|driver|scrap_owner)$/.test(path)||path==='/local-business/driver-invitations';
+  const cached=['/local-business/captain/me','/local-business/captain/leaderboard','/admin/workers','/admin/jobs','/shop/orders','/jobs','/notifications','/hiring/requests','/home/plans','/local-business/rides','/local-business/scrap','/local-business/shared','/worker/profile-progress'].includes(path)||/^\/local-business\/partner\?role=(cab_owner|driver|scrap_owner)$/.test(path)||path==='/local-business/driver-invitations';
   const done=(options.background??quietRequest(path,init))?()=>{}:beginLoading(path);
   const load=async()=>{
     const response = await apiFetch(`/api/operations${path}`, {...init, signal:init.signal, headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...init.headers}}, {background:true,feedback:false});

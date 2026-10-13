@@ -45,12 +45,15 @@ def quote(u,body,uid):
         seen.add(line.product_id);p=u.get('inventory',line.product_id)
         if not live_product(u,p,time.time()) or p['stock']<line.quantity:fail('STOCK_CHANGED','Refresh your cart: a price or available stock needs review.',409)
         total=p['price_paise']*line.quantity;gst=p.get('gst_bps');base=total*10000//(10000+gst) if gst is not None else None
-        rows.append(dict(product_id=p['id'],shop_id=p['shop_id'],name=p['name'],quantity=line.quantity,unit_price_paise=p['price_paise'],total_paise=total,gst_bps=gst,base_paise=base,condition=p.get('condition','new'),version=p.get('version',1)))
-    base=sum(row['base_paise'] or 0 for row in rows if row['condition']=='refurbished')
+        rows.append(dict(product_id=p['id'],shop_id=p['shop_id'],name=p['name'],quantity=line.quantity,unit_price_paise=p['price_paise'],total_paise=total,gst_bps=gst,base_paise=base,condition=p.get('condition','new'),category=p.get('category',''),version=p.get('version',1)))
+    captain=bool(body.coupon_code and body.coupon_code.strip().upper().startswith('CAPTAIN'))
+    from captain_rewards import APPLIANCES
+    for row in rows:row['reward_eligible']=row['condition']=='refurbished' and (not captain or row['category'].strip().casefold() in APPLIANCES)
+    base=sum(row['base_paise'] or 0 for row in rows if row['reward_eligible'])
     discount=0;offer=None
     if body.coupon_code:
         if not base:fail('TAX_BREAKDOWN_REQUIRED','This coupon requires a refurbished item with a shop-declared tax breakdown.',422)
-        offer=validate(u,uid,body.coupon_code,'refurbished');discount=base*offer['bps']//10000
+        offer=validate(u,uid,body.coupon_code,'refurbished');discount=min(base*offer['bps']//10000,offer.get('cap_paise') or base)
     subtotal=sum(x['total_paise'] for x in rows)
     return dict(items=rows,subtotal_paise=subtotal,discount_paise=discount,eligible_base_paise=base,total_paise=subtotal-discount,coupon=offer,fulfillment='Shop confirmation required; delivery charges cannot be added without approval.',tax_note='Listed prices are inclusive. No unconfirmed 18% tax is added at checkout.')
 def install(core):
@@ -71,7 +74,7 @@ def install(core):
             q=quote(u,body,user['id'])
             if q['total_paise']!=body.expected_total_paise:fail('PRICE_CHANGED','Review the refreshed checkout total before paying.',409)
             q['coupon']=reserve(u,user['id'],body.coupon_code,'refurbished',q['eligible_base_paise'],'retail:'+key) if body.coupon_code else None
-            remaining=q['discount_paise'];eligible=[x for x in q['items'] if x['condition']=='refurbished' and x['base_paise']]
+            remaining=q['discount_paise'];eligible=[x for x in q['items'] if x['reward_eligible'] and x['base_paise']]
             for item in q['items']:
                 amount=(remaining if item is eligible[-1] else q['discount_paise']*item['base_paise']//q['eligible_base_paise']) if item in eligible else 0
                 item['discount_paise']=amount;remaining-=amount;p=u.get('inventory',item['product_id']);p['stock']-=item['quantity'];p['reserved']=p.get('reserved',0)+item['quantity'];p['version']=p.get('version',0)+1;u.put('inventory',p['id'],p)
@@ -101,8 +104,11 @@ def install(core):
             if saved['state']=='paid':return saved
             saved.update(state='paid',payment_id=payment['id'],paid_at=time.time())
             for item in saved['items']:
-                amount=item['total_paise']-item['discount_paise'];pid=oid+':'+item['product_id'];u.put('shop_payables',pid,dict(id=pid,retail_order_id=oid,job_id='',shop_id=item['shop_id'],amount_paise=amount,status='awaiting_fulfillment',weekly_due_at=next_weekly(time.time())))
-            post(u,'retail:'+oid,[{'account':'payment_clearing','debit':saved['total_paise'],'credit':0},{'account':'parts_payable','debit':0,'credit':saved['total_paise']}],retail_order_id=oid)
+                amount=item['total_paise']-(0 if (saved.get('coupon') or {}).get('funded_by')=='repaido' else item['discount_paise']);pid=oid+':'+item['product_id'];u.put('shop_payables',pid,dict(id=pid,retail_order_id=oid,job_id='',shop_id=item['shop_id'],amount_paise=amount,status='awaiting_fulfillment',weekly_due_at=next_weekly(time.time())))
+            subsidy=saved['discount_paise'] if (saved.get('coupon') or {}).get('funded_by')=='repaido' else 0
+            entries=[{'account':'payment_clearing','debit':saved['total_paise'],'credit':0},{'account':'parts_payable','debit':0,'credit':saved['total_paise']+subsidy}]
+            if subsidy:entries.append({'account':'community_reward_expense','debit':subsidy,'credit':0})
+            post(u,'retail:'+oid,entries,retail_order_id=oid)
             u.put('retail_orders',oid,saved);mail_order(u,saved,'paid',suppliers=True);return saved
         return store.run(finish)
     @r.post('/orders/{oid}/payment')

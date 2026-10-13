@@ -26,12 +26,13 @@ class Report(Input):
     document_ids:list[str]=Field(min_length=1,max_length=3)
     public_place:Literal[True]
 class Action(Input):
-    action:Literal['approve','reject','refer','accept','release','reassign','submit','verify','rework','cancel','record_cash','received','payment_concern','resolve_payment']
+    action:Literal['approve','reject','refer','accept','self_accept','release','reassign','submit','verify','rework','cancel','record_cash','received','payment_concern','resolve_payment']
     expected_version:int=Field(ge=1)
     command_id:str=Field(min_length=16,max_length=100)
     note:str=Field(default='',max_length=1500)
     reference:str=Field(default='',max_length=200)
     reward_paise:int=Field(default=0,ge=0,le=100000,strict=True)
+    allow_independent:bool=False
     funding_reference:str=Field(default='',max_length=200)
     document_ids:list[str]=Field(default_factory=list,max_length=3)
     position:Position|None=None
@@ -53,6 +54,7 @@ def evidence(u,ids,uid,report_id):
     if len(set(ids))!=len(ids):fail('DUPLICATE_PHOTO','Choose different evidence photos.',422)
     for identifier in ids:
         document(u,identifier,uid)
+        if (u.get('captain_profiles',uid) or {}).get('photo_id')==identifier:fail('PROFILE_PHOTO','Upload a separate evidence photo.',422)
         old=u.get('cleanup_evidence_claims',identifier)
         if old:fail('PHOTO_USED','Upload fresh photos for this report.',409)
     for identifier in ids:u.put('cleanup_evidence_claims',identifier,{'report_id':report_id,'user_id':uid})
@@ -84,8 +86,8 @@ def install(core):
     def reports(user=Depends(core.current_user)):
         def read(u):
             rows=sorted(u.find('cleanup_reports','customer_id',user['id']),key=lambda row:row['created_at'],reverse=True)
-            ledger=u.find('cleanup_points','user_id',user['id']);points=sum(x['points'] for x in ledger)
-            return {'reports':[exposed(x) for x in rows[:100]],'points':points,'verified_cleanups':len(ledger),'captain_at':CAPTAIN,'points_per_cleanup':POINTS,'badge':'Swachh Bharat Captain' if points>=CAPTAIN else 'Cleanliness contributor'}
+            from captain_rewards import totals
+            return {'reports':[exposed(x) for x in rows[:100]],**totals(u.find('cleanup_points','user_id',user['id']))}
         return store.run(read)
 
     @r.get('/collector')
@@ -123,7 +125,7 @@ def install(core):
                     require(state=='reported' and row['category']!='hazardous','Hazardous waste must be referred to a specialist authority.')
                     require(len(body.reference.strip())>=8,'Record site-owner or public-authority collection permission.')
                     require(not body.reward_paise or len(body.funding_reference.strip())>=8,'Record the approved Repaido cash budget reference.')
-                    row.update(state='approved',authority_reference=body.reference,reward_paise=body.reward_paise,funding_reference=body.funding_reference,payment_state='approved' if body.reward_paise else 'not_offered')
+                    row.update(allow_independent=body.allow_independent,state='approved',authority_reference=body.reference,reward_paise=body.reward_paise,funding_reference=body.funding_reference,payment_state='approved' if body.reward_paise else 'not_offered')
                 elif a in ('reject','refer'):
                     require(state in ('reported','approved','assigned','verification'))
                     if a=='refer':require(len(body.reference.strip())>=8,'Record the authority referral or case reference.')
@@ -135,7 +137,8 @@ def install(core):
                 elif a=='verify':
                     require(state=='verification' and bool(row.get('after_document_ids')))
                     row.update(state='completed',completed_at=time.time(),review_note=body.note,points=POINTS)
-                    if not u.get('cleanup_points',identifier):u.put('cleanup_points',identifier,{'id':identifier,'user_id':row['customer_id'],'points':POINTS,'created_at':time.time()})
+                    from captain_rewards import award
+                    row['points']=award(u,row,uid,time.time())['points']
                 elif a=='record_cash':
                     require(state=='completed' and row['payment_state']=='approved' and row['reward_paise']>0)
                     require(len(body.reference.strip())>=8,'Record the actual cash disbursement receipt reference.')
@@ -144,6 +147,9 @@ def install(core):
                     require(row['payment_state']=='disputed');require(len(body.reference.strip())>=8,'Record the payment investigation reference.')
                     row.update(payment_state='reported',payment_resolution=body.note,payment_resolution_reference=body.reference)
                 else:require(False)
+            elif a=='self_accept':
+                require(customer and state=='approved' and row.get('allow_independent',False),'Independent collection must be approved for this spot first.')
+                row.update(state='assigned',owner_id=uid,collector_name='Independent contributor')
             elif a=='accept':
                 partner=current(u,uid,('scrap_owner',))
                 require(state=='approved' and not customer and metres(partner['location'],row['location'])<=8000)
@@ -152,12 +158,13 @@ def install(core):
                 require(owner and state=='assigned' and len(body.note.strip())>=10,'Add a reason before releasing this task.')
                 row.update(state='approved',owner_id=None,collector_name=None,review_note=body.note)
             elif a=='submit':
-                current(u,uid,('scrap_owner',));require(owner and state=='assigned')
+                if not (customer and row.get('allow_independent',False)):current(u,uid,('scrap_owner',))
+                require(owner and state=='assigned')
                 require(bool(body.document_ids) and len(body.note.strip())>=10,'Add after photos and the authorised disposal or recycling destination.')
                 pos=body.position
-                require(pos is not None and -10<=time.time()-pos.captured_at<=120 and metres(row['location'],pos.model_dump())<=300,'Confirm your current location within 300 metres of the reported spot.')
+                require(pos is not None and 0<pos.accuracy<=100 and -10<=time.time()-pos.captured_at<=120 and metres(row['location'],pos.model_dump())<=300,'Confirm your current location within 300 metres of the reported spot with location accuracy within 100 metres.')
                 evidence(u,body.document_ids,uid,identifier)
-                row.update(state='verification',after_document_ids=body.document_ids,disposal_note=body.note,completion_position=pos.model_dump())
+                row.update(submitted_at=time.time(),state='verification',after_document_ids=body.document_ids,disposal_note=body.note,completion_position=pos.model_dump())
             elif a=='cancel':
                 require(customer and state in ('reported','approved'));row.update(state='cancelled',reward_paise=0,payment_state='not_offered')
             elif a=='received':

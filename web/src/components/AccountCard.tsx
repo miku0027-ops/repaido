@@ -1,6 +1,6 @@
 import {apiAssetUrl} from '../services/api';
 import {useEffect, useRef, useState} from 'react';
-import {ArrowRight, BriefcaseBusiness, CalendarCheck, CheckCircle2, LogOut, Mail, Receipt, User} from 'lucide-react';
+import {ArrowRight, BriefcaseBusiness, CalendarCheck, CheckCircle2, Crown, LogOut, Mail, Receipt, User} from 'lucide-react';
 
 export type AccountEmailStatus = 'missing' | 'unverified' | 'verified';
 export type AccountIdentity = {
@@ -14,6 +14,7 @@ export type AccountIdentity = {
 export type AccountCardProps = {
   identity: AccountIdentity | null;
   hideSignOut?: boolean;
+  gold?: boolean;
   emailStatus?: AccountEmailStatus;
   onCompleteEmail?: () => void;
   onSignIn: () => void;
@@ -28,7 +29,7 @@ export function visibleAccountEmail(value?: string): string | undefined {
   return email && !/@repaido\.user$/i.test(email) ? email : undefined;
 }
 
-export function AccountCard({hideSignOut, identity, emailStatus, onCompleteEmail, onSignIn, onSignOut, onBookings, onOrders}: AccountCardProps) {
+export function AccountCard({hideSignOut, gold, identity, emailStatus, onCompleteEmail, onSignIn, onSignOut, onBookings, onOrders}: AccountCardProps) {
   const email = visibleAccountEmail(identity?.email);
   const initials = identity?.name?.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 
@@ -39,6 +40,7 @@ export function AccountCard({hideSignOut, identity, emailStatus, onCompleteEmail
         <div className="account-card-avatar" aria-hidden="true">{identity.photoURL ? <img src={apiAssetUrl(identity.photoURL)} alt="" referrerPolicy="no-referrer"/> : initials || <User size={27}/>}</div>
         <div className="account-card-name"><h2>{identity.label}</h2><p>{identity.phone || 'Signed in'}</p></div>
       </div>
+      {gold&&<span className="account-card-gold"><Crown size={16} aria-hidden="true"/>Swachh Bharat Captain · Gold</span>}
       {identity.agentLabel && <span className="account-card-role"><BriefcaseBusiness size={16} aria-hidden="true"/>{identity.agentLabel}</span>}
       <div className="account-card-email">
         <Mail size={19} aria-hidden="true"/>
