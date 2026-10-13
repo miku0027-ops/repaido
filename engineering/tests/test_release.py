@@ -53,6 +53,67 @@ def test_missing_disabled_or_different_account_never_gets_access(monkeypatch, us
         release.resolve_engineers(['engineer@example.test'])
 
 
+def test_explicit_deferral_keeps_only_active_accounts_and_reports_pending(monkeypatch, capsys):
+    active = {'localId': 'active-uid', 'email': 'active@example.test'}
+    responses = {
+        'active@example.test': [active],
+        'missing@example.test': [],
+        'disabled@example.test': [{'localId': 'disabled-uid', 'email': 'disabled@example.test', 'disabled': True}],
+    }
+    def lookup(path, *, body):
+        assert path.endswith(':lookup'), 'Deferral must never create or change an account'
+        return {'users': responses[body['email'][0]]}
+    monkeypatch.setattr(release, 'google_request', lookup)
+    assert release.resolve_engineers(list(responses), defer_unavailable=True) == [active]
+    output = capsys.readouterr().out
+    assert 'missing@example.test (no Firebase account found)' in output
+    assert 'disabled@example.test (Firebase account is disabled)' in output
+    assert output.count('No access granted to this account.') == 2
+
+
+def test_deferral_cannot_release_with_no_active_engineer(monkeypatch):
+    monkeypatch.setattr(release, 'google_request', lambda *a, **k: {'users': []})
+    with pytest.raises(release.ReleaseError, match='At least one active existing engineer'):
+        release.resolve_engineers(['missing@example.test'], defer_unavailable=True)
+
+
+def test_deferral_does_not_hide_an_account_identity_mismatch(monkeypatch):
+    monkeypatch.setattr(release, 'google_request', lambda *a, **k: {
+        'users': [{'localId': 'wrong', 'email': 'someone-else@example.test'}]})
+    with pytest.raises(release.ReleaseError, match='active existing'):
+        release.resolve_engineers(['engineer@example.test'], defer_unavailable=True)
+
+
+def test_access_only_grants_claim_without_build_or_deployment(monkeypatch, capsys):
+    monkeypatch.setattr('sys.argv', ['release.py', '--grant-access', '--engineer-email=engineer@example.test'])
+    monkeypatch.setattr(release.shutil, 'which', lambda binary: '/tool/gcloud')
+    def forbidden(*args, **kwargs):
+        pytest.fail('Access-only must not run release, checkout, IAM or build operations')
+    for name in ('gcloud', 'command', 'bootstrap', 'build_image', 'deploy', 'stage_source'):
+        monkeypatch.setattr(release, name, forbidden)
+    writes = []
+    def request(path, *, body):
+        if path.endswith(':lookup'):
+            return {'users': [{'localId': 'existing', 'email': 'engineer@example.test',
+                'customAttributes': '{"contractor":true}'}]}
+        assert path.endswith(':update')
+        writes.append(body)
+        return {}
+    monkeypatch.setattr(release, 'google_request', request)
+    release.main()
+    assert json.loads(writes[0]['customAttributes']) == {'contractor': True, 'engineer': True}
+    assert len(writes) == 1
+    assert 'No build or deployment was started.' in capsys.readouterr().out
+
+
+def test_access_only_cannot_defer_unavailable_accounts(monkeypatch):
+    monkeypatch.setattr('sys.argv', ['release.py', '--grant-access', '--defer-unavailable-engineers',
+        '--engineer-email=engineer@example.test'])
+    with pytest.raises(SystemExit) as caught:
+        release.main()
+    assert caught.value.code == 2
+
+
 def test_authorized_domains_keeps_existing_customer_domains(monkeypatch):
     config = {'authorizedDomains': ['repaido.web.app', 'repaido.firebaseapp.com']}
     def request(path, **kwargs):

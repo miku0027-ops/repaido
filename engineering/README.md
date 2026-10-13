@@ -166,6 +166,8 @@ verification in the connected environment; offline tests use explicit fixtures.
 - Not all GCP products are covered. The inventory asset-type allowlist is in
   `server/cloud.py`. Other projects, third-party internals and native Android
   call graphs require additional collectors/instrumentation.
+  Cloud Scheduler jobs are not returned by this inventory collector; their
+  source declarations remain unverified until a dedicated collector is added.
 - The canvas renders at most 180 matching elements at once. Filter by module,
   search or focus a node to inspect the remaining catalogue. Exports retain the
   full blueprint (JSON) or currently arranged diagram (draw.io).
@@ -190,9 +192,24 @@ python3 engineering/release.py --release FULL_COMMIT_SHA \
   --engineer-email ANOTHER_APPROVED_EMAIL
 ```
 
-Without `--release`, the helper only prints an offline plan. It resolves all
-emails to existing Firebase accounts before making changes; it never creates
-users. The operator needs service enablement, custom IAM role and binding
+Without `--release` or `--grant-access`, the helper only prints an offline plan.
+It resolves emails to existing Firebase accounts before making changes; it never
+creates users or re-enables disabled accounts. By default, every requested
+account must be active. Add `--defer-unavailable-engineers` to a release to
+continue with the active accounts and clearly report the other accounts as
+pending. At least one active engineer is required; identity mismatches still
+stop the release. Pending accounts receive no access. Once they are active in
+Firebase, the release output provides an access-only command, also available as:
+
+```bash
+python3 engineering/release.py --grant-access --engineer-email EXISTING_APPROVED_EMAIL
+```
+
+This mode updates only the existing account's claim and sessions. It does not
+build an image, deploy a service or change IAM. No ADC file is required; it uses
+the authorised Cloud Shell operator's login, just like the release mode.
+
+The operator needs service enablement, custom IAM role and binding
 administration, Firebase Auth administration, Cloud Run deployment, permission
 to attach the dedicated service identity, and Cloud Build submission/read access.
 The existing build identity builds and pushes the image; it receives no new

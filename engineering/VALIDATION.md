@@ -5,7 +5,7 @@ Firebase claim or customer record was changed.
 
 | Check | Result |
 | --- | --- |
-| Python security, source mapping, collectors, account grants and release checks | 25 passed |
+| Python security, source mapping, collectors, account grants and release checks | 30 passed |
 | Frontend graph/filter/export/evidence/motion tests | 7 passed |
 | TypeScript and Vite production build | Passed; nonblocking bundle-size advisory |
 | Python dependency compatibility | `pip check` passed |
@@ -16,6 +16,7 @@ Firebase claim or customer record was changed.
 | Packaged source catalogue | 2,636 elements, 3,663 relationships; supplied source revision retained |
 | Google/Firebase real engineer login | Not exercised; requires an authorised account and cloud credentials |
 | Live GCP inventory/metrics/logs/traces | Not exercised; no usable ADC identity in this environment |
+| Inventory type filter | All 19 requested types appear in Google's supported asset-type reference; unsupported Cloud Scheduler job filter removed |
 | Production deployment | Not performed |
 
 Browser checks blocked external requests. Unit collector tests used explicit

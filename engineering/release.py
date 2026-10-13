@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -80,12 +81,17 @@ def google_request(path, *, body=None, method=None, api='identitytoolkit'):
             f'Check the Cloud Shell account has {product} access.') from None
 
 
-def resolve_engineers(emails):
+def resolve_engineers(emails, *, defer_unavailable=False):
     accounts = []
     for email in dict.fromkeys(address.lower() for address in emails):
         response = google_request(f'v1/projects/{PROJECT}/accounts:lookup', body={'email': [email]})
-        matches = [user for user in response.get('users', [])
+        users = response.get('users', [])
+        matches = [user for user in users
                    if user.get('email', '').lower() == email]
+        if defer_unavailable and (not users or (len(matches) == 1 and matches[0].get('disabled'))):
+            reason = 'no Firebase account found' if not users else 'Firebase account is disabled'
+            print(f'Pending engineer access: {email} ({reason}). No access granted to this account.', flush=True)
+            continue
         if len(matches) != 1 or matches[0].get('disabled'):
             raise ReleaseError(f'{email}: one active existing Repaido account is required. '
                 'No account was created and no access was granted.')
@@ -93,6 +99,9 @@ def resolve_engineers(emails):
         if not re.fullmatch(r'[A-Za-z0-9_:\-]{1,128}', uid):
             raise ReleaseError('The account UID cannot be safely encoded for release verification.')
         accounts.append(matches[0])
+    if defer_unavailable and not accounts:
+        raise ReleaseError('At least one active existing engineer account is required before deployment. '
+            'No build was submitted. Sign in to Repaido with an approved account first.')
     return accounts
 
 
@@ -349,14 +358,19 @@ def deploy(commit, image, build_id, accounts, temp):
     for origin in origins:
         if origin != base:
             print('Also verified: ' + origin, flush=True)
-    print('Use either authorised Repaido account to sign in again. Existing sessions were revoked only when their role changed.', flush=True)
+    print('Sign in again with an account granted engineering access. Existing sessions were revoked only when their role changed.', flush=True)
     print('Live read checks passed. Complete one interactive Google/phone sign-in to verify the browser authentication flow.', flush=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--release', metavar='FULL_COMMIT_SHA')
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument('--release', metavar='FULL_COMMIT_SHA')
+    operation.add_argument('--grant-access', action='store_true',
+        help='Grant the engineering claim to existing accounts without building or deploying.')
     parser.add_argument('--engineer-email', action='append', default=[])
+    parser.add_argument('--defer-unavailable-engineers', action='store_true',
+        help='Release with active accounts; report missing/disabled accounts as pending. Requires at least one active account.')
     parser.add_argument('--check-build', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--commit', help=argparse.SUPPRESS)
     parser.add_argument('--approved', default='false', help=argparse.SUPPRESS)
@@ -364,17 +378,25 @@ def main():
     if args.check_build:
         check_build(args.commit, args.approved)
         return
-    if not args.release:
+    if args.defer_unavailable_engineers and not args.release:
+        parser.error('--defer-unavailable-engineers is only valid with --release.')
+    if not args.release and not args.grant_access:
         print(json.dumps({'mode': 'offline plan', 'service': SERVICE, 'project': PROJECT,
             'region': REGION, 'runtime_identity': RUNTIME, 'permissions': PERMISSIONS,
             'idle_instances': 0, 'max_instances_per_revision': 1,
             'engineer_emails': args.engineer_email, 'builds': 1,
             'customer_deployment': False, 'creates_accounts': False}, indent=2))
         return
-    if not re.fullmatch(r'[a-f0-9]{40}', args.release):
-        parser.error('--release requires a full immutable commit SHA.')
     if not 1 <= len(args.engineer_email) <= 10 or any(not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', e) for e in args.engineer_email):
         parser.error('Provide the explicitly authorised existing accounts with --engineer-email.')
+    if args.grant_access:
+        if not shutil.which('gcloud'):
+            raise ReleaseError('Run this access command in authenticated Google Cloud Shell.')
+        grant_engineers(resolve_engineers(args.engineer_email))
+        print('Engineering access updated. No build or deployment was started.', flush=True)
+        return
+    if not re.fullmatch(r'[a-f0-9]{40}', args.release):
+        parser.error('--release requires a full immutable commit SHA.')
     if command(['git', 'rev-parse', 'HEAD']) != args.release or command(['git', 'status', '--porcelain']):
         raise ReleaseError('Use a clean checkout of the exact reviewed release commit.')
     if not shutil.which('gcloud'):
@@ -383,7 +405,11 @@ def main():
         if gcloud('builds', 'list', f'--project={PROJECT}', '--region=' + region,
                   '--filter=status=(QUEUED WORKING PENDING)'):
             raise ReleaseError('Another build is active. Wait for it to finish before this release.')
-    accounts = resolve_engineers(args.engineer_email)
+    accounts = resolve_engineers(args.engineer_email,
+        defer_unavailable=args.defer_unavailable_engineers)
+    active_emails = {user['email'].lower() for user in accounts}
+    pending = [email for email in dict.fromkeys(address.lower() for address in args.engineer_email)
+               if email not in active_emails]
     # Validate current Firebase config and the existing image repository before
     # creating resources or starting a paid build.
     google_request(f'v2/projects/{PROJECT}/config')
@@ -399,6 +425,13 @@ def main():
         grant_engineers(accounts)
         build_id, image = build_image(args.release, source)
         deploy(args.release, image, build_id, accounts, temp)
+    if pending:
+        print('\nPending engineering access: ' + ', '.join(pending), flush=True)
+        print('Once each account is active in Firebase, run this access-only command; it will not rebuild the app:', flush=True)
+        access_command = ['python3', str(ROOT / 'engineering/release.py'), '--grant-access']
+        for email in pending:
+            access_command += ['--engineer-email', email]
+        print(shlex.join(access_command), flush=True)
 
 
 if __name__ == '__main__':

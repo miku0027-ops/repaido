@@ -25,7 +25,9 @@ ASSET_TYPES = [
     'compute.googleapis.com/Instance', 'compute.googleapis.com/SecurityPolicy',
     'sqladmin.googleapis.com/Instance', 'firestore.googleapis.com/Database',
     'pubsub.googleapis.com/Topic', 'pubsub.googleapis.com/Subscription',
-    'storage.googleapis.com/Bucket', 'cloudscheduler.googleapis.com/Job',
+    # Cloud Scheduler jobs are not a supported Cloud Asset Inventory type.
+    # Keep them out of this filter; source declarations are still shown.
+    'storage.googleapis.com/Bucket',
     'vpcaccess.googleapis.com/Connector', 'dns.googleapis.com/ManagedZone',
 ]
 
