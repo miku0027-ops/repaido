@@ -63,9 +63,11 @@ def gcloud(*args, cwd=ROOT):
     return json.loads(output) if output else None
 
 
-def google_request(path, *, body=None, method=None):
+def google_request(path, *, body=None, method=None, api='identitytoolkit'):
+    if api not in {'identitytoolkit', 'run'}:
+        raise ReleaseError('Unexpected Google API destination.')
     token = command(['gcloud', 'auth', 'print-access-token'])
-    request = urllib.request.Request('https://identitytoolkit.googleapis.com/' + path,
+    request = urllib.request.Request(f'https://{api}.googleapis.com/' + path,
         data=json.dumps(body).encode() if body is not None else None,
         method=method, headers={'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json', 'X-Goog-User-Project': PROJECT})
@@ -73,8 +75,9 @@ def google_request(path, *, body=None, method=None):
         with urllib.request.urlopen(request, timeout=30) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
-        raise ReleaseError(f'Firebase operator request returned HTTP {error.code}. '
-            'Check the Cloud Shell account has Firebase Authentication administration access.') from None
+        product = 'Firebase Authentication' if api == 'identitytoolkit' else 'Cloud Run'
+        raise ReleaseError(f'{product} operator request returned HTTP {error.code}. '
+            f'Check the Cloud Shell account has {product} access.') from None
 
 
 def resolve_engineers(emails):
@@ -114,18 +117,38 @@ def grant_engineers(accounts):
     print('Engineer claims configured for the requested existing accounts. Sign in again after release.', flush=True)
 
 
-def authorize_domain(url):
-    domain = urllib.parse.urlsplit(url).hostname
-    if not domain or not domain.endswith('.run.app'):
-        raise ReleaseError('The console did not return a valid Cloud Run HTTPS origin.')
+def console_origins(service):
+    # Cloud Run's legacy status URL and its newer numbered URL can both serve
+    # the same service. Firebase must recognise each actual service origin.
+    # Read the output-only uri/urls fields from the Cloud Run v2 Service API.
+    urls = [service['uri'], *service.get('urls', [])]
+    origins = []
+    for url in urls:
+        parsed = urllib.parse.urlsplit(url)
+        if (parsed.scheme != 'https' or not parsed.hostname or
+                not parsed.hostname.endswith('.run.app') or parsed.username or
+                parsed.password or parsed.port or parsed.path not in ('', '/') or
+                parsed.query or parsed.fragment):
+            raise ReleaseError('Cloud Run returned an unexpected console origin.')
+        origin = 'https://' + parsed.hostname
+        if origin not in origins:
+            origins.append(origin)
+    return origins
+
+
+def authorize_domains(urls):
+    domains_to_add = [urllib.parse.urlsplit(url).hostname for url in urls]
+    if not domains_to_add or any(not domain or not domain.endswith('.run.app') for domain in domains_to_add):
+        raise ReleaseError('The console did not return valid Cloud Run HTTPS origins.')
     path = f'v2/projects/{PROJECT}/config'
     config = google_request(path)
     domains = config.get('authorizedDomains', [])
-    if domain not in domains:
+    combined = list(dict.fromkeys([*domains, *domains_to_add]))
+    if combined != domains:
         google_request(path + '?updateMask=authorizedDomains', method='PATCH',
-            body={'name': f'projects/{PROJECT}/config', 'authorizedDomains': [*domains, domain]})
+            body={'name': f'projects/{PROJECT}/config', 'authorizedDomains': combined})
     verified = google_request(path).get('authorizedDomains', [])
-    if domain not in verified or not set(domains).issubset(verified):
+    if not set(combined).issubset(verified):
         raise ReleaseError('Firebase authorised-domain verification failed.')
 
 
@@ -311,14 +334,21 @@ def deploy(commit, image, build_id, accounts, temp):
         '--memory=512Mi', '--cpu-throttling', '--timeout=180', '--allow-unauthenticated',
         '--ingress=all', '--port=8080', '--tag=' + tag,
         '--labels=app=repaido-engineering', *(['--no-traffic'] if previous else []))
-    base = service['status']['url']
+    description = google_request(
+        f'v2/projects/{PROJECT}/locations/{REGION}/services/{SERVICE}', api='run')
+    base = description['uri']
+    origins = console_origins(description)
     traffic = next(item for item in service['status']['traffic'] if item.get('tag') == tag)
     verify_release(traffic['url'], commit, build_id)
-    authorize_domain(base)
+    authorize_domains(origins)
     gcloud('run', 'services', 'update-traffic', SERVICE, f'--project={PROJECT}', f'--region={REGION}',
         '--to-revisions=' + traffic['revisionName'] + '=100', '--clear-tags')
-    verify_release(base, commit, build_id)
+    for origin in origins:
+        verify_release(origin, commit, build_id)
     print('\nConsole released and verified: ' + base, flush=True)
+    for origin in origins:
+        if origin != base:
+            print('Also verified: ' + origin, flush=True)
     print('Use either authorised Repaido account to sign in again. Existing sessions were revoked only when their role changed.', flush=True)
     print('Live read checks passed. Complete one interactive Google/phone sign-in to verify the browser authentication flow.', flush=True)
 

@@ -53,7 +53,7 @@ def test_missing_disabled_or_different_account_never_gets_access(monkeypatch, us
         release.resolve_engineers(['engineer@example.test'])
 
 
-def test_authorized_domain_keeps_existing_customer_domains(monkeypatch):
+def test_authorized_domains_keeps_existing_customer_domains(monkeypatch):
     config = {'authorizedDomains': ['repaido.web.app', 'repaido.firebaseapp.com']}
     def request(path, **kwargs):
         if kwargs:
@@ -62,9 +62,21 @@ def test_authorized_domain_keeps_existing_customer_domains(monkeypatch):
             config.update(kwargs['body'])
         return dict(config)
     monkeypatch.setattr(release, 'google_request', request)
-    release.authorize_domain('https://repaido-engineering-fixture-uc.a.run.app')
+    release.authorize_domains(['https://repaido-engineering-fixture-uc.a.run.app',
+        'https://repaido-engineering-123.us-central1.run.app'])
     assert set(config['authorizedDomains']) == {'repaido.web.app', 'repaido.firebaseapp.com',
-        'repaido-engineering-fixture-uc.a.run.app'}
+        'repaido-engineering-fixture-uc.a.run.app', 'repaido-engineering-123.us-central1.run.app'}
+
+
+def test_console_origins_use_cloud_run_declared_urls_without_guessing():
+    legacy = 'https://repaido-engineering-fixture-uc.a.run.app'
+    numbered = 'https://repaido-engineering-123.us-central1.run.app'
+    service = {'uri': legacy, 'urls': [numbered, legacy]}
+    assert release.console_origins(service) == [legacy, numbered]
+    assert release.console_origins({'uri': legacy}) == [legacy]
+    service['urls'] = ['https://unrelated.example.test']
+    with pytest.raises(release.ReleaseError, match='unexpected console origin'):
+        release.console_origins(service)
 
 
 def test_release_archive_omits_private_and_local_files_and_detects_missing_source(tmp_path, monkeypatch):

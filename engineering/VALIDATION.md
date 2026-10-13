@@ -5,7 +5,7 @@ Firebase claim or customer record was changed.
 
 | Check | Result |
 | --- | --- |
-| Python security, source mapping, collectors, account grants and release checks | 24 passed |
+| Python security, source mapping, collectors, account grants and release checks | 25 passed |
 | Frontend graph/filter/export/evidence/motion tests | 7 passed |
 | TypeScript and Vite production build | Passed; nonblocking bundle-size advisory |
 | Python dependency compatibility | `pip check` passed |

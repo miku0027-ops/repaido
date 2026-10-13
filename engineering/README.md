@@ -206,6 +206,8 @@ CPU, 512 MiB memory and a dedicated read-only identity. A rolling release can
 temporarily have both the old and candidate revision running.
 
 It preserves existing Firebase authorised domains and other account claims.
+Both the legacy and numbered service origins reported by Cloud Run are added
+to Firebase and verified, so either supported console address can sign in.
 New engineering grants revoke existing sessions, including customer-app sessions
 for those accounts. Repeating the release does not revoke sessions again when
 the correct engineering claim already exists.
