@@ -46,3 +46,12 @@ test('an old response cannot overwrite a newer attempt or restore feedback clear
  const later=withActionFeedback('/hiring/requests',{method:'POST'},()=>new Promise(resolve=>{release=resolve;}));clearFeedback();release({});await later;assert.deepEqual(actionFeedback.getSnapshot(),[]);
 });
 test('identical errors do not accumulate separate cards',()=>{notifyFeedback({title:'Error',message:'Choose a file',tone:'error'},'one');notifyFeedback({title:'Error',message:'Choose a file',tone:'error'},'two');assert.equal(actionFeedback.getSnapshot().length,1);});
+test('cleanup feedback distinguishes review, cash disbursement and actual customer receipt',()=>{
+ const message=(action,data)=>actionMessages('/local-business/cleanup/reports/abc/actions',{method:'POST',body:JSON.stringify({action})}).result(data);
+ assert.equal(message('submit',{id:'abc',state:'verification'}).title,'Evidence submitted');
+ assert.equal(message('record_cash',{id:'abc',state:'completed',payment_state:'reported'}).tone,'info');
+ assert.equal(message('received',{id:'abc',state:'completed',payment_state:'reported'}).title,'Receipt not confirmed');
+ assert.equal(message('received',{id:'abc',state:'completed',payment_state:'received'}).title,'Cash receipt confirmed');
+ assert.equal(message('verify',{}).tone,'error');
+ assert.equal(actionMessages('/local-business/cleanup/admin?history=false',{method:'GET'}),null);
+});

@@ -142,6 +142,9 @@ class Store:
             # Browse by city and fetch a candidate's work without reading every record.
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_city ON operation_records(json_extract(body,'$.city')) WHERE kind='workers'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_online ON operation_records(json_extract(body,'$.online')) WHERE kind='workers'")
+            for kind, fields in {'cleanup_reports': ('customer_id','owner_id','state','city_key','queue'), 'cleanup_points': ('user_id',)}.items():
+                for field in fields:
+                    c.execute(f"CREATE INDEX IF NOT EXISTS operation_{kind}_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='{kind}'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_customer ON operation_records(json_extract(body,'$.customer_id')) WHERE kind='jobs'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_members_handle ON operation_records(json_extract(body,'$.handle')) WHERE kind='rp_members'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_blocks_owner ON operation_records(json_extract(body,'$.from')) WHERE kind='rp_blocks'")
@@ -210,23 +213,32 @@ class Unit:
         rows.update({key: copy.deepcopy(value) for (k, key), value in self.pending.items() if k == kind})
         return list(rows.values())
 
-    def find(self, kind, field, value):
+    def find(self, kind, field, value, *, limit=None, after=None):
         """Indexed equality lookups with transaction-local writes overlaid."""
-        allowed = {'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
+        allowed = {'cleanup_reports': {'customer_id','owner_id','state','city_key','queue'}, 'cleanup_points': {'user_id'}, 'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
                    'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:
             query = self.core.fs_collection('ops_' + kind).where(field, '==', value)
+            if limit is not None:
+                query = query.order_by('__name__')
+                if after: query = query.start_after({'__name__': self.core.fs_doc('ops_' + kind, after)})
+                query = query.limit(limit)
             rows = {s.id: s.to_dict() for s in query.stream(transaction=self.tx)}
         else:
             sql = f"SELECT id,body FROM operation_records WHERE kind=? AND json_extract(body,'$.{field}')=?"
-            rows = {r['id']: json.loads(r['body']) for r in self.conn.execute(sql, (kind, int(value) if isinstance(value, bool) else value))}
+            params = [kind, int(value) if isinstance(value, bool) else value]
+            if limit is not None:
+                if after: sql += ' AND id>?'; params.append(after)
+                sql += ' ORDER BY id LIMIT ?'; params.append(limit)
+            rows = {r['id']: json.loads(r['body']) for r in self.conn.execute(sql, params)}
         self.fetched.update({(kind, key): copy.deepcopy(item) for key, item in rows.items()})
         for (pending_kind, key), item in self.pending.items():
             if pending_kind == kind:
                 if item.get(field) == value: rows[key] = copy.deepcopy(item)
                 else: rows.pop(key, None)
+        if limit is not None: return [rows[key] for key in sorted(rows) if not after or key > after][:limit]
         return list(rows.values())
 
     def for_workers(self, kind, worker_ids, fields=None):
@@ -259,6 +271,7 @@ class Unit:
                 if item.get('worker_id') in allowed: rows[key] = copy.deepcopy(item)
                 else: rows.pop(key, None)
         if fields is not None:return [{field:row[field] for field in fields if field in row} for row in rows.values()]
+        if limit is not None: return [rows[key] for key in sorted(rows) if not after or key > after][:limit]
         return list(rows.values())
 
     def put(self, kind, key, value):

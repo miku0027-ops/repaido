@@ -26,6 +26,13 @@ export function actionMessages(path, init = {}) {
   const status = data.status || data.state || data.listing?.status || data.rfq?.status;
   const note = (title, message, tone = 'success') => ({title, message, tone});
   if (data.ok === false || data.success === false) return note('Action needs attention', data.message || 'The server did not confirm this action. Review the details before trying again.', 'error');
+  if (/\/cleanup\/(reports|admin)\/[^/]+\/actions$/.test(route)) {
+   if (!data.id || !status) return note('Update not confirmed','Refresh the cleanup report before trying again.','error');
+   if (action === 'record_cash' || action === 'resolve_payment') return note('Cash record updated','The reporter still needs to confirm cash receipt.','info');
+   if (action === 'received') return data.payment_state === 'received' ? note('Cash receipt confirmed','Your receipt is saved with the cleanup report.') : note('Receipt not confirmed','Check the latest payment status.','info');
+   const messages = {release:['Task released','Another approved collector can accept this cleanup.'],reassign:['Cleanup reopened','Another approved collector can accept this cleanup.'],approve:['Collection approved','The authorised cleanup is ready for a nearby collector.'], accept:['Cleanup accepted','You can now manage this site from Community cleanup.'], submit:['Evidence submitted','Your cleanup is ready for independent review.'], verify:['Cleanup verified','The reporter’s earned points are now recorded.'], rework:['Follow-up requested','The collector can review your notes and submit fresh evidence.'], cancel:['Report cancelled','No points or cash reward were issued.'], reject:['Report closed','Your review reason is saved with the report.'], refer:['Referral recorded','The authority case reference is saved with the report.'], payment_concern:['Payment concern sent','Repaido will review the cash payment record.']};
+   return note(...(messages[action] || ['Report updated','Open the report for its current status.']));
+  }
   if (/payment|checkout|refund|payout|razorpay|subscription\/(order|check)|\/prime\/(order|check)/.test(route)) return note('Payment status updated', 'Check the payment status below. Payment is complete only when confirmed.', 'info');
   if (upload) return data.id || data.image_url || data.url || data.media?.id || data.document_id || data.photo_id ? note('Upload complete', 'Your file is ready. Save the form to attach it.') : note('Upload response received','Check the file preview or saved attachment before submitting the form.','info');
   if (/\/market\/listings$/.test(route) && (!data.id || !status)) return note('Listing not confirmed','Check My listings before submitting again.','error');

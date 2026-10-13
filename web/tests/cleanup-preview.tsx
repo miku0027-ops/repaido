@@ -1,0 +1,14 @@
+import {createRoot} from 'react-dom/client';
+import {auth} from '../src/firebase';
+import {ScrapHub} from '../src/components/LocalBusiness';
+import {CleanupWorkspace} from '../src/components/CleanupWorkspace';
+import {AppExperience} from '../src/components/AppExperience';
+import '../src/styles.css';
+import '../src/design-system.css';
+import '../src/components/operations.css';
+const mode=new URLSearchParams(location.search).get('mode')||'customer',uid=mode==='collector'?'worker':mode==='admin'?'admin':'customer';
+await auth.authStateReady();
+(auth as any).currentUser={uid,getIdToken:async()=>uid,getIdTokenResult:async()=>({claims:{}})};
+(auth as any).onIdTokenChanged=(next:any)=>{queueMicrotask(()=>(typeof next==='function'?next:next.next)(auth.currentUser));return()=>{};};
+localStorage.setItem('repaido.token',uid);
+createRoot(document.getElementById('root')!).render(<main style={{maxWidth:960,margin:'auto',padding:16}}><AppExperience/>{mode==='customer'?<ScrapHub onSignIn={()=>{}}/>:<CleanupWorkspace mode={mode==='admin'?'admin':'collector'}/>}</main>);
