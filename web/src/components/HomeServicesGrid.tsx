@@ -3,6 +3,10 @@ import type {Promotion} from './Promotions';
 import type { CategoryId } from '../types';
 import { useCustomerBrowseHydration } from '../services/customerBrowseTracker';
 import './home-services-grid.css';
+import {money} from '../services/operations';
+import {bestCategoryOffer,offerExpiry} from '../services/promotionPresentation.mjs';
+import {ArrowUpRight,Tag} from 'lucide-react';
+import './home-discovery-refresh.css';
 
 export interface ServiceSlide {
   id: string;
@@ -1024,8 +1028,7 @@ export function HomeServicesGrid({
   },[offers,offerTime]);
   const regionServices=useMemo(()=>homeServicesData.map(service=>{
     const regular=service.slides.filter(slide=>!slide.isOffer).map(slide=>({...slide,badge:slide.type==='base'?'Explore service':slide.badge,subLabel:slide.type==='base'?service.slides[0].subLabel:slide.subLabel}));
-    const regional=offers.filter(card=>card.service?.category===service.categoryId&&card.discount_paise>0&&card.ends_at>Math.max(offerTime,Date.now()/1000)).slice(0,3).map(card=>({id:card.id,type:'offer' as const,title:card.title,badge:'Local offer',badgeTheme:'amber' as const,image:service.slides[0].image,subLabel:card.title,isOffer:true}));
-    return {...service,slides:[...regular,...regional]};
+    return {...service,slides:regular};
   }),[offers,offerTime]);
 
   return (
@@ -1037,28 +1040,22 @@ export function HomeServicesGrid({
       data-hydrated={shouldHydrate}
       data-city={city}
     >
-      {shouldHydrate&&<div className="service-grid-toolbar"><small>{city?`Discover ${city}`:'Discover services'}</small><button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?'Play':'Pause'}</button></div>}
+      <div className="service-grid-toolbar"><div><span className="service-grid-kicker">REPAIDO SPECIALS</span><h2>{city?`A little help in ${city}`:'A little help, nearby'}</h2></div>{shouldHydrate&&<button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?'Play':'Pause'}</button>}</div>
       <div className={`repaido-services-3col-grid ${paused?'service-grid-paused':''}`}>
-        {shouldHydrate
-          ? regionServices.map((service,index) => (
-              <ServiceMotionCardItem
-                key={service.id}
-                initialIndex={(Math.max(0,browseCount-3)+index)%service.slides.length}
-                service={service}
-                motionPaused={paused}
-                onOffer={id=>{const card=offers.find(card=>card.id===id&&card.ends_at>Date.now()/1000);if(card&&onOffer)onOffer(card);else onSelectCategory(service.categoryId);}}
-                isActive={activeCategory === service.categoryId}
-                onSelect={() => onSelectCategory(service.categoryId)}
-              />
-            ))
-          : regionServices.map((service,index) => (
-              <ServiceStaticCardItem
-                key={service.id}
-                service={service}
-                isActive={activeCategory === service.categoryId}
-                onSelect={() => onSelectCategory(service.categoryId)}
-              />
-            ))}
+        {regionServices.map((service,index)=>{
+          const matchingOffers=offers.filter(card=>service.id==='gardening'?/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''):service.id!=='cleaning'||!/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''));
+          const offer=bestCategoryOffer(matchingOffers,service.categoryId,Math.max(offerTime,Date.now()/1000)) as Promotion|undefined;
+          if(offer&&onOffer)return <button key={service.id} type="button" className="service-offer-tile" onClick={()=>{if(offer.ends_at>Date.now()/1000)onOffer(offer);else setOfferTime(Date.now()/1000);}}
+            aria-label={`${offer.service!.name}. ${money(offer.price_paise)} reduced to ${money(offer.offer_price_paise)}. Save ${money(offer.discount_paise)}. Valid until ${offerExpiry(offer.ends_at)}. Select offer.`}>
+            <span className="service-offer-badge"><Tag size={12} aria-hidden="true"/>Save {money(offer.discount_paise).replace('.00','')}</span>
+            <img src={service.slides[0].image} width={44} height={44} alt=""/>
+            <h3>{service.name}</h3><span className="service-offer-name">{offer.service!.name}</span>
+            <span className="service-offer-prices"><s>{money(offer.price_paise).replace('.00','')}</s><strong>{money(offer.offer_price_paise).replace('.00','')}</strong></span>
+            <span className="service-offer-expiry">Until {offerExpiry(offer.ends_at)}<ArrowUpRight size={14} aria-hidden="true"/></span>
+          </button>;
+          return shouldHydrate?<ServiceMotionCardItem key={service.id} initialIndex={(Math.max(0,browseCount-3)+index)%service.slides.length} service={service} motionPaused={paused} isActive={activeCategory===service.categoryId} onSelect={()=>onSelectCategory(service.categoryId)}/>
+            :<ServiceStaticCardItem key={service.id} service={service} isActive={activeCategory===service.categoryId} onSelect={()=>onSelectCategory(service.categoryId)}/>;
+        })}
       </div>
     </div>
   );

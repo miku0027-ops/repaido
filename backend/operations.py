@@ -110,6 +110,9 @@ class Discovery(Input):
 class Booking(Input):
     coupon_code: str | None = Field(default=None,max_length=30)
     promotion_id: str | None = Field(default=None,max_length=80)
+    promotion_version: int | None = Field(default=None,ge=1)
+    promotion_discount_paise: int | None = Field(default=None,ge=0)
+    promotion_original_price_paise: int | None = Field(default=None,ge=0)
     service_id: str
     city: str
     address: str = Field(min_length=10, max_length=500)
@@ -778,7 +781,9 @@ def install(core):
         else:
             with core.db() as c: service = dict(core.service_by_id(c, body.service_id))
         key = hashlib.sha256((user['id']+body.idempotency_key).encode()).hexdigest()
-        fingerprint = hashlib.sha256(body.model_dump_json(exclude={'preferred_worker_id'} if body.preferred_worker_id is None else None).encode()).hexdigest()
+        # Preserve retry fingerprints from clients released before quote metadata.
+        optional={'preferred_worker_id','promotion_version','promotion_discount_paise','promotion_original_price_paise'}
+        fingerprint = hashlib.sha256(body.model_dump_json(exclude={k for k in optional if getattr(body,k) is None}).encode()).hexdigest()
         def save(u):
             old = u.get('booking_keys', key)
             if old:
@@ -804,7 +809,7 @@ def install(core):
                 attach_job(job,reserve(u,user["id"],body.coupon_code,"service",service["price_paise"],"job:"+job["id"],now))
             if body.promotion_id:
                 from promotions import reserve_discount
-                reserve_discount(u,job,user['id'],body.promotion_id,service,body.city,now)
+                reserve_discount(u,job,user['id'],body.promotion_id,service,body.city,now,body.promotion_version,body.promotion_discount_paise,body.promotion_original_price_paise)
             job['service_terms']=copy.deepcopy(service_terms)
             event(u, job, 'BookingRequested', user['id'])
             if body.preferred_worker_id:job['requested_worker_id']=body.preferred_worker_id

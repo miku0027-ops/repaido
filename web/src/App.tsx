@@ -24,7 +24,7 @@ import {StoresIcon} from './components/StoresIcon';
 import {auth} from './firebase';
 import {useCustomerIdentity} from './services/customerIdentity';
 import {operation,operationSnapshot,invalidateOperationReads,type Job} from './services/operations';
-import {PromotionRail,PromotionPreferences,promotionService,type Promotion} from './components/Promotions';
+import {PromotionRail,PromotionPreferences,promotionService,useCampaigns,type Promotion} from './components/Promotions';
 import {Hiring,HireRequests} from './components/Hiring';
 import {Marketplace} from './components/Marketplace';
 import {HomeServiceDetails} from './components/HomeServiceDetails';
@@ -360,7 +360,7 @@ export default function App() {
   const [marketProfile,setMarketProfile]=useState<'exchange'|'second_hand'|null>(()=>new URLSearchParams(location.search).get('market')==='exchange'?'exchange':new URLSearchParams(location.search).get('market')==='second_hand'?'second_hand':null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedPromotion,setSelectedPromotion]=useState<string|undefined>();
-  const openPromotion=(c:Promotion)=>{if(c.home_service){setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);setHomeHub(c.home_service);return;}if(c.service){setSelectedPromotion(c.id);setSelectedService(promotionService(c));}};
+  const openPromotion=(c:Promotion)=>{if(c.home_service){setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);setHomeHub(c.home_service);return;}if(c.service){setPreferredProfessional(undefined);setSelectedPromotion(c.id);setSelectedService(promotionService(c));}};
   const [bookingStep, setBookingStep] = useState(0);
 
   // Booking Form State for 4-Step Android Booking Sheet
@@ -417,6 +417,7 @@ export default function App() {
   useEffect(()=>{const campaign=new URLSearchParams(location.search).get('campaign');if(!campaign)return;let alive=true;const body=JSON.stringify({city:place.city,placement:'push'});const load=async()=>{try{await auth.authStateReady();const r=auth.currentUser?await operation<{cards:Promotion[]}>('/campaigns/feed/personal',{method:'POST',body}):await apiFetch('/api/operations/campaigns/feed',{method:'POST',headers:{'Content-Type':'application/json'},body}).then(r=>r.json());const match=r.cards.find((c:Promotion)=>c.id===campaign);if(alive&&match)openPromotion(match);else if(alive)setError('This offer is no longer available. You can still browse regular services.');}catch{if(alive)setError('Offer could not load. Please retry from notifications.');}};void load();return()=>{alive=false;};},[place.city]);
   const [finderSlot] = useState(()=>2+Math.floor(Math.random()*3));
   const hydration = useServiceHydration(user?.id, place.city, tab === 'Explore' && !discoveryOpen);
+  const homeCampaigns=useCampaigns(place.city,'home','',tab==='Explore'&&!query);
 
   // Customer Auth Flow: Create account vs Already Have Account
   const [authMode, setAuthMode] = useState<'create' | 'signin'>('create');
@@ -934,7 +935,7 @@ export default function App() {
           {/* 1. EXPLORE TAB */}
           {tab === 'Explore' && (
                 <div className="android-explore-screen">
-                  <HomeGreeting greeting={user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:'Hello there!'} location={place.address||place.city} onLocation={()=>setCityModalOpen(true)}/>
+                  <HomeGreeting offers={homeCampaigns.cards} onOffer={openPromotion} greeting={user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:'Hello there!'} location={place.address||place.city} onLocation={()=>setCityModalOpen(true)}/>
               <h1 className="sr-only">Home services</h1>
               {/* Search Field */}
               <div className="repaido-search-container">
@@ -966,7 +967,7 @@ export default function App() {
                   <div className="home-promotion-slot"><HomeEntry onOpen={()=>setHomeHub('')}/></div>
 
                   {/* 3-Column Service Category Grid with Modern Motion Graphics, 3D Option Slides, Offers & Depth Shadows */}
-                  <HomeServiceDiscovery key={place.city+':'+(user?.id||'guest')} city={place.city} activeCategory={activeCategory} onSelectCategory={catId=>{setActiveCategory(catId);setTab('Services');}} onOpen={openPromotion} onSignIn={()=>setSheet('auth')}/>
+                  <HomeServiceDiscovery campaignFeed={homeCampaigns} key={place.city+':'+(user?.id||'guest')} city={place.city} activeCategory={activeCategory} onSelectCategory={catId=>{setActiveCategory(catId);setTab('Services');}} onOpen={openPromotion} onSignIn={()=>setSheet('auth')}/>
                   {/* Marketplace Sliding Notifier: Buy, Rent, Exchange, Sell */}
                   <div className="marketplace-sliding-notifier-container">
                     <div className="marketplace-sliding-header">

@@ -2,6 +2,7 @@
 export function quietRequest(path, init = {}) {
  const method = (init.method || 'GET').toUpperCase(), route = path.split('?')[0];
  if (['GET','HEAD','OPTIONS'].includes(method)) return true;
+ if (/\/campaigns\/[^/]+\/events$/.test(route)) return true;
  if (/\/(search|leaderboard|feed|agent-opportunities|view|seen|read|read-all|heartbeat|position|telemetry|tracking-session)(\/|$)/.test(route) || /\/(devices|activity|presence)(\/|$)/.test(route)) return true;
  if (/\/(hiring\/recommendations|discovery\/events|coupons\/launch|auth\/session|community\/usage|community\/work\/behavior)$/.test(route)) return true;
  let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Binary uploads. */ }
@@ -59,6 +60,7 @@ export function actionMessages(path, init = {}) {
   if (/\/(profile|settings|preferences|hiring-policy)$/.test(route)) return note('Changes saved','Your settings are up to date.');
   if (/\/quotes?$/.test(route)) return note('Quote ready','Review the estimate and terms before confirming.', 'info');
   if (/\/coupons\/check$/.test(route)) return note('Offer checked','The eligible offer is shown in your price summary.', 'info');
+  if (/\/bookings$/.test(route)) return data.id ? note('Booking request sent','Follow the professional’s response in Bookings.') : note('Request not confirmed','Check Bookings before trying again.','error');
   if (/\/validate$/.test(route)) return note('Details checked','Review the validation result shown in this view.', 'info');
   if (status === 'pending' || status === 'pending_review' || status === 'submitted') return note('Submitted for review','Your submission was received. Approval is still pending.');
   return note('Update saved', 'Your changes are saved.');
