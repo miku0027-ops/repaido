@@ -271,7 +271,6 @@ class Unit:
                 if item.get('worker_id') in allowed: rows[key] = copy.deepcopy(item)
                 else: rows.pop(key, None)
         if fields is not None:return [{field:row[field] for field in fields if field in row} for row in rows.values()]
-        if limit is not None: return [rows[key] for key in sorted(rows) if not after or key > after][:limit]
         return list(rows.values())
 
     def put(self, kind, key, value):

@@ -117,3 +117,15 @@ The root `.gcloudignore` includes backend tests, deployment scripts, rules and
 Firebase/emulator configuration, and
 excludes dependencies, databases and environment files. Review the source upload
 inventory with `gcloud meta list-files-for-upload` before manual submission.
+
+A reviewed, clean checkout can also use the guarded Cloud Shell helper:
+
+```sh
+bash scripts/release-batch.sh --release FULL_REVIEWED_COMMIT_SHA
+```
+
+It checks the exact commit and clean worktree, refuses to submit while a build is
+active in `global` or `us-central1`, and uses the existing
+`firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com` build identity. It applies
+approval to that one manual build only and verifies Hosting and both public API
+build IDs afterward. It does not enable or update any automatic trigger.
