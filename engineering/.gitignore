@@ -1,0 +1,6 @@
+web/dist/
+generated/
+test-results/
+release-source.json
+.env*
+!.env.example
