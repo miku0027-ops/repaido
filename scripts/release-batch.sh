@@ -10,6 +10,11 @@ release_commit="$2"
 [[ "$(git rev-parse HEAD)" == "$release_commit" ]] || { echo 'This checkout does not match the reviewed release.' >&2; exit 1; }
 [[ -z "$(git status --porcelain)" ]] || { echo 'Commit or remove unexpected checkout changes before release.' >&2; exit 1; }
 command -v gcloud >/dev/null || { echo 'Run this command in Google Cloud Shell with deployment access to repaido.' >&2; exit 1; }
+# Use gcloud's actual filtering rules; do not test only the larger local checkout.
+release_inventory=$(mktemp)
+trap 'rm -f -- "$release_inventory"' EXIT
+gcloud meta list-files-for-upload > "$release_inventory"
+python3 scripts/check-build-source.py --inventory "$release_inventory"
 # Keep manual batches from racing another release. Both locations have been used.
 for release_region in global us-central1; do
   active_builds=$(gcloud builds list --project=repaido --region="$release_region" \

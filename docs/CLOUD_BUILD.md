@@ -124,8 +124,15 @@ A reviewed, clean checkout can also use the guarded Cloud Shell helper:
 bash scripts/release-batch.sh --release FULL_REVIEWED_COMMIT_SHA
 ```
 
-It checks the exact commit and clean worktree, refuses to submit while a build is
+It checks the exact commit and clean worktree, validates the actual
+`gcloud meta list-files-for-upload` inventory before any upload, and refuses to submit while a build is
 active in `global` or `us-central1`, and uses the existing
 `firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com` build identity. It applies
 approval to that one manual build only and verifies Hosting and both public API
 build IDs afterward. It does not enable or update any automatic trigger.
+
+The upload allowlist includes shell helpers as well as Python/JavaScript files.
+Backend tests execute `scripts/configure-transactional-email.sh` with a fake
+gcloud; omitting it from a manual source upload causes failures even when the
+full local checkout passes. `scripts/check-build-source.py` rejects that omission
+and local dependency/environment files before a paid build is submitted.
