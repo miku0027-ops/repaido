@@ -13,6 +13,9 @@
 !scripts/*.py
 !scripts/*.mjs
 !scripts/*.sh
+!deployment/
+!deployment/cpanel/
+!deployment/cpanel/.htaccess
 !backend/
 !backend/*.py
 !backend/requirements.txt

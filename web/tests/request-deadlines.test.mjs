@@ -5,7 +5,7 @@ import ts from 'typescript';
 import {feedbackImports,feedbackModuleUrl} from './feedback-module.mjs';
 const moduleUrl=source=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText).toString('base64');
 const loadingUrl=moduleUrl(await readFile(new URL('../src/services/loading.ts',import.meta.url),'utf8'));
-const source=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',"''").replaceAll('import.meta.env.DEV','true'));
+const source=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',"''").replaceAll('import.meta.env.VITE_WORK_API_BASE_URL',"''").replaceAll('import.meta.env.DEV','true'));
 const {apiFetch}=await import(moduleUrl(source));
 const {loadingState}=await import(loadingUrl);
 const {actionFeedback,clearFeedback}=await import(feedbackModuleUrl);
@@ -53,7 +53,7 @@ test('automatic POSTs and read-only searches remain quiet for the entire request
 
 for(const origin of ['https://repaido.web.app','https://repaido.firebaseapp.com']){
  test('production '+origin+' uses its hosted API for admin reads and private media',async()=>{
-  const productionSource=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',"''").replaceAll('import.meta.env.DEV','false'));
+  const productionSource=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',"''").replaceAll('import.meta.env.VITE_WORK_API_BASE_URL',"''").replaceAll('import.meta.env.DEV','false'));
   const api=await import(moduleUrl('const location={origin:'+JSON.stringify(origin)+'};\n'+productionSource));
   let request;globalThis.fetch=async(url,init)=>{request={url,init};return new Response('{}');};
   await api.apiFetch('/api/operations/admin/workers',{headers:{Authorization:'Bearer fixture-admin'}});
@@ -63,8 +63,23 @@ for(const origin of ['https://repaido.web.app','https://repaido.firebaseapp.com'
 }
 test('explicit API deployments and the non-Firebase production fallback remain usable',async()=>{
  for(const [configured,page,expected] of [['https://api.example.test/','https://repaido.web.app','https://api.example.test'],['','https://other.example.test','https://repaido-api-rivzaqvyvq-uc.a.run.app']]){
-  const code=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',JSON.stringify(configured)).replaceAll('import.meta.env.DEV','false'));
+  const code=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',JSON.stringify(configured)).replaceAll('import.meta.env.VITE_WORK_API_BASE_URL',"''").replaceAll('import.meta.env.DEV','false'));
   const api=await import(moduleUrl('const location={origin:'+JSON.stringify(page)+'};\n'+code));let sent;
   globalThis.fetch=async(url)=>{sent=url;return new Response('{}');};await api.apiFetch('/api/operations/admin/jobs');assert.equal(sent,expected+'/api/operations/admin/jobs');
  }
+});
+
+test('cPanel dispatches only work, company and placement routes to its work API',async()=>{
+ const code=feedbackImports((await readFile(new URL('../src/services/api.ts',import.meta.url),'utf8')).replace("'./loading'",JSON.stringify(loadingUrl)).replaceAll('import.meta.env.VITE_API_BASE_URL',JSON.stringify('https://main.example.test/')).replaceAll('import.meta.env.VITE_WORK_API_BASE_URL',JSON.stringify('https://work.example.test/')).replaceAll('import.meta.env.DEV','false'));
+ const api=await import(moduleUrl('const location={origin:"https://repaido.com"};\n'+code));let sent;
+ globalThis.fetch=async(url)=>{sent=url;return new Response('{}');};
+ for(const path of ['/api/repaidians/work?limit=12','/api/repaidians/work/jobs','/api/repaidians/companies','/api/repaidians/placements/one']){
+  await api.apiFetch(path,{headers:{Authorization:'Bearer fixture'}});assert.equal(sent,'https://work.example.test'+path);
+  assert.equal(api.apiAssetUrl(path),'https://work.example.test'+path);
+ }
+ for(const path of ['/api/operations/admin/jobs','/api/repaidians/bootstrap','/api/repaidians/workplace','/api/repaidians/companies-extra']){
+  await api.apiFetch(path);assert.equal(sent,'https://main.example.test'+path);
+ }
+ assert.equal(api.apiAssetUrl('/brand/logo.svg'),'/brand/logo.svg');
+ await assert.rejects(api.apiFetch('https://attacker.example/api/repaidians/work'),/Expected a Repaido API path/);
 });

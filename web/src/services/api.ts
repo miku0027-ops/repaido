@@ -10,10 +10,16 @@ const configuredOrigin = (
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV || hostedProxy ? '' : defaultProdOrigin)
 ).replace(/\/+$/, '');
+// cPanel has no Firebase Hosting rewrites. Preserve the same work-service
+// boundary with an explicitly configured HTTPS origin for those routes only.
+const configuredWorkOrigin = (import.meta.env.VITE_WORK_API_BASE_URL || '').replace(/\/+$/, '');
 
-if (configuredOrigin && (new URL(configuredOrigin).protocol !== 'https:' || new URL(configuredOrigin).origin !== configuredOrigin)) {
-  throw new Error('VITE_API_BASE_URL must be an HTTPS origin without a path.');
+for (const [name, origin] of [['VITE_API_BASE_URL', configuredOrigin], ['VITE_WORK_API_BASE_URL', configuredWorkOrigin]]) {
+  if (origin && (new URL(origin).protocol !== 'https:' || new URL(origin).origin !== origin)) {
+    throw new Error(name + ' must be an HTTPS origin without a path.');
+  }
 }
+const originFor = (path: string): string => configuredWorkOrigin && /^\/api\/repaidians\/(work|companies|placements)(?:[/?]|$)/.test(path) ? configuredWorkOrigin : configuredOrigin;
 
 export async function apiFetch(path: string, init?: RequestInit, options?: {background?:boolean;feedback?:boolean}): Promise<Response> {
   // Never forward authentication headers to an arbitrary URL supplied by a caller.
@@ -25,7 +31,7 @@ export async function apiFetch(path: string, init?: RequestInit, options?: {back
     const upload = typeof Blob !== 'undefined' && init?.body instanceof Blob || typeof FormData !== 'undefined' && init?.body instanceof FormData;
     const deadline=AbortSignal.timeout(upload?120000:20000);
     const signal=init?.signal?AbortSignal.any([init.signal,deadline]):deadline;
-    const send=()=>fetch(`${configuredOrigin}${path}`, {...init,signal});
+    const send=()=>fetch(`${originFor(path)}${path}`, {...init,signal});
     if(options?.feedback===false||options?.background&&options?.feedback!==true)return await send();
     let response:Response|undefined;
     try{await withActionFeedback(path,init||{},async()=>{
@@ -41,5 +47,5 @@ export async function apiFetch(path: string, init?: RequestInit, options?: {back
 }
 
 export function apiAssetUrl(path: string): string {
-  return path.startsWith('/api/') ? `${configuredOrigin}${path}` : path;
+  return path.startsWith('/api/') ? `${originFor(path)}${path}` : path;
 }

@@ -24,7 +24,7 @@ beforeEach(async()=>{
   globalThis.window=new EventTarget();
   globalThis.__b2bAuth={currentUser:null,authStateReady:async()=>{}};
   globalThis.fetch=async(path,init)=>{calls.push({path,init});return ok({listings:[],rfqs:[]});};
-  const apiCode=compile(sources[0]).replace(loadingImport,'const beginLoading=()=>()=>{};').replace(/import\.meta\.env\.VITE_API_BASE_URL/g,"''").replace(/import\.meta\.env\.DEV/g,'true');
+  const apiCode=compile(sources[0]).replace(loadingImport,'const beginLoading=()=>()=>{};').replace(/import\.meta\.env\.VITE_API_BASE_URL/g,"''").replace(/import\.meta\.env\.VITE_WORK_API_BASE_URL/g,"''").replace(/import\.meta\.env\.DEV/g,'true');
   const apiUrl=moduleUrl(apiCode,++revision);
   const operationCode=compile(sources[1]).replace(authImport,'const auth=globalThis.__b2bAuth;').replace(loadingImport,'const beginLoading=()=>()=>{};')
     .replace(/from ['"]\.\/api['"]/g,'from '+JSON.stringify(apiUrl))
