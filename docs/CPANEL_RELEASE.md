@@ -43,7 +43,8 @@ session URL as a deployment credential or put a token in source, chat or scripts
 
    It runs TypeScript and Vite's cPanel build with explicit main/work origins,
    confirms those origins reached the JavaScript, adds Apache configuration and
-   release metadata, checks the archive, and writes a separate SHA-256 manifest.
+   release metadata, sets public files/folders to `0644`/`0755`, checks the archive,
+   and writes a separate SHA-256 manifest.
    It uploads nothing. Its ZIP contains website files at the archive root;
    there is no enclosing `dist-cpanel` folder. Existing published APK downloads
    are included unchanged; this release does not build new native APKs.

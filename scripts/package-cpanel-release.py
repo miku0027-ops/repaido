@@ -46,13 +46,24 @@ def build(release, output, api_origin, work_origin):
             'work_api_origin': work_origin, 'required_api_commit': release}
     (dist / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
     manifest = dict(info, files={})
-    files = sorted(p for p in dist.rglob('*') if p.is_file())
+    entries = sorted(dist.rglob('*'))
+    if any(path.is_symlink() for path in entries):
+        raise ValueError('Linked files or folders are not allowed in the website output.')
+    # Cloud workspaces use a private umask. Apache needs readable public files
+    # and traversable directories after cPanel extraction; no secrets are here.
+    directories = [path for path in entries if path.is_dir()]
+    for path in [dist, *directories]:
+        path.chmod(0o755)
+    files = [path for path in entries if path.is_file()]
     for path in files:
         if path.is_symlink() or path.name.startswith('.env') or path.suffix in ('.py', '.ts', '.tsx', '.map'):
             raise ValueError('Unexpected source, secret or linked file in the website output: ' + str(path.relative_to(dist)))
+        path.chmod(0o644)
         manifest['files'][path.relative_to(dist).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, 'x', zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+        for path in directories:
+            archive.write(path, path.relative_to(dist).as_posix() + '/')
         for path in files:
             archive.write(path, path.relative_to(dist).as_posix())
     with zipfile.ZipFile(output) as archive:
