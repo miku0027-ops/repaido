@@ -6,6 +6,9 @@ COPY main.py shared_departure_alerts.py mobility_journeys.py transport_discovery
 COPY b2b.py professional_offers.py shop_prime.py repaidians.py repaidians_milestones.py repaidians_live.py repaidians_network.py repaidians_media.py repaidians_billing.py repaidians_opportunities.py ./
 COPY cleanup.py captain_rewards.py custom_contracts.py contract_records.py account_profile.py transactional_mail.py repaidians_work.py work_runtime.py work_service.py work_worker.py work_push.py ./
 COPY repaidians_tools.py community_service.py work_dispatch.py ./
+COPY scrap_experience.py ./
+COPY fonts/ ./fonts/
+RUN chmod 755 /app/fonts && chmod 644 /app/fonts/*
 RUN chmod 644 /app/*.py /app/requirements.txt
 USER appuser
 ENV REPAIDO_DB=/data/repaido.db

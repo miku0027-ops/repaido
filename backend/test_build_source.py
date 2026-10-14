@@ -17,6 +17,12 @@ def test_full_inventory_including_relative_prefixes_passes():
     assert source.validate(['./'+name for name in source.REQUIRED])==len(source.REQUIRED)
 
 
+@pytest.mark.parametrize('name',['backend/scrap_experience.py','backend/fonts/Poppins-SemiBold.ttf','backend/fonts/OFL.txt'])
+def test_scrap_camera_runtime_and_font_must_reach_the_release_inventory(name):
+    with pytest.raises(ValueError,match='required files'):
+        source.validate(source.REQUIRED-{name})
+
+
 @pytest.mark.parametrize('name',['web/.env.production','backend/.env','web/node_modules/pkg/index.js','backend/.venv/bin/python','.git/config'])
 def test_local_dependencies_and_environment_files_are_rejected(name):
     with pytest.raises(ValueError,match='Do not upload'):

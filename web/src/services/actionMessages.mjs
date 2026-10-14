@@ -3,6 +3,7 @@ export function quietRequest(path, init = {}) {
  const method = (init.method || 'GET').toUpperCase(), route = path.split('?')[0];
  if (['GET','HEAD','OPTIONS'].includes(method)) return true;
  if (/\/campaigns\/[^/]+\/events$/.test(route)) return true;
+ if (/\/scrap\/capture-sessions(?:\/|$)/.test(route)) return true;
  if (/\/(search|leaderboard|feed|agent-opportunities|view|seen|read|read-all|heartbeat|position|telemetry|tracking-session)(\/|$)/.test(route) || /\/(devices|activity|presence)(\/|$)/.test(route)) return true;
  if (/\/(hiring\/recommendations|discovery\/events|coupons\/launch|auth\/session|community\/usage|community\/work\/behavior)$/.test(route)) return true;
  let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Binary uploads. */ }
@@ -27,6 +28,13 @@ export function actionMessages(path, init = {}) {
   const status = data.status || data.state || data.listing?.status || data.rfq?.status;
   const note = (title, message, tone = 'success') => ({title, message, tone});
   if (data.ok === false || data.success === false) return note('Action needs attention', data.message || 'The server did not confirm this action. Review the details before trying again.', 'error');
+  if (/\/local-business\/scrap(?:$|\/[^/]+\/(?:evaluation|commands)$)/.test(route)) {
+   if (!data.id || !status) return note('Collection not confirmed','Check your collection records before retrying.','error');
+   if (/\/evaluation$/.test(route)) return note('Weighing quote sent',status==='evaluated'?'The customer can now review the net weights and prices.':'The saved quote is available in this collection.');
+   if (/\/scrap$/.test(route)) return note('Collection requested','Follow the collector’s response in your collections.');
+   const messages={accept:['Collection accepted','Pickup details are now available.'],depart:['Journey started','Your shared location appears in the customer’s collection.'],arrive:['Arrival confirmed','You can now inspect and weigh the scrap.'],agree:['Quote accepted','The collector can proceed with the agreed payment.'],paid:['Payment recorded','The customer still needs to confirm receipt.'],received:['Receipt confirmed','Your collection is complete.'],cancel:['Collection cancelled','The collection record has been updated.'],dispute:['Concern sent','Your collection is available for support review.'],decline:['Collection declined','Your decision is recorded.']};
+   return note(...(messages[action]||['Collection updated','Your collection record is up to date.']));
+  }
   if (/\/captain\/profile$/.test(route)) return note('Profile updated','Your photo and leaderboard privacy choice are saved.');
   if (/\/cleanup\/(reports|admin)\/[^/]+\/actions$/.test(route)) {
    if (!data.id || !status) return note('Update not confirmed','Refresh the cleanup report before trying again.','error');

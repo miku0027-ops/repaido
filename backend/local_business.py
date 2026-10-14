@@ -3,10 +3,11 @@
 Amounts are integer paise; scrap weight is integer grams. Provider calls happen
 outside storage transactions. No browser flag can confirm a gateway payment.
 """
-import copy, hashlib, json, math, os, time, uuid
+import copy, hashlib, json, math, os, time, uuid, logging
 from datetime import datetime
 from typing import Literal
 from fastapi import APIRouter, Depends, Request, Response
+from starlette.concurrency import run_in_threadpool
 from pydantic import Field, model_validator
 from operations import Input, Pin, Position, fail, metres
 from integrations import audit, configured, PaymentCheck
@@ -82,7 +83,7 @@ class RideRequest(Input):
     consent:Literal[True]
 class Command(Input):
     position:Position|None=None
-    action:Literal['accept','decline','depart','start','complete','confirm','cancel','dispute','inspect','agree','paid','received','settlement_received']
+    action:Literal['accept','decline','depart','arrive','start','complete','confirm','cancel','dispute','inspect','agree','paid','received','settlement_received']
     expected_version:int=Field(ge=1)
     command_id:str=Field(min_length=16,max_length=100)
     note:str=Field(default='',max_length=1500)
@@ -98,6 +99,7 @@ class ScrapRequest(Input):
     starts_at:float
     phone:str=Field(pattern=r'^\+?[0-9]{10,15}$')
     request_id:str=Field(min_length=16,max_length=100)
+    photo_document_id:str=Field(min_length=1,max_length=100)
 class ScrapLine(Input):
     material:str=Field(min_length=2,max_length=100)
     grade:str=Field(min_length=2,max_length=200)
@@ -180,7 +182,7 @@ def view(row,uid):
     result.pop('candidate_owner_ids',None)
     if not mine:
         # Candidates see service area and scope, never the customer's address/contact.
-        for key in ('phone','pickup_address','dropoff_address','address','pickup','dropoff','location','license_document_id','documents','events','quotes'):
+        for key in ('phone','pickup_address','dropoff_address','address','pickup','dropoff','location','license_document_id','documents','events','quotes','photo_document_id','camera_receipt'):
             result.pop(key,None)
         if row.get('quotes'):
             own=next((q for q in row['quotes'] if q['owner_id']==uid),None)
@@ -240,19 +242,33 @@ def install(core):
     @r.post('/documents',status_code=201)
     async def upload(request:Request,user=Depends(core.current_user)):
         if not configured('REPAIDO_KYC_BUCKET'):fail('STORAGE_UNAVAILABLE','Private document storage is unavailable.',503)
-        data=await photo_body(request);identifier=str(uuid.uuid4());key='local-business/'+user['id']+'/'+identifier+'.jpg'
-        count=store.run(lambda u:len([d for d in u.find('business_documents','owner_id',user['id']) if d['created_at']>time.time()-3600]))
-        if count>=20:fail('UPLOAD_LIMIT','Try more document uploads later.',429)
-        upload_object(key,data)
-        store.run(lambda u:u.put('business_documents',identifier,{'id':identifier,'owner_id':user['id'],'object':key,'created_at':time.time()}))
-        return {'id':identifier}
+        data=await photo_body(request)
+        def save_photo():
+            checksum=hashlib.sha256(data).hexdigest();identifier=digest(user['id']+':document:'+checksum);key='local-business/'+user['id']+'/'+identifier+'.jpg'
+            old=store.run(lambda u:u.get('business_documents',identifier))
+            if old:return {'id':identifier}
+            count=store.run(lambda u:len([d for d in u.find('business_documents','owner_id',user['id']) if d['created_at']>time.time()-3600]))
+            if count>=20:fail('UPLOAD_LIMIT','Try more document uploads later.',429)
+            try:upload_object(key,data)
+            except Exception as error:
+                logging.getLogger(__name__).warning('Private document upload failed; class=%s receipt=%s',type(error).__name__,identifier)
+                try:
+                    if hashlib.sha256(download_object(key)).hexdigest()!=checksum:raise ValueError()
+                except Exception:fail('UPLOAD_UNAVAILABLE','The photo could not upload. Your details are still a draft; keep this screen open and retry.',503)
+            store.run(lambda u:u.put('business_documents',identifier,{'id':identifier,'owner_id':user['id'],'object':key,'created_at':time.time(),'sha256':checksum}))
+            return {'id':identifier}
+        return await run_in_threadpool(save_photo)
     @r.get('/documents/{identifier}')
     def read_document(identifier:str,user=Depends(core.current_user)):
         def read(u):
             doc=u.get('business_documents',identifier)
             if not doc or doc['owner_id']!=user['id']:fail('NOT_FOUND','Document unavailable.',404)
+            if doc.get('expires_at') and doc['expires_at']<time.time():fail('NOT_FOUND','This private photo has expired.',404)
             return doc
-        doc=store.run(read);return Response(download_object(doc['object']),media_type='image/jpeg',headers={'Cache-Control':'private, no-store'})
+        doc=store.run(read)
+        try:data=download_object(doc['object'])
+        except Exception:fail('PHOTO_UNAVAILABLE','The private photo could not load. Please retry.',503)
+        return Response(data,media_type='image/jpeg',headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})
     @r.get('/partner')
     def partner(role:Literal['cab_owner','driver','scrap_owner']|None=None,user=Depends(core.current_user)):
         phone(user)
@@ -573,7 +589,9 @@ def install(core):
             owners=[p for p in u.find('business_partners','role','scrap_owner') if p['status']=='approved' and p.get('valid_until',0)>=body.starts_at and metres(p['location'],body.location.model_dump())<=8000 and p.get('user_id',p['id'])!=user['id']]
             owners=sorted(owners,key=lambda p:(metres(p['location'],body.location.model_dump()),p['id']))[:20]
             if not owners:fail('NO_BUYERS','No approved scrap buyer is available within 8 km yet. No pickup was booked.',409)
-            row={**body.model_dump(exclude={'request_id'}),'id':key,'customer_id':user['id'],'customer_name':user.get('name','Customer'),'owner_id':None,'request_hash':fingerprint(body),'candidate_owner_ids':[p.get('user_id',p['id']) for p in owners],'state':'requested','version':1,'events':[],'created_at':time.time()}
+            from scrap_experience import claim_pickup_photo
+            receipt=claim_pickup_photo(u,body.photo_document_id,user['id'],body.request_id,body.location.model_dump(),key)
+            row={**body.model_dump(exclude={'request_id'}),'id':key,'customer_id':user['id'],'customer_name':user.get('name','Customer'),'owner_id':None,'request_hash':fingerprint(body),'candidate_owner_ids':[p.get('user_id',p['id']) for p in owners],'state':'requested','version':1,'events':[],'created_at':time.time(),'experience_version':2,'camera_receipt':receipt,'has_pickup_photo':True,'travel_phase':'confirmed','tracking_consent':False}
             u.put('scrap_collections',key,row);inbox(u,'scrap',row)
             for owner in owners:notice(u,owner.get('user_id',owner['id']),row,'Scrap collection requested')
             return view(row,user['id'])
@@ -591,13 +609,14 @@ def install(core):
                 if old['record_id']!=identifier:fail('IDEMPOTENCY_CONFLICT','Action belongs to another collection.',409)
                 return view(row,user['id'])
             if row['version']!=body.expected_version or row['state'] not in ('accepted','evaluated'):fail('STALE','Refresh the collection before submitting its evaluation.',409)
+            if row.get('experience_version',1)>=2 and row.get('travel_phase')!='arrived':fail('ARRIVAL_REQUIRED','Confirm arrival at the pickup before weighing the scrap.',409)
             document(u,body.weighing_document_id,user['id'])
             lines=[]
             for line in body.lines:
                 net=line.gross_grams-line.tare_grams;lines.append({**line.model_dump(),'net_grams':net,'amount_paise':net*line.price_paise_per_kg//1000})
             total=sum(line['amount_paise'] for line in lines)
             if total<=0:fail('INVALID_AMOUNT','The weighed material must have a positive payable value.',422)
-            row.update(state='evaluated',evaluation={'lines':lines,'total_paise':total,'scale_reference':body.scale_reference,'weighing_document_id':body.weighing_document_id,'note':body.note,'at':time.time()})
+            row.update(state='evaluated',evaluation_command_id=body.command_id,evaluation={'lines':lines,'total_paise':total,'scale_reference':body.scale_reference,'weighing_document_id':body.weighing_document_id,'note':body.note,'at':time.time()})
             event(u,row,'Evaluated',user['id']);u.put('scrap_collections',identifier,row);u.put('business_commands',key,{'record_id':identifier,'fingerprint':fingerprint(body)});notice(u,row['customer_id'],row,'Review your weighed scrap quote')
             return view(row,user['id'])
         return store.run(save)
@@ -607,7 +626,10 @@ def install(core):
             row=u.get('scrap_collections',identifier)
             if not row or user['id'] not in (row['customer_id'],row.get('owner_id')) or not row.get('evaluation'):fail('NOT_FOUND','Weighing evidence unavailable.',404)
             return document(u,row['evaluation']['weighing_document_id'],row['owner_id'])
-        doc=store.run(read);return Response(download_object(doc['object']),media_type='image/jpeg',headers={'Cache-Control':'private, no-store'})
+        doc=store.run(read)
+        try:data=download_object(doc['object'])
+        except Exception:fail('PHOTO_UNAVAILABLE','The weighing photo could not load. Please retry.',503)
+        return Response(data,media_type='image/jpeg',headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})
     @r.post('/scrap/{identifier}/commands')
     def scrap_command(identifier:str,body:Command,user=Depends(core.current_user)):
         def save(u):
@@ -630,6 +652,17 @@ def install(core):
                 if not row['candidate_owner_ids']:
                     row['state']='expired'
                     notice(u,row['customer_id'],{**row,'version':row['version']+1},'No collector accepted; choose another pickup time')
+            elif a=='depart':
+                current(u,uid,('scrap_owner',))
+                if not owner or row['state']!='accepted' or row.get('travel_phase','confirmed')!='confirmed':fail('INVALID_ACTION','This collection is not ready for departure.',409)
+                if not body.position or not -10<=time.time()-body.position.captured_at<=120:fail('POSITION_REQUIRED','Share a fresh location to start the collection journey.',422)
+                row.update(travel_phase='en_route',departed_at=time.time(),tracking_consent=True)
+                u.put('scrap_positions',identifier,dict(id=identifier,owner_id=uid,**body.position.model_dump(),received_at=time.time()))
+            elif a=='arrive':
+                current(u,uid,('scrap_owner',))
+                if not owner or row['state']!='accepted' or row.get('travel_phase')!='en_route':fail('INVALID_ACTION','Start the collection journey before confirming arrival.',409)
+                if not body.position or not -10<=time.time()-body.position.captured_at<=120 or metres(body.position.model_dump(),row['location'])+body.position.accuracy>300:fail('ARRIVAL_LOCATION_REQUIRED','Confirm arrival with a fresh location within 300 metres of the pickup.',422)
+                row.update(travel_phase='arrived',arrived_at=time.time())
             elif a=='agree':
                 if not customer or row['state']!='evaluated':fail('INVALID_ACTION','Review the weighing quote before accepting.',409)
                 row.update(state='agreed',agreed_at=time.time(),agreed_paise=row['evaluation']['total_paise'])
@@ -638,16 +671,18 @@ def install(core):
                 row.update(state='payment_reported',payment_reference=body.reference,reported_paid_at=time.time(),payment_source='buyer_reported')
             elif a=='received':
                 if not customer or row['state']!='payment_reported':fail('INVALID_ACTION','Confirm only after you have received the buyer’s payment.',409)
-                row.update(state='completed',received_at=time.time(),payment_source='customer_confirmed_receipt')
+                row.update(state='completed',received_at=time.time(),payment_source='customer_confirmed_receipt',tracking_consent=False)
             elif a=='cancel':
                 if not (customer or owner) or row['state'] not in ('requested','accepted','evaluated'):fail('INVALID_ACTION','This collection can no longer be cancelled here.',409)
-                row.update(state='cancelled',cancel_reason=body.note)
+                row.update(state='cancelled',cancel_reason=body.note,tracking_consent=False)
             elif a=='dispute':
                 if not customer or row['state'] not in ('agreed','payment_reported') or len(body.note.strip())<10:fail('INVALID_ACTION','Describe your collection or payment concern.',422)
-                row.update(dispute_previous_state=row['state'],state='disputed',dispute_note=body.note)
+                row.update(dispute_previous_state=row['state'],state='disputed',dispute_note=body.note,tracking_consent=False)
             else:fail('INVALID_ACTION','Unsupported collection action.',422)
             event(u,row,a,uid);u.put('scrap_collections',identifier,row);u.put('business_commands',key,{'record_id':identifier,'fingerprint':fingerprint(body)})
             if row.get('owner_id'):notice(u,row['customer_id'] if owner else row['owner_id'],row,'Scrap collection updated')
             return view(row,uid)
         return store.run(save)
     core.app.include_router(r)
+    import scrap_experience
+    scrap_experience.install(core)

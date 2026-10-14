@@ -9,6 +9,11 @@ BASE='/operations/local-business'
 def doc(uid):
     mid=str(uuid.uuid4());main.operations_store.run(lambda u:u.put('business_documents',mid,dict(id=mid,owner_id=uid,object='test/'+mid,created_at=time.time())));return mid
 
+def pickup_photo(uid,request_id):
+    mid=str(uuid.uuid4());now=time.time()
+    main.operations_store.run(lambda u:u.put('business_documents',mid,dict(id=mid,owner_id=uid,kind='scrap_camera',status='ready',request_id=request_id,pickup=PIN,server_received_at=now,created_at=now,expires_at=now+86400,sha256='fixture-camera-sha',object='test/'+mid)))
+    return mid
+
 def register(api,uid='worker',role='cab_owner'):
     r=api.put(BASE+'/partner',headers=auth(uid),json=dict(name='Test owner',role=role,city='Balasore',address='Private business address 123',location=PIN,document_ids=[doc(uid)],terms=True));assert r.status_code==200,r.text
     approve(api,'partner',uid)
@@ -32,6 +37,7 @@ def latest(api,row,uid='customer',kind='rides'):
     r=api.get(BASE+'/'+kind,headers=auth(uid));assert r.status_code==200,r.text
     return next(x for x in r.json()['rides' if kind=='rides' else 'collections'] if x['id']==row['id'])
 def act(api,row,action,uid='customer',kind='rides',status=200,**extra):
+    if kind=='scrap' and action in ('depart','arrive') and 'position' not in extra:extra['position']={**PIN,'accuracy':5,'captured_at':time.time()}
     if action in ('start','complete') and kind=='rides' and 'position' not in extra:
         pin=row.get('vehicle_pickup_location',PIN) if row.get('mode')=='rental' else row.get('pickup',PIN) if action=='start' or row.get('trip')=='round_trip' else row.get('dropoff',PIN)
         extra['position']={**pin,'accuracy':5,'captured_at':time.time()}
@@ -106,9 +112,10 @@ def test_rental_actual_odometer_requires_customer_review(api,route,gateway):
 
 def test_scrap_weight_quote_receipt_and_privacy(api):
     register(api,role='scrap_owner');body=dict(material='metal',description='Test household metal scrap',estimated_kg=10,location=PIN,address='Private collection address 123',city='Balasore',starts_at=time.time()+7200,phone='9876543210',request_id=str(uuid.uuid4()))
+    body['photo_document_id']=pickup_photo('customer',body['request_id'])
     r=api.post(BASE+'/scrap',headers=auth('customer'),json=body);assert r.status_code==201,r.text;row=r.json()
     candidate=latest(api,row,'worker','scrap');assert 'address' not in candidate and 'location' not in candidate
-    row=act(api,row,'accept','worker','scrap');evaluation=dict(expected_version=row['version'],command_id=str(uuid.uuid4()),lines=[dict(material='Steel',grade='Clean dry metal',gross_grams=10500,tare_grams=500,price_paise_per_kg=2500)],note='Inspected and scale zeroed before weighing',scale_reference='test-scale-123',weighing_document_id=doc('worker'))
+    row=act(api,row,'accept','worker','scrap');row=act(api,row,'depart','worker','scrap');row=act(api,row,'arrive','worker','scrap');evaluation=dict(expected_version=row['version'],command_id=str(uuid.uuid4()),lines=[dict(material='Steel',grade='Clean dry metal',gross_grams=10500,tare_grams=500,price_paise_per_kg=2500)],note='Inspected and scale zeroed before weighing',scale_reference='test-scale-123',weighing_document_id=doc('worker'))
     r=api.post(f'{BASE}/scrap/{row["id"]}/evaluation',headers=auth('worker'),json=evaluation);assert r.status_code==200,r.text;row=r.json();assert row['evaluation']['total_paise']==25000
     act(api,row,'paid','worker','scrap',status=422,reference='test-transfer-1')
     row=act(api,row,'agree',kind='scrap');row=act(api,row,'paid','worker','scrap',reference='test-transfer-1');assert row['state']=='payment_reported'

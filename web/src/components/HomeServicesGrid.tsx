@@ -5,7 +5,7 @@ import { useCustomerBrowseHydration } from '../services/customerBrowseTracker';
 import './home-services-grid.css';
 import {money} from '../services/operations';
 import {bestCategoryOffer,offerExpiry} from '../services/promotionPresentation.mjs';
-import {ArrowUpRight,Tag} from 'lucide-react';
+import {ArrowUpRight,Tag,Pause,Play} from 'lucide-react';
 import './home-discovery-refresh.css';
 
 export interface ServiceSlide {
@@ -995,7 +995,7 @@ export function ServiceStaticCardItem({
 
         {/* 5. Static Micro Dot */}
         <div className="repaido-service-dots-indicator" aria-hidden="true">
-          <span className="repaido-static-dot" />
+          <span className="repaido-service-card-arrow"><ArrowUpRight size={14}/></span>
         </div>
       </div>
     </button>
@@ -1019,6 +1019,13 @@ export function HomeServicesGrid({
   const shouldHydrate = forceHydrated !== undefined ? forceHydrated : isHydrated;
 
   const [paused,setPaused]=useState(false),[offerTime,setOfferTime]=useState(()=>Date.now()/1000);
+  const grid=useRef<HTMLDivElement>(null),[visible,setVisible]=useState(true),[hidden,setHidden]=useState(()=>document.hidden);
+  useEffect(()=>{
+    const visibility=()=>setHidden(document.hidden);document.addEventListener('visibilitychange',visibility);
+    const observer=new IntersectionObserver(([entry])=>setVisible(entry.isIntersecting),{threshold:.05});if(grid.current)observer.observe(grid.current);
+    return()=>{observer.disconnect();document.removeEventListener('visibilitychange',visibility);};
+  },[]);
+  const motionPaused=paused||hidden||!visible;
   useEffect(()=>{
     const now=Date.now()/1000;
     const expiry=Math.min(...offers.map(card=>card.ends_at).filter(at=>at>now));
@@ -1027,12 +1034,14 @@ export function HomeServicesGrid({
     return()=>clearTimeout(timer);
   },[offers,offerTime]);
   const regionServices=useMemo(()=>homeServicesData.map(service=>{
-    const regular=service.slides.filter(slide=>!slide.isOffer).map(slide=>({...slide,badge:slide.type==='base'?'Explore service':slide.badge,subLabel:slide.type==='base'?service.slides[0].subLabel:slide.subLabel}));
+    const labels:Record<string,string>={cleaning:'Home care',plumber:'Pipes & taps',electrician:'Electrical',ac:'Appliances',car:'Roadside',gardening:'Garden care'};
+    const regular=service.slides.filter(slide=>!slide.isOffer).map(slide=>({...slide,badge:slide.type==='base'?(labels[service.id]||service.name):slide.badge,subLabel:slide.type==='base'?service.slides[0].subLabel:slide.subLabel}));
     return {...service,slides:regular};
   }),[offers,offerTime]);
 
   return (
     <div
+      ref={grid}
       className={`repaido-services-grid-container ${shouldHydrate ? 'repaido-services-grid-hydrated' : 'repaido-services-grid-static'}`}
       role="region"
       aria-label="Home Services Category Grid"
@@ -1040,8 +1049,8 @@ export function HomeServicesGrid({
       data-hydrated={shouldHydrate}
       data-city={city}
     >
-      <div className="service-grid-toolbar"><div><span className="service-grid-kicker">REPAIDO SPECIALS</span><h2>{city?`A little help in ${city}`:'A little help, nearby'}</h2></div>{shouldHydrate&&<button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?'Play':'Pause'}</button>}</div>
-      <div className={`repaido-services-3col-grid ${paused?'service-grid-paused':''}`}>
+      <div className="service-grid-toolbar"><div><span className="service-grid-kicker">REPAIDO SPECIALS</span><h2>{city?`A little help in ${city}`:'A little help, nearby'}</h2></div><button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?<Play size={14}/>:<Pause size={14}/>}<span>{paused?'Play':'Pause'}</span></button></div>
+      <div className={`repaido-services-3col-grid ${motionPaused?'service-grid-paused':''}`}>
         {regionServices.map((service,index)=>{
           const matchingOffers=offers.filter(card=>service.id==='gardening'?/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''):service.id!=='cleaning'||!/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''));
           const offer=bestCategoryOffer(matchingOffers,service.categoryId,Math.max(offerTime,Date.now()/1000)) as Promotion|undefined;
@@ -1053,7 +1062,7 @@ export function HomeServicesGrid({
             <span className="service-offer-prices"><s>{money(offer.price_paise).replace('.00','')}</s><strong>{money(offer.offer_price_paise).replace('.00','')}</strong></span>
             <span className="service-offer-expiry">Until {offerExpiry(offer.ends_at)}<ArrowUpRight size={14} aria-hidden="true"/></span>
           </button>;
-          return shouldHydrate?<ServiceMotionCardItem key={service.id} initialIndex={(Math.max(0,browseCount-3)+index)%service.slides.length} service={service} motionPaused={paused} isActive={activeCategory===service.categoryId} onSelect={()=>onSelectCategory(service.categoryId)}/>
+          return shouldHydrate?<ServiceMotionCardItem key={service.id} initialIndex={(Math.max(0,browseCount-3)+index)%service.slides.length} service={service} motionPaused={motionPaused} isActive={activeCategory===service.categoryId} onSelect={()=>onSelectCategory(service.categoryId)}/>
             :<ServiceStaticCardItem key={service.id} service={service} isActive={activeCategory===service.categoryId} onSelect={()=>onSelectCategory(service.categoryId)}/>;
         })}
       </div>

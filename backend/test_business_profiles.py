@@ -2,7 +2,7 @@
 import time,uuid
 import main,local_business
 from test_operations import api,auth,onboard,PIN,ADMIN
-from test_local_business import doc,approve,vehicle,quote,act,route,register
+from test_local_business import doc,approve,vehicle,quote,act,route,register,pickup_photo
 BASE='/operations/local-business'
 def apply(api,role,uid='worker',**changes):
     body=dict(name='Fixture '+role,role=role,city='Balasore',address='Fixture private business base 123',location=PIN,document_ids=[doc(uid)],terms=True,expected_version=0);body.update(changes)
@@ -31,6 +31,7 @@ def test_pending_scrap_never_inherits_cab_approval_and_routing_uses_auth_uid(api
     assert profile(api,'scrap_owner')['partner']['status']=='pending' and profile(api,'cab_owner')['partner']['status']=='approved'
     assert profile(api,'scrap_owner')['vehicles']==[] and profile(api,'driver')['vehicles']==[]
     body=dict(material='metal',description='Fixture household metal scrap',estimated_kg=10,location=PIN,address='Fixture private collection address',city='Balasore',starts_at=time.time()+7200,phone='9876543210',request_id=str(uuid.uuid4()))
+    body['photo_document_id']=pickup_photo('customer',body['request_id'])
     assert api.post(BASE+'/scrap',headers=auth('customer'),json=body).status_code==409
     approve(api,'partner',application['id']);r=api.post(BASE+'/scrap',headers=auth('customer'),json=body);assert r.status_code==201,r.text
     row=r.json();candidate=api.get(BASE+'/scrap',headers=auth('worker')).json()['collections'][0]
@@ -64,6 +65,7 @@ def test_documents_versions_and_phone_cannot_cross_businesses(api):
 def test_collectors_decline_without_cancelling_other_buyers_and_customer_gets_result(api):
     register(api,role='scrap_owner');register(api,'worker2','scrap_owner')
     body=dict(material='metal',description='Fixture steel scrap for collection',estimated_kg=10,location=PIN,address='Fixture private collection address',city='Balasore',starts_at=time.time()+7200,phone='9876543210',request_id=str(uuid.uuid4()))
+    body['photo_document_id']=pickup_photo('customer',body['request_id'])
     r=api.post(BASE+'/scrap',headers=auth('customer'),json=body);assert r.status_code==201,r.text
     row=r.json();command=dict(action='decline',expected_version=row['version'],command_id=str(uuid.uuid4()))
     r=api.post(BASE+'/scrap/'+row['id']+'/commands',headers=auth('worker'),json=command);assert r.status_code==200,r.text

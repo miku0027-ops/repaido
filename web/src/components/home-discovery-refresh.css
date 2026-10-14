@@ -76,3 +76,22 @@ html.reduce-motion :is(.home-welcome-banner,.home-discovery-hub,.service-stories
  .repaido-services-3col-grid .repaido-service-motion-caption span{font-size:.625rem!important;white-space:normal!important;overflow-wrap:anywhere}
 }
 .repaido-customer-shell .android-explore-screen>.home-discovery-hub{margin-inline:var(--app-gutter,16px);width:auto}
+.repaido-services-grid-container :is(.repaido-service-static-card,.repaido-service-motion-card){perspective:700px;isolation:isolate;transition:transform .2s ease}
+.repaido-services-grid-container .repaido-service-card-surface{background:linear-gradient(155deg,#fff 0%,#f4f8ff 65%,#eaf1fc 100%);border-color:#afbdd2;box-shadow:0 1px 0 #fff inset,0 4px 0 #d9e3f1,0 8px 12px #10234e0c,0 14px 28px #10234e14;transform-style:preserve-3d;transition:transform .25s ease,box-shadow .25s ease}
+.repaido-services-grid-container .repaido-service-graphic-stage{position:relative;isolation:isolate;min-height:56px;margin:6px 0}
+.repaido-services-grid-container .repaido-service-graphic-stage::before{content:"";position:absolute;inset:1px 5px 5px;border-radius:18px;background:radial-gradient(ellipse at 35% 22%,#fff 15%,#dbe8fd 100%);box-shadow:inset 0 1px 1px #fff,inset 0 -3px 8px #1428580d;transform:rotate(-7deg);z-index:-1}
+.repaido-services-grid-container .repaido-service-graphic-stage::after{content:"";position:absolute;bottom:3px;left:22%;right:22%;height:6px;border-radius:50%;background:#14285826;filter:blur(3px);z-index:-1}
+.repaido-services-grid-container .repaido-service-icon-img{mix-blend-mode:multiply;filter:drop-shadow(0 5px 3px #14285822);animation:repaido-service-art-float 6s ease-in-out infinite}
+.repaido-services-grid-container .repaido-service-static-card:nth-child(2n) .repaido-service-icon-img{animation-delay:-2s}.repaido-services-grid-container .repaido-service-static-card:nth-child(3n) .repaido-service-icon-img{animation-delay:-4s}
+.repaido-services-grid-container .repaido-service-micro-badge{font-weight:600;color:#163357!important;border-color:#8ba8cb;background:#edf5ff;box-shadow:0 2px 4px #10234e08}
+.repaido-services-grid-container .repaido-service-card-arrow{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#163357;color:#fff;box-shadow:0 2px 4px #16335726;transition:transform .2s ease}
+.repaido-services-grid-container .service-grid-toolbar>button{display:flex;align-items:center;gap:5px;min-height:44px;color:var(--ui-brand,#163357)}
+.repaido-services-grid-container .service-grid-paused *{animation-play-state:paused!important}
+.repaido-services-grid-container :is(.repaido-service-static-card,.repaido-service-motion-card):focus-visible{outline:3px solid #163357;outline-offset:5px;border-radius:22px}
+.repaido-services-grid-container :is(.repaido-service-static-card,.repaido-service-motion-card):active{transform:scale(.97)}
+@media(hover:hover){.repaido-services-grid-container :is(.repaido-service-static-card,.repaido-service-motion-card):hover .repaido-service-card-surface{transform:translateY(-3px) rotateX(3deg);box-shadow:0 1px 0 #fff inset,0 4px 0 #cad8ee,0 12px 20px #10234e1a,0 20px 36px #10234e12}.repaido-services-grid-container .repaido-service-static-card:hover .repaido-service-card-arrow{transform:translate(2px,-2px)}}
+@keyframes repaido-service-art-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-3px) rotate(1deg)}}
+.dark .repaido-services-grid-container .repaido-service-card-surface{background:linear-gradient(155deg,#18335c,#10234e);border-color:#7185a6;box-shadow:0 1px 0 #9cafcb33 inset,0 4px 0 #07172f,0 14px 26px #0004}
+.dark .repaido-services-grid-container .repaido-service-icon-img{mix-blend-mode:normal}.dark .repaido-services-grid-container .repaido-service-card-arrow{background:#edf5ff;color:#163357}.dark .repaido-services-grid-container :is(.repaido-service-static-card,.repaido-service-motion-card):focus-visible{outline-color:#e5f1ff}
+@media(prefers-reduced-motion:reduce){.repaido-services-grid-container *{animation:none!important;transition:none!important;transform:none!important}}
+.reduce-motion .repaido-services-grid-container *{animation:none!important;transition:none!important;transform:none!important}

@@ -22,11 +22,13 @@ def require_evidence(u,j,kind,now):
 
 def upload_object(key,data):
     from google.cloud import storage
+    from google.api_core.retry import Retry
     blob=storage.Client().bucket(os.environ['REPAIDO_KYC_BUCKET']).blob(key)
-    blob.cache_control='no-store';blob.upload_from_string(data,content_type='image/jpeg',if_generation_match=0)
+    blob.cache_control='no-store';blob.upload_from_string(data,content_type='image/jpeg',if_generation_match=0,timeout=30,retry=Retry(initial=1,maximum=5,deadline=45))
 def download_object(key):
     from google.cloud import storage
-    return storage.Client().bucket(os.environ['REPAIDO_KYC_BUCKET']).blob(key).download_as_bytes()
+    from google.api_core.retry import Retry
+    return storage.Client().bucket(os.environ['REPAIDO_KYC_BUCKET']).blob(key).download_as_bytes(timeout=30,retry=Retry(initial=1,maximum=5,deadline=45))
 
 def install(core):
     store=core.operations_store;r=APIRouter(prefix='/operations',tags=['Private task evidence'])

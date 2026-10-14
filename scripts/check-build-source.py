@@ -8,6 +8,7 @@ REQUIRED = {
     'firestore.rules', 'backend/Dockerfile', 'backend/.dockerignore',
     'backend/requirements.txt', 'backend/requirements-dev.txt',
     'backend/main.py', 'backend/cleanup.py', 'backend/captain_rewards.py',
+    'backend/scrap_experience.py', 'backend/fonts/Poppins-SemiBold.ttf', 'backend/fonts/OFL.txt',
     'scripts/check-release-authorization.py', 'scripts/check-build-source.py',
     'scripts/generate-selective-builds.py', 'scripts/plan-release.py',
     'scripts/verify-release.py',
