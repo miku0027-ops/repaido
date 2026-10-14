@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -57,6 +58,7 @@ STEPS = {target: [step['id'] for step in config['steps']] for target, config in 
 ROUTES = json.loads((ROOT / 'firebase.json').read_text())['hosting']['rewrites']
 COMMIT = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
 OBSERVED_AT = '14 Oct 2026, 01:02 UTC'
+TOTAL_PAGES = 9
 
 assert STEPS['full'] == [
     'require-explicit-release', 'check-build-history-access',
@@ -175,7 +177,7 @@ def footer(c, number):
     line(c, 48, 796, W - 48, 796)
     text(c, f'Source revision {COMMIT[:12]}  •  14 Oct 2026  •  Code-derived design + public health checks',
          48, 806, 8.5, MUTED)
-    text(c, f'{number:02d} / 09', W - 103, 806, 9, BLUE, True)
+    text(c, f'{number:02d} / {TOTAL_PAGES:02d}', W - 103, 806, 9, BLUE, True)
 
 
 def page_one(c):
@@ -185,10 +187,10 @@ def page_one(c):
     rect(c, 820, 24, 300, 300, DEEP, radius=56)
     pill(c, 'SYSTEM DESIGN  /  RELEASE ENGINEERING', 52, 49, 323,
          colors.HexColor('#263F76'), WHITE)
-    text(c, 'Repaido deployment', 52, 102, 39, WHITE, True)
-    text(c, 'pipelines & flowmaps', 52, 159, 39, WHITE, True)
-    para(c, 'A code-verified map of manual release selection, Cloud Build execution, '
-         'production traffic changes, and the independent engineering console.',
+    text(c, 'Repaido platform', 52, 102, 39, WHITE, True)
+    text(c, 'architecture & delivery', 52, 159, 39, WHITE, True)
+    para(c, 'A detailed HLD and LLD of apps, APIs, data, events, sensitive flows, '
+         'observability, and selective production delivery. Includes the source API route catalog.',
          54, 237, 700, 15, colors.HexColor('#DDE8FF'))
     text(c, 'REVIEWED SOURCE', 845, 69, 10, colors.HexColor('#B9CFFF'), True)
     para(c, COMMIT, 845, 96, 245, 11, WHITE)
@@ -583,17 +585,33 @@ def page_nine(c):
 
 
 def main():
+    global TOTAL_PAGES
+    from platform_pages import page_count, render
+    TOTAL_PAGES = 9 + page_count()
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     pdf = canvas.Canvas(str(OUTPUT), pagesize=(W, H), pageCompression=1,
                         invariant=1)
-    pdf.setTitle('Repaido deployment pipelines and system-design flowmaps')
+    pdf.setTitle('Repaido platform architecture, API flowmaps and deployment pipelines')
     pdf.setAuthor('Repaido engineering documentation')
-    pdf.setSubject('Code-derived release architecture, target selection, production topology and controls')
-    for page in (page_one, page_two, page_three, page_four,
-                 page_five, page_six, page_seven, page_eight, page_nine):
+    pdf.setSubject('Code-derived HLD and LLD, API inventory, data and event flows, observability, controls, and release architecture')
+    release_pages = (
+        (page_one, 'Overview'),
+        (page_two, 'Release target selection'),
+        (page_three, 'Full production pipeline'),
+        (page_four, 'Selective pipelines'),
+        (page_five, 'Independent engineering console'),
+        (page_six, 'Build and serving topology'),
+        (page_seven, 'Service contracts and trust'),
+        (page_eight, 'Failure boundaries'),
+        (page_nine, 'Operator path and evidence'),
+    )
+    for number, (page, label) in enumerate(release_pages, start=1):
+        pdf.bookmarkPage(f'deployment-{number}')
+        pdf.addOutlineEntry(f'{number:02d}  {label}', f'deployment-{number}', level=0)
         page(pdf)
+    render(pdf, sys.modules[__name__])
     pdf.save()
-    print(f'Wrote {OUTPUT} ({OUTPUT.stat().st_size:,} bytes, 9 A3 landscape vector pages)')
+    print(f'Wrote {OUTPUT} ({OUTPUT.stat().st_size:,} bytes, {TOTAL_PAGES} A3 landscape vector pages)')
 
 
 if __name__ == '__main__':

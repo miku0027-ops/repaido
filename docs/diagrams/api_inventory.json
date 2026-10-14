@@ -1,0 +1,3156 @@
+{
+  "note": "FastAPI source-route inventory generated in isolated SQLite mode. Excludes OpenAPI/docs, HEAD and OPTIONS. Not a live deployment audit.",
+  "source_revision": "1af3cf0925689c4978765b557e12b527c79d1261",
+  "routes": [
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/health",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/auth/register",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/auth/login",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/auth/me",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/auth/session",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/auth/logout",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/catalog",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/slots",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/checkout/booking/order",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/checkout/booking/verify",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/bookings",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/bookings",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/bookings/{booking_id}/cancel",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/bookings/{booking_id}/reschedule",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/bookings/{booking_id}/tracking",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/admin/bookings",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "PATCH",
+      "path": "/admin/bookings/{booking_id}",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/technicians",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/specialists",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/partner-applications",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/shop-applications",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/specialist-payments/order",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/specialist-payments/verify",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/checkout/spare/order",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/checkout/spare/verify",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/spare-orders",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/admin/partner-applications",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/support-tickets",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/support-tickets",
+      "module": "main"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/me",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/onboarding",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/availability",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/workers",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/workers/{worker_id}/review",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/jobs",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/audit",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/shops",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/inventory",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/orders",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/shop/orders/{job_id}/handover",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/professionals",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/professionals/search",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/bookings",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/commands",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/tick",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/inventory",
+      "module": "operations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/integrations/status",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/verification",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/verification/submit",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/documents/{kind}",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/verification/{worker_id}",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/documents/{document_id}",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/verification/{worker_id}/identity",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/verification/{worker_id}/bank",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/devices",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/operations/devices/{device_id}",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/notifications",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}/tracking",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/tracking-session",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/tracking/position",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/tracking/stop",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/earnings",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/settlement-policy",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/settlement-policy/accept",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/payment-order",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/payment-check",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}/payment",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/webhooks/razorpay/{channel}",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/settlements/{job_id}/calculate",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/finance",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/settlements/{job_id}/release",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/bonus/withdraw",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/payouts/{job_id}/retry-failed",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/internal/tick",
+      "module": "integrations"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/wallet",
+      "module": "rewards"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/wallet/review-request",
+      "module": "rewards"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/rewards",
+      "module": "rewards"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/rewards/{worker_id}/review",
+      "module": "rewards"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/profile",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/profile",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/addresses",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/addresses/{address_id}",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/operations/addresses/{address_id}",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/support",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/support",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/support",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/support/{case_id}",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/support/{case_id}",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/support/{case_id}/messages",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/support/{case_id}/messages",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/support/{case_id}/actions",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/support/{case_id}/actions",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/stop-request",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/confirm-arrival",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/jobs/{job_id}/resolution",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}/resolutions",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/resolutions/{resolution_id}/decision",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/resolutions/{resolution_id}/withdraw",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}/receipt",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}/rebook-draft",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/review/reply",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/review/report",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/jobs/{job_id}/penalty-review",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/reward-metrics/{worker_id}/correction",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/notifications/{notification_id}/read",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/notifications/read-all",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/review-reports",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/review-reports/{report_id}/resolve",
+      "module": "lifecycle"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/jobs/{job_id}/refund",
+      "module": "refunds"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/refunds",
+      "module": "refunds"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/refunds/{refund_id}/reconcile",
+      "module": "refunds"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/capture-session",
+      "module": "evidence"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/capture-sessions/{capture_id}/photo",
+      "module": "evidence"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}/evidence",
+      "module": "evidence"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/jobs/{job_id}/evidence",
+      "module": "evidence"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/evidence/{evidence_id}/photo",
+      "module": "evidence"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/evidence/{evidence_id}/photo",
+      "module": "evidence"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/me",
+      "module": "shops"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/shop/application",
+      "module": "shops"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/shops",
+      "module": "shops"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/shops/{shop_id}/review",
+      "module": "shops"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{job_id}/market",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/inventory",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/shop/inventory/{product_id}",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/purchase-orders",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/shop/purchase-orders/{oid}/decision",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/purchase-orders/{oid}/otp",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{jid}/arrival-code",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{jid}/verify-arrival",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{jid}/purchase-orders/{oid}/verify-pickup",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/jobs/{jid}/procurement",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/payables",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/procurement",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/purchase-orders/{oid}/assessment",
+      "module": "procurement"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/shops/{sid}/bank",
+      "module": "shop_payouts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/shop-payouts",
+      "module": "shop_payouts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/shop-payouts/{bid}/reconcile",
+      "module": "shop_payouts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/discovery/search",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/discovery/preferences",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/discovery/preferences",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/discovery/preferences/reset",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/discovery/events",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/discovery/interest",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/discovery/feed",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/discovery/feed/personal",
+      "module": "discovery"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/rentals/catalog",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/rental-inventory",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/shop/rental-inventory/{pid}",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/rentals",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/rentals",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/rentals/{rid}/code",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/rentals/{rid}/commands",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/rentals",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/rentals/{rid}/resolve",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/rentals/{rid}/payment-order",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/rentals/{rid}/payment-check",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/rentals/{rid}/refund-deposit",
+      "module": "rentals"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/products/catalog",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/shop/photos",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/media/{mid}",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/selfie-session",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/selfies/{sid}",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/support/{case_id}/claim",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/audit-history",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/onboarding-overview",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/discovery/leaderboard",
+      "module": "workspace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/market/policy",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/market/eligibility",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/photos",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/market/photos/{pid}",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/listings",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/{lid}/publish-free",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/market/mine",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/search",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/{lid}/radius",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/{lid}/close",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/market/{lid}/contact",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/{lid}/report",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/{lid}/payment-order",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/market/{lid}/payment-check",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/market",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/market/{lid}/hide",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/service-terms/{sid}",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/admin/service-terms/{sid}",
+      "module": "marketplace"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/parts/{quote_id}/payment-order",
+      "module": "parts_payments"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/jobs/{job_id}/parts/{quote_id}/payment-check",
+      "module": "parts_payments"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/profile-progress",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/calendar",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/records",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/tasks/{jid}/report",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/tasks/{jid}/report.pdf",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/public-profile",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/worker/public-profile",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/profile-photo/{kind}",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/professionals/{wid}",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/professional-media/{mid}",
+      "module": "worker_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/hiring/policy",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/admin/hiring-policy",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/hiring/search",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/hire-membership",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/hire-membership/accept",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/hire-membership/payment-order",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/hire-membership/payment-check",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/hiring/requests",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/hiring/requests",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/hiring/requests/{hid}/decision",
+      "module": "hiring"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/campaign-media",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/campaign-media/{mid}",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/campaign-media/{mid}",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/campaigns",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/admin/campaign-controls",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/admin/campaigns/{cid}",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/campaigns/feed",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/campaigns/feed/personal",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/campaigns/preferences",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/campaigns/preferences",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/campaigns/{cid}/events",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/campaigns/quote",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/campaigns/select",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/campaigns/selection",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/operations/campaigns/selection",
+      "module": "promotions"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/home/catalog",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/plans",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/home/plans",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/home/plans/{pid}/brief.pdf",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/home/plans/{pid}/brief.pdf",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/home/worker-availability",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/home/worker-availability",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/home",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/home/workers/{wid}/review",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/home/plans/{pid}/quote",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/plans/{pid}/decision",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/plans/{pid}/changes",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/plans/{pid}/changes/{cid}",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/jobs/{jid}/log",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/plans/{pid}/issues",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/home/issues/{iid}/resolve",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/plans/{pid}/invoices/{index}/order",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/home/plans/{pid}/invoices/{index}/check",
+      "module": "home_plans"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/hiring/recommendations",
+      "module": "hire_discovery"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/hiring/my-weekly-rank",
+      "module": "hire_discovery"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/hiring/leaderboard",
+      "module": "hire_discovery"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/partner-policy",
+      "module": "partner_program"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/partner-program",
+      "module": "partner_program"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/partner-program/agree",
+      "module": "partner_program"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/contractor-application",
+      "module": "partner_program"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/admin/partner-program",
+      "module": "partner_program"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/admin/partner-policy",
+      "module": "partner_program"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/admin/contractors/{wid}/review",
+      "module": "partner_program"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/sectors",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/overview",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/opportunities",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/published",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/published/{tid}",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/workspace",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/contractor/profile",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/agents",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/projects",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/projects/private",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/tenders",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/tenders/{tid}/bid",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/tenders/{tid}/commands",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/projects/{pid}/invitations",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/contractor/projects/{pid}/hiring",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/projects/{pid}/apply",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/projects/{pid}/candidates",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/hiring/applications",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contractor/hiring/applications/{aid}",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/hiring/applications/{aid}/view",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/hiring/applications/{aid}/withdraw",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/hiring/applications/{aid}/decision",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contractor/projects/{pid}/commands",
+      "module": "contract_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/cart/orders",
+      "module": "tenders"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/cart/orders",
+      "module": "tenders"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/coupons/wallet",
+      "module": "coupons"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/coupons/check",
+      "module": "coupons"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/coupons/choose",
+      "module": "coupons"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/coupons/launch",
+      "module": "coupons"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/retail/quote",
+      "module": "retail_checkout"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/retail/orders",
+      "module": "retail_checkout"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/retail/orders/{oid}/verify",
+      "module": "retail_checkout"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/retail/orders/{oid}/payment",
+      "module": "retail_checkout"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/retail/orders",
+      "module": "retail_checkout"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/retail/shop-orders",
+      "module": "retail_checkout"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/retail/orders/{oid}/received",
+      "module": "retail_checkout"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/opportunities/order",
+      "module": "opportunities"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/opportunities/open",
+      "module": "opportunities"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/search",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/people/{wid}",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/connections",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/connections/{wid}",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/blocks/{wid}",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/operations/network/blocks/{wid}",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/inbox",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/messages/{wid}",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/messages/{wid}",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/groups",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/groups",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/groups/{gid}/join",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/groups/{gid}/leave",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/groups/{gid}/posts",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/groups/{gid}/posts",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/posts/{pid}/replies",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/posts/{pid}/hide",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/reports",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/admin/reports",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/admin/reports/{rid}",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/network/plan",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/plan/order",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/network/plan/check",
+      "module": "worker_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/b2b/policy",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/b2b/listings",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/b2b/listings/{lid}",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/b2b/listings",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/b2b/listings/{lid}",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/b2b/listings/{lid}/status",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/operations/b2b/listings/{lid}",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/b2b/rfq",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/b2b/rfq",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/b2b/rfq/{rid}",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/b2b/quotation",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/b2b/rfq/{rid}/decision",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/b2b/quotation/{number}/pdf",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/b2b/photos",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/b2b/photos/{media_id}",
+      "module": "b2b"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/worker/home-offers",
+      "module": "professional_offers"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/worker/home-offers",
+      "module": "professional_offers"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/operations/worker/home-offers/{offer_id}",
+      "module": "professional_offers"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/shop/prime",
+      "module": "shop_prime"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/shop/prime/order",
+      "module": "shop_prime"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/shop/prime/check",
+      "module": "shop_prime"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/subscription",
+      "module": "repaidians_billing"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/subscription/order",
+      "module": "repaidians_billing"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/subscription/check",
+      "module": "repaidians_billing"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/webhooks/razorpay",
+      "module": "repaidians_billing"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/state",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/usage",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/feed",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/members",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/members/{member_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "PATCH",
+      "path": "/repaidians/profile",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/settings",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "PATCH",
+      "path": "/repaidians/settings",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/blocks",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/publications",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/publications/{publication_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/repaidians/publications/{publication_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/repaidians/activity/{action}/{publication_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/repaidians/follow/{member_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/comments/{publication_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/comments/{publication_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/messages/{recipient_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/messages/{recipient_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/threads",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/bids/{tender_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/bids/{tender_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/tenders/{tender_id}/contact",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/notifications",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/notifications/read",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/reports",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/admin/reports",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/admin/reports/{report_id}/resolve",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/repaidians/blocks/{member_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/media",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/media/{asset_id}",
+      "module": "repaidians"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/milestones/preview",
+      "module": "repaidians_milestones"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/live/status",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/live",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/live",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/live/{identifier}/activate",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/live/{identifier}/heartbeat",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/live/{identifier}/watch",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/live/{identifier}/end",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/admin/live/{identifier}/end",
+      "module": "repaidians_live"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/profile",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/members/{member_id}/profile",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "PATCH",
+      "path": "/repaidians/network/profile",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/preferences",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "PATCH",
+      "path": "/repaidians/network/preferences",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/connections",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/members/{member_id}/connection",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/network/members/{member_id}/connection",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/members/{member_id}/endorsements",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/repaidians/network/members/{member_id}/endorsements",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/members/{member_id}/recommendations",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/network/members/{member_id}/recommendations",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/repaidians/network/recommendations/{recommendation_id}",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/network/recommendations",
+      "module": "repaidians_network"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/opportunities",
+      "module": "repaidians_opportunities"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/opportunities/{source}/{key}",
+      "module": "repaidians_opportunities"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/repaidians/opportunities/{source}/{key}/saved",
+      "module": "repaidians_opportunities"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/market/listings/{key}",
+      "module": "repaidians_opportunities"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/work/preferences",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "PATCH",
+      "path": "/repaidians/work/preferences",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/work/interests",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/work/behavior",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/work/jobs",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/work/jobs/{jid}",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/work/contracts",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/repaidians/work/contracts/{tid}/watch",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/work/contracts/{tid}/watch",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/companies",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/companies/{cid}",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/repaidians/placements/{pid}",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/repaidians/placements/{pid}/congratulate",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/queries",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/queries/{qid}",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/queries/{qid}/updates",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/bids",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/commands",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/custom-contracts/queries/{qid}/reaction",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/view",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/queries/{qid}/comments",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/comments",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/queries/{qid}/enquiries",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/enquiries",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/queries/{qid}/messages",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/messages",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/agent-opportunities",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/interest",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/custom-contracts/queries/{qid}/agent-messages",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/queries/{qid}/interests",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/custom-contracts/public/{qid}/progress",
+      "module": "custom_contracts"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/projects/{pid}/records",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/progress",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/purchases",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/purchases/{purchase_id}/review",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/progress/{progress_id}/review",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/payments",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/payments/{payment_id}/approve",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/payments/{payment_id}/reported",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/admin/payments/{payment_id}/verify-external",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/payments/{payment_id}/order",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/payments/{payment_id}/check",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/projects/{pid}/bank-instructions",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/contracts/projects/{pid}/attachments",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/attachments/{attachment_id}",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/projects/{pid}/report.pdf",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/reports/{report_id}.pdf",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/contracts/projects/{pid}/public-progress",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/public/projects/{pid}/progress",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/public/contractors/{uid}/projects",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/contracts/public/attachments/{attachment_id}",
+      "module": "contract_records"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/account/profile",
+      "module": "account_profile"
+    },
+    {
+      "service": "main",
+      "method": "PATCH",
+      "path": "/account/profile",
+      "module": "account_profile"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/account/profile/email-verification",
+      "module": "account_profile"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/account/profile/email-verification/confirm",
+      "module": "account_profile"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/policy",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/documents",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/documents/{identifier}",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/partner",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/local-business/partner",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/admin/reviews",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/admin/reconciliation",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/admin/reconciliation/{kind}/{identifier}",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/admin/documents/{identifier}",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/admin/{kind}/{identifier}/review",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/local-business/vehicles/{identifier}",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/vehicles/search",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/quotes",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/rides",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/rides",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/rides/{identifier}/license",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/rides/{identifier}/commands",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/rides/{identifier}/payment-order",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/rides/{identifier}/payment-check",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/rides/{identifier}/refund",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/scrap",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/scrap",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/scrap/{identifier}/evaluation",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/scrap/{identifier}/weighing-photo",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/scrap/{identifier}/commands",
+      "module": "local_business"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/cleanup/reports",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/cleanup/reports",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/cleanup/collector",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/cleanup/admin",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/cleanup/reports/{identifier}/actions",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/cleanup/admin/{identifier}/actions",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/cleanup/reports/{identifier}/photos/{document_id}",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/cleanup/admin/{identifier}/photos/{document_id}",
+      "module": "cleanup"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/captain/me",
+      "module": "captain_rewards"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/captain/profile",
+      "module": "captain_rewards"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/captain/leaderboard",
+      "module": "captain_rewards"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/captain/photo/{photo_id}",
+      "module": "captain_rewards"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/captain/avatar/{public_id}/{photo_id}",
+      "module": "captain_rewards"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/transport/nearby",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/shared",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/shared/search",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/shared",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/shared/{identifier}/join",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/shared/{identifier}/commands",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/shared/{identifier}/arrival",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/shared/{identifier}/arrival-position",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/journeys/{kind}/{identifier}/consent",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/journeys/{kind}/{identifier}/tracking-session",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/journeys/{kind}/{identifier}/position",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/journeys/{kind}/{identifier}/tracking",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/journeys/{kind}/{identifier}/share",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "DELETE",
+      "path": "/operations/local-business/journeys/{kind}/{identifier}/share",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/guest-tracking/{token}",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "PUT",
+      "path": "/operations/local-business/vehicles/{identifier}/driver",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "GET",
+      "path": "/operations/local-business/driver-invitations",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/driver-invitations/{identifier}",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/vehicles/{identifier}/tracker",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "main",
+      "method": "POST",
+      "path": "/operations/local-business/vehicles/{identifier}/telemetry",
+      "module": "mobility_journeys"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/work/health",
+      "module": "work_service"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/health",
+      "module": "work_service"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/work/preferences",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "PATCH",
+      "path": "/repaidians/work/preferences",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/work/interests",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "POST",
+      "path": "/repaidians/work/behavior",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/work/jobs",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/work/jobs/{jid}",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/work/contracts",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "PUT",
+      "path": "/repaidians/work/contracts/{tid}/watch",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/work/contracts/{tid}/watch",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/companies",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/companies/{cid}",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "GET",
+      "path": "/repaidians/placements/{pid}",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "work",
+      "method": "POST",
+      "path": "/repaidians/placements/{pid}/congratulate",
+      "module": "repaidians_work"
+    },
+    {
+      "service": "worker",
+      "method": "GET",
+      "path": "/health",
+      "module": "work_worker"
+    },
+    {
+      "service": "worker",
+      "method": "POST",
+      "path": "/internal/work/dispatch",
+      "module": "work_worker"
+    }
+  ]
+}
