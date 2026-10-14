@@ -72,6 +72,28 @@ try{
  await navigation.getByRole('tab',{name:'Cabs & cars',exact:true}).click();await pause(500);
  const before=requests.filter(r=>r.path==='/api/operations/local-business/rides').length;assert.equal(before,0,'Closed booking history must not fetch records.');
  for(const name of ['Shared ride','Self-drive','Cab rental','Cab']){await page.getByRole('button',{name,exact:true}).click();await pause(350);await geometry(page);await audit(page);}
+ const more=page.getByRole('region',{name:'More ways to travel',exact:true});
+ assert.equal(await more.locator('.mobility-travel-banner').count(),3);
+ assert.equal(await more.locator('[data-service=cab]').count(),0,'The active service should not be repeated below.');
+ for(const [service,action,title,field] of [
+  ['shared','Find a shared ride','Shared ride',null],
+  ['self_drive','Find a self-drive car','Self-drive','Return date & time'],
+  ['rental','Plan a cab rental','Cab rental','Hire starts'],
+  ['cab','Find a cab','Cab','Expected trip end']
+ ]){
+  if(service==='cab')await page.getByRole('group',{name:'Transport service type'}).getByRole('button',{name:'Shared ride',exact:true}).click();
+  const selected=await page.locator('.mobility-experience').getAttribute('data-mode'),button=more.getByRole('button',{name:action,exact:true});
+  await button.click();const dialog=page.getByRole('dialog',{name:title,exact:true});await dialog.waitFor();
+  if(field)await dialog.getByLabel(field,{exact:true}).waitFor();else await dialog.getByRole('heading',{name:'Find a shared car or bike ride',exact:true}).waitFor();
+  assert.equal(await page.locator('.mobility-experience').getAttribute('data-mode'),selected,'Opening an alternative preserves the selected panel.');
+  await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+  assert.equal(await button.evaluate(e=>e===document.activeElement),true,'Closing booking returns focus to its banner.');
+ }
+ const pickupShortcut=more.locator('.mobility-pickup-shortcut');await pickupShortcut.click();await page.getByRole('dialog',{name:'Your pickup area',exact:true}).waitFor();await page.keyboard.press('Escape');assert(await pickupShortcut.evaluate(e=>e===document.activeElement));
+ await page.getByRole('group',{name:'Transport service type'}).getByRole('button',{name:'Cab rental',exact:true}).click();
+ await more.scrollIntoViewIfNeeded();await more.screenshot({path:resolve(out,'cabs-more-ways.png')});
+ assert.equal(requests.filter(r=>r.method==='POST'&&/\/local-business\/(rides|quotes)$/.test(r.path)).length,0,'Banner browsing must not submit bookings or quotes.');
+ checks.push('three relevant travel banners, all four correct booking entries, stable mode/focus, pickup shortcut and no automatic submissions');
  await page.locator('.mobility-booking-history>summary').click();await page.getByText('No active rides yet.',{exact:true}).waitFor();assert.equal(requests.filter(r=>r.path==='/api/operations/local-business/rides').length,1);checks.push('four transport modes and lazy booking history');
  await navigation.getByRole('tab',{name:'Sell scrap',exact:true}).click();await page.getByRole('button',{name:'Report litter',exact:true}).click();await pause(400);await geometry(page);await audit(page);await page.getByRole('button',{name:'My rewards',exact:true}).click();await page.locator('.captain-pass').waitFor();await geometry(page);await audit(page);checks.push('scrap reports and reward panels');
  await navigation.getByRole('tab',{name:'Cabs & cars',exact:true}).click();await pause(500);await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.market-destination-panel').evaluate(e=>getComputedStyle(e).animationName),'none');

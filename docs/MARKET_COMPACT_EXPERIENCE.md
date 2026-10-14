@@ -28,6 +28,13 @@ brand layer instead of changing partner or community layouts globally.
   opens the existing map/address picker and carries the chosen location into
   discovery and booking. A lone transport result fills the available rail;
   counts and navigation reflect the actual number of rendered service options.
+  Below booking history, three illustrated banners show the other travel types
+  and open their existing booking flows. The selected discovery mode stays in
+  place while an alternative booking is open, and closing it returns keyboard
+  focus to the banner. A pickup shortcut opens the same map picker. These
+  banners make no API reads or automatic submissions, and are omitted from the
+  compact home-discovery embed. The customer footer uses trip information when
+  Cabs is selected rather than general shopping guidance.
 - Scrap uses the same compact geometry with its green identity. Selling,
   public-place reports and rewards remain distinct sections. The existing
   patriotic message, camera requirement and collection workflow are retained.
@@ -60,6 +67,8 @@ navigation, quotations and filters, transport mode switching, lazy history,
 scrap reports/rewards, reduced-motion map operation, enlarged text and dark
 theme. It also runs WCAG A/AA/AAA audits on the tested panels. Fixture data and
 the preview entry are excluded from the production entry graph.
+The travel banner checks also exercise all four booking entries, preservation
+of the selected panel, keyboard focus restoration and pickup selection.
 
 Existing `market.browser.mjs` verifies catalogue errors/retry, disclosures,
 inventory and payment gating. Existing `b2b.browser.mjs` verifies real private

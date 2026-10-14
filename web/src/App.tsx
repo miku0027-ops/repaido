@@ -1253,6 +1253,11 @@ export default function App() {
               ['Compare your shortlist','Compare experience, specialties and customer feedback.'],
               ['Choose your plan','Day hiring and recurring Home plans have separate terms.'],
               ['Private profiles','Professional phone numbers and exact locations stay private.']
+            ]:tab==='ShopSpares'&&marketSubTab==='mobility'?[
+              ['Plan your pickup','Use a checked map pin and a clear landmark.'],
+              ['Review the full quote','Check owner rates and terms before sending your request.'],
+              ['Follow your ride','See acceptance and trip updates in Bookings → Rides.'],
+              ['Private documents','Self-drive licence uploads go to the accepted owner.']
             ]:tab==='ShopSpares'?[
               ['Buy, rent or exchange','Choose the option that fits your needs.'],
               ['Review item details','Check condition, warranty and seller information.'],
