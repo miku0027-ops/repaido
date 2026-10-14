@@ -107,7 +107,7 @@ import {
 } from 'lucide-react';
 import CatalogApp from './CatalogApp';
 import { Brand, Modal, Field } from './components/ui';
-import {BusinessTabs} from './components/BusinessUI';
+import {MarketWorkspace} from './components/MarketWorkspace';
 import {BookingSignIn} from './components/BookingSignIn';
 import RepaidoBrand from './components/RepaidoBrand';
 import ServiceImage from './components/ServiceImage';
@@ -316,8 +316,12 @@ export default function App() {
     const focusSearch = (event: FocusEvent) => {
       const input = event.target;
       if (!(input instanceof HTMLInputElement) || input.type !== 'search' || input.closest('dialog')) return;
-      const dock = input.closest('.uc-header-sticky, .spare-discovery-dock, .rental-search, .market-search, .hire-discovery-dock');
-      if (dock) window.scrollTo({top:window.scrollY + dock.getBoundingClientRect().top - header.getBoundingClientRect().height, behavior:'instant'});
+      const dock = input.closest('.uc-header-sticky, .spare-discovery-dock, .rental-search, .market-search, .market-search-compact, .b2b-search, .tender-filter-bar, .hire-discovery-dock');
+      if (dock) {
+        const marketNavigation=input.closest('.market-workspace')?.querySelector('.market-destinations');
+        const clearance=header.getBoundingClientRect().height+(marketNavigation?.getBoundingClientRect().height||0)+(marketNavigation?14:0);
+        window.scrollTo({top:window.scrollY + dock.getBoundingClientRect().top - clearance, behavior:'instant'});
+      }
     };
     document.addEventListener('focusin', focusSearch);
     return () => { observer.disconnect(); document.removeEventListener('focusin', focusSearch); };
@@ -1095,9 +1099,7 @@ export default function App() {
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
-              <div className="w-full market-experience">
-                <BusinessTabs label="Marketplace destination" panelId="market-destination-panel" value={marketSubTab} onChange={setMarketSubTab} items={[{id:'spares',label:'Marketplace'},{id:'b2b',label:'B2B Wholesale'},{id:'tenders',label:'Contracts'},{id:'mobility',label:'Cabs & cars'},{id:'scrap',label:'Sell scrap'}]}/>
-                <div id="market-destination-panel" role="tabpanel" aria-label={marketSubTab==='mobility'?'Cabs and car rentals':marketSubTab==='scrap'?'Sell scrap':marketSubTab==='spares'?'Marketplace':marketSubTab==='b2b'?'B2B Wholesale':'Contracts'}>
+              <MarketWorkspace value={marketSubTab} onChange={setMarketSubTab}>
                 {marketSubTab === 'mobility' ? <MobilityHub initialMode={hydration.feed?.preferred_transport_mode||undefined} onModeSelect={mode=>hydration.event({kind:'category_view',category:'transport_'+mode})} onSearch={mode=>hydration.event({kind:'search',category:'transport_'+mode})} key={'mobility:'+(auth.currentUser?.uid||'guest')} initialLocation={place} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'scrap' ? <ScrapHub key={'scrap:'+(auth.currentUser?.uid||'guest')} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'spares' ? (
                   <SparePartsShop
                     onContracts={()=>setMarketSubTab('tenders')}
@@ -1126,8 +1128,7 @@ export default function App() {
                     onOpenB2BMarket={() => setMarketSubTab('b2b')}
                   />
                 )}
-                </div>
-              </div>
+              </MarketWorkspace>
             )}
 
             {/* 5. YOU / PROFILE TAB (Includes Partner Registration underneath at the bottom) */}

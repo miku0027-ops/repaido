@@ -1,0 +1,250 @@
+/* Compact visual rhythm; generous tap space belongs to the control, not its label. */
+#root .market-experience.market-workspace{
+ --market-gutter:clamp(12px,3vw,20px);--market-label:.75rem;--market-meta:.6875rem;
+ width:100%;min-width:0;max-width:1120px;margin-inline:auto;padding:8px var(--market-gutter) 20px;
+ color:var(--ui-ink);font-family:var(--ui-font,Poppins,sans-serif);font-size:.8125rem;
+ --card-padding:12px;--card-radius:16px;--card-shadow:0 3px 10px #17285c0a;
+}
+#root .market-experience.market-workspace .market-destination-panel :where(button,a,summary){min-height:44px!important;min-width:44px!important}
+#root .market-experience.market-workspace :where(input:not([type=checkbox]):not([type=radio]),select){min-height:44px!important;font-size:1rem}
+#root .market-experience.market-workspace :where(button,summary):focus-visible{outline:3px solid var(--ui-focus)!important;outline-offset:3px!important}
+#root .market-experience.market-workspace :where(button,summary){transition:transform 160ms ease,box-shadow 160ms ease,border-color 160ms ease}
+#root .market-experience.market-workspace :where(button):not(:disabled):active{transform:scale(.98);filter:none}
+#root .market-experience.market-workspace .market-destinations.business-tabs{
+ position:sticky;top:calc(var(--customer-header-height,0px) + 6px);z-index:35;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+ gap:3px;padding:4px;margin:0 0 12px;overflow:visible;border:1px solid var(--ui-control);border-radius:16px;
+ background:var(--ui-surface);box-shadow:0 2px 5px #17285c08,0 7px 20px #17285c0c;isolation:isolate;
+}
+#root .market-experience.market-workspace .market-destinations.business-tabs>button{
+ display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0!important;min-height:56px!important;
+ padding:7px 2px;font-size:.6875rem;line-height:1.35;font-weight:600;border-radius:12px;background:transparent;color:var(--ui-ink);border:1px solid transparent;position:relative;
+}
+#root .market-experience.market-workspace .market-destinations.business-tabs>button>span:last-child{max-width:100%;overflow-wrap:anywhere}
+#root .market-experience.market-workspace .market-destinations.business-tabs>button[aria-selected=true]{background:var(--ui-primary);color:#fff;border-color:var(--ui-primary);box-shadow:0 3px 7px #17285c24}
+#root .market-experience.market-workspace .market-destinations button[aria-selected=true] .market-destination-icon{animation:market-icon-select 260ms ease-out both}
+#root .market-experience.market-workspace .market-destination-icon{display:grid;place-items:center;width:22px;height:20px}
+#root .market-experience.market-workspace .market-destination-icon svg{width:18px;height:18px}
+#root .market-experience.market-workspace .market-destination-panel{min-width:0;animation:market-panel-enter 220ms ease-out both}
+#root .market-experience.market-workspace .market-destination-panel>:is(.b2b-hub-container,.tender-market,.cleanup-hub,.local-business-hub,.spare-parts-shop-container){width:100%;max-width:none;margin:0;padding:0;background:transparent;color:var(--ui-ink)}
+#root .market-experience.market-workspace .market-destination-panel>section{min-width:0}
+#root .market-experience.market-workspace .business-page-header{padding:10px 12px!important;margin:0 0 10px!important;gap:8px;align-items:center;flex-wrap:nowrap;border-radius:16px;background:var(--ui-subtle);border-color:var(--ui-control)}
+#root .market-experience.market-workspace .business-header-copy{flex:1 1 0;min-width:0}
+#root .market-experience.market-workspace .business-eyebrow{font-size:.625rem;letter-spacing:.08em;gap:5px}
+#root .market-experience.market-workspace .business-eyebrow svg{width:14px;height:14px}
+#root .market-experience.market-workspace .business-page-header h1{font-size:1.125rem!important;line-height:1.4;margin:2px 0!important}
+#root .market-experience.market-workspace .business-header-art{width:60px}
+#root .market-experience.market-workspace .business-header-actions{width:auto;flex-wrap:nowrap;gap:4px;flex:none}
+#root .market-experience.market-workspace .business-header-actions button{min-height:44px!important;min-width:44px!important;flex:none;padding:8px!important;font-size:.75rem}
+#root .market-experience.market-workspace .business-header-actions button>svg{width:17px;height:17px}
+#root .market-experience.market-workspace .business-tabs:not(.market-destinations){padding:3px;margin:8px 0;gap:4px;border-radius:12px;border-color:var(--ui-control)}
+#root .market-experience.market-workspace .business-tabs:not(.market-destinations)>button{flex:1 1 0;min-height:44px!important;padding:8px;font-size:.75rem;line-height:1.4}
+#root .market-experience.market-workspace :is(.business-empty,.ops-empty,.spare-catalog-empty){padding:16px 12px;gap:8px;border-radius:16px;text-align:left}
+#root .market-experience.market-workspace .business-empty{grid-template-columns:40px minmax(0,1fr);justify-items:start;align-items:center}
+#root .market-experience.market-workspace .business-empty-icon{grid-column:1;grid-row:1/4;width:40px;height:40px;border-radius:12px}
+#root .market-experience.market-workspace .business-empty h2,#root .market-experience.market-workspace .business-empty p,#root .market-experience.market-workspace .business-empty-action{grid-column:2}
+#root .market-experience.market-workspace .business-empty h2{font-size:.875rem}
+#root .market-experience.market-workspace .business-empty p{font-size:.75rem;line-height:1.6}
+#root .market-experience.market-workspace .business-notice{font-size:.75rem;padding:10px;margin:8px 0;gap:8px}
+#root .market-experience.market-workspace .business-notice>div:first-of-type{flex-basis:120px}
+#root .market-experience.market-workspace :is(.b2b-loading,.tender-results-heading,.business-note){font-size:.75rem;line-height:1.6}
+
+/* Marketplace: one visible category row; optional stories open on demand. */
+#root .market-experience.market-workspace :is(.stores-mobile-app-shell,.stores-hub-header,.stores-module-container){width:100%;max-width:none;margin:0;padding:0!important;background:transparent;min-width:0}
+#root .market-experience.market-workspace .stores-hub-header{display:block}
+#root .market-experience.market-workspace .market-highlights{border:1px solid var(--ui-control);border-radius:16px;background:var(--ui-subtle);margin:0 0 10px;overflow:hidden}
+#root .market-experience.market-workspace .market-highlights>summary{display:flex;align-items:center;gap:10px;padding:9px 12px;list-style:none;color:var(--ui-ink)}
+#root .market-experience.market-workspace .market-highlights>summary::-webkit-details-marker{display:none}
+#root .market-experience.market-workspace .market-highlights>summary>span{display:grid;gap:2px;flex:1;min-width:0}
+#root .market-experience.market-workspace .market-highlights>summary small{font-size:.625rem;letter-spacing:.08em;color:var(--ui-muted)}
+#root .market-experience.market-workspace .market-highlights>summary strong{font-size:1rem;line-height:1.4}
+#root .market-experience.market-workspace .market-highlights .market-art{width:68px;flex:none}
+#root .market-experience.market-workspace .market-highlights>summary>svg:last-child{width:16px;height:16px;transition:transform 180ms ease}
+#root .market-experience.market-workspace .market-highlights[open]>summary>svg:last-child{transform:rotate(180deg)}
+#root .market-experience.market-workspace .market-highlights .opportunity-carousel{margin:0 10px 10px;width:calc(100% - 20px)}
+#root .market-experience.market-workspace .stores-header-actions:empty{display:none}
+#root .market-experience.market-workspace .stores-segmented-nav-wrap{padding:0;margin:6px 0 10px}
+#root .market-experience.market-workspace .stores-segmented-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;padding:0;gap:4px;overflow:visible;background:transparent}
+#root .market-experience.market-workspace .stores-segmented-nav::after{content:none}
+#root .market-experience.market-workspace .stores-nav-pill{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:58px!important;min-width:0!important;padding:8px 2px!important;font-size:.6875rem!important;color:var(--ui-ink)!important}
+#root .market-experience.market-workspace .stores-nav-pill::before{inset:0;border-color:var(--ui-control);border-radius:12px}
+#root .market-experience.market-workspace .stores-pill-text{min-width:0;width:100%;max-width:100%;text-align:center}
+#root .market-experience.market-workspace .stores-pill-label{display:block;max-width:100%;font-size:.6875rem;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+#root .market-experience.market-workspace .stores-pill-icon{width:17px;height:17px}
+#root .market-experience.market-workspace .stores-pill-tag{display:none}
+#root .market-experience.market-workspace .spare-discovery-dock{position:static!important;padding:0!important;margin:8px 0;border:0;background:transparent}
+#root .market-experience.market-workspace .spare-search-row{gap:6px}
+#root .market-experience.market-workspace :is(.spare-scoped-search,.customer-search-field,.tender-search){min-height:44px!important;height:auto;border:1px solid var(--ui-control);border-radius:12px;background:var(--ui-surface)}
+#root .market-experience.market-workspace :is(.spare-scoped-search,.customer-search-field,.tender-search) input{min-height:44px!important;height:auto;padding-block:8px}
+#root .market-experience.market-workspace :is(.spare-filter-trigger,.spare-cart-button,.market-filter-trigger){min-height:44px!important;min-width:44px!important;padding:8px!important}
+#root .market-experience.market-workspace :is(.spare-active-filters-bar,.spare-category-rail-container){padding:0;margin:6px 0;background:transparent}
+#root .market-experience.market-workspace .spare-category-rail{padding:0 0 4px;gap:6px;scrollbar-width:thin;scroll-padding-inline:2px}
+#root .market-experience.market-workspace .spare-category-rail-btn{font-size:.6875rem!important;padding:8px!important}
+#root .market-experience.market-workspace .spare-category-rail-btn::before{inset:3px 0;border-color:var(--ui-control)}
+#root .market-experience.market-workspace .spare-compact-list{gap:8px;margin:8px 0}
+#root .market-experience.market-workspace .spare-compact-card{padding:10px;border-radius:14px;gap:10px;border-color:var(--ui-control)}
+#root .market-experience.market-workspace .spare-compact-card img{border-radius:10px}
+#root .market-experience.market-workspace .refurb-introduction{margin:8px 0;padding:10px;gap:8px;border-radius:14px}
+#root .market-experience.market-workspace .community-market{padding:0!important}
+#root .market-experience.market-workspace .market-search-compact{gap:6px;margin:8px 0}
+#root .market-experience.market-workspace :is(.market-card,.rental-product){border-radius:14px;border-color:var(--ui-control);box-shadow:0 3px 10px #17285c08}
+#root .market-experience.market-workspace .rental-market-grid{gap:10px;margin-top:8px}
+#root .market-experience.market-workspace .rental-product{padding:10px;gap:10px}
+#root .market-experience.market-workspace .rental-product h3{font-size:.875rem}
+
+/* Wholesale and contracts use the same compact card and filter rhythm. */
+#root .market-experience.market-workspace .b2b-search{margin:8px 0}
+#root .market-experience.market-workspace .b2b-category-rail{margin:6px 0;padding:0 0 4px;gap:6px;scrollbar-width:thin}
+#root .market-experience.market-workspace .b2b-category-rail button{padding:8px!important;font-size:.6875rem!important}
+#root .market-experience.market-workspace .b2b-category-rail button::before{inset:3px 0;border-color:var(--ui-control)}
+#root .market-experience.market-workspace .b2b-product-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:10px;margin:10px 0}
+#root .market-experience.market-workspace .b2b-product-card{border-radius:16px;border-color:var(--ui-control);box-shadow:0 3px 10px #17285c08}
+#root .market-experience.market-workspace .b2b-product-open{display:grid;grid-template-columns:76px minmax(0,1fr);align-items:start;gap:10px;padding:12px;width:100%}
+#root .market-experience.market-workspace .b2b-product-open>:first-child{width:76px;height:76px;aspect-ratio:1;border-radius:12px;object-fit:cover;margin:0}
+#root .market-experience.market-workspace .b2b-product-copy{padding:0;min-width:0}
+#root .market-experience.market-workspace .b2b-product-copy h2{font-size:.875rem;margin:3px 0;line-height:1.5;color:var(--ui-ink)}
+#root .market-experience.market-workspace :is(.b2b-supplier,.b2b-fine,.b2b-product-facts,.b2b-card-footer>span){font-size:.6875rem;line-height:1.6;color:var(--ui-muted);margin:4px 0}
+#root .market-experience.market-workspace .b2b-overline{font-size:.625rem;color:var(--ui-muted)}
+#root .market-experience.market-workspace .b2b-rate{margin:4px 0;color:var(--ui-ink)}
+#root .market-experience.market-workspace .b2b-rate strong{font-size:1rem}
+#root .market-experience.market-workspace .b2b-product-facts{gap:5px;flex-wrap:wrap;margin-bottom:0}
+#root .market-experience.market-workspace .b2b-card-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-top:1px solid var(--ui-line)}
+#root .market-experience.market-workspace .b2b-card-footer>span{flex:1 1 112px;min-width:0}
+#root .market-experience.market-workspace .b2b-card-footer>button{padding:8px 10px;font-size:.75rem;flex:0 1 auto;max-width:100%;white-space:normal}
+#root .market-experience.market-workspace .b2b-request-card{padding:12px;border-radius:14px}
+#root .market-experience.market-workspace .b2b-section-heading{margin:10px 0}
+#root .market-experience.market-workspace .b2b-section-heading h2{font-size:.9375rem}
+#root .market-experience.market-workspace .b2b-section-heading p{font-size:.75rem}
+#root .market-experience.market-workspace .tender-quick-actions{display:flex;flex-wrap:wrap!important;gap:6px;overflow:visible!important;margin:8px 0}
+#root .market-experience.market-workspace .tender-quick-actions>button{padding:8px 10px;font-size:.75rem}
+#root .market-experience.market-workspace .tender-quick-actions>.tender-new-request{background:var(--ui-primary);color:#fff;border-color:var(--ui-primary)}
+.tender-tools{position:relative}.tender-tools>summary{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border:1px solid var(--ui-control);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);font-size:.75rem;cursor:pointer;list-style:none}.tender-tools>summary::-webkit-details-marker{display:none}
+.tender-tools-menu{position:absolute;top:calc(100% + 5px);right:0;z-index:36;display:grid;gap:4px;width:210px;padding:8px;border:1px solid var(--ui-control);border-radius:14px;background:var(--ui-surface);box-shadow:0 8px 20px #17285c22}.tender-tools-menu button{justify-content:flex-start!important;width:100%;min-height:44px!important;padding:8px 10px;font-size:.75rem;color:var(--ui-ink);background:var(--ui-surface)}
+.tender-tools:not([open])>.tender-tools-menu{display:none}
+.tender-tools>summary>svg:last-child{transition:transform 180ms ease}.tender-tools[open]>summary>svg:last-child{transform:rotate(90deg)}
+#root .market-experience.market-workspace .tender-discovery{padding:12px;border:1px solid var(--ui-control);border-radius:16px;gap:10px;background:var(--ui-surface)}
+#root .market-experience.market-workspace .tender-section-heading{gap:8px;align-items:center;margin:0}
+#root .market-experience.market-workspace .tender-section-heading h2{font-size:.9375rem;margin:0}
+#root .market-experience.market-workspace .tender-section-heading p{font-size:.75rem;margin:4px 0}
+#root .market-experience.market-workspace .tender-section-heading button{padding:8px;font-size:.6875rem;gap:4px}
+#root .market-experience.market-workspace .tender-sector-rail{padding:2px 0 4px;gap:6px;margin:4px 0;scrollbar-width:thin}
+#root .market-experience.market-workspace .tender-sector-rail button{padding:8px;font-size:.6875rem;gap:6px;border-radius:10px}
+#root .market-experience.market-workspace .tender-sector-rail svg{width:16px;height:16px}
+#root .market-experience.market-workspace .tender-sector-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+#root .market-experience.market-workspace .tender-filter-bar{gap:6px;margin:4px 0}
+#root .market-experience.market-workspace .tender-results-heading{margin:6px 0}
+#root .market-experience.market-workspace .tender-cards{gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+#root .market-experience.market-workspace .tender-opportunity{padding:12px;border-radius:14px;border-color:var(--ui-control);box-shadow:0 3px 10px #17285c08}
+#root .market-experience.market-workspace .tender-opportunity h3{font-size:.9375rem;line-height:1.45;margin:6px 0}
+#root .market-experience.market-workspace .tender-card-sector,#root .market-experience.market-workspace .tender-location{font-size:.6875rem;margin:5px 0}
+#root .market-experience.market-workspace .tender-category-icon{width:32px;height:32px;border-radius:10px}
+#root .market-experience.market-workspace .tender-category-icon svg{width:18px;height:18px}
+#root .market-experience.market-workspace .tender-budget{padding:8px;margin:8px 0}
+#root .market-experience.market-workspace .tender-budget strong{font-size:1rem}
+#root .market-experience.market-workspace .tender-dates{gap:8px;margin:8px 0}
+
+/* A lighter transport surface, four distinct modes, one compact search action. */
+#root .market-experience.market-workspace .mobility-experience{--market-service-ink:#17285c;--market-service-tint:#edf3ff}
+#root .market-experience.market-workspace .mobility-experience[data-mode=shared]{--market-service-ink:#0b4634;--market-service-tint:#e8f7ee}
+#root .market-experience.market-workspace .mobility-experience[data-mode=self_drive]{--market-service-ink:#352455;--market-service-tint:#f2edff}
+#root .market-experience.market-workspace .mobility-experience[data-mode=rental]{--market-service-ink:#482b12;--market-service-tint:#fff3df}
+#root .market-experience.market-workspace .mobility-heading{margin:4px 0 10px;gap:8px}
+#root .market-experience.market-workspace .mobility-heading h2{font-size:1.125rem;margin:2px 0}
+#root .market-experience.market-workspace .mobility-heading small{font-size:.625rem;letter-spacing:.08em}
+#root .market-experience.market-workspace .mobility-heading .mobility-area-button{display:inline-flex;align-items:center;justify-content:flex-start;gap:5px;max-width:48%;padding:8px;font-size:.6875rem;background:var(--ui-surface);color:var(--ui-ink);border:1px solid var(--ui-control);border-radius:10px;min-width:0!important}
+#root .market-experience.market-workspace .mobility-area-button>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#root .market-experience.market-workspace .mobility-area-button svg{flex:none;width:15px;height:15px}
+#root .market-experience.market-workspace .mobility-mode-switch{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:10px}
+#root .market-experience.market-workspace .mobility-mode-switch button{min-width:0!important;min-height:58px!important;padding:8px 2px;font-size:.6875rem;line-height:1.4;flex-direction:column;gap:5px;border-radius:13px;border-color:var(--ui-control);color:var(--ui-ink)}
+#root .market-experience.market-workspace .mobility-mode-switch button[aria-pressed=true]{background:var(--market-service-ink);color:#fff;border-color:var(--market-service-ink)}
+#root .market-experience.market-workspace .mobility-mode-icon{width:24px;height:24px;border-radius:8px}
+#root .market-experience.market-workspace .mobility-mode-icon svg{width:17px;height:17px}
+#root .market-experience.market-workspace .mobility-mode-indicator{width:4px;height:4px;top:7px;right:7px}
+#root .market-experience.market-workspace .mobility-mode-intro{grid-template-columns:minmax(0,1fr) 100px;grid-template-areas:'copy art' 'action art';gap:8px;padding:14px;margin:0 0 10px;border:1px solid var(--ui-control);border-radius:18px;background:var(--market-service-tint);color:var(--market-service-ink);box-shadow:inset 0 1px #fff9,0 4px 12px #17285c0a;animation:market-panel-enter 220ms ease-out both}
+#root .market-experience.market-workspace .mobility-mode-intro h3{font-size:1.125rem;line-height:1.4;margin:3px 0;color:var(--market-service-ink)}
+#root .market-experience.market-workspace .mobility-mode-intro p{font-size:.75rem;line-height:1.55;color:var(--market-service-ink)}
+#root .market-experience.market-workspace .mobility-type-label{font-size:.625rem;letter-spacing:.06em;color:var(--market-service-ink)}
+#root .market-experience.market-workspace .mobility-mode-art{width:100%;min-width:0}
+#root .market-experience.market-workspace .mobility-find-button{justify-self:start;width:auto;max-width:100%;padding:8px 10px;font-size:.75rem;border-radius:11px;background:var(--market-service-ink);color:#fff;border-color:var(--market-service-ink);gap:6px}
+#root .market-experience.market-workspace .transport-discovery{padding:12px;margin:0;border:1px solid var(--ui-control);border-radius:16px;box-shadow:0 3px 10px #17285c08;background:var(--ui-surface)}
+#root .market-experience.market-workspace .transport-discovery>header{margin:0 0 6px;align-items:center;gap:6px}
+#root .market-experience.market-workspace .transport-discovery h2{font-size:.875rem;line-height:1.5;margin:0}
+#root .market-experience.market-workspace .transport-panel-toggle{padding:5px 0;font-size:.875rem;text-align:left;gap:6px}
+#root .market-experience.market-workspace .transport-rail-controls{gap:4px}
+#root .market-experience.market-workspace .transport-rail-controls button{width:44px;height:44px;padding:8px}
+#root .market-experience.market-workspace .transport-empty{padding:8px 0;margin:0;gap:10px;align-items:center;min-height:76px;font-size:.8125rem}
+#root .market-experience.market-workspace .transport-empty p{font-size:.8125rem;margin:0 0 6px;line-height:1.5}
+#root .market-experience.market-workspace .transport-empty .interaction-motion{width:38px;height:38px;min-width:38px;min-height:38px;border-radius:12px}
+#root .market-experience.market-workspace .transport-empty button{padding:8px 10px;font-size:.75rem}
+#root .market-experience.market-workspace .transport-empty-route{width:48px;gap:3px}
+#root .market-experience.market-workspace .transport-empty-route svg{width:24px;height:24px}
+#root .market-experience.market-workspace .transport-card-rail{gap:10px;padding:6px 2px 10px;scroll-padding-inline:2px}
+#root .market-experience.market-workspace .transport-card{padding:12px;flex-basis:240px;min-width:0;gap:6px;border-color:var(--ui-control);border-radius:14px;box-shadow:0 3px 10px #17285c0c;animation:market-panel-enter 220ms ease-out both}
+#root .market-experience.market-workspace .transport-discovery[data-option-count="1"] .transport-card{flex-basis:100%}
+#root .market-experience.market-workspace .transport-card h3{font-size:.875rem;line-height:1.5;margin:5px 0}
+#root .market-experience.market-workspace .transport-card p{font-size:.6875rem;line-height:1.6;margin:4px 0}
+#root .market-experience.market-workspace .transport-price{font-size:1rem;margin:6px 0}
+#root .market-experience.market-workspace .mobility-booking-history{margin-top:10px;padding:0;border:1px solid var(--ui-control);border-radius:13px;background:var(--ui-surface)}
+#root .market-experience.market-workspace .mobility-booking-history>summary{padding:10px 12px;font-size:.8125rem;color:var(--ui-ink)}
+#root .market-experience.market-workspace .mobility-booking-history>.business-records{padding:0 12px 12px}
+
+/* Recycling keeps its own identity while sharing the same geometry. */
+#root .market-experience.market-workspace .cleanup-hero{display:flex;align-items:center;gap:8px;padding:14px 12px;border:1px solid var(--ui-control);border-radius:18px;background:#e8f7ee;color:#0b4634;box-shadow:inset 0 1px #fff,0 4px 12px #17285c0a}
+#root .market-experience.market-workspace .cleanup-hero h2{font-size:1.125rem;line-height:1.4;margin:4px 0;color:#0b4634}
+#root .market-experience.market-workspace .cleanup-hero p{font-size:.75rem;line-height:1.55;margin:0;color:#0b4634}
+#root .market-experience.market-workspace .cleanup-kicker{font-size:.625rem;letter-spacing:.04em;color:#0b4634;gap:5px}
+#root .market-experience.market-workspace .cleanup-kicker svg{width:14px;height:14px}
+#root .market-experience.market-workspace .cleanup-hero-art{width:68px}
+#root .market-experience.market-workspace .cleanup-hero .cleanup-tricolour{position:absolute;inset:auto 12px 0;display:grid;grid-template-columns:repeat(3,1fr);height:3px;width:auto;margin:0;gap:0}
+#root .market-experience.market-workspace .cleanup-hero .cleanup-tricolour i{width:auto;height:3px;border-radius:0}
+#root .market-experience.market-workspace .cleanup-tabs{gap:4px;padding:3px;margin:10px 0;border:1px solid var(--ui-control);border-radius:13px}
+#root .market-experience.market-workspace .cleanup-tabs button{min-width:0!important;min-height:44px!important;padding:8px 4px;font-size:.75rem;gap:5px;border-radius:10px}
+#root .market-experience.market-workspace .cleanup-tabs button svg{width:16px;height:16px;flex:none}
+#root .market-experience.market-workspace .cleanup-sale-help{padding:8px 10px;border:1px solid var(--ui-control);border-radius:12px;margin:8px 0;background:var(--ui-subtle)}
+#root .market-experience.market-workspace .cleanup-sale-help p{font-size:.75rem;margin:0}
+#root .market-experience.market-workspace .cleanup-sale-help summary{font-size:.75rem;padding-block:10px;color:var(--ui-ink)}
+#root .market-experience.market-workspace .cleanup-sale-help li{font-size:.75rem;line-height:1.6}
+#root .market-experience.market-workspace .business-compact-heading{margin:10px 0;gap:8px}
+#root .market-experience.market-workspace .business-compact-heading h2{font-size:1rem;margin:3px 0}
+#root .market-experience.market-workspace .business-compact-heading small{font-size:.625rem}
+#root .market-experience.market-workspace .business-compact-heading>button{padding:8px 10px;font-size:.75rem;background:var(--ui-primary);color:#fff;border-color:var(--ui-primary)}
+#root .market-experience.market-workspace .business-record-heading{margin:10px 0}
+#root .market-experience.market-workspace .business-record-heading h3{font-size:.875rem;margin:0}
+#root .market-experience.market-workspace .business-record-heading button{padding:8px;font-size:.6875rem}
+#root .market-experience.market-workspace .scrap-empty{padding:16px 12px;grid-template-columns:32px minmax(0,1fr);align-items:center;justify-items:start;font-size:.8125rem;gap:10px}
+#root .market-experience.market-workspace .cleanup-heading{margin:10px 0;align-items:center}
+#root .market-experience.market-workspace .cleanup-heading h2{font-size:1rem}
+#root .market-experience.market-workspace .cleanup-heading p,#root .market-experience.market-workspace .cleanup-guidance p{font-size:.75rem;line-height:1.6;margin:5px 0}
+#root .market-experience.market-workspace .cleanup-card{padding:12px;border-radius:14px}
+#root .market-experience.market-workspace .cleanup-report-list{gap:10px}
+#root .market-experience.market-workspace .cleanup-filter{margin:10px 0}
+#root .market-experience.market-workspace .cleanup-card h3{font-size:.9375rem;margin:8px 0}
+#root .market-experience.market-workspace .cleanup-card p{font-size:.75rem}
+#root .market-experience.market-workspace .captain-pass{padding:16px;border-radius:16px}
+#root .market-experience.market-workspace .captain-pass h3{font-size:1.125rem;line-height:1.4;margin:8px 0}
+#root .market-experience.market-workspace .captain-pass p{font-size:.75rem;line-height:1.6}
+#root .market-experience.market-workspace .captain-panel{padding:12px;border-radius:14px;animation:market-panel-enter 220ms ease-out both}
+#root .market-experience.market-workspace .captain-offers{gap:10px}
+#root .market-experience.market-workspace .captain-offer{padding:12px;border-radius:14px}
+
+@keyframes market-panel-enter{from{transform:translateY(4px)}to{transform:none}}
+@keyframes market-icon-select{0%{transform:scale(.88)}60%{transform:translateY(-2px) scale(1.05)}100%{transform:none}}
+@media(hover:hover){#root .market-experience.market-workspace :where(button):not(:disabled):hover{box-shadow:0 3px 9px #17285c18}#root .market-experience.market-workspace .market-destinations button:not([aria-selected=true]):hover{background:var(--ui-subtle)}#root .market-experience.market-workspace .market-highlights>summary:hover .market-art-object{transform:translateY(-2px)}}
+@media(max-width:380px){#root .market-experience.market-workspace{--market-gutter:10px}#root .market-experience.market-workspace .market-destinations.business-tabs{gap:2px}#root .market-experience.market-workspace .business-header-art{width:46px}#root .market-experience.market-workspace .business-header-actions .market-action-label{display:none}#root .market-experience.market-workspace .mobility-mode-intro{grid-template-columns:minmax(0,1fr) 76px;padding:12px}#root .market-experience.market-workspace .mobility-mode-intro h3{font-size:1rem}#root .market-experience.market-workspace .tender-sector-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#root .market-experience.market-workspace .cleanup-hero-art{width:50px}#root .market-experience.market-workspace .cleanup-tabs button{flex-direction:column;font-size:.6875rem}#root .market-experience.market-workspace .b2b-product-open{grid-template-columns:64px minmax(0,1fr)}#root .market-experience.market-workspace .b2b-product-open>:first-child{width:64px;height:64px}}
+@media(min-width:720px){#root .market-experience.market-workspace .market-destinations.business-tabs>button{flex-direction:row;min-height:48px!important;gap:8px;font-size:.8125rem}#root .market-experience.market-workspace .mobility-mode-intro{grid-template-columns:minmax(0,1fr) 150px;max-width:none}#root .market-experience.market-workspace .cleanup-hero-art{width:96px}}
+@media(prefers-reduced-motion:reduce){#root .market-experience.market-workspace *,#root .market-experience.market-workspace *::before,#root .market-experience.market-workspace *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}#root .market-experience.market-workspace :is(button,.market-art-object,.market-art-accent,.market-destination-panel){transform:none!important}}
+html.reduce-motion #root .market-experience.market-workspace *,[data-reduced-motion=true] #root .market-experience.market-workspace *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+html.reduce-motion #root .market-experience.market-workspace :is(button,.market-art-object,.market-art-accent,.market-destination-panel),[data-reduced-motion=true] #root .market-experience.market-workspace :is(button,.market-art-object,.market-art-accent,.market-destination-panel){transform:none!important}
+@media(forced-colors:active){#root .market-experience.market-workspace .market-destinations button[aria-selected=true]{border:2px solid Highlight}#root .market-experience.market-workspace .market-destinations{box-shadow:none}#root .market-experience.market-workspace .market-art{display:none}}
+
+/* Configure the existing brand layer, whose important rules govern shared components. */
+@layer repaido-brand{
+ #root .market-experience.market-workspace .business-tabs{gap:4px!important}
+ #root .market-experience.market-workspace .business-tabs button{padding:8px!important;font-size:.75rem!important;font-weight:600!important;border-radius:11px!important}
+ #root .market-experience.market-workspace .market-destinations.business-tabs{gap:3px!important}
+ #root .market-experience.market-workspace .market-destinations.business-tabs>button{padding:6px 2px!important;font-size:clamp(.625rem,2.6vw,.75rem)!important;border-radius:12px!important}
+ #root .market-experience.market-workspace .b2b-product-open .b2b-product-image{width:76px!important;height:76px!important;margin:0!important;border-radius:12px!important}
+ #root .market-experience.market-workspace .b2b-product-open .b2b-product-image:not(:has(img)){height:76px!important}
+ #root .market-experience.market-workspace .b2b-product-copy{padding:0!important}
+ @media(max-width:380px){#root .market-experience.market-workspace .b2b-product-open .b2b-product-image,#root .market-experience.market-workspace .b2b-product-open .b2b-product-image:not(:has(img)){width:64px!important;height:64px!important}}
+ @media(min-width:720px){#root .market-experience.market-workspace .market-destinations.business-tabs>button{padding:8px!important;font-size:.8125rem!important}}
+}

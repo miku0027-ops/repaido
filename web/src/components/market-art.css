@@ -1,0 +1,16 @@
+.market-art{display:block;width:100%;height:auto;overflow:visible;filter:drop-shadow(0 4px 5px #17285c12);pointer-events:none}
+.business-header-art{flex:none;width:64px;align-self:center}.cleanup-hero-art{width:76px;flex:none;align-self:center}.cleanup-hero-copy{min-width:0;flex:1}
+.cleanup-hero{display:flex;align-items:center;gap:12px}.cleanup-hero .cleanup-tricolour{position:absolute;inset:auto 16px 0;width:auto;height:3px;margin:0}
+.market-highlights{border:1px solid var(--ui-control);border-radius:16px;background:var(--ui-subtle);margin:0 0 10px;overflow:hidden}
+.market-highlights>summary{display:flex;align-items:center;gap:10px;padding:10px 12px;list-style:none;cursor:pointer;color:var(--ui-ink)}.market-highlights>summary::-webkit-details-marker{display:none}
+.market-highlights>summary>span{display:grid;gap:2px;flex:1;min-width:0}.market-highlights>summary small{font-size:.625rem;letter-spacing:.08em;color:var(--ui-muted)}.market-highlights>summary strong{font-size:1rem;line-height:1.4}
+.market-highlights>summary .market-art{width:68px;flex:none}.market-highlights>summary>svg:last-child{width:16px;height:16px;transition:transform 180ms ease}.market-highlights[open]>summary>svg:last-child{transform:rotate(180deg)}
+.market-highlights .opportunity-carousel{margin:0 10px 10px;width:calc(100% - 20px)}
+.market-art-object{transform-box:fill-box;transform-origin:center;animation:market-art-arrive 420ms cubic-bezier(.2,.8,.2,1) both}
+.market-art-accent{animation:market-art-accent 650ms ease-out both}
+.market-art-orbit{animation:market-art-route 700ms ease-out both}
+@keyframes market-art-arrive{from{transform:translateY(5px) rotate(-4deg) scale(.94)}to{transform:none}}
+@keyframes market-art-accent{from{transform:translateY(5px)}to{transform:none}}
+@keyframes market-art-route{from{stroke-dashoffset:20}to{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){.market-art *{animation:none!important;transition:none!important;transform:none!important}}
+.reduce-motion .market-art *,[data-reduced-motion=true] .market-art *{animation:none!important;transition:none!important;transform:none!important}

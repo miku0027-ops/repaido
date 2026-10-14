@@ -9,6 +9,7 @@ import {BusinessPageHeader,BusinessTabs,BusinessEmptyState,InlineNotice} from '.
 import {CustomerSearchField,Modal} from './ui';
 import {PrimeBadge} from './ShopPrime';
 import {B2BQuotationPdfModal} from './B2BQuotationPdfModal';
+import {MarketArt} from './MarketArt';
 import './b2b-marketplace.css';
 import './market-refinement.css';
 
@@ -57,7 +58,7 @@ export function B2BMarketplace({customerUser,onSignIn,contractorMode=false,onSwi
    finally{if(alive.current&&scope===currentActor()&&context===privateContext.current)setBusy('');}
  };
  return <section className="b2b-hub-container" aria-label="B2B wholesale">
-  <BusinessPageHeader eyebrow={contractorMode?'Contractor procurement':'Repaido business'} title="Wholesale" icon={<Boxes size={16}/>} actions={<><button className="market-info-button" aria-label="Wholesale terms and payment information" onClick={()=>setPolicyOpen(true)}><Info size={18}/></button><button className="b2b-button b2b-secondary" onClick={()=>tab==='browse'?void loadCatalog():void loadRequests()} disabled={loading||requestsLoading}><RefreshCw size={16}/>Refresh</button></>}/>
+  <BusinessPageHeader eyebrow={contractorMode?'Contractor procurement':'Repaido business'} title="Wholesale" icon={<Boxes size={16}/>} art={<MarketArt kind="wholesale"/>} actions={<><button className="market-info-button" aria-label="Wholesale terms and payment information" onClick={()=>setPolicyOpen(true)}><Info size={18}/></button><button className="b2b-button b2b-secondary" aria-label="Refresh" title={tab==='browse'?'Refresh wholesale listings':'Refresh quote requests'} aria-busy={loading||requestsLoading} onClick={()=>tab==='browse'?void loadCatalog():void loadRequests()} disabled={loading||requestsLoading}><RefreshCw size={16}/><span className="market-action-label">Refresh</span></button></>}/>
   {policyOpen&&<Modal title="Wholesale terms" onClose={()=>setPolicyOpen(false)}><InlineNotice action={policyError?<button className="b2b-text-button" onClick={()=>void loadPolicy()}>Retry payment availability</button>:undefined}>{policy?.acceptanceNote||'An inquiry or accepted quotation does not collect payment, reserve stock or confirm dispatch.'}{policyError&&<span> Payment availability could not be checked.</span>}{policy&&!policy.paymentsReady&&<span> Online wholesale checkout is unavailable.</span>}</InlineNotice></Modal>}
   {contractorMode&&(onSwitchToTenders||onOpenContractorPortal)&&<div className="b2b-context-actions">{onSwitchToTenders&&<button className="b2b-text-button" onClick={onSwitchToTenders}>Back to tenders<ArrowRight size={15}/></button>}{onOpenContractorPortal&&<button className="b2b-text-button" onClick={onOpenContractorPortal}>Contractor workspace<ArrowRight size={15}/></button>}</div>}
   <BusinessTabs label="Wholesale sections" value={tab} onChange={setTab} panelId="b2b-content" items={[{id:'browse',label:'Browse wholesale',icon:<Boxes size={17}/>},{id:'rfqs',label:'My requests',icon:<FileText size={17}/>,count:readyQuotes||undefined}]}/>

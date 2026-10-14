@@ -23,17 +23,19 @@ export function LocationPickerModal({isOpen,onClose,areaOnly=false,publicPlace=f
     if(addressError||cityError){(addressError?addressInput:cityInput).current?.focus();return;}
     onConfirmLocation({lat,lng,address:address.trim(),city:city.trim()});onClose();
   };
-  const move=(latitude:number,longitude:number)=>{setLat(latitude);setLng(longitude);setChosen(true);marker.current?.setLatLng([latitude,longitude]);map.current?.panTo([latitude,longitude]);};
+  const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches||!!container.current?.closest('.reduce-motion,[data-reduced-motion=true]');
+  const move=(latitude:number,longitude:number)=>{setLat(latitude);setLng(longitude);setChosen(true);marker.current?.setLatLng([latitude,longitude]);map.current?.panTo([latitude,longitude],{animate:!reducedMotion()});};
   useEffect(()=>{
     if(!isOpen||!container.current)return;
-    const instance=L.map(container.current,{center:[initialLat,initialLng],zoom:16});map.current=instance;
+    // A short-lived picker must not leave CSS zoom callbacks queued after close.
+    const instance=L.map(container.current,{center:[initialLat,initialLng],zoom:16,zoomAnimation:false,fadeAnimation:false,markerZoomAnimation:false});map.current=instance;let active=true;
     const tiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(instance);
-    tiles.on('tileerror',()=>setError('Map tiles could not load. Use current location or enter coordinates; your address stays editable.'));
+    tiles.on('tileerror',()=>{if(active)setError('Map tiles could not load. Use current location or enter coordinates; your address stays editable.');});
     const icon=L.divIcon({className:'',html:'<span style="display:block;width:24px;height:24px;border:4px solid white;border-radius:50%;background:#123a84;outline:2px solid #123a84"></span>',iconSize:[24,24],iconAnchor:[12,12]});
     const pin=L.marker([initialLat,initialLng],{draggable:true,icon,alt:'Selected service location',title:'Selected service location',keyboard:true}).addTo(instance);marker.current=pin;
     pin.on('dragend',()=>{const p=pin.getLatLng();move(p.lat,p.lng);});instance.on('click',(e:L.LeafletMouseEvent)=>move(e.latlng.lat,e.latlng.lng));
-    const id=setTimeout(()=>instance.invalidateSize(),100);
-    return()=>{clearTimeout(id);instance.remove();map.current=null;marker.current=null;};
+    const id=setTimeout(()=>{if(active)instance.invalidateSize({animate:false});},100);
+    return()=>{active=false;clearTimeout(id);tiles.off('tileerror');instance.stop();instance.remove();map.current=null;marker.current=null;};
   },[isOpen,initialLat,initialLng]);
   if(!isOpen)return null;
   return <Modal title={title} onClose={onClose}><div className="operations"><p>{subtitle}</p><p className="ops-help">{areaOnly?'Choose the centre of your nearby search. This does not set a booking address.':publicPlace?'Mark the littered spot and enter its street, landmark and city.':'This map does not look up addresses. Enter the house, street and city yourself; confirm the pin at the entrance.'}</p>
