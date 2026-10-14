@@ -60,7 +60,10 @@ def test_cpanel_verifier_rejects_spa_html_as_missing_release_metadata(monkeypatc
         verifier.verify(COMMIT, 'build')
 
 
-def test_package_rejects_unreviewed_source_before_build_or_output(tmp_path):
+def test_package_rejects_unreviewed_source_before_build_or_output(tmp_path, monkeypatch):
+    # Cloud Build's source upload has no .git directory or Git CLI. Model a
+    # mismatched checkout without adding a dependency to the API test image.
+    monkeypatch.setattr(package.subprocess, 'check_output', lambda *args, **kwargs: 'b' * 40 + '\n')
     with pytest.raises(ValueError, match='clean checkout'):
         package.build(COMMIT, tmp_path / 'release.zip', 'https://main.test', 'https://work.test')
     assert not list(tmp_path.iterdir())
