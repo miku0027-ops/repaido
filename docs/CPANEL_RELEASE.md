@@ -87,6 +87,47 @@ JavaScript/CSS can cache for a year. Firebase Authentication must include both
 production domains in its authorized domains. A cPanel archive cannot grant that
 provider setting. Keep HTTPS on the domain for geolocation and browser push.
 
+## Website-only repairs
+
+When a fix changes only browser code, reuse the already verified compatible API
+build. Pass its source commit separately so the website metadata records both
+versions accurately:
+
+```bash
+python3 scripts/package-cpanel-release.py --release REVIEWED_WEBSITE_SHA \
+  --required-api-commit EXISTING_COMPATIBLE_API_SHA \
+  --output /tmp/repaido-cpanel-REVIEWED_WEBSITE_SHA.zip
+```
+
+After the requested release is authorized, follow the same backup, staging,
+asset-first publication and live checks. A website-only repair requires no
+Cloud Build submission or Cloud Run revision. Keep the current Apache provider
+configuration and publish only changed resources plus the entry and metadata.
+
+The Repaidians transport uses the same API origin resolver for feed, media,
+network and work requests. Do not use raw same-origin `/api` fetches: cPanel
+deliberately returns 404 for those paths. Exercise the browser suite with explicit
+main/work origins so its forwarding cannot hide an incorrect client URL:
+
+```bash
+# Start the Vite preview in a separate terminal (not a production deployment).
+VITE_API_BASE_URL=https://repaido-api-133610574058.us-central1.run.app \
+VITE_WORK_API_BASE_URL=https://repaido-work-api-133610574058.us-central1.run.app \
+npm --prefix web run dev -- --port 5186
+
+# The suite redirects only correctly routed calls into its isolated SQLite API.
+# PLAYWRIGHT_MODULE may point to the environment's existing Playwright package.
+cd web
+REPAIDIANS_PREVIEW_ORIGIN=http://127.0.0.1:5186 \
+REPAIDIANS_EXPECTED_MAIN_ORIGIN=https://repaido-api-133610574058.us-central1.run.app \
+REPAIDIANS_EXPECTED_WORK_ORIGIN=https://repaido-work-api-133610574058.us-central1.run.app \
+node tests/repaidians.browser.mjs
+```
+
+Also open Repaidians in the actual cPanel production bundle, check that bootstrap
+returns JSON from the main API, and verify the feed and error/retry states.
+Website metadata, catalog checks and the home screen alone cannot verify this.
+
 ## Rollback and cost
 
 Record the prior main/work/worker revisions and retain the website backup before

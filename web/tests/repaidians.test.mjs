@@ -1,4 +1,5 @@
 import {feedbackImports} from './feedback-module.mjs';
+import {apiImports} from './api-module.mjs';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {beforeEach,test} from 'node:test';
@@ -46,7 +47,42 @@ beforeEach(async()=>{
     return()=>auth.listeners.delete(listener);
   };
   globalThis.fetch=async(path,init)=>{calls.push({path,init});return ok({});};
-  service=await import('data:text/javascript;base64,'+Buffer.from(executable).toString('base64')+'#'+(++revision));
+  service=await import('data:text/javascript;base64,'+Buffer.from(apiImports(executable)).toString('base64')+'#'+(++revision));
+});
+
+test('cPanel routes feed, uploads, authenticated media and work to their configured APIs',async()=>{
+  service=await import('data:text/javascript;base64,'+Buffer.from(apiImports(executable,{apiOrigin:'https://main.example.test',workOrigin:'https://work.example.test',development:false,pageOrigin:'https://repaido.com'})).toString('base64')+'#'+(++revision));
+  values.set('repaido.token','cpanel-member-session');
+  await service.bootstrapCommunity('post');
+  assert.equal(calls.at(-1).path,'https://main.example.test/api/repaidians/bootstrap?kind=post&limit=12');
+  await service.communityRequest('/profile',{method:'PATCH',body:'{"headline":"Available for work"}'});
+  assert.equal(calls.at(-1).path,'https://main.example.test/api/repaidians/profile');
+  for(const path of ['/work/jobs?limit=20','/companies?city=Balasore','/placements/placement-one']){
+    await service.communityRequest(path);
+    assert.equal(calls.at(-1).path,'https://work.example.test/api/repaidians'+path);
+    assert.equal(calls.at(-1).init.headers.get('Authorization'),'Bearer cpanel-member-session');
+  }
+  globalThis.fetch=async(path,init)=>{calls.push({path,init});return init.method==='POST'?ok({url:'/api/repaidians/media/photo',kind:'image'}):mediaResponse('authorized photo',{'ETag':'"photo-version"'});};
+  await service.storeMedia([new File(['image fixture'],'photo.jpg',{type:'image/jpeg'})]);
+  assert.equal(calls.at(-1).path,'https://main.example.test/api/repaidians/media');
+  assert.equal(await(await service.loadMedia('/api/repaidians/media/photo')).text(),'authorized photo');
+  assert.equal(calls.at(-1).path,'https://main.example.test/api/repaidians/media/photo');
+  assert.equal(calls.at(-1).init.headers.Authorization,'Bearer cpanel-member-session');
+  const before=calls.length;await service.loadMedia('/api/repaidians/media/photo');assert.equal(calls.length,before,'Repeated media reads retain the bounded session cache.');
+  now=60001;await service.loadMedia('/api/repaidians/media/photo');
+  assert.equal(calls.at(-1).init.headers['If-None-Match'],'"photo-version"');
+  assert.equal(await service.loadMedia('https://external.example/api/repaidians/media/photo'),null);
+  assert.equal(calls.at(-1).path,'https://main.example.test/api/repaidians/media/photo','Protected media never forwards a credential to a caller supplied origin.');
+});
+
+test('Firebase community reads retain the Hosting proxy and API errors remain retryable',async()=>{
+  service=await import('data:text/javascript;base64,'+Buffer.from(apiImports(executable,{development:false,pageOrigin:'https://repaido.web.app'})).toString('base64')+'#'+(++revision));
+  globalThis.fetch=async(path,init)=>{calls.push({path,init});return new Response('Temporarily unavailable',{status:503});};
+  await assert.rejects(service.bootstrapCommunity('post'),error=>error.status===503);
+  globalThis.fetch=async(path,init)=>{calls.push({path,init});return ok({state:{authenticated:false},timeline:{items:[],members:[],nextCursor:null},stories:{items:[],members:[],nextCursor:null}});};
+  assert.equal((await service.bootstrapCommunity('post')).state.authenticated,false);
+  assert.equal(calls.length,2);
+  assert.ok(calls.every(call=>call.path==='/api/repaidians/bootstrap?kind=post&limit=12'));
 });
 
 test('API identity comes from the verified session, never a caller supplied account',async()=>{

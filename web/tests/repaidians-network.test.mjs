@@ -1,4 +1,5 @@
 import {feedbackImports} from './feedback-module.mjs';
+import {apiImports} from './api-module.mjs';
 import {beforeEach,test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -16,10 +17,22 @@ beforeEach(async()=>{
   now=0;calls=[];values=new Map([['repaido.token','session-a']]);globalThis.localStorage={getItem:key=>values.get(key)||null};globalThis.window=new EventTarget();
   globalThis.__networkAuth={currentUser:null,authStateReady:async()=>{}};globalThis.__networkCache=options=>createReadCache({...options,now:()=>now});
   transport=async()=>({profile:{id:'profile-a'}});globalThis.fetch=async(url,init)=>{calls.push({url,init});const result=await transport(url,init);return new Response(JSON.stringify(result),{status:200,headers:{'Content-Type':'application/json'}});};
-  service=await import('data:text/javascript;base64,'+Buffer.from(executable).toString('base64')+'#'+(++revision));
+  service=await import('data:text/javascript;base64,'+Buffer.from(apiImports(executable)).toString('base64')+'#'+(++revision));
 });
 const deferred=()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return {promise,resolve};};
 const tick=async()=>{for(let i=0;i<10;i++)await Promise.resolve();};
+
+test('cPanel professional reads and writes use the main API with verified session credentials',async()=>{
+  service=await import('data:text/javascript;base64,'+Buffer.from(apiImports(executable,{apiOrigin:'https://main.example.test',workOrigin:'https://work.example.test',development:false,pageOrigin:'https://repaido.com'})).toString('base64')+'#'+(++revision));
+  await service.professionalProfile('member-one');
+  assert.equal(calls.at(-1).url,'https://main.example.test/api/repaidians/network/members/member-one/profile');
+  await service.updateNetworkPreferences({discoverable:true});
+  assert.equal(calls.at(-1).url,'https://main.example.test/api/repaidians/network/preferences');
+  assert.equal(calls.at(-1).init.headers.get('Authorization'),'Bearer session-a');
+  assert.equal(calls.at(-1).init.method,'PATCH');
+  await assert.rejects(service.networkRead('//external.example/profile'),/Expected a Repaidians/);
+  assert.equal(calls.length,2);
+});
 
 test('network records coalesce in bounded memory and one cancelled observer does not cancel others',async()=>{
   const pending=deferred();transport=()=>pending.promise;const controller=new AbortController();

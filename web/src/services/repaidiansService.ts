@@ -1,5 +1,6 @@
 import {auth} from '../firebase';
 import {withActionFeedback} from './actionFeedback';
+import {apiAssetUrl} from './api';
 import {onAuthStateChanged} from 'firebase/auth';
 import {createReadCache} from './readCache.mjs';
 import type {
@@ -139,7 +140,7 @@ async function performCommunityRequest<T>(path: string, init: RequestInit): Prom
     if (typeof init.body === 'string') headers.set('Content-Type', 'application/json');
     headers.set('Accept', 'application/json');
     const deadline=AbortSignal.timeout(typeof Blob!=='undefined'&&init.body instanceof Blob?120000:30000);
-    const response = await fetch('/api/repaidians' + path, {
+    const response = await fetch(apiAssetUrl('/api/repaidians' + path), {
       ...init, headers, credentials:'same-origin', signal:init.signal ? AbortSignal.any([init.signal,deadline]) : deadline,
     });
     const body = await response.json().catch(() => ({}));
@@ -283,7 +284,7 @@ export async function loadMedia(url: string,signal?:AbortSignal): Promise<Blob|n
   let request=stored&&cacheNow()-stored.at<MEDIA_FRESH_MS?Promise.resolve(stored.blob):pendingMedia.get(cacheKey);
   if(!request){
     request=(async()=>{
-      const response=await fetch(url,{credentials:'same-origin',headers:{...(token?{Authorization:'Bearer '+token}:{}),...(stored?.etag?{'If-None-Match':stored.etag}:{})},signal:AbortSignal.timeout(30000)});
+      const response=await fetch(apiAssetUrl(url),{credentials:'same-origin',headers:{...(token?{Authorization:'Bearer '+token}:{}),...(stored?.etag?{'If-None-Match':stored.etag}:{})},signal:AbortSignal.timeout(30000)});
       assertIdentity(owner);
       if(epoch!==mediaGeneration)throw new CommunityError('Media access changed. Reopen this view.',409,'MEDIA_CHANGED');
       if(response.status===304&&stored?.etag){

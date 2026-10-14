@@ -21,9 +21,12 @@ def https_origin(value):
     return value.rstrip('/')
 
 
-def build(release, output, api_origin, work_origin):
+def build(release, output, api_origin, work_origin, required_api_commit=None):
     if not re.fullmatch(r'[0-9a-f]{40}', release):
         raise ValueError('Use the full reviewed source commit.')
+    required_api_commit = required_api_commit or release
+    if not re.fullmatch(r'[0-9a-f]{40}', required_api_commit):
+        raise ValueError('Use the full reviewed API source commit.')
     def git(*args):
         return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
     if git('rev-parse', 'HEAD') != release or git('status', '--porcelain'):
@@ -43,7 +46,7 @@ def build(release, output, api_origin, work_origin):
     shutil.copyfile(ROOT / 'deployment/cpanel/.htaccess', dist / '.htaccess')
     info = {'build_id': 'cpanel-' + release[:12], 'commit': release, 'target': 'cpanel',
             'built_at': datetime.now(timezone.utc).isoformat(), 'api_origin': api_origin,
-            'work_api_origin': work_origin, 'required_api_commit': release}
+            'work_api_origin': work_origin, 'required_api_commit': required_api_commit}
     (dist / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
     manifest = dict(info, files={})
     entries = sorted(dist.rglob('*'))
@@ -83,8 +86,9 @@ if __name__ == '__main__':
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--api-origin', default='https://repaido-api-133610574058.us-central1.run.app')
     parser.add_argument('--work-api-origin', default='https://repaido-work-api-133610574058.us-central1.run.app')
+    parser.add_argument('--required-api-commit', help='Existing compatible API commit for a website-only release; defaults to the website commit.')
     args = parser.parse_args()
     try:
-        build(args.release, args.output, args.api_origin, args.work_api_origin)
+        build(args.release, args.output, args.api_origin, args.work_api_origin, args.required_api_commit)
     except (ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, str(error) + '\n')

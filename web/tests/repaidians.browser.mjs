@@ -7,8 +7,9 @@ import {tmpdir} from 'node:os';
 import {dirname,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-// Social responses are never mocked. The route below forwards Vite's /api
-// requests to this test's real isolated SQLite API, including protected media.
+// Social responses come from a real isolated SQLite API, including protected
+// media. cPanel runs additionally assert the configured main/work origin before
+// forwarding, so a same-origin /api regression cannot pass this suite.
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const web=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -18,6 +19,8 @@ const db=resolve(work,'community.db');
 const python=process.env.REPAIDIANS_TEST_PYTHON||resolve(backend,'.venv/bin/python');
 const origin=process.env.REPAIDIANS_PREVIEW_ORIGIN||'http://127.0.0.1:5187';
 const port=Number(process.env.REPAIDIANS_TEST_PORT||8019),apiOrigin='http://127.0.0.1:'+port;
+const expectedMainOrigin=process.env.REPAIDIANS_EXPECTED_MAIN_ORIGIN;
+const expectedWorkOrigin=process.env.REPAIDIANS_EXPECTED_WORK_ORIGIN||expectedMainOrigin;
 const errors=[];
 const performanceChecks=[];
 const releaseReads=[];
@@ -64,10 +67,14 @@ async function publication(account,draft){
   const result=await api('/repaidians/publications',account,'POST',{...draft,clientId:randomUUID()},201);
   return result.item||result;
 }
-async function newPage(account,width=390,clockMs){
+async function newPage(account,width=390,clockMs,failBootstrap=false){
   const context=await browser.newContext({viewport:{width,height:850},reducedMotion:'reduce'});
   // Shared workspace edits must not restart a running browser scenario.
   await context.routeWebSocket('**',socket=>socket.close());
+  await context.route('**/*',route=>{
+    const destination=new URL(route.request().url()).origin;
+    return [origin,expectedMainOrigin,expectedWorkOrigin].includes(destination)?route.continue():route.abort('blockedbyclient');
+  });
   await context.addInitScript(({token,clockMs,user})=>{
     if(clockMs)Date.now=()=>clockMs;
     if(token)localStorage.setItem('repaido.token',token);
@@ -78,6 +85,15 @@ async function newPage(account,width=390,clockMs){
   },{token:account?.token||'',clockMs,user:account?.user});
   await context.route('**/api/**',async route=>{
     const url=new URL(route.request().url());
+    if(expectedMainOrigin){
+      const expected=/^\/api\/repaidians\/(work|companies|placements)(?:[/?]|$)/.test(url.pathname)?expectedWorkOrigin:expectedMainOrigin;
+      assert.equal(url.origin,expected,'The client must select its API origin before the test forwards a request.');
+    }
+    if(failBootstrap&&url.pathname==='/api/repaidians/bootstrap'){
+      failBootstrap=false;
+      await route.fulfill({status:503,contentType:'application/json',headers:{'Access-Control-Allow-Origin':origin},body:JSON.stringify({detail:'Could not connect. Please retry.'})});
+      return;
+    }
     const response=await route.fetch({url:apiOrigin+url.pathname+url.search});
     await route.fulfill({response});
   });
@@ -87,6 +103,14 @@ async function newPage(account,width=390,clockMs){
   await page.goto(origin+'/tests/repaidians-preview.html');
   await page.getByRole('dialog',{name:'Repaidians community',exact:true}).waitFor();
   await page.locator('.rp-loading').waitFor({state:'hidden'});
+  if(await shell(page).locator('.rp-error').count()){
+    await shell(page).getByText('Could not connect. Please retry.',{exact:true}).waitFor();
+    assert.equal(await shell(page).getByText('Connecting to Repaidians…',{exact:true}).count(),0,'A failed initial connection must not retain a loading message.');
+    await shell(page).getByRole('button',{name:'Retry',exact:true}).click();
+    await shell(page).locator('.rp-error').waitFor({state:'hidden'});
+    await shell(page).locator('.rp-post').first().waitFor();
+    await shell(page).locator('.rp-loading').waitFor({state:'hidden'});
+  }
   if(bootstrapStarted)performanceChecks.push({check:'bootstrap to rendered timeline',milliseconds:Math.round(performance.now()-bootstrapStarted)});
   return page;
 }
@@ -226,7 +250,7 @@ try{
   assert.equal(ffmpeg.status,0,'ffmpeg fixture creation: '+ffmpeg.stderr);
   browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/usr/bin/chromium',headless:true,args:['--disable-dev-shm-usage']});
   await mkdir(resolve(web,'test-results'),{recursive:true});
-  const page=await newPage(alice);
+  const page=await newPage(alice,390,undefined,true);
   await shell(page).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
   assert.equal(await shell(page).getByText('OLD MOCK MUST NOT APPEAR',{exact:false}).count(),0);
   assert.equal(await shell(page).locator('.rp-post').count(),1);

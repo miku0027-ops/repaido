@@ -69,6 +69,29 @@ def test_package_rejects_unreviewed_source_before_build_or_output(tmp_path, monk
     assert not list(tmp_path.iterdir())
 
 
+def test_website_only_package_records_its_existing_api_commit(tmp_path, monkeypatch):
+    root = tmp_path / 'source'
+    assets = root / 'web/dist-cpanel/assets'
+    assets.mkdir(parents=True)
+    (assets / 'index-one.js').write_text('https://main.test https://work.test')
+    (root / 'web/dist-cpanel/index.html').write_text('<div id="root"></div>')
+    deployment = root / 'deployment/cpanel'
+    deployment.mkdir(parents=True)
+    (deployment / '.htaccess').write_text('Options -Indexes\n')
+    monkeypatch.setattr(package, 'ROOT', root)
+    monkeypatch.setattr(package.subprocess, 'check_output', lambda args, **kwargs: '' if args[1] == 'status' else COMMIT)
+    commands = []
+    monkeypatch.setattr(package.subprocess, 'run', lambda args, **kwargs: commands.append(args))
+    package.build(COMMIT, tmp_path / 'release.zip', 'https://main.test', 'https://work.test', 'b' * 40)
+    manifest = json.loads((tmp_path / 'release.manifest.json').read_text())
+    assert manifest['commit'] == COMMIT
+    assert manifest['required_api_commit'] == 'b' * 40
+    assert commands == [['npm', 'run', 'build:cpanel']]
+    assert 'assets/index-one.js' in manifest['files']
+    with pytest.raises(ValueError, match='API source commit'):
+        package.build(COMMIT, tmp_path / 'invalid.zip', 'https://main.test', 'https://work.test', 'short-ref')
+
+
 @pytest.mark.parametrize('origin', ['http://main.test', 'https://main.test/api', 'https://user:password@main.test', 'https://main.test?token=one'])
 def test_package_rejects_insecure_or_credentialed_api_origins(origin):
     with pytest.raises(ValueError, match='HTTPS origins'):
