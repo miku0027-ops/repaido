@@ -1,6 +1,9 @@
 # Upload only the sources needed by the root Cloud Build pipeline.
 **
 !cloudbuild.yaml
+!cloudbuild-web.yaml
+!cloudbuild-api.yaml
+!cloudbuild-rules.yaml
 !firebase.json
 !firebase.security-tests.json
 !firestore.rules

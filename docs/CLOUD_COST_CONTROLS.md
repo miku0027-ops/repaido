@@ -50,6 +50,14 @@ charges over the same period. Fewer releases reduce build work; Cloud Run also
 charges for application usage between releases. No savings amount is established
 without billing data.
 
+Use the component-scoped manual release in [Cloud Build deployment](CLOUD_BUILD.md#component-scoped-releases)
+when a reviewed change affects only Hosting, API, or Firestore Rules. This skips
+unrelated test/build/deploy steps and, for a web or Rules change, avoids new
+Cloud Run revisions. Cloud Build still runs and uploads the current root source
+inventory; measure the next selective build before estimating savings. The
+engineering console already has a separate release workflow. Do not add
+automatic per-commit production triggers.
+
 The deployment source sets zero minimum instances for `repaido-work-api` and
 `repaido-work-worker`, with maximums of 20 and 2. The main API preserves its existing
 scaling and billing settings. Audit the actual deployed configuration rather than

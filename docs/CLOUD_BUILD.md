@@ -136,3 +136,52 @@ Backend tests execute `scripts/configure-transactional-email.sh` with a fake
 gcloud; omitting it from a manual source upload causes failures even when the
 full local checkout passes. `scripts/check-build-source.py` rejects that omission
 and local dependency/environment files before a paid build is submitted.
+
+## Component-scoped releases
+
+The full batch remains `cloudbuild.yaml`. The checked-in `cloudbuild-web.yaml`,
+`cloudbuild-api.yaml`, and `cloudbuild-rules.yaml` are generated from its reviewed
+steps by `scripts/generate-selective-builds.py`. Run that generator after changing
+the canonical pipeline, and run it with `--check` before release. All four
+pipelines retain the explicit release gate; none is an automatic trigger.
+
+| Changed component | Release work | Work skipped |
+| --- | --- | --- |
+| Customer/worker SPA (`web/`) | Web tests, Vite build, Firebase Hosting | Backend tests, API image, Run revisions, Rules publication |
+| API (`backend/`) | Backend tests, one image, main API and both work services | Vite build, Hosting, Rules publication |
+| Firestore rules | Emulator rules tests, Rules API publication | Web build, backend tests, API image, Hosting |
+| Shared or multiple components | Existing full release | Nothing |
+| Engineering console | Its independent `engineering/release.py` workflow | Customer pipeline |
+
+The API and work services currently share one backend image. An API-only release
+therefore updates those three services together. Splitting one endpoint into its
+own deployable service would require a separate image, runtime configuration,
+traffic checks, and ownership of its shared dependencies. The customer,
+worker, shop-admin, and company-admin screens are routes of one web build, so a
+change to any of them publishes that web build as a unit.
+
+For a requested release, compare the reviewed checkout with the **actual
+deployed commit**, then inspect the offline plan before submitting. Do not use
+`HEAD~1` as a guess for production; after a partial release, web and API can
+have different deployed commits. Use the oldest relevant deployed baseline to
+avoid skipping changes, even when that selects the full pipeline. The first
+command makes no cloud call. The second requires the user's release request and
+uses the same clean-checkout, source-inventory, build-concurrency, and pinned
+commit checks as the full release:
+
+```sh
+bash scripts/release-batch.sh --plan REVIEWED_FULL_COMMIT_SHA \
+  --changed-from DEPLOYED_FULL_COMMIT_SHA
+bash scripts/release-batch.sh --release REVIEWED_FULL_COMMIT_SHA \
+  --changed-from DEPLOYED_FULL_COMMIT_SHA
+```
+
+Omit `--changed-from` to use the existing full release. The planner selects a
+full release for overlapping web/API/Rules changes or unfamiliar build inputs.
+It refuses to silently publish Firestore indexes, which have no release step.
+Engineering console changes require a separate console release even when the
+customer planner selects a customer component. The site and API build IDs will
+differ after a partial release; each partial pipeline verifies only the component
+it updated. A later full release restores matching IDs. Run
+`python3 scripts/generate-selective-builds.py --check` and the offline
+`backend/test_selective_release.py` before submitting.

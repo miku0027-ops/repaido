@@ -3,11 +3,14 @@ import argparse
 from pathlib import Path, PurePosixPath
 
 REQUIRED = {
-    'cloudbuild.yaml', 'firebase.json', 'firebase.security-tests.json', '.firebaserc',
+    'cloudbuild.yaml', 'cloudbuild-web.yaml', 'cloudbuild-api.yaml',
+    'cloudbuild-rules.yaml', 'firebase.json', 'firebase.security-tests.json', '.firebaserc',
     'firestore.rules', 'backend/Dockerfile', 'backend/.dockerignore',
     'backend/requirements.txt', 'backend/requirements-dev.txt',
     'backend/main.py', 'backend/cleanup.py', 'backend/captain_rewards.py',
     'scripts/check-release-authorization.py', 'scripts/check-build-source.py',
+    'scripts/generate-selective-builds.py', 'scripts/plan-release.py',
+    'scripts/verify-release.py',
     'scripts/deploy-work-services.py', 'scripts/deploy-firestore-rules.py',
     'scripts/cloud-cost-controls.py', 'scripts/configure-cloudflare-stream.py',
     'scripts/configure-transactional-email.sh', 'scripts/test-firestore-security.mjs',
