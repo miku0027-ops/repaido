@@ -214,3 +214,65 @@ def test_discovery_focus_uses_recent_explicit_intent_then_decayed_strength(api, 
     assert feed()['preferred_discovery_focus'] is None
     api.put(base+'/preferences',headers=h,json={'enabled':False})
     assert feed()['preferred_discovery_focus'] is None and feed()['preferred_repair_category'] is None
+
+
+def test_marketplace_scope_is_explicit_account_bound_and_resettable(api, monkeypatch):
+    import uuid
+    now=[int(time.time())];monkeypatch.setattr('discovery.time.time',lambda:now[0])
+    base='/operations/discovery';headers=auth('customer')
+    def emit(mode):
+        response=api.post(base+'/events',headers=headers,json={'event_id':str(uuid.uuid4()),'kind':'category_view','category':'market_'+mode})
+        now[0]+=61
+        return response
+    def feed():return api.get(base+'/feed/personal',headers=headers).json()
+    api.put(base+'/preferences',headers=headers,json={'enabled':True,'consent_version':2})
+    assert emit('refurbished').status_code==403
+    assert not feed()['market_personalised'] and feed()['preferred_market_mode'] is None
+    assert api.put(base+'/preferences',headers=headers,json={'enabled':True,'consent_version':3}).json()['market_enabled']
+    for mode in ('refurbished','preowned','rentals','sell'):
+        assert emit(mode).json()['recorded']
+        assert feed()['preferred_discovery_focus']=='marketplace' and feed()['preferred_market_mode']==mode
+    assert emit('unknown').status_code==404
+    public=api.get(base+'/feed').json()
+    stranger=api.get(base+'/feed/personal',headers=auth('stranger')).json()
+    assert not public['market_personalised'] and public['preferred_market_mode'] is None
+    assert stranger==public
+    stored=main.operations_store.run(lambda u:u.get('discovery_preferences','customer'))
+    assert not {'query','location','phone','listing_id'} & stored.keys()
+    assert api.post(base+'/preferences/reset',headers=headers).json()['market_enabled']
+    assert feed()['preferred_market_mode'] is None
+    emit('sell');now[0]+=31*86400
+    assert feed()['preferred_market_mode'] is None
+    api.put(base+'/preferences',headers=headers,json={'enabled':False})
+    assert emit('sell').status_code==403 and not feed()['market_personalised']
+
+
+def test_scope_upgrade_preserves_service_interests_and_legacy_scope_never_reads_market_history(api):
+    base='/operations/discovery';headers=auth('customer')
+    main.operations_store.run(lambda u:u.put('discovery_preferences','customer',dict(enabled=True,consent_version=2,recent={'category:market_sell':time.time(),'category:ac':time.time()},signals={
+        'ac':dict(score=4,visits=3,at=time.time()),'market_sell':dict(score=30,visits=20,at=time.time())})))
+    old=api.get(base+'/feed/personal',headers=headers).json()
+    assert old['preferred_discovery_focus']=='repair' and old['preferred_market_mode'] is None
+    assert old['repair_category_visits']==3
+    api.put(base+'/preferences',headers=headers,json={'enabled':True,'consent_version':3})
+    assert api.get(base+'/feed/personal',headers=headers).json()['repair_category_visits']==3
+    api.put(base+'/preferences',headers=headers,json={'enabled':True,'consent_version':2})
+    assert not api.get(base+'/preferences',headers=headers).json()['market_enabled']
+    row=main.operations_store.run(lambda u:u.get('discovery_preferences','customer'))
+    assert 'market_sell' not in row['signals'] and 'ac' in row['signals']
+    assert 'category:market_sell' not in row['recent'] and 'category:ac' in row['recent']
+
+
+def test_category_discovery_isolates_agents_and_specialists_and_keeps_booking_fields_private(api):
+    onboard(api)
+    def specialists(u):
+        worker=u.get('workers','worker')
+        u.put('workers','specialist',{**worker,'id':'specialist','name':'Fixture specialist','role':'specialist'})
+        u.put('workers','plumber-only',{**worker,'id':'plumber-only','name':'Fixture plumber','categories':['plumber']})
+    main.operations_store.run(specialists)
+    agents=search(api,location=PIN,category='ac',role='technician').json()
+    specialists=search(api,location=PIN,category='ac',role='specialist').json()
+    assert [p['id'] for p in agents['professionals']]==['worker']
+    assert [p['id'] for p in specialists['professionals']]==['specialist']
+    assert all(s['category']=='ac' for s in agents['services'])
+    assert all(not {'phone','position','home_address','bank_account'} & p.keys() for p in agents['professionals']+specialists['professionals'])

@@ -140,6 +140,15 @@ def test_explicit_category_wins_over_learned_interests(api, monkeypatch):
     assert not recommend(api, city='Outside coverage', category='ac')['professionals']
 
 
+def test_market_scope_upgrade_keeps_service_recommendations_and_does_not_infer_market_as_a_trade(api, monkeypatch):
+    setup_hire(api, monkeypatch)
+    interest(api, category='ac', version=3)
+    result = recommend(api)
+    assert result['personalised'] and [p['id'] for p in result['professionals']] == ['worker']
+    interest(api, category='market_sell', version=3)
+    assert not recommend(api)['professionals']
+
+
 def test_comparison_and_ranking_use_verified_selected_category_work(api, monkeypatch):
     policy = setup_hire(api, monkeypatch)
     onboard(api, 'worker2')

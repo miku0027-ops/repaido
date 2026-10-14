@@ -1,5 +1,6 @@
 """Real HTTP/transactional checks with isolated data; no live sends or money."""
 import time,uuid
+import pytest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import main,promotions
@@ -98,14 +99,15 @@ def test_concurrent_budget_claim_is_atomic(api):
     saved=main.operations_store.run(lambda u:u.get('campaigns','test-offer'))
     assert saved['reserved_paise']==2000 and saved['redemptions']==1
 
-def test_personalised_ranking_and_launch_preference(api):
+@pytest.mark.parametrize('version', [2, 3])
+def test_personalised_ranking_and_launch_preference(api, version):
     campaign(api,'ac-offer',discount_paise=0)
     cleaning=next(s for s in main.catalog()['services'] if s['category']=='cleaning')
     campaign(api,'cleaning-offer',service_id=cleaning['id'],discount_paise=0)
     prefs(api)
-    main.operations_store.run(lambda u:u.put('discovery_preferences','customer',dict(enabled=True,consent_version=2,signals={'cleaning':{'score':10,'at':time.time()}})))
+    main.operations_store.run(lambda u:u.put('discovery_preferences','customer',dict(enabled=True,consent_version=version,signals={'cleaning':{'score':10,'at':time.time()}})))
     assert feed(api,True).json()['cards'][0]['id']=='cleaning-offer'
-    main.operations_store.run(lambda u:u.put('discovery_preferences','customer',dict(enabled=True,consent_version=2,signals={'ac':{'score':10,'at':time.time()}})))
+    main.operations_store.run(lambda u:u.put('discovery_preferences','customer',dict(enabled=True,consent_version=version,signals={'ac':{'score':10,'at':time.time()}})))
     assert feed(api,True).json()['cards'][0]['id']=='ac-offer'
     campaign(api,'welcome-only',placements=['launch'],discount_paise=0)
     assert next(c for c in feed(api,True).json()['cards'] if c['id']=='welcome-only')['launch_only']

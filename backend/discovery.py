@@ -31,7 +31,7 @@ class Search(Input):
 
 class Consent(Input):
     enabled: bool
-    consent_version: Literal[2] | None = None
+    consent_version: Literal[2, 3] | None = None
 
 
 class Behaviour(Input):
@@ -49,6 +49,7 @@ class Interest(Input):
 ALIASES = {'plumber': 'plumbing', 'electrician': 'electrical', 'aircon': 'ac',
            'air conditioning': 'ac', 'car wash': 'vehicle car', 'fridge': 'refrigerator',
            'geyser': 'water heater', 'cleaner': 'cleaning'}
+MARKET_CATEGORIES = {'market_refurbished', 'market_preowned', 'market_rentals', 'market_sell'}
 
 
 def terms(text):
@@ -133,8 +134,10 @@ def install(core):
 
     def settings(row):
         row = row or {}
-        enabled = bool(row.get('enabled') and row.get('consent_version') == 2)
-        return {'enabled': enabled, 'categories': row.get('categories', {}) if enabled else {}, 'consent_version': 2}
+        enabled = bool(row.get('enabled') and row.get('consent_version') in (2, 3))
+        return {'enabled': enabled, 'market_enabled': bool(enabled and row.get('consent_version') == 3),
+                'categories': row.get('categories', {}) if enabled else {},
+                'consent_version': row.get('consent_version') if enabled else 3}
 
     @router.get('/preferences')
     def preferences(user=Depends(core.current_user)):
@@ -142,11 +145,16 @@ def install(core):
 
     @router.put('/preferences')
     def consent(body: Consent, user=Depends(core.current_user)):
-        if body.enabled and body.consent_version != 2: fail('CONSENT_UPDATED', 'Refresh Repaido to review the current personalisation options.', 409)
+        if body.enabled and body.consent_version not in (2, 3): fail('CONSENT_UPDATED', 'Refresh Repaido to review the current personalisation options.', 409)
         def save(u):
             previous = u.get('discovery_preferences', user['id']) or {}
             row = previous if body.enabled and settings(previous)['enabled'] else {}
-            row.update(enabled=body.enabled, consent_version=2, updated_at=time.time())
+            row.update(enabled=body.enabled, consent_version=body.consent_version or 3, updated_at=time.time())
+            if body.consent_version == 2:
+                for field in ('signals', 'categories'):
+                    if field in row: row[field] = {k:v for k,v in row[field].items() if k not in MARKET_CATEGORIES}
+                if 'recent' in row:
+                    row['recent'] = {key:at for key,at in row['recent'].items() if not key.startswith(('category:market_', 'search:market_'))}
             row.setdefault('categories', {})
             u.put('discovery_preferences', user['id'], row)
             return settings(row)
@@ -155,8 +163,8 @@ def install(core):
     @router.post('/preferences/reset')
     def reset(user=Depends(core.current_user)):
         def save(u):
-            enabled = settings(u.get('discovery_preferences', user['id']))['enabled']
-            row = dict(enabled=enabled, consent_version=2, categories={}, updated_at=time.time())
+            previous = settings(u.get('discovery_preferences', user['id']))
+            row = dict(enabled=previous['enabled'], consent_version=previous['consent_version'], categories={}, updated_at=time.time())
             u.put('discovery_preferences', user['id'], row)
             return settings(row)
         return store.run(save)
@@ -165,12 +173,16 @@ def install(core):
         from home_plans import OFFERINGS
         catalog = core.catalog()
         services = [s for s in catalog['services'] if s.get('active', True)]+[{**s,'id':'home:'+s['id']} for s in OFFERINGS]
-        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}|{'transport','transport_cab','transport_shared','transport_self_drive','transport_rental'}
+        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}|{'transport','transport_cab','transport_shared','transport_self_drive','transport_rental'}|MARKET_CATEGORIES
         targets = []
         # Queries are resolved transiently; never store raw keywords, locations or form contents.
         if body.kind == 'search':
-            if body.category in ('transport','transport_cab','transport_shared','transport_self_drive','transport_rental'):
+            if body.category in MARKET_CATEGORIES:
+                targets = [body.category]
+            elif body.category in ('transport','transport_cab','transport_shared','transport_self_drive','transport_rental'):
                 targets = ['transport']+([body.category] if body.category!='transport' else [])
+            elif body.category and body.category in categories:
+                targets = [body.category]
             elif len(body.query.strip()) >= 2:
                 scored = [(relevance(body.query, ' '.join([s['name'], s['category']])), s['category']) for s in services]
                 top = max((v for v, _ in scored), default=0)
@@ -193,6 +205,8 @@ def install(core):
         def save(u):
             row = u.get('discovery_preferences', user['id']) or {}
             if not settings(row)['enabled']: fail('CONSENT_REQUIRED', 'Enable optional personalised suggestions first.', 403)
+            if any(category in MARKET_CATEGORIES for category in targets) and not settings(row)['market_enabled']:
+                fail('MARKET_CONSENT_REQUIRED', 'Include marketplace activity in your optional suggestion settings first.', 403)
             now = time.time()
             seen = {k:v for k,v in row.get('seen', {}).items() if now-v < 86400}
             if body.event_id in seen: return {'recorded': False, 'reason': 'duplicate'}
@@ -262,8 +276,10 @@ def install(core):
         # bounds and reset apply; no additional history or raw inputs are saved.
         repair_signals={key:signal for key,signal in row.get('signals',{}).items()
                         if enabled and (key in groups or key.startswith('home:')) and now-signal.get('at',0)<30*86400}
+        market_signals={key:signal for key,signal in row.get('signals',{}).items()
+                        if settings(row)['market_enabled'] and key in MARKET_CATEGORIES and now-signal.get('at',0)<30*86400}
         family_signals={key:signal for key,signal in row.get('signals',{}).items()
-                        if enabled and (key in repair_signals or key=='transport') and now-signal.get('at',0)<30*86400}
+                        if enabled and (key in repair_signals or key=='transport' or key in market_signals) and now-signal.get('at',0)<30*86400}
         def preferred_signal(signals):
             recent=[key for key,signal in signals.items() if now-signal.get('at',0)<=2*3600]
             return (max(recent,key=lambda key:(signals[key].get('at',0),key)) if recent else
@@ -271,10 +287,13 @@ def install(core):
         intent=preferred_signal(family_signals)
         preferred=preferred_signal(modes)
         return {'cards':cards, 'personalised':enabled, 'preferred_transport_mode':preferred,
-                'preferred_discovery_focus':('transport' if intent=='transport' else 'repair') if intent else None,
+                'preferred_discovery_focus':('transport' if intent=='transport' else 'marketplace' if intent in MARKET_CATEGORIES else 'repair') if intent else None,
+                'market_personalised':settings(row)['market_enabled'],
+                'preferred_market_mode':preferred_signal(market_signals).removeprefix('market_') if market_signals else None,
+                'repair_category_visits':min(100, repair_signals.get(preferred_signal(repair_signals), {}).get('visits', 0)),
                 'preferred_repair_category':preferred_signal(repair_signals),
                 'transport_interest':bool(enabled and transport.get('visits',0) and now-transport.get('at',0)<30*86400), 'covered':city in core.CITIES,
-                'policy_version':2, 'basis':'Repeated catalogue searches and service/category visits, with recent interests weighted more. Some categories stay varied. Suggestions do not diagnose a need or change prices. Availability is confirmed when booking.'}
+                'policy_version':3, 'basis':'Consented catalogue and transport activity; marketplace activity only with its expanded opt-in. Recent category interests count more. Public layouts rotate by time of day. Suggestions do not change prices. Availability is confirmed when booking.'}
 
     @router.get('/feed')
     def general_feed(city:str='Balasore'):

@@ -581,7 +581,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       {/* RENTALS TAB CONTAINER */}
       {section === 'rentals' && (
         <section id="panel-rentals" role="tabpanel" aria-labelledby="tab-rentals" className="stores-module-container rental-page">
-          <RentalMarket onSignIn={onSignIn} />
+          <RentalMarket onSignIn={onSignIn} initialListingId={quickIntent?.rentalId}/>
         </section>
       )}
 

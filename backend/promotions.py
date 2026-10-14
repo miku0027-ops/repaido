@@ -134,7 +134,7 @@ def recommendations(u,catalog,body,uid=None,now=None):
     if body.placement=='launch' and not p.get('launch',True):return []
     services=campaign_services(catalog);out=[]
     interest=u.get('discovery_preferences',uid) or {} if uid and p.get('personalised') else {}
-    signals=interest.get('signals',{}) if interest.get('enabled') and interest.get('consent_version')==2 else {}
+    signals=interest.get('signals',{}) if interest.get('enabled') and interest.get('consent_version') in (2,3) else {}
     paid=history(u,uid) if uid and p.get('personalised') else []
     active_categories={j['category'] for j in u.all('jobs') if uid and j.get('customer_id')==uid and j['state'] not in ('completed','cancelled')}
     for c in u.all('campaigns'):

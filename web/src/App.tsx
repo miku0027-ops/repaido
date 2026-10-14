@@ -1,5 +1,6 @@
 import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
-import {HomeDiscoveryHub} from './components/HomeDiscoveryHub';
+import {HomeDiscoveryLayout} from './components/HomeDiscoveryLayout';
+import {HomeDiscoveryPreferences} from './components/HomeDiscoveryPreferences';
 import {TransportRail} from './components/TransportRail';
 import {MobilityHub,ScrapHub,TransportBookings} from './components/LocalBusiness';
 import './components/market-refinement.css';
@@ -143,7 +144,6 @@ import { B2BMarketplace } from './components/B2BMarketplace';
 import { CompanyAdminPortal } from './components/CompanyAdminPortal';
 import { LocationPickerModal } from './components/LocationPickerModal';
 import PartnerRegistration from './components/PartnerRegistration';
-import {HomeServiceDiscovery} from './components/HomeServiceDiscovery';
 import BrandTabTransition from './components/BrandTabTransition';
 import { listenCustomerVisits } from './services/customerBrowseTracker';
 import './reference.css';
@@ -282,10 +282,11 @@ export default function App() {
     if(location.pathname==='/'||location.pathname==='')return listenCustomerVisits();
   }, []);
 
-  const openStoreSection = (sec: 'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned') => {
+  const openStoreSection = (sec: 'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned', sell=false) => {
     setMarketQuick({});
     setStoreSection(sec);
     setTab('ShopSpares');
+    if(sec==='refurbished'||sec==='rentals'||sec==='preowned')hydration.event({kind:'category_view',category:'market_'+(sell?'sell':sec)});
   };
   const [portal, setPortal] = useState<'customer' | 'worker' | 'shop-admin' | 'company-admin'>(() => {
     if (typeof window !== 'undefined') {
@@ -421,6 +422,8 @@ export default function App() {
   useEffect(()=>{const campaign=new URLSearchParams(location.search).get('campaign');if(!campaign)return;let alive=true;const body=JSON.stringify({city:place.city,placement:'push'});const load=async()=>{try{await auth.authStateReady();const r=auth.currentUser?await operation<{cards:Promotion[]}>('/campaigns/feed/personal',{method:'POST',body}):await apiFetch('/api/operations/campaigns/feed',{method:'POST',headers:{'Content-Type':'application/json'},body}).then(r=>r.json());const match=r.cards.find((c:Promotion)=>c.id===campaign);if(alive&&match)openPromotion(match);else if(alive)setError('This offer is no longer available. You can still browse regular services.');}catch{if(alive)setError('Offer could not load. Please retry from notifications.');}};void load();return()=>{alive=false;};},[place.city]);
   const [finderSlot] = useState(()=>2+Math.floor(Math.random()*3));
   const hydration = useServiceHydration(user?.id, place.city, tab === 'Explore' && !discoveryOpen);
+  const [homeDiscoverySettings,setHomeDiscoverySettings]=useState(false);
+  useEffect(()=>setHomeDiscoverySettings(false),[user?.id]);
   const homeCampaigns=useCampaigns(place.city,'home','',tab==='Explore'&&!query);
 
   // Customer Auth Flow: Create account vs Already Have Account
@@ -965,13 +968,36 @@ export default function App() {
 
               {!query && (
                 <>
-                  <HomeDiscoveryHub location={place} accountKey={user?.id||'guest'} onLocation={()=>setCustomerMapModalOpen(true)} onSignIn={()=>setSheet('auth')} personalised={hydration.enabled} transportInterest={hydration.feed?.transport_interest} repairInterest={hydration.feed?.cards.some(card=>card.personalised)} transportMode={hydration.feed?.preferred_transport_mode||undefined} preferredFocus={hydration.feed?.preferred_discovery_focus} repairCategory={hydration.feed?.preferred_repair_category} onEvent={hydration.event} onBook={(service,professional)=>{setPreferredProfessional(professional);setSelectedPromotion(undefined);setSelectedService(service);}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}}/>
+                  <HomeDiscoveryLayout
+                    key={place.city+':'+(user?.id||'guest')}
+                    marketPersonalised={hydration.marketEnabled}
+                    repairVisits={hydration.feed?.repair_category_visits}
+                    discovery={{
+                      location:place,accountKey:user?.id||'guest',
+                      onLocation:()=>setCustomerMapModalOpen(true),onSignIn:()=>setSheet('auth'),
+                      onPreferences:()=>setHomeDiscoverySettings(true),
+                      personalised:hydration.enabled,transportInterest:hydration.feed?.transport_interest,
+                      repairInterest:hydration.feed?.cards.some(card=>card.personalised),
+                      transportMode:hydration.feed?.preferred_transport_mode||undefined,
+                      preferredFocus:hydration.feed?.preferred_discovery_focus,
+                      repairCategory:hydration.feed?.preferred_repair_category,
+                      marketMode:hydration.feed?.preferred_market_mode||undefined,
+                      onEvent:hydration.event,
+                      onMarket:(section,options)=>{openStoreSection(section,options?.sell);setMarketQuick(options||{});},
+                      onBook:(service,professional)=>{setPreferredProfessional(professional);setSelectedPromotion(undefined);setSelectedService(service);},
+                      onHome:(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}
+                    }}
+                    services={{
+                      campaignFeed:homeCampaigns,city:place.city,activeCategory,
+                      onSelectCategory:catId=>{if(catId!=='all')hydration.event({kind:'category_view',category:catId});setActiveCategory(catId);setTab('Services');},
+                      onOpen:openPromotion,onSignIn:()=>setSheet('auth')
+                    }}
+                  >
                   {user?.id&&<CustomerContractMatches key={user.id} accountKey={user.id} onOpen={openCustomContract}/>}
-                  <HomeQuickActions city={place.city} location={place.confirmed&&typeof place.lat==='number'&&typeof place.lng==='number'?{lat:place.lat,lng:place.lng}:undefined} onLocation={()=>setCustomerMapModalOpen(true)} onMarket={(section,options)=>{openStoreSection(section);setMarketQuick(options||{});}} onHire={()=>setTab('Hire')} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} onService={handleOpenBooking} onCatalogue={()=>{setActiveCategory('all');setTab('Services');}} onOpenCart={()=>setShowCartDrawer(true)}/>
+                  <HomeQuickActions city={place.city} location={place.confirmed&&typeof place.lat==='number'&&typeof place.lng==='number'?{lat:place.lat,lng:place.lng}:undefined} onLocation={()=>setCustomerMapModalOpen(true)} onMarket={(section,options)=>{openStoreSection(section,options?.sell);setMarketQuick(options||{});}} onHire={()=>setTab('Hire')} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} onService={handleOpenBooking} onCatalogue={()=>{setActiveCategory('all');setTab('Services');}} onOpenCart={()=>setShowCartDrawer(true)}/>
                   <div className="home-promotion-slot"><HomeEntry onOpen={()=>setHomeHub('')}/></div>
 
-                  {/* 3-Column Service Category Grid with Modern Motion Graphics, 3D Option Slides, Offers & Depth Shadows */}
-                  <HomeServiceDiscovery campaignFeed={homeCampaigns} key={place.city+':'+(user?.id||'guest')} city={place.city} activeCategory={activeCategory} onSelectCategory={catId=>{setActiveCategory(catId);setTab('Services');}} onOpen={openPromotion} onSignIn={()=>setSheet('auth')}/>
+                  </HomeDiscoveryLayout>
                   {/* Marketplace Sliding Notifier: Buy, Rent, Exchange, Sell */}
                   <div className="marketplace-sliding-notifier-container">
                     <div className="marketplace-sliding-header">
@@ -1077,7 +1103,7 @@ export default function App() {
                     ))}
                   </div>
                   {!query&&filteredServices.length>6&&<button className="browse-all-services" onClick={()=>setTab('Services')}>See all {filteredServices.length} services <ArrowRight size={16} aria-hidden="true"/></button>}
-                  <HydrationControls enabled={hydration.enabled} signedIn={hydration.signedIn} error={hydration.error} pending={hydration.pending} onChange={hydration.refresh} onSignIn={()=>setSheet('auth')}/>
+                  <HydrationControls enabled={hydration.enabled} marketEnabled={hydration.marketEnabled} signedIn={hydration.signedIn} error={hydration.error} pending={hydration.pending} onChange={hydration.refresh} onSignIn={()=>setSheet('auth')}/>
 
                   <details className="operations" style={{margin:"16px 0"}}><summary>Local leaderboards · verified reviews</summary><LocalLeaderboard/></details><section className="home-discovery-entry"><div><Sparkles size={22}/><h2>Find the right help nearby</h2><p>Compare services, check what’s included, and explore professionals within 8 km.</p></div><button onClick={() => setDiscoveryOpen(true)}>Explore & compare <ArrowRight size={16}/></button></section>
                   <div className="android-footer-slogan">
@@ -1279,6 +1305,8 @@ export default function App() {
       {homeHub!==null&&<HomeHub preferredWorker={homePreferred} onEvent={hydration.event} city={place.city} initialService={homeHub||undefined} onClose={()=>{setHomeHub(null);setHomePreferred(undefined);}} onSignIn={()=>setSheet('auth')} onPlans={()=>{setHomeHub(null);setHomePreferred(undefined);setRideBookings(false);setContractBookings(false);setHomePlans(true);setTab('Bookings');}}/>}
       <CouponWelcome onExplore={scope=>{if(scope==='rental')openStoreSection('rentals');else if(scope==='refurbished'){openStoreSection('refurbished');setMarketQuick({condition:'refurbished'});}else setTab('Services');}}/>
       {selectedService && <LiveBooking preferredWorker={preferredProfessional} service={selectedService} city={place.city} promotionId={selectedPromotion} onRemovePromotion={()=>setSelectedPromotion(undefined)} onPromotion={openPromotion} onClose={() => {setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);}} onSignIn={() => setSheet('auth')} onBooked={() => { setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);setRideBookings(false);setContractBookings(false);setHomePlans(false);setHireBookings(false); setTab('Bookings'); }} />}
+
+      {homeDiscoverySettings&&<HomeDiscoveryPreferences key={'discovery-settings:'+(user?.id||'guest')} enabled={hydration.enabled} marketEnabled={hydration.marketEnabled} signedIn={hydration.signedIn} pending={hydration.pending} error={hydration.error} onChange={hydration.refresh} onClose={()=>setHomeDiscoverySettings(false)} onSignIn={()=>{setHomeDiscoverySettings(false);setSheet('auth');}}/>}
 
       {/* Customer Service Location Selector */}
       {cityModalOpen && (

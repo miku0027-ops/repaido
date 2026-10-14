@@ -17,11 +17,13 @@ const status:Record<string,string>={approval_pending:'Customer approval needed',
 const cleanStatus=(s:string)=>s.replaceAll('_',' ');
 const post=(path:string,body?:object)=>operation(path,{method:'POST',...(body?{body:JSON.stringify(body)}:{})});
 
-export function RentalMarket({jobId,onChange,onSignIn,radiusKm=6,requestAllowed=true}:{requestAllowed?:boolean;radiusKm?:number;jobId?:string;onChange?:()=>void;onSignIn?:()=>void}){
+export function RentalMarket({jobId,onChange,onSignIn,radiusKm=6,requestAllowed=true,initialListingId}:{initialListingId?:string;requestAllowed?:boolean;radiusKm?:number;jobId?:string;onChange?:()=>void;onSignIn?:()=>void}){
  const [items,setItems]=useState<Listing[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[query,setQuery]=useState(''),[category,setCategory]=useState('all'),[selected,setSelected]=useState<Listing|null>(null),[showMine,setShowMine]=useState(false);
  const [sort,setSort]=useState('near'),[shopFilter,setShopFilter]=useState(''),[availableOnly,setAvailableOnly]=useState(false);
  const [filtersOpen,setFiltersOpen]=useState(false),[equipment,setEquipment]=useState(''),[ratePeriod,setRatePeriod]=useState('daily'),[maxRate,setMaxRate]=useState(''),[maxDeposit,setMaxDeposit]=useState(''),[delivery,setDelivery]=useState(''),[condition,setCondition]=useState('');
  const loadSequence=useRef(0);
+ const openedListing=useRef('');
+ useEffect(()=>{if(initialListingId&&!loading&&!error&&openedListing.current!==initialListingId){openedListing.current=initialListingId;const item=items.find(item=>item.id===initialListingId&&item.available_units);if(item)setSelected(item);}},[initialListingId,items,loading,error]);
  const load=async()=>{const sequence=++loadSequence.current;setLoading(true);setItems([]);setError('');try{if(jobId){const data=await operation<{rentals:Listing[]}>(`/jobs/${jobId}/market?radius_km=${radiusKm}`);if(sequence===loadSequence.current)setItems(data.rentals);return;}const response=await apiFetch('/api/operations/rentals/catalog',{signal:AbortSignal.timeout(12000)});if(!response.ok)throw Error('Rentals could not load. Check your connection and retry.');const data=await response.json();if(sequence===loadSequence.current)setItems(data.items);}catch(e){if(sequence===loadSequence.current)setError((e as Error).message);}finally{if(sequence===loadSequence.current)setLoading(false);}};
  useEffect(()=>{void load();return()=>{loadSequence.current++;};},[jobId,radiusKm]);
  const categories=['all',...new Set(items.map(p=>p.category))];

@@ -15,40 +15,41 @@ import type {Service} from '../types';
 
 export type DiscoveryEvent={kind:'search'|'category_view'|'service_view'|'banner_open';query?:string;category?:string;service_id?:string};
 type Card={category:string;category_name:string;reason:string;personalised:boolean;service:{id:string;name:string;category:Service['category'];description:string;price_paise:number;duration_minutes:number;included:string[];excluded:string[]}};
-type Feed={cards:Card[];personalised:boolean;transport_interest?:boolean;preferred_transport_mode?:TravelMode|null;preferred_discovery_focus?:'transport'|'repair'|null;preferred_repair_category?:string|null;covered:boolean;basis:string};
+type Feed={cards:Card[];personalised:boolean;market_personalised?:boolean;preferred_market_mode?:'refurbished'|'preowned'|'rentals'|'sell'|null;repair_category_visits?:number;transport_interest?:boolean;preferred_transport_mode?:TravelMode|null;preferred_discovery_focus?:'transport'|'repair'|'marketplace'|null;preferred_repair_category?:string|null;covered:boolean;basis:string};
 const suggestionCache=createReadCache({maxEntries:16});
 export function useServiceHydration(profileUid:string|undefined,city:string,active:boolean){
  const [verifiedUid,setVerifiedUid]=useState<string|undefined>();
  useEffect(()=>onIdTokenChanged(auth,user=>setVerifiedUid(user?.uid)),[]);
  // Cached display names never imply an authenticated session. Guests get the public feed.
  const uid=verifiedUid===profileUid?verifiedUid:undefined;
- const [enabled,setEnabled]=useState(false);
+ const [enabled,setEnabled]=useState(false),[marketEnabled,setMarketEnabled]=useState(false);
  const [feed,setFeed]=useState<Feed|null>(null),[error,setError]=useState(''),[pending,setPending]=useState(false),[dirty,setDirty]=useState(0);
- const generation=useRef(0),preferenceRevision=useRef(0),identity=useRef(uid),permission=useRef(enabled);identity.current=uid;permission.current=enabled;
- const refresh=useCallback((allowed?:boolean)=>{suggestionCache.invalidate();if(typeof allowed==='boolean'){preferenceRevision.current++;permission.current=allowed;setEnabled(allowed);setFeed(null);setLoadingInterests([]);}setDirty(n=>n+1);},[]);
+ const generation=useRef(0),preferenceRevision=useRef(0),identity=useRef(uid),permission=useRef(enabled),marketPermission=useRef(marketEnabled);identity.current=uid;permission.current=enabled;marketPermission.current=marketEnabled;
+ const refresh=useCallback((allowed?:boolean,market?:boolean)=>{suggestionCache.invalidate();if(typeof allowed==='boolean'){preferenceRevision.current++;permission.current=allowed;setEnabled(allowed);setMarketEnabled(allowed&&!!market);marketPermission.current=allowed&&!!market;setFeed(null);setLoadingInterests([]);}setDirty(n=>n+1);},[]);
  useEffect(()=>{suggestionCache.invalidate();setFeed(null);setLoadingInterests([]);setError('');},[uid,city]);
- useEffect(()=>{let alive=true;const revision=++preferenceRevision.current;setEnabled(false);if(uid)void operation<{enabled:boolean}>('/discovery/preferences',{}, {background:true}).then(p=>{if(alive&&revision===preferenceRevision.current)setEnabled(p.enabled);}).catch(()=>{});return()=>{alive=false;};},[uid]);
+ useEffect(()=>{let alive=true;const revision=++preferenceRevision.current;setEnabled(false);setMarketEnabled(false);if(uid)void operation<{enabled:boolean;market_enabled?:boolean}>('/discovery/preferences',{}, {background:true}).then(p=>{if(alive&&revision===preferenceRevision.current){setEnabled(p.enabled);setMarketEnabled(!!p.market_enabled);}}).catch(()=>{});return()=>{alive=false;};},[uid]);
  useEffect(()=>{if(!active){setPending(false);return;}const current=++generation.current;let alive=true;setPending(true);setError('');
   const load=async()=>{
    try{
     const general=async():Promise<Feed>=>{const r=await apiFetch('/api/operations/discovery/feed?city='+encodeURIComponent(city),{signal:AbortSignal.timeout(12000)},{background:true});if(!r.ok)throw Error('Suggestions could not load. Retry when you are connected.');return r.json();};
     const {feed:result,notice}=await suggestionCache.read((uid||'guest')+':'+city,()=>loadServiceSuggestions(uid,general,()=>operation<Feed>('/discovery/feed/personal?city='+encodeURIComponent(city),{}, {background:true})),{freshMs:60000});
-    if(alive&&current===generation.current){setFeed(result);setLoadingInterests(result.personalised?result.cards.map((c:Card)=>c.category):[]);setEnabled(result.personalised);setError(notice);}
+    if(alive&&current===generation.current){setFeed(result);setLoadingInterests(result.personalised?result.cards.map((c:Card)=>c.category):[]);setEnabled(result.personalised);setMarketEnabled(!!result.market_personalised);setError(notice);}
    }catch(e){if(alive){setError((e as Error).message);}}
    finally{if(alive)setPending(false);}
   };void load();return()=>{alive=false;};
  },[uid,city,active,dirty]);
  const event=useCallback((body:DiscoveryEvent)=>{
   if(!uid||!enabled||auth.currentUser?.uid!==uid)return;
+  if(body.category?.startsWith('market_')&&!marketEnabled)return;
   void operation<{recorded:boolean;categories?:string[]}>('/discovery/events',{method:'POST',body:JSON.stringify({...body,event_id:crypto.randomUUID()})},{background:true})
-   .then(result=>{if(identity.current===uid&&permission.current&&result.recorded){refresh();window.dispatchEvent(new Event('repaido:interests'));window.dispatchEvent(new CustomEvent('repaido:discovery-intent',{detail:{accountKey:uid,categories:result.categories||[]}}));}}).catch(()=>{if(identity.current===uid&&permission.current)setError('Suggestions could not update. Browsing and booking still work.');});
- },[uid,enabled,refresh]);
- return {feed,error,pending,event,refresh,enabled,signedIn:!!uid};
+   .then(result=>{if(identity.current===uid&&permission.current&&(!body.category?.startsWith('market_')||marketPermission.current)&&result.recorded){refresh();window.dispatchEvent(new Event('repaido:interests'));window.dispatchEvent(new CustomEvent('repaido:discovery-intent',{detail:{accountKey:uid,categories:result.categories||[]}}));}}).catch(()=>{if(identity.current===uid&&permission.current)setError('Suggestions could not update. Browsing and booking still work.');});
+ },[uid,enabled,marketEnabled,refresh]);
+ return {feed,error,pending,event,refresh,enabled,marketEnabled,signedIn:!!uid};
 }
-export function HydrationControls({enabled,signedIn,error,pending,onChange,onSignIn}:{enabled:boolean;signedIn:boolean;error:string;pending:boolean;onChange:(enabled?:boolean)=>void;onSignIn:()=>void}){
+export function HydrationControls({enabled,marketEnabled,signedIn,error,pending,onChange,onSignIn}:{enabled:boolean;marketEnabled?:boolean;signedIn:boolean;error:string;pending:boolean;onChange:(enabled?:boolean,market?:boolean)=>void;onSignIn:()=>void}){
  const [busy,setBusy]=useState(false),[issue,setIssue]=useState(''),[notice,setNotice]=useState('');
- const update=async(reset=false)=>{setBusy(true);setIssue('');setNotice('');try{await operation(reset?'/discovery/preferences/reset':'/discovery/preferences',{method:reset?'POST':'PUT',...(!reset?{body:JSON.stringify({enabled:!enabled,consent_version:2})}:{})});setNotice(reset?'Your suggestion history has been cleared.':enabled?'Personalisation is off. Your history has been cleared.':'Personalisation is on. Suggestions adapt as you explore.');onChange(reset?enabled:!enabled);}catch(e){setIssue((e as Error).message);}finally{setBusy(false);}};
- return <div className="hydration-controls"><details><summary><Sparkles size={15} aria-hidden="true"/> Your service suggestions</summary><p>With your permission, catalogue and transport searches, and service or category visits help choose these cards. We save category interests, not search text, precise location or form contents. Repeated visits count more; older interests fade. This does not subscribe you to marketing or change prices.</p>{signedIn?<div><button disabled={busy||pending} onClick={()=>void update()}>{enabled?'Turn off & clear interests':'Enable personalised suggestions'}</button>{enabled&&<button disabled={busy} onClick={()=>void update(true)}>Reset suggestion history</button>}</div>:<button onClick={onSignIn}>Sign in to personalise</button>}<p>Suggestions are ideas to explore, not a diagnosis. Professional availability is confirmed during booking.</p></details>{(error||issue)&&<p role="alert">{issue||error} <button onClick={()=>onChange()}>Retry suggestions</button></p>}{notice&&<p role="status">{notice}</p>}</div>;
+ const update=async(reset=false,includeMarket=false)=>{setBusy(true);setIssue('');setNotice('');try{const result=await operation<{enabled:boolean;market_enabled?:boolean}>(reset?'/discovery/preferences/reset':'/discovery/preferences',{method:reset?'POST':'PUT',...(!reset?{body:JSON.stringify({enabled:includeMarket||!enabled,consent_version:3})}:{})});setNotice(reset?'Your suggestion history has been cleared.':includeMarket?'Marketplace suggestions are on.':enabled?'Personalisation is off. Your history has been cleared.':'Personalisation is on. Suggestions adapt as you explore.');onChange(result.enabled,!!result.market_enabled);}catch(e){setIssue((e as Error).message);}finally{setBusy(false);}};
+ return <div className="hydration-controls"><details><summary><Sparkles size={15} aria-hidden="true"/> Your service suggestions</summary><p>With your permission, service and transport searches, category visits, and marketplace browsing help choose these cards and their placement. We save category interests, not search text, precise location or form contents. Older interests fade. This does not subscribe you to marketing or change prices.</p>{signedIn?<div><button disabled={busy||pending} onClick={()=>void update()}>{enabled?'Turn off & clear interests':'Enable personalised suggestions'}</button>{enabled&&marketEnabled===false&&<button disabled={busy||pending} onClick={()=>void update(false,true)}>Include marketplace suggestions</button>}{enabled&&<button disabled={busy} onClick={()=>void update(true)}>Reset suggestion history</button>}</div>:<button onClick={onSignIn}>Sign in to personalise</button>}<p>Availability is confirmed during booking. Without personalisation, the home layout varies by time of day.</p></details>{(error||issue)&&<p role="alert">{issue||error} <button onClick={()=>onChange()}>Retry suggestions</button></p>}{notice&&<p role="status">{notice}</p>}</div>;
 }
 export function ServiceHydration({cards,slot,onOpen}:{cards:Card[];slot:number;onOpen:(service:Service)=>void}){
  const [index,setIndex]=useState(0),[announcement,setAnnouncement]=useState(''),[paused,setPaused]=useState(false),[interacting,setInteracting]=useState(false);

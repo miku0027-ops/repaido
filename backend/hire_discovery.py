@@ -66,12 +66,12 @@ def bounded_rows(u,kind,field,value,limit,fields=None):
     return values
 
 def recommendation_categories(catalog,prefs,now):
-    """Use only the explicit v2 opt-in and bounded aggregated category signals."""
+    """Use the existing service opt-in (v2 or v3) and bounded category signals."""
     names={c['id']:c['name'] for c in catalog['categories']}
     valid={s['category'] for s in catalog['services'] if s.get('active',True)}
     names={c:names.get(c,c.replace('_',' ').title()) for c in valid}
     names.update({'home:'+s['id']:s['name'] for s in OFFERINGS})
-    opted=bool(prefs.get('enabled') and prefs.get('consent_version')==2)
+    opted=bool(prefs.get('enabled') and prefs.get('consent_version') in (2,3))
     signals=prefs.get('signals',{}) if opted else {}
     output=[]
     for cid,name in names.items():
