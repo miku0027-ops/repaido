@@ -6,7 +6,6 @@ The step lists and Hosting routes are read from the repository configuration.
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -56,7 +55,7 @@ CONFIGS = {
 }
 STEPS = {target: [step['id'] for step in config['steps']] for target, config in CONFIGS.items()}
 ROUTES = json.loads((ROOT / 'firebase.json').read_text())['hosting']['rewrites']
-COMMIT = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+COMMIT = json.loads((ROOT / 'docs' / 'diagrams' / 'api_inventory.json').read_text())['source_revision']
 OBSERVED_AT = '14 Oct 2026, 01:02 UTC'
 TOTAL_PAGES = 9
 
