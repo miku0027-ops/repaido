@@ -69,6 +69,13 @@
     outline: 3px solid var(--ui-focus) !important;
     outline-offset: 3px !important;
   }
+  /* Compound search fields draw focus on their rounded container. Keep this
+     exception in the brand layer so its input cannot add a second rectangle. */
+  .repaido-customer-shell :is(.repaido-search-bar,.uc-search-container,.spare-scoped-search,.customer-search-field) input:focus-visible,
+  .search-discovery .customer-search-field input:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
   :where(p, label, h1, h2, h3, h4, strong, small, dd, button) {
     overflow-wrap: break-word;
   }
