@@ -8,7 +8,7 @@ import {createReadCache} from '../src/services/readCache.mjs';
 const source=await readFile(new URL('../src/services/repaidiansNetworkService.ts',import.meta.url),'utf8');
 let executable=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 executable=feedbackImports(executable);
-for(const [dependency,injected] of [['../firebase','const auth=globalThis.__networkAuth;'],['./repaidiansService','class CommunityError extends Error {constructor(message,status,code=""){super(message);this.status=status;this.code=code;}}'],['./readCache.mjs','const createReadCache=globalThis.__networkCache;']]){
+for(const [dependency,injected] of [['../firebase','const auth=globalThis.__networkAuth;'],['./repaidiansService','class CommunityError extends Error {constructor(message,status,code=""){super(message);this.status=status;this.code=code;}} const communityIdentityKey=(()=>{let saw=false;return()=>{const user=auth.currentUser;if(user)saw=true;return user?.uid||(!saw?localStorage.getItem("repaido.token"):null)||"guest";};})();'],['./readCache.mjs','const createReadCache=globalThis.__networkCache;']]){
   const pattern=new RegExp(`^import .+ from ['"]${dependency.replaceAll('.','\\.')}['"];?$`,'m');assert.match(executable,pattern);executable=executable.replace(pattern,injected);
 }
 let service,revision=0,calls,values,transport,now;
@@ -37,6 +37,15 @@ test('a token resolving after switching Firebase users cannot send a professiona
   const token=deferred();globalThis.__networkAuth.currentUser={uid:'a',getIdToken:()=>token.promise};
   const mutation=service.networkMutation('/network/profile','PUT',{experience:[]});await tick();globalThis.__networkAuth.currentUser={uid:'b',getIdToken:async()=>'b-token'};
   token.resolve('a-token');await assert.rejects(mutation,error=>error.code==='ACCOUNT_CHANGED');assert.equal(calls.length,0);
+});
+
+test('SDK sign-out retires private network data and never sends the retained legacy credential',async()=>{
+  globalThis.__networkAuth.currentUser={uid:'firebase-a',getIdToken:async()=>'firebase-token'};
+  await service.networkRead('/network/profile');assert.ok(service.peekNetworkRead('/network/profile'));
+  globalThis.__networkAuth.currentUser=null;
+  assert.equal(service.peekNetworkRead('/network/profile'),null);
+  await service.networkRead('/network/profile');
+  assert.equal(calls.at(-1).init.headers.has('Authorization'),false);
 });
 test('retries retain one server command ID, versions are preserved, and updates emit only after confirmation',async()=>{
   let updates=0;window.addEventListener('repaidians:network-update',()=>updates++);transport=async()=>{throw Error('offline');};

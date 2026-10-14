@@ -1,10 +1,10 @@
 import {LiveVideoHub} from './LiveVideo';
 import {TransportRail,type TransportArea} from '../TransportRail';
-import {useCallback,useEffect,useRef,useState,useMemo} from 'react';
-import {Bookmark,BriefcaseBusiness,Clapperboard,Crown,Bell,Home,MessageCircle,Plus,Search,User,X,Clock3,Infinity,LockKeyhole,ArrowRight,ThumbsUp,Menu,ShieldCheck,Building2,FileCheck2,ArrowLeft,Users,RefreshCw,Radio} from 'lucide-react';
+import {useCallback,useEffect,useLayoutEffect,useRef,useState,useMemo} from 'react';
+import {Bookmark,BriefcaseBusiness,Clapperboard,Crown,Bell,Home,MessageCircle,Plus,Search,User,X,Clock3,Infinity,LockKeyhole,ArrowRight,ThumbsUp,Menu,ShieldCheck,Building2,FileCheck2,ArrowLeft,Users,RefreshCw,Radio,SlidersHorizontal} from 'lucide-react';
 import {Modal} from '../ui';
 import {
-  snapshot,subscribe,subscribeCommunityIdentity,communityIdentityKey,retireCommunityContent,chargeBrowsing,feed,peekFeed,feedFreshUntil,memberProfile,publicationDetails,follow,toggleActivity,trades,
+  snapshot,bootstrapCommunity,validateCommunityFeed,peekCommunityView,communityViewScope,rememberCommunityView,subscribe,subscribeCommunityIdentity,communityIdentityKey,retireCommunityContent,chargeBrowsing,feed,peekFeed,feedFreshUntil,memberProfile,publicationDetails,follow,toggleActivity,trades,
   bid,sendMessage,tenderContact,deletePublication,reportPublication,blockMember,CommunityError,opportunityDetails,
   type CommunityChange,
 } from '../../services/repaidiansService';
@@ -32,6 +32,7 @@ import './social-navigation.css';
 type TimelineItem=CommunityPost|CommunityReel|CommunityTender;
 type TimelineWindow={key:string;items:TimelineItem[];cursor:string|null;freshUntil:number};
 type ProfileResult=Awaited<ReturnType<typeof memberProfile>>;
+type BrowseSession={windows:Map<string,TimelineWindow>;members:Record<string,CommunityMember>;stories:CommunityStory[]|null;scroll:Map<string,number>;scope:string};
 type Confirm={kind:'delete'|'block'|'report';id:string};
 const navigation=[{id:'feed',label:'Home',icon:Home},{id:'search',label:'Search',icon:Search},{id:'network',label:'My network',icon:Users},{id:'reels',label:'Works',icon:Clapperboard},{id:'live',label:'Live',icon:Radio},{id:'opportunities',label:'Work & market',icon:BriefcaseBusiness},{id:'tenders',label:'Tenders',icon:BriefcaseBusiness},{id:'contracts',label:'Contracts',icon:BriefcaseBusiness},{id:'profile',label:'My profile',icon:User}] as const;
 const uniqueIds=(ids:string[])=>[...new Set(ids)];
@@ -52,6 +53,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   const alive=useRef(true),authAccount=useRef(account),busyActions=useRef(new Set<string>()),remainingAt=useRef({ms:15*60000,at:performance.now()}),serverClock=useRef({ms:Date.now(),at:performance.now()});
   const feedWindows=useRef(new Map<string,TimelineWindow>()),forcedSources=useRef(new Set<string>()),forceStories=useRef(false),contentScope=useRef(''),identityRetired=useRef(false);
   const timelineWindow=useRef(timeline);timelineWindow.current=timeline;
+  const storyWindow=useRef<CommunityStory[]|null>(null),scrollWindows=useRef(new Map<string,number>()),mainContent=useRef<HTMLElement|null>(null);
   const state=stateAccount===account?cachedState:null;
   const stateWindow=useRef(state);stateWindow.current=state;
   const orderedTrades=useMemo(()=>{if(!interests?.personalized)return trades;const positions=new Map(interests.trades.map((item,index)=>[item.trade,index]));return [...trades].sort((a,b)=>(positions.get(a.id)??trades.length)-(positions.get(b.id)??trades.length));},[interests]);
@@ -73,29 +75,42 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   const locked=!!state&&(state.authenticated?!hasAccess:remaining<=0);
   const exactExpiry=subscription?new Date(subscription.endsAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})+' IST':'';
   const addMembers=useCallback((incoming:CommunityMember[])=>setMembers(old=>({...old,...Object.fromEntries(incoming.map(m=>[m.id,m]))})),[]);
-  const refresh=useCallback(async()=>{
-    if(identityRetired.current)return;
-    const requestAccount=account;
-    const next=await snapshot(account,name,true);
-    if(!alive.current||identityRetired.current||authAccount.current!==requestAccount)return;
-    setState(next);setStateAccount(requestAccount);addMembers([...next.data.members,next.member]);
+  const receiveState=useCallback((next:CommunitySnapshot)=>{
+    setState(next);setStateAccount(account);addMembers([...next.data.members,next.member]);
     const receivedAt=performance.now();serverClock.current={ms:next.serverNow??Date.now(),at:receivedAt};setClockNow(serverClock.current.ms);
     remainingAt.current={ms:next.remainingMs,at:receivedAt};setRemaining(next.remainingMs);if(!stateWindow.current)setError('');
-  },[account,name,addMembers]);
+  },[account,addMembers]);
+  const refresh=useCallback(async()=>{
+    if(identityRetired.current)return;
+    const requestAccount=account,next=await snapshot(account,name,true);
+    if(!alive.current||identityRetired.current||authAccount.current!==requestAccount)return;
+    receiveState(next);
+  },[account,name,receiveState]);
   useEffect(()=>{
     const switched=authAccount.current!==account;
     identityRetired.current=false;
-    alive.current=true;authAccount.current=account;setState(null);setMembers({});setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setFeedBusy(false);setMoreBusy(false);feedWindows.current.clear();forcedSources.current.clear();forceStories.current=false;contentScope.current='';
+    const saved=peekCommunityView<BrowseSession>('browse');
+    alive.current=true;authAccount.current=account;setState(null);setMembers(saved?.members||{});setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems(saved?.stories||[]);setFeedBusy(false);setMoreBusy(false);
+    feedWindows.current=new Map(saved?.windows||[]);storyWindow.current=saved?.stories??null;scrollWindows.current=saved?.scroll||new Map();forcedSources.current.clear();forceStories.current=false;contentScope.current=saved?.scope||'';
     setOptions(null);setWorkView(switched?'market':initialJobId?'jobs':initialTab==='contracts'?'contracts':initialTab==='network'?'network':'market');setMode('all');setApplicationTarget(undefined);setContractTarget(undefined);setJobTarget(undefined);setGenre('all');setInterests(peekWorkInterests(account));
     setProfileId(null);setProfileData(null);setProfileBusy(false);setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setDetail(null);setConfirm(null);setUpgrade('');setNotice('');setAttachedReference(switched?undefined:initialReference);
     if(switched){initialReferenceOpened.current=true;initialProfileOpened.current=undefined;initialPublicationOpened.current=undefined;initialJobOpened.current=initialJobId;}
-    void refresh().catch(e=>{if(alive.current&&!identityRetired.current&&authAccount.current===account)setError((e as Error).message);});
-    const changed=(change?:CommunityChange)=>{void refresh().catch(e=>{if(alive.current&&!identityRetired.current&&authAccount.current===account)setNotice((e as Error).message);});if(change?.contentChanged!==false){feedWindows.current.clear();forcedSources.current.add(timelineWindow.current.key);forceStories.current=true;setRevision(v=>v+1);}};
+    void (async()=>{
+      if(saved||switched||!['feed','reels','tenders'].includes(initialTab)){await refresh();return;}
+      const initialKind=initialTab==='reels'?'reel':initialTab==='tenders'?'tender':'post';
+      const result=await bootstrapCommunity(initialKind);
+      if(!alive.current||identityRetired.current||authAccount.current!==account)return;
+      const window={key:initialKind+':all:all',items:result.timeline.items as TimelineItem[],cursor:result.timeline.nextCursor,freshUntil:performance.now()+15000};
+      feedWindows.current.set(window.key,window);setTimeline(window);
+      if(initialKind==='post'){storyWindow.current=result.stories.items;setStoryItems(result.stories.items);}
+      addMembers([...result.timeline.members,...result.stories.members]);receiveState(result.state);
+    })().catch(e=>{if(alive.current&&!identityRetired.current&&authAccount.current===account)setError((e as Error).message);});
+    const changed=(change?:CommunityChange)=>{void refresh().catch(e=>{if(alive.current&&!identityRetired.current&&authAccount.current===account)setNotice((e as Error).message);});if(change?.contentChanged!==false){feedWindows.current.clear();storyWindow.current=null;forcedSources.current.add(timelineWindow.current.key);forceStories.current=true;setRevision(v=>v+1);}};
     const unsubscribe=subscribe(changed);
     const expectedIdentity=communityIdentityKey();
     const unsubscribeIdentity=subscribeCommunityIdentity(()=>{
       if(communityIdentityKey()===expectedIdentity)return;
-      identityRetired.current=true;feedWindows.current.clear();forcedSources.current.clear();forceStories.current=false;
+      identityRetired.current=true;feedWindows.current.clear();storyWindow.current=null;scrollWindows.current.clear();forcedSources.current.clear();forceStories.current=false;
       setState(null);setMembers({});setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setProfileId(null);setRecipient(null);setComments(null);setStoryId(null);setDetail(null);setStudio(null);setConfirm(null);setOptions(null);setUpgrade('');setError('');setNotice('');
     });
     const heartbeat=async()=>{
@@ -110,11 +125,11 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
     return()=>{alive.current=false;unsubscribe();unsubscribeIdentity();clearInterval(timer);clearInterval(clock);clearInterval(poll);document.removeEventListener('visibilitychange',visibility);void chargeBrowsing(false,true).catch(()=>{});};
   },[refresh,account]);
   useEffect(()=>{if(!subscription)return;const until=subscription.endsAt-(serverClock.current.ms+performance.now()-serverClock.current.at);if(until<=0){void refresh().catch(()=>{});return;}const timer=setTimeout(()=>{setClockNow(serverClock.current.ms+performance.now()-serverClock.current.at);void refresh().catch(()=>{});},Math.min(until+50,2147483647));return()=>clearTimeout(timer);},[subscription?.endsAt,subscription?.plan,refresh]);
-  useEffect(()=>{if(!locked)return;retireCommunityContent();feedWindows.current.clear();setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setDetail(null);setConfirm(null);},[locked]);
+  useEffect(()=>{if(!locked)return;retireCommunityContent();feedWindows.current.clear();storyWindow.current=null;setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setStoryId(null);setComments(null);setRecipient(null);setStudio(null);setDetail(null);setConfirm(null);},[locked]);
   useEffect(()=>{
     if(!state)return;
     const scope=[state.member.id,state.member.trade,state.authenticated,professional,state.capabilities?.role].join(':');
-    if(contentScope.current&&contentScope.current!==scope){retireCommunityContent();feedWindows.current.clear();setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setRecipient(null);setComments(null);setDetail(null);setStudio(null);setRevision(value=>value+1);}
+    if(contentScope.current&&contentScope.current!==scope){retireCommunityContent();feedWindows.current.clear();storyWindow.current=null;setTimeline({key:'',items:[],cursor:null,freshUntil:0});setStoryItems([]);setProfileData(null);setRecipient(null);setComments(null);setDetail(null);setStudio(null);setRevision(value=>value+1);}
     contentScope.current=scope;
   },[state?.member.id,state?.member.trade,state?.authenticated,professional,state?.capabilities?.role]);
   useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(timer);},[notice]);
@@ -138,14 +153,14 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   const attachment=(post:CommunityPost)=>post.referenceCard?<OpportunityCard card={post.referenceCard} compact onDestination={destination} onShare={reference=>shareListing(reference)} allowSave={!!state?.authenticated&&hasAccess}/>:post.referenceUnavailable?<p className="rp-link-unavailable">This listing is no longer available. Your publication stays in your portfolio.</p>:null;
   useEffect(()=>{if(!initialReference||initialReferenceOpened.current||!state)return;if(shareListing(initialReference))initialReferenceOpened.current=true;},[initialReference?.source,initialReference?.id,!!state,hasAccess]);
   const memberFor=(id:string):CommunityMember=>members[id]||(state?.member.id===id?state.member:{id,name:'Community member',handle:'member',trade:'cleaning',role:'Member',avatarUrl:'',bio:''});
-  const openProfile=(id:string)=>{if(!professional&&id===state?.member.id){setProfileId(null);setWorkView('contracts');setTab('opportunities');return;}setProfileId(id);setProfileData(null);setTab('profile');};
+  const openProfile=(id:string)=>{if(!professional&&id===state?.member.id){setProfileId(null);setWorkView('contracts');setTab('opportunities');return;}setProfileId(id);setProfileData(peekCommunityView<ProfileResult>('profile:'+id));setTab('profile');};
   useEffect(()=>{if(state&&!locked&&initialProfileId&&initialProfileOpened.current!==initialProfileId){initialProfileOpened.current=initialProfileId;openProfile(initialProfileId);}},[!!state,locked,initialProfileId]);
   useEffect(()=>{
     if(tab!=='profile'||!state||locked)return;
-    let active=true;setProfileBusy(!profileData||profileData.member.id!==(profileId||state.member.id));
+    let active=true;const owner=communityViewScope();setProfileBusy(!profileData||profileData.member.id!==(profileId||state.member.id));
     const id=profileId||state.member.id;
     if(id==='guest'){setProfileBusy(false);return;}
-    void memberProfile(id).then(data=>{if(active){setProfileData(data);addMembers([data.member]);}}).catch(e=>{if(!active)return;if((e as CommunityError).code==='CONTENT_CHANGED'){setRevision(value=>value+1);return;}if([401,402,403,404].includes((e as CommunityError).status))setProfileData(null);handleError(e);}).finally(()=>{if(active)setProfileBusy(false);});return()=>{active=false;};
+    void memberProfile(id).then(data=>{if(active&&owner===communityViewScope()){setProfileData(data);rememberCommunityView('profile:'+id,data,owner);addMembers([data.member]);}}).catch(e=>{if(!active)return;if((e as CommunityError).code==='CONTENT_CHANGED'){setRevision(value=>value+1);return;}if([401,402,403,404].includes((e as CommunityError).status))setProfileData(null);handleError(e);}).finally(()=>{if(active)setProfileBusy(false);});return()=>{active=false;};
   },[profileId,tab,state?.member.id,revision,locked]);
   const openDetail=useCallback(async(id:string,force=false)=>{
     const requestAccount=authAccount.current;
@@ -169,11 +184,12 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   useEffect(()=>{
     if(!state||locked||tab!=='feed')return;
     const controller=new AbortController(),requestAccount=account,force=forceStories.current;forceStories.current=false;
+    if(!force&&storyWindow.current!==null){setStoryItems(storyWindow.current);return;}
     const cached=!force?peekFeed('story','all','all','',15):null;
     if(cached){setStoryItems(cached.items as CommunityStory[]);addMembers(cached.members);}
     void feed('story','all','all','',controller.signal,15,force).then(page=>{
       if(controller.signal.aborted||authAccount.current!==requestAccount)return;
-      setStoryItems(page.items as CommunityStory[]);addMembers(page.members);
+      storyWindow.current=page.items as CommunityStory[];setStoryItems(storyWindow.current);addMembers(page.members);
     }).catch(e=>{if(!controller.signal.aborted&&authAccount.current===requestAccount){if((e as CommunityError).code==='CONTENT_CHANGED'){forceStories.current=true;setRevision(value=>value+1);return;}setStoryItems([]);handleError(e);}});
     return()=>controller.abort();
   },[!!state,locked,tab,revision,account]);
@@ -181,7 +197,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
     if(!state||locked||!['feed','reels','tenders'].includes(tab))return;
     const controller=new AbortController(),requestAccount=account,force=forcedSources.current.delete(sourceKey);
     const retained=feedWindows.current.get(sourceKey);
-    if(!force&&retained&&performance.now()<retained.freshUntil){setTimeline(retained);setFeedBusy(false);return;}
+    if(!force&&retained){setTimeline(retained);setFeedBusy(false);return;}
     const extent=Math.max(12,retained?.items.length??(timelineWindow.current.key===sourceKey?timelineWindow.current.items.length:12));
     const cached=!force?peekFeed(kind,genre,kind==='post'?mode:'all','',Math.min(50,extent)):null;
     if(cached){addMembers(cached.members);setTimeline({key:sourceKey,items:cached.items as TimelineItem[],cursor:cached.nextCursor,freshUntil:feedFreshUntil(kind,genre,kind==='post'?mode:'all','',Math.min(50,extent))});}
@@ -204,6 +220,27 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
     }).catch(e=>{if(!controller.signal.aborted&&authAccount.current===requestAccount){if((e as CommunityError).code==='CONTENT_CHANGED'){forcedSources.current.add(sourceKey);setRevision(value=>value+1);return;}if([401,402,403,404].includes((e as CommunityError).status)){feedWindows.current.delete(sourceKey);setTimeline({key:sourceKey,items:[],cursor:null,freshUntil:0});}setError((e as Error).message);}}).finally(()=>{if(!controller.signal.aborted&&authAccount.current===requestAccount)setFeedBusy(false);});
     return()=>controller.abort();
   },[!!state,tab,genre,mode,revision,locked,account,rememberWindow]);
+  useEffect(()=>{
+    if(!state||locked||!['feed','reels','tenders'].includes(tab))return;
+    const controller=new AbortController();let pending=false,offset=0;
+    const validate=async()=>{
+      const current=timelineWindow.current;
+      if(document.hidden||pending||current.key!==sourceKey||!current.items.length)return;
+      const ids=current.items.slice(offset,offset+85).map(item=>item.id);offset=offset+85>=current.items.length?0:offset+85;
+      ids.push(...(storyWindow.current||[]).slice(0,15).map(item=>item.id));pending=true;
+      try{
+        const result=await validateCommunityFeed(ids,controller.signal);
+        if(controller.signal.aborted||authAccount.current!==account)return;
+        const unavailable=new Set(result.unavailable),updates=new Map(result.items.map(item=>[item.id,item]));addMembers(result.members);
+        setTimeline(old=>{if(old.key!==sourceKey)return old;const next={...old,items:old.items.filter(item=>!unavailable.has(item.id)).map(item=>(updates.get(item.id)||item) as TimelineItem),freshUntil:performance.now()+30000};rememberWindow(next);return next;});
+        if(storyWindow.current){storyWindow.current=storyWindow.current.filter(item=>!unavailable.has(item.id));setStoryItems(storyWindow.current);}
+      }catch(e){if(!controller.signal.aborted&&[401,402,403].includes((e as CommunityError).status))void refresh().catch(()=>{});}
+      finally{pending=false;}
+    };
+    if(timelineWindow.current.freshUntil<=performance.now())void validate();
+    const timer=setInterval(()=>void validate(),30000);const visible=()=>{if(!document.hidden)void validate();};document.addEventListener('visibilitychange',visible);
+    return()=>{controller.abort();clearInterval(timer);document.removeEventListener('visibilitychange',visible);};
+  },[!!state,locked,tab,sourceKey,account,rememberWindow,refresh,addMembers]);
   const loadMore=async()=>{
     if(!timeline.cursor||moreBusy||feedBusy)return;const requestAccount=authAccount.current;setMoreBusy(true);
     try{const page=await feed(kind,genre,kind==='post'?mode:'all',timeline.cursor);if(!alive.current||authAccount.current!==requestAccount)return;addMembers(page.members);const freshUntil=feedFreshUntil(kind,genre,kind==='post'?mode:'all',timeline.cursor,12)||performance.now();setTimeline(old=>{if(old.key!==sourceKey)return old;const window={...old,items:unique([...old.items,...page.items as TimelineItem[]]),cursor:page.nextCursor,freshUntil:Math.min(old.freshUntil,freshUntil)};rememberWindow(window);return window;});}catch(e){if(alive.current&&authAccount.current===requestAccount)handleError(e);}finally{if(alive.current&&authAccount.current===requestAccount)setMoreBusy(false);}
@@ -244,7 +281,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
     if(id==='opportunities'||id==='contracts'||id==='network'){chooseWork(id==='opportunities'?'market':id);return;}
     if(id==='profile'&&!professional){if(signed())setOptions('menu');return;}
     if(id==='inbox'&&!professional)return;if((id==='inbox'||id==='notifications')&&!signed())return;
-    setTab(id);setOptions(null);setError('');if(id==='profile'){setProfileId(null);setProfileData(null);}
+    setTab(id);setOptions(null);setError('');if(id==='profile'){setProfileId(null);setProfileData(state?peekCommunityView<ProfileResult>('profile:'+state.member.id):null);}
   };
   useEffect(()=>{
     if(!state||locked||!initialJobId||initialJobOpened.current===initialJobId)return;
@@ -276,13 +313,22 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
   });};
   const onMessage=(member:CommunityMember)=>{if(professional&&signed())setRecipient(member);};
   const quotaLabel=trialActive?'Free trial · '+trialDays+' '+(trialDays===1?'day':'days'):paid?'Pro':state?.authenticated?'Membership required':`${Math.floor(remaining/60000)}:${String(Math.floor(remaining/1000)%60).padStart(2,'0')} today`;
+  const viewKey=[tab,tab==='profile'?profileId||state?.member.id:'',tab==='opportunities'?workView:'',sourceKey].join('|');
+  useLayoutEffect(()=>{if(state&&mainContent.current)mainContent.current.scrollTop=scrollWindows.current.get(viewKey)||0;},[viewKey,!!state,timeline.key]);
+  useEffect(()=>{
+    if(!state||locked||identityRetired.current)return;
+    if(timeline.key)rememberWindow(timeline);
+    // Bound retained metadata; a long active feed may exceed the reopen budget.
+    const windows=new Map([...feedWindows.current].filter(([,window])=>window.items.length<=240));
+    rememberCommunityView<BrowseSession>('browse',{windows,members,stories:storyWindow.current,scroll:scrollWindows.current,scope:contentScope.current});
+  },[timeline,members,storyItems,!!state,locked,rememberWindow]);
   const showContent=!!state&&!locked;
   return <Modal title="Repaidians community" frameless className="rp-shell" onClose={onClose}>
     <div className="rp-shell-inner">
       <header className="rp-header"><div className="rp-wordmark"><span>THE PEOPLE BEHIND THE WORK</span><h1>Repaidians<span className="rp-wordmark-dot"/></h1></div><div className="rp-header-actions">{professional&&<><button className="rp-create rp-top-create" aria-label="Create publication" disabled={locked} onClick={()=>create()}><Plus size={20} aria-hidden="true"/></button><button aria-label="Your interests" aria-pressed={tab==='feed'&&mode==='liked'} onClick={()=>chooseFeed('liked')}><ThumbsUp size={23}/></button><button aria-label="Open messages" onClick={()=>chooseTab('inbox')}><MessageCircle size={24}/></button></>}<button className="rp-close" aria-label="Close Repaidians" data-autofocus onClick={onClose}><X size={24}/></button></div></header>
       <aside className="rp-desktop-sidebar" aria-label="Community navigation"><nav>{communityNavigation.map(item=><button key={item.id} aria-current={tab===item.id?'page':undefined} onClick={()=>chooseTab(item.id)}><item.icon size={25}/>{item.label}</button>)}{professional&&<><button onClick={()=>chooseTab('inbox')}><MessageCircle size={25}/>Messages</button></>}<button onClick={()=>chooseTab('notifications')}><Bell size={25}/>Notifications{state?.unreadCount?<span className="rp-menu-count">{state.unreadCount}</span>:null}</button><button onClick={()=>signed()&&setOptions('menu')}><Menu size={25}/>Tools & settings</button></nav><button className="rp-sidebar-pro" onClick={()=>signed()&&setUpgrade('Make room for your next chapter.')}><Crown size={22}/>{trialActive?'Your free trial':'Your membership'}</button></aside>
       <div className="rp-toolbar"><button className="rp-quota" aria-label={trialActive?'Free trial: '+trialDays+' '+(trialDays===1?'day':'days')+' remaining. Ends '+exactExpiry+'. Browsing access included.':paid?'Repaidians Pro membership. Active until '+exactExpiry:state?.authenticated?'Repaidians membership required':'Daily browsing time remaining'} title={hasAccess?'Membership ends '+exactExpiry:undefined} onClick={()=>signed()&&setUpgrade('A little more room to grow your craft and your connections.')}><span>{hasAccess?<Infinity size={16}/>:<Clock3 size={16}/>}</span>{quotaLabel}</button><div><button className="rp-toolbar-notifications" aria-label="Notifications" aria-pressed={tab==='notifications'} onClick={()=>chooseTab('notifications')}><Bell size={19}/>{!!state?.unreadCount&&<i className="rp-notification-dot"/>}</button><button className="rp-live-shortcut" aria-label="Live broadcasts" aria-pressed={tab==='live'} disabled={locked} onClick={()=>chooseTab('live')}><Radio size={18}/><span className="rp-action-label">Live</span></button><button className="rp-tender-shortcut" aria-label="Tenders" aria-pressed={tab==='tenders'} onClick={()=>chooseTab('tenders')}><BriefcaseBusiness size={18}/><span className="rp-action-label">Tenders</span></button></div></div>
-      <main className="rp-content" data-reels={tab==='reels'}>
+      <main ref={mainContent} className="rp-content" data-reels={tab==='reels'} onScroll={event=>scrollWindows.current.set(viewKey,event.currentTarget.scrollTop)}>
         {!state&&<div className="rp-loading" role="status"><span className="rp-story-ring"><Avatar member={{id:'loading',name:'',handle:'',trade:'cleaning',role:'',avatarUrl:'',bio:''}}/></span><h2>Your community is coming into view.</h2><p>Connecting to Repaidians…</p></div>}
         {error&&<div className="rp-error" role="alert"><p>{error}</p><button className="rp-secondary" onClick={()=>{if(!state)void refresh().catch(e=>setError((e as Error).message));else refreshContent();}}>Retry</button></div>}
         {locked&&<div className="rp-locked"><LockKeyhole size={36}/><h2>{state.authenticated?(trialEnded?'Your free trial has ended.':'Continue with Repaidians Pro.'):'That’s today’s 15 minutes.'}</h2><p>{state.authenticated?'Your 60 days of free access from first joining Repaidians have ended. Continue browsing for ₹199 per month. Your existing work stays saved. No automatic charge.':'Your guest preview resets at midnight IST. Sign in to start 60 days of free browsing from first joining.'}</p><button className="rp-primary" onClick={()=>state.authenticated?setUpgrade('Your free trial has ended. Repaidians Pro is required to continue.'):signed()}>{state.authenticated?'Continue with Pro · ₹199/month':'Sign in · 60 days free'}</button><button className="rp-secondary" onClick={onClose}>Back to Repaido</button></div>}
@@ -306,7 +352,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
           {['feed','reels','tenders'].includes(tab)&&timeline.key===sourceKey&&timeline.cursor&&<div className="rp-post-body"><button className="rp-secondary" disabled={feedBusy||moreBusy} aria-busy={moreBusy} onClick={()=>void loadMore()}>{moreBusy?'Loading more…':'Load more'}</button></div>}
 
           {tab==='search'&&<PeopleSearch onProfile={openProfile} onMembers={addMembers}/>}
-          {tab==='opportunities'&&<WorkAndMarket key={account} accountKey={account} member={state.member} authenticated={!!state.authenticated} professional={professional} role={state.capabilities?.role||'customer'} city={city} revision={revision} view={workView} onView={chooseWork} jobId={jobTarget} applicationId={applicationTarget} contractId={contractTarget} onOpenMember={openProfile} onDestination={destination} onManage={manage} onShare={shareListing} onOpenProject={onProject} onSignIn={onSignIn} onDiscoverPeople={()=>chooseTab('search')} onPrivacy={()=>setOptions('settings')}/>}
+          {tab==='opportunities'&&<WorkAndMarket key={account} accountKey={account} member={state.member} authenticated={!!state.authenticated} professional={professional} role={state.capabilities?.role||'customer'} city={city} revision={revision} view={workView} onView={chooseWork} jobId={jobTarget} applicationId={applicationTarget} contractId={contractTarget} onOpenMember={openProfile} onDestination={destination} onManage={manage} onShare={shareListing} onOpenProject={onProject} onSignIn={onSignIn} onDiscoverPeople={()=>chooseTab('search')} onPrivacy={()=>setOptions('settings')} onProfile={()=>openProfile(state.member.id)} onSaved={()=>chooseFeed('saved')} onPublish={create} onNotifications={()=>chooseTab('notifications')}/>}
 
 
           {tab==='inbox'&&professional&&<CommunityInbox selfId={state.member.id} onMembers={addMembers} onOpen={id=>onMessage(memberFor(id))}/>}
@@ -320,7 +366,7 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
       <aside className="rp-desktop-aside">{showContent&&<><div className="rp-aside-identity"><Avatar member={state.member}/><span><strong>{state.authenticated?state.member.name:'Welcome to Repaidians'}</strong><small>{professional?'@'+state.member.handle:'Discover the people behind the work'}</small></span></div>{professional&&<section className="rp-pro-card"><Crown size={26}/><h2>Make something worth sharing.</h2><p>Join a community built around your craft.</p><button className="rp-primary" onClick={()=>create()}>Share your work</button></section>}<p className="rp-fine">Your feed shows real publications. Trade-only posts stay within their selected community.</p></>}</aside>
       <nav className="rp-bottom-nav" aria-label="Repaidians sections">{navigation.filter(item=>['feed','search','reels','opportunities','profile'].includes(item.id)).map(item=><button key={item.id} aria-label={item.id==='profile'&&!professional?'Account':item.label} aria-current={tab===item.id?'page':undefined} disabled={locked} onClick={()=>chooseTab(item.id)}><item.icon size={25} aria-hidden="true"/><span>{item.id==='profile'&&!professional?'Account':item.label}</span></button>)}</nav>
 
-      {options&&state?.authenticated&&<Modal title={options==='settings'?'Privacy and notifications':'Profile tools and settings'} frameless className="rp-dialog rp-options-drawer" onClose={()=>setOptions(null)}><header className="rp-options-header">{options==='settings'&&<button aria-label="Back to profile tools" onClick={()=>setOptions('menu')}><ArrowLeft size={20}/></button>}<h2>{options==='settings'?'Privacy & notifications':'Your workspace'}</h2><button aria-label="Close profile tools" data-autofocus onClick={()=>setOptions(null)}><X size={22}/></button></header><div className="rp-options-body">{options==='menu'&&!professional?<nav aria-label="Your tools"><button onClick={()=>chooseTab('contracts')}><BriefcaseBusiness size={20}/><span><strong>Your contracts</strong><small>Private proposals, team and progress</small></span></button><button onClick={()=>setOptions('settings')}><ShieldCheck size={20}/><span><strong>Privacy & notifications</strong></span></button></nav>:options==='menu'?<><div className="rp-options-identity"><Avatar member={state.member}/><span><strong>{state.member.name}</strong><small>@{state.member.handle}</small></span></div><nav aria-label="Profile tools"><button onClick={()=>{chooseWork('market');}}><BriefcaseBusiness size={20}/><span><strong>Work & market</strong><small>Projects, jobs, products and your listings</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseTab('network')}><Users size={20}/><span><strong>My network</strong><small>Connections, invitations and recommendations</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseFeed('jobs')}><Search size={20}/><span><strong>My jobs</strong><small>Opportunities matched to your work</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseFeed('applications')}><FileCheck2 size={20}/><span><strong>Apply Status</strong><small>Your applications, reviews and offers</small></span><ArrowRight size={17}/></button><button onClick={()=>{chooseWork('companies');}}><Building2 size={20}/><span><strong>Companies</strong><small>Business pages and your connections</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseTab('notifications')}><Bell size={20}/><span><strong>Notifications</strong><small>Updates from your community</small></span>{state.unreadCount?<span className="rp-menu-count">{state.unreadCount}</span>:<ArrowRight size={17}/>}</button><button onClick={()=>chooseFeed('liked')}><ThumbsUp size={20}/><span><strong>Interests</strong><small>Publications you have liked</small></span><ArrowRight size={17}/></button><button onClick={()=>setOptions('settings')}><ShieldCheck size={20}/><span><strong>Privacy & notifications</strong><small>Messages, preferences and blocked members</small></span><ArrowRight size={17}/></button></nav></>:<ProfileSettings key={account}><ProfessionalVisibilityPrivacy accountKey={account}/>{professional&&<><NetworkPreferencesPanel accountKey={account}/><WorkPreferences accountKey={account}/></>}</ProfileSettings>}</div></Modal>}
+      {options&&state?.authenticated&&<Modal title={options==='settings'?'Privacy and notifications':'Profile tools and settings'} frameless className="rp-dialog rp-options-drawer" onClose={()=>setOptions(null)}><header className="rp-options-header">{options==='settings'&&<button aria-label="Back to profile tools" onClick={()=>setOptions('menu')}><ArrowLeft size={20}/></button>}<h2>{options==='settings'?'Privacy & notifications':'Your workspace'}</h2><button aria-label="Close profile tools" data-autofocus onClick={()=>setOptions(null)}><X size={22}/></button></header><div className="rp-options-body">{options==='menu'&&!professional?<nav aria-label="Your tools"><button onClick={()=>chooseTab('contracts')}><BriefcaseBusiness size={20}/><span><strong>Your contracts</strong><small>Private proposals, team and progress</small></span></button><button onClick={()=>setOptions('settings')}><ShieldCheck size={20}/><span><strong>Privacy & notifications</strong></span></button></nav>:options==='menu'?<><div className="rp-options-identity"><Avatar member={state.member}/><span><strong>{state.member.name}</strong><small>@{state.member.handle}</small></span></div><nav aria-label="Profile tools"><button onClick={()=>chooseWork('tools')}><SlidersHorizontal size={20}/><span><strong>Professional tools</strong><small>Your profile, availability and next steps</small></span><ArrowRight size={17}/></button><button onClick={()=>{chooseWork('market');}}><BriefcaseBusiness size={20}/><span><strong>Work & market</strong><small>Projects, jobs, products and your listings</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseTab('network')}><Users size={20}/><span><strong>My network</strong><small>Connections, invitations and recommendations</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseFeed('jobs')}><Search size={20}/><span><strong>My jobs</strong><small>Opportunities matched to your work</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseFeed('applications')}><FileCheck2 size={20}/><span><strong>Apply Status</strong><small>Your applications, reviews and offers</small></span><ArrowRight size={17}/></button><button onClick={()=>{chooseWork('companies');}}><Building2 size={20}/><span><strong>Companies</strong><small>Business pages and your connections</small></span><ArrowRight size={17}/></button><button onClick={()=>chooseTab('notifications')}><Bell size={20}/><span><strong>Notifications</strong><small>Updates from your community</small></span>{state.unreadCount?<span className="rp-menu-count">{state.unreadCount}</span>:<ArrowRight size={17}/>}</button><button onClick={()=>chooseFeed('liked')}><ThumbsUp size={20}/><span><strong>Interests</strong><small>Publications you have liked</small></span><ArrowRight size={17}/></button><button onClick={()=>setOptions('settings')}><ShieldCheck size={20}/><span><strong>Privacy & notifications</strong><small>Messages, preferences and blocked members</small></span><ArrowRight size={17}/></button></nav></>:<ProfileSettings key={account}><ProfessionalVisibilityPrivacy accountKey={account}/>{professional&&<><NetworkPreferencesPanel accountKey={account}/><WorkPreferences accountKey={account}/></>}</ProfileSettings>}</div></Modal>}
       {notice&&<div className="rp-toast" role="status">{notice}</div>}
       {storyId&&state&&!locked&&<StoryViewer stories={stories} initialId={storyId} memberFor={memberFor} onClose={()=>setStoryId(null)} suspended={!!upgrade} onReply={async(member,text)=>{if(!proAction('Reply to stories and start real conversations.',()=>{}))return false;const ok=await act('reply:'+member.id,()=>sendMessage(account,member.id,text));if(ok)setNotice('Reply sent.');return ok;}}/>}
       {comments&&state&&!locked&&<CommentsDrawer account={account} targetId={comments} memberFor={memberFor} onMembers={addMembers} onClose={()=>setComments(null)}/>}

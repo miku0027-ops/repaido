@@ -248,6 +248,8 @@ async def lifespan(app):
             pass
 
 app = FastAPI(title='Repaido API', version='1.0.0', description='Android-first home services. Prices in integer paise. Bookings begin as requests until an operator assigns a professional.', lifespan=lifespan)
+from work_dispatch import WorkEventDispatchMiddleware
+app.add_middleware(WorkEventDispatchMiddleware)
 
 # Exact frontend origins only. Authorization remains enforced by each API route.
 app.add_middleware(

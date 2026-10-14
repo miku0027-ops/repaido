@@ -2,7 +2,7 @@ import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowRight,BadgeCheck,BriefcaseBusiness,Building2,CalendarDays,Check,CheckCircle2,ClipboardList,Clock,MapPin,RefreshCw,Search,SlidersHorizontal,Users} from 'lucide-react';
 import {Modal} from '../ui';
 import {Avatar,tradeName} from './common';
-import {trades} from '../../services/repaidiansService';
+import {trades,peekCommunityView,communityViewScope,rememberCommunityView,dropCommunityView} from '../../services/repaidiansService';
 import {applyForWork,congratulatePlacement,peekWorkApplications,peekWorkCompanies,peekWorkJobs,peekWorkPreferences,respondToWorkOffer,subscribeWorkReads,trackWorkBehavior,updateWorkPreferences,withdrawWorkApplication,workApplication,workApplications,workCompanies,workCompanyDetails,workJob,workJobs,workPlacement,workPreferences} from '../../services/repaidiansWorkService';
 import type {WorkApplication,WorkApplicationsPage,WorkCompaniesPage,WorkCompany,WorkCompanyDetails,WorkCongratulations,WorkJob,WorkJobFilters,WorkJobsPage,WorkPlacement,WorkPreferences as Preferences} from '../../types/repaidiansWork';
 import {disableWorkPush,enableWorkPush,subscribeWorkPush,syncWorkPushAccount,workPushStatus,type WorkPushStatus} from '../../services/repaidiansPushService';
@@ -23,17 +23,17 @@ const unique=<T extends {id:string},>(items:T[])=>[...new Map(items.map(item=>[i
 // Abort is per observer. Shared reads keep their own lifetime so leaving a tab
 // cannot cancel another consumer; generation guards discard obsolete responses.
 function useWorkResource<T>(key:string,peek:()=>T|null,load:(force:boolean,signal:AbortSignal)=>Promise<T>,revision=0){
-  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>(()=>({key,data:peek(),busy:true,error:''}));
+  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>(()=>({key,data:peekCommunityView<T>('work-panel:'+key)||peek(),busy:true,error:''}));
   const loader=useRef(load),sequence=useRef(0),controller=useRef<AbortController|null>(null),mountedKey=useRef(key);
   loader.current=load;mountedKey.current=key;
   const refresh=useCallback(async(force=true)=>{
-    const seq=++sequence.current;controller.current?.abort();const next=new AbortController();controller.current=next;
+    const seq=++sequence.current,owner=communityViewScope();controller.current?.abort();const next=new AbortController();controller.current=next;
     setState(old=>({key,data:old.key===key?old.data:null,busy:true,error:''}));
-    try{const data=await loader.current(force,next.signal);if(!next.signal.aborted&&sequence.current===seq&&mountedKey.current===key)setState({key,data,busy:false,error:''});}
-    catch(error){if(!next.signal.aborted&&sequence.current===seq&&mountedKey.current===key)setState(old=>({key,data:old.key===key?old.data:null,busy:false,error:(error as Error).message}));}
+    try{const data=await loader.current(force,next.signal);if(!next.signal.aborted&&sequence.current===seq&&mountedKey.current===key&&owner===communityViewScope()){rememberCommunityView('work-panel:'+key,data);setState({key,data,busy:false,error:''});}}
+    catch(error){if([401,402,403,404].includes((error as {status?:number}).status||0))dropCommunityView('work-panel:'+key);if(!next.signal.aborted&&sequence.current===seq&&mountedKey.current===key)setState(old=>({key,data:![401,402,403,404].includes((error as {status?:number}).status||0)&&old.key===key?old.data:null,busy:false,error:(error as Error).message}));}
   },[key]);
   useEffect(()=>{
-    setState({key,data:peek(),busy:true,error:''});void refresh(revision>0);
+    setState({key,data:peekCommunityView<T>('work-panel:'+key)||peek(),busy:true,error:''});void refresh(revision>0);
     const unsubscribe=subscribeWorkReads(()=>void refresh(true));
     const visible=()=>{if(!document.hidden)void refresh(false);};
     const timer=setInterval(visible,60000);document.addEventListener('visibilitychange',visible);

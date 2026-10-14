@@ -164,14 +164,19 @@ class Store:
                 u = Unit(self.core, transaction=transaction)
                 result = callback(u)
                 u.flush()
-                return result
-            return apply(self.core.fb_db.transaction())
-        with self.core.db() as c:
-            c.execute('BEGIN IMMEDIATE')
-            u = Unit(self.core, connection=c)
-            result = callback(u)
-            u.flush()
-            return result
+                return result, u.work_events
+            result, work_events = apply(self.core.fb_db.transaction())
+        else:
+            with self.core.db() as c:
+                c.execute('BEGIN IMMEDIATE')
+                u = Unit(self.core, connection=c)
+                result = callback(u)
+                u.flush()
+                work_events = u.work_events
+        if work_events:
+            from work_dispatch import mark_committed
+            mark_committed()
+        return result
 
 
 class Unit:
@@ -179,6 +184,7 @@ class Unit:
         self.core, self.tx, self.conn = core, transaction, connection
         self.pending = {}
         self.fetched = {}
+        self.work_events = False
 
     def get(self, kind, key):
         if (kind, key) in self.pending:
@@ -278,6 +284,8 @@ class Unit:
 
     def put(self, kind, key, value):
         self.pending[kind, key] = copy.deepcopy(value)
+        if kind in ('rp_work_project_queue', 'rp_work_member_share_queue', 'rp_work_push_queue') and value.get('active'):
+            self.work_events = True
         if kind == 'shared_departures':
             from transport_discovery import index_record as index_transport_record
             index_transport_record(self, key, value)

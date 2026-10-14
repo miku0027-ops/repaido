@@ -453,6 +453,46 @@ test('identity changes and media retirement reject late private downloads withou
   assert.equal(service.mediaFreshUntil(url),0);
 });
 
+test('viewed timeline windows survive read expiry and likes, and retire on privacy or identity changes',async()=>{
+  values.set('repaido.token','account-a');
+  const window={items:[{id:'loaded-post'}],cursor:'next-page',scroll:640};
+  service.rememberCommunityView('browse',window);now=300000;
+  assert.deepEqual(service.peekCommunityView('browse'),window);
+  globalThis.fetch=async()=>ok({active:true,likeCount:1});
+  await service.toggleActivity('ignored','likes','loaded-post',true);
+  assert.deepEqual(service.peekCommunityView('browse'),window,'A reaction cannot discard a browsing session.');
+  await service.blockMember('other-user');assert.equal(service.peekCommunityView('browse'),null);
+  service.rememberCommunityView('browse',window);values.set('repaido.token','account-b');
+  assert.equal(service.peekCommunityView('browse'),null,'A different identity cannot see the retained feed.');
+  const retired=service.communityViewScope();values.set('repaido.token','account-c');
+  assert.equal(service.rememberCommunityView('browse',window,retired),false);
+  assert.equal(service.peekCommunityView('browse'),null,'A late view cannot be filed under the next account.');
+});
+
+test('expired media revalidates its ETag and reuses bytes only after server authorization',async()=>{
+  values.set('repaido.token','account-a');const url='/api/repaidians/media/conditional';
+  globalThis.fetch=async(path,init)=>{calls.push({path,init});return mediaResponse('authorized-bytes',{ETag:'"fixture"'});};
+  const original=await service.loadMedia(url);now=60000;
+  globalThis.fetch=async(path,init)=>{calls.push({path,init});return new Response(null,{status:304,headers:{ETag:'"fixture"'}});};
+  assert.equal(await service.loadMedia(url),original);
+  assert.equal(calls.at(-1).init.headers['If-None-Match'],'"fixture"');
+  assert.equal(calls.at(-1).init.headers.Authorization,'Bearer account-a');
+  assert.equal(service.mediaFreshUntil(url),120000);
+  now=120000;globalThis.fetch=async()=>new Response(null,{status:404});
+  await assert.rejects(service.loadMedia(url),error=>error.status===404);
+  assert.equal(service.mediaFreshUntil(url),0);
+});
+
+test('background feed validation does not announce a mutation or accept a result before a privacy change',async()=>{
+  const response=deferred();let updates=0;const stop=service.subscribe(()=>updates++);
+  globalThis.fetch=async(path,init)=>{calls.push({path,init});return path.endsWith('/feed/validate')?response.promise:ok({});};
+  const old=service.validateCommunityFeed(['post-a','post-a']);await flush();
+  assert.deepEqual(JSON.parse(calls[0].init.body),{ids:['post-a']});
+  assert.equal(updates,0);await service.blockMember('peer');
+  response.resolve(ok({items:[{id:'private-stale'}],members:[],unavailable:[]}));
+  await assert.rejects(old,error=>error.code==='CONTENT_CHANGED');stop();
+});
+
 test('a denied media source leaves a separately authorized fresh avatar available',async()=>{
   const privateUrl='/api/repaidians/media/private',avatarUrl='/api/repaidians/media/avatar';
   globalThis.fetch=async(path,init)=>{calls.push({path,init});return mediaResponse(path);};

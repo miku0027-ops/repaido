@@ -12,7 +12,8 @@ spec.loader.exec_module(deploy)
 
 
 @pytest.mark.parametrize('existing_job', [False, True])
-def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path, monkeypatch, existing_job):
+@pytest.mark.parametrize('community_enabled', [False, True])
+def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path, monkeypatch, existing_job, community_enabled):
     commands = []
     services = []
     def fake_gcloud(*args, data=False):
@@ -22,6 +23,7 @@ def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path,
                 {'name':'REPAIDO_SMTP_PASSWORD','valueFrom':{'secretKeyRef':{'name':'smtp-password','key':'3'}}},
                 {'name':'REPAIDO_EMAIL_CHALLENGE_SECRET','valueFrom':{'secretKeyRef':{'name':'email-signing','key':'5'}}},
                 {'name':'REPAIDO_SMTP_HOST','value':'mail.example.com'},
+                {'name':'REPAIDO_COMMUNITY_API_ENABLED','value':str(community_enabled).lower()},
             ]}]}}}}
         if args[:2] == ('services', 'list'):
             return [{'config': {'name': service}} for service in deploy.REQUIRED_WORK_APIS]
@@ -51,15 +53,18 @@ def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path,
     other = '--headers=Content-Type=application/json' if existing_job else '--update-headers=Content-Type=application/json'
     assert other not in scheduler
     assert '--oidc-token-audience=https://repaido-work-worker.example.run.app' in scheduler
-    assert services == ['repaido-work-api', 'repaido-work-worker']
+    assert services == ['repaido-work-api', 'repaido-work-worker'] + (['repaido-community-api'] if community_enabled else [])
     run_deploys=[command for command in commands if command[:2]==('run','deploy')]
-    public,worker=run_deploys
+    public,worker=run_deploys[:2]
+    if community_enabled:
+        assert '--concurrency=32' in run_deploys[2] and '--min-instances=0' in run_deploys[2]
+        assert '--args=community_service:app,--host,0.0.0.0,--port,8080,--no-proxy-headers' in run_deploys[2]
     assert '--clear-secrets' in public
     assert not any('smtp-password' in arg or 'email-signing' in arg for arg in public)
     assert '--set-secrets=REPAIDO_SMTP_PASSWORD=smtp-password:3,REPAIDO_EMAIL_CHALLENGE_SECRET=email-signing:5' in worker
     assert not any(command[:2] == ('services', 'enable') for command in commands)
     receipt = json.loads((tmp_path / 'receipt.json').read_text())
-    assert [row['revision'] for row in receipt] == ['repaido-work-api-verified', 'repaido-work-worker-verified']
+    assert [row['revision'] for row in receipt] == ['repaido-work-api-verified', 'repaido-work-worker-verified'] + (['repaido-community-api-verified'] if community_enabled else [])
 
 
 @pytest.mark.parametrize('build_region', ['global', 'us-central1'])

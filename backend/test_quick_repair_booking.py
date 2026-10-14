@@ -27,5 +27,7 @@ def test_unavailable_or_ineligible_choice_does_not_create_a_booking(api):
 def test_default_none_keeps_legacy_retry_fingerprint(api):
     job,body=book(api)
     key=hashlib.sha256(('customer'+body['idempotency_key']).encode()).hexdigest()
-    old=Booking(**body).model_dump_json(exclude={'preferred_worker_id'})
+    # The legacy schema predates the three optional campaign quote fields.
+    old=Booking(**body).model_dump_json(exclude={'preferred_worker_id','promotion_version','promotion_discount_paise','promotion_original_price_paise'})
     assert main.operations_store.run(lambda u:u.get('booking_keys',key))['fingerprint']==hashlib.sha256(old.encode()).hexdigest()
+    assert api.post('/operations/bookings',headers=auth('customer'),json=body).json()['id']==job['id']

@@ -222,7 +222,7 @@ export default function App() {
   const [customContractId,setCustomContractId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-contract')||undefined);
   const [customProjectId,setCustomProjectId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('project_id')||undefined);
   const [customProposalId,setCustomProposalId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-proposal')||undefined);
-  const [communityProfileId,setCommunityProfileId]=useState<string>(),[communityContractReturn,setCommunityContractReturn]=useState(false);
+  const [communityProfileId,setCommunityProfileId]=useState<string|undefined>(()=>{const id=new URLSearchParams(location.search).get('repaidians-profile');return id&&/^[A-Za-z0-9_-]{1,100}$/.test(id)?id:undefined;}),[communityContractReturn,setCommunityContractReturn]=useState(false);
   const [communityJobId,setCommunityJobId]=useState<string>();
   const [communityStart,setCommunityStart]=useState<CommunityTab>(()=>new URLSearchParams(location.search).get('community')==='notifications'?'notifications':'feed'),[communityReference,setCommunityReference]=useState<OpportunityReference>();
   const [communityReturn,setCommunityReturn]=useState(false),[communityNative,setCommunityNative]=useState<{kind:'career';card:CommunityOpportunity}|{kind:'applications'}|{kind:'workspace';tab:'Tenders'|'Hiring';tenderId?:string;projectId?:string;agent?:boolean}|null>(null);

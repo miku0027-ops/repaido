@@ -7,9 +7,10 @@ import {Opportunities} from './Opportunities';
 import {ProfessionalNetwork} from './ProfessionalNetwork';
 import {ProfessionalProfile} from './ProfessionalProfile';
 import {WorkHub,WorkPreferences} from './WorkHub';
+import {ProfessionalWorkspace} from './ProfessionalWorkspace';
 import './work-and-market.css';
 
-export type WorkMarketView='market'|'jobs'|'applications'|'companies'|'contracts'|'network'|'background'|'history'|'preferences';
+export type WorkMarketView='market'|'jobs'|'applications'|'companies'|'contracts'|'tools'|'network'|'background'|'history'|'preferences';
 
 export interface WorkAndMarketProps {
   accountKey:string;
@@ -32,6 +33,10 @@ export interface WorkAndMarketProps {
   onSignIn?:()=>void;
   onDiscoverPeople:()=>void;
   onPrivacy?:()=>void;
+  onProfile?:()=>void;
+  onSaved?:()=>void;
+  onPublish?:(kind:import('../../types/repaidians').StudioKind)=>void;
+  onNotifications?:()=>void;
 }
 
 type Category='browse'|'work'|'tools';
@@ -42,6 +47,7 @@ const destinations=[
   {view:'applications',category:'work',label:'Applications',Icon:ClipboardList},
   {view:'contracts',category:'work',label:'Contracts',Icon:FileText},
   {view:'history',category:'work',label:'Shared work history',Icon:FileClock},
+  {view:'tools',category:'tools',label:'Overview',Icon:SlidersHorizontal},
   {view:'network',category:'tools',label:'Network',Icon:Users},
   {view:'background',category:'tools',label:'Background',Icon:UserRound},
   {view:'preferences',category:'tools',label:'Preferences',Icon:SlidersHorizontal},
@@ -66,6 +72,8 @@ export function WorkAndMarket(props:WorkAndMarketProps){
 
   const panel=()=>{
     switch(view){
+      case 'tools':
+        return <ProfessionalWorkspace accountKey={accountKey} onView={navigate} onProfile={props.onProfile||(()=>navigate('background'))} onSaved={props.onSaved||(()=>navigate('market'))} onPublish={props.onPublish||(()=>onManage('career'))} onNotifications={props.onNotifications||(()=>{})} onOpenMember={onOpenMember}/>;
       case 'market':
         return <Opportunities key={accountKey} city={city} revision={revision} onDestination={onDestination} onShare={onShare} onManage={source=>source==='applications'&&professionalAccess?navigate('applications'):onManage(source)}/>;
       case 'jobs':

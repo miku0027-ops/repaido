@@ -1,6 +1,6 @@
 import {auth} from '../firebase';
 import {withActionFeedback} from './actionFeedback';
-import {CommunityError} from './repaidiansService';
+import {CommunityError,communityIdentityKey} from './repaidiansService';
 import {createReadCache} from './readCache.mjs';
 import type {NetworkConnection,NetworkConnectionsPage,NetworkEndorsementsPage,NetworkPreferences,NetworkProfileDetails,NetworkProfilePatch,NetworkProfessionalProfile,NetworkRecommendation,NetworkRecommendationsPage} from '../types/repaidiansNetwork';
 
@@ -10,17 +10,17 @@ const reads=createReadCache({maxEntries:48});
 const commandKeys=new Map<string,string>();
 const UPDATE='repaidians:network-update';
 let scope='',generation=0,ownUpdate=false;
-function currentIdentity(){return auth.currentUser?.uid||localStorage.getItem('repaido.token')||'guest';}
+function currentIdentity(){return communityIdentityKey();}
 function syncIdentity(){const next=currentIdentity();if(next!==scope){scope=next;generation++;reads.invalidate();commandKeys.clear();}return next;}
 export function clearNetworkReads(){generation++;reads.invalidate();}
-function changed(){clearNetworkReads();ownUpdate=true;try{window.dispatchEvent(new Event(UPDATE));window.dispatchEvent(new Event('repaidians:update'));}finally{ownUpdate=false;}}
-window.addEventListener('repaidians:update',()=>{if(!ownUpdate){clearNetworkReads();window.dispatchEvent(new Event(UPDATE));}});
+function changed(){clearNetworkReads();ownUpdate=true;try{window.dispatchEvent(new Event(UPDATE));window.dispatchEvent(new CustomEvent('repaidians:update',{detail:{path:'/network',contentChanged:false}}));}finally{ownUpdate=false;}}
+window.addEventListener('repaidians:update',event=>{const change=(event as CustomEvent<{contentChanged?:boolean;path?:string}>).detail;if(change?.contentChanged===false||change?.path&&!/^\/(profile|network|blocks|settings)/.test(change.path))return;if(!ownUpdate){clearNetworkReads();window.dispatchEvent(new Event(UPDATE));}});
 export function subscribeNetworkReads(listener:()=>void){window.addEventListener(UPDATE,listener);return()=>window.removeEventListener(UPDATE,listener);}
 async function capturedIdentity(){
   await auth.authStateReady();
-  const user=auth.currentUser,fallback=user?null:localStorage.getItem('repaido.token'),identity=syncIdentity(),epoch=generation;
+  const user=auth.currentUser,identity=syncIdentity(),fallback=user||identity==='guest'?null:localStorage.getItem('repaido.token'),epoch=generation;
   const token=user?await user.getIdToken():fallback;
-  if(auth.currentUser?.uid!==user?.uid||(!user&&localStorage.getItem('repaido.token')!==fallback)||syncIdentity()!==identity)
+  if(auth.currentUser?.uid!==user?.uid||(!user&&identity!=='guest'&&localStorage.getItem('repaido.token')!==fallback)||syncIdentity()!==identity)
     throw new CommunityError('Your account changed. Reopen this view.',409,'ACCOUNT_CHANGED');
   return {identity,epoch,token};
 }

@@ -25,8 +25,11 @@ export const MEDIA_FRESH_MS = 60000;
 const MEDIA_CACHE_BYTES = 32 * 1024 * 1024;
 const cacheNow=()=>performance.now();
 const contentReads = createReadCache({maxEntries:48,now:cacheNow});
+// Already viewed windows remain in this browser session until refresh or an
+// authoritative change. They never enter persistent or shared browser storage.
+const sessionViews = createReadCache({maxEntries:24,now:cacheNow});
 const pendingReads = new Map<string, Promise<unknown>>();
-const mediaCache = new Map<string, {blob: Blob; at: number}>();
+const mediaCache = new Map<string, {blob: Blob; at: number;etag?:string}>();
 const mediaDeadlines = new WeakMap<Blob,{key:string;epoch:number;freshUntil:number}>();
 const pendingMedia = new Map<string, Promise<Blob>>();
 const mutationKeys = new Map<string, string>();
@@ -59,14 +62,18 @@ function clearMedia(){
 }
 export const communityMediaScope=()=>communityIdentityKey()+':'+mediaGeneration;
 export function subscribeCommunityMedia(listener:()=>void){window.addEventListener(MEDIA_UPDATE,listener);return()=>window.removeEventListener(MEDIA_UPDATE,listener);}
-function clearContent(){
-  contentGeneration++;contentReads.invalidate();
+function clearContent(retireViews=true){
+  contentGeneration++;contentReads.invalidate();if(retireViews)sessionViews.invalidate();
   // A new generation must not join a pre-mutation transport request.
-  for(const key of pendingReads.keys())if(/:\/(feed\?|members\/|publications\/)/.test(key))pendingReads.delete(key);
+  for(const key of pendingReads.keys())if(/:\/(feed\?|members(?:\/|\?)|publications\/|opportunities\?)/.test(key))pendingReads.delete(key);
 }
 // Authoritative access/profile changes also retire pending work and decoded
 // assets, without dispatching another content mutation or refresh loop.
 export function retireCommunityContent(){clearContent();clearMedia();}
+export function peekCommunityView<T>(key:string):T|null{return sessionViews.peek(syncIdentity()+':view:'+key,Number.POSITIVE_INFINITY) as T|null;}
+export function communityViewScope(){return syncIdentity()+':'+identityGeneration+':'+contentGeneration;}
+export function rememberCommunityView<T>(key:string,value:T,expectedScope=communityViewScope()){if(expectedScope!==communityViewScope())return false;sessionViews.remember(syncIdentity()+':view:'+key,value);return true;}
+export function dropCommunityView(key:string){sessionViews.invalidate(syncIdentity()+':view:'+key);}
 function syncIdentity(){
   const next=communityIdentityKey();
   if(next!==identityScope){identityScope=next;identityGeneration++;clearContent();clearMedia();pendingReads.clear();mutationKeys.clear();
@@ -114,9 +121,9 @@ async function contentRead<T>(path:string,force=false,signal?:AbortSignal):Promi
   }
 }
 function peekContent<T>(path:string):T|null{return contentReads.peek(syncIdentity()+':'+path,CONTENT_FRESH_MS) as T|null;}
-window.addEventListener(UPDATE,()=>{clearContent();});
+window.addEventListener(UPDATE,event=>{clearContent((event as CustomEvent<CommunityChange>).detail?.contentChanged!==false);});
 export async function communityRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  if(path==='/milestones/preview'||/^\/live(?:\/|$)/.test(path))return performCommunityRequest<T>(path,init);
+  if(path==='/milestones/preview'||path==='/feed/validate'||/^\/live(?:\/|$)/.test(path))return performCommunityRequest<T>(path,init);
   return withActionFeedback('/community'+path,init,()=>performCommunityRequest<T>(path,init));
 }
 async function performCommunityRequest<T>(path: string, init: RequestInit): Promise<T> {
@@ -175,6 +182,22 @@ export function subscribe(listener: (change?:CommunityChange) => void): () => vo
 }
 type FeedKind='post'|'story'|'reel'|'tender';
 type FeedPage=CommunityPage<CommunityPost|CommunityStory|CommunityReel|CommunityTender>;
+export interface CommunityBootstrap {state:CommunitySnapshot;timeline:FeedPage;stories:CommunityPage<CommunityStory>;}
+export const bootstrapCommunity=(kind:'post'|'reel'|'tender'='post')=>communityRequest<CommunityBootstrap>('/bootstrap?'+new URLSearchParams({kind,limit:'12'}));
+export interface ProfessionalWorkspaceData {
+  member:CommunityMember;completed:number;total:number;serverNow:number;
+  checklist:{id:string;label:string;complete:boolean;destination:'profile'|'background'|'publish'}[];
+  stats:{publications:number;connections:number;followers:number};
+  invitations:{id:string;memberId:string;note:string;updatedAt:number}[];members:CommunityMember[];moreInvitations:boolean;
+}
+export const professionalWorkspace=(force=false,signal?:AbortSignal)=>contentRead<ProfessionalWorkspaceData>('/professional/workspace',force,signal);
+export async function validateCommunityFeed(ids:string[],signal?:AbortSignal):Promise<Omit<FeedPage,'nextCursor'>&{unavailable:string[]}> {
+  const owner=await identity(),epoch=contentGeneration;
+  const result=await communityRequest<Omit<FeedPage,'nextCursor'>&{unavailable:string[]}>('/feed/validate',{method:'POST',body:JSON.stringify({ids:[...new Set(ids)].slice(0,100)}),signal});
+  assertIdentity(owner);
+  if(epoch!==contentGeneration)throw new CommunityError('The community changed. Refresh this view.',409,'CONTENT_CHANGED');
+  return result;
+}
 function feedPath(kind:FeedKind,trade:Trade|'all',mode:string,cursor:string,limit:number){
   const params = new URLSearchParams({kind,trade,mode,limit:String(Math.max(1,Math.min(50,Math.floor(limit))))});
   if(cursor)params.set('cursor',cursor);
@@ -183,16 +206,16 @@ function feedPath(kind:FeedKind,trade:Trade|'all',mode:string,cursor:string,limi
 export const feed=(kind:FeedKind,trade:Trade|'all'='all',mode='all',cursor='',signal?:AbortSignal,limit=12,force=false)=>contentRead<FeedPage>(feedPath(kind,trade,mode,cursor,limit),force,signal);
 export const peekFeed=(kind:FeedKind,trade:Trade|'all'='all',mode='all',cursor='',limit=12)=>peekContent<FeedPage>(feedPath(kind,trade,mode,cursor,limit));
 export const feedFreshUntil=(kind:FeedKind,trade:Trade|'all'='all',mode='all',cursor='',limit=12)=>contentReads.freshUntil(syncIdentity()+':'+feedPath(kind,trade,mode,cursor,limit),CONTENT_FRESH_MS);
-export const searchMembers = (query:string,signal?:AbortSignal,filters:ProfessionalFilters={},cursor='') => {
+export const searchMembers = (query:string,signal?:AbortSignal,filters:ProfessionalFilters={},cursor='',force=false) => {
   const params=new URLSearchParams({search:query.replace(/^@/,''),limit:'20'});
   for(const key of ['trade','city','workStatus','professionalType'] as const)if(filters[key]&&filters[key]!=='all')params.set(key,filters[key]!);
   if(cursor||filters.cursor)params.set('cursor',cursor||filters.cursor!);
-  return communityRequest<{members:CommunityMember[];nextCursor?:string|null;indexing?:boolean}>('/members?'+params,{signal});
+  return contentRead<{members:CommunityMember[];nextCursor?:string|null;indexing?:boolean}>('/members?'+params,force,signal);
 };
-export const opportunities=(filters:OpportunityFilters={},signal?:AbortSignal)=>{
+export const opportunities=(filters:OpportunityFilters={},signal?:AbortSignal,force=false)=>{
   const params=new URLSearchParams();
   for(const [key,value] of Object.entries(filters))if(value!==undefined&&value!=='')params.set(key,String(value));
-  return communityRequest<OpportunityPage>('/opportunities?'+params,{signal});
+  return contentRead<OpportunityPage>('/opportunities?'+params,force,signal);
 };
 export const opportunityDetails=(reference:OpportunityReference)=>communityRequest<CommunityOpportunity>('/opportunities/'+encodeURIComponent(reference.source)+'/'+encodeURIComponent(reference.id));
 export const saveOpportunity=(reference:OpportunityReference,active:boolean)=>mutate<{saved:boolean}>('/opportunities/'+encodeURIComponent(reference.source)+'/'+encodeURIComponent(reference.id)+'/saved','PUT',{active});
@@ -255,15 +278,19 @@ export async function loadMedia(url: string,signal?:AbortSignal): Promise<Blob|n
   const owner=await identity(),{token,key}=owner,epoch=mediaGeneration;
   if(signal?.aborted)throw new DOMException('Request cancelled.','AbortError');
   const cacheKey = key + ':' + url;
-  for(const [key,entry] of mediaCache)if(cacheNow()-entry.at>=MEDIA_FRESH_MS)removeMedia(key);
   const stored = mediaCache.get(cacheKey);
   if(stored){mediaCache.delete(cacheKey);mediaCache.set(cacheKey,stored);}
-  let request=stored?Promise.resolve(stored.blob):pendingMedia.get(cacheKey);
+  let request=stored&&cacheNow()-stored.at<MEDIA_FRESH_MS?Promise.resolve(stored.blob):pendingMedia.get(cacheKey);
   if(!request){
     request=(async()=>{
-      const response=await fetch(url,{credentials:'same-origin',headers:token?{Authorization:'Bearer '+token}:{},signal:AbortSignal.timeout(30000)});
+      const response=await fetch(url,{credentials:'same-origin',headers:{...(token?{Authorization:'Bearer '+token}:{}),...(stored?.etag?{'If-None-Match':stored.etag}:{})},signal:AbortSignal.timeout(30000)});
       assertIdentity(owner);
       if(epoch!==mediaGeneration)throw new CommunityError('Media access changed. Reopen this view.',409,'MEDIA_CHANGED');
+      if(response.status===304&&stored?.etag){
+        const at=cacheNow();removeMedia(cacheKey);mediaCache.set(cacheKey,{...stored,at});mediaBytes+=stored.blob.size;
+        while(mediaCache.size>64||mediaBytes>MEDIA_CACHE_BYTES)removeMedia(mediaCache.keys().next().value!);
+        mediaDeadlines.set(stored.blob,{key:cacheKey,epoch,freshUntil:at+MEDIA_FRESH_MS});return stored.blob;
+      }
       if(!response.ok){
         if([401,402,403,404].includes(response.status))removeMedia(cacheKey);
         throw new CommunityError('Media is unavailable. Retry or check your access.',response.status);
@@ -274,7 +301,7 @@ export async function loadMedia(url: string,signal?:AbortSignal): Promise<Blob|n
       if(epoch!==mediaGeneration)throw new CommunityError('Media access changed. Reopen this view.',409,'MEDIA_CHANGED');
       if(blob.size>MAX_MEDIA_BYTES)throw new CommunityError('This media exceeds the supported size.',413,'MEDIA_TOO_LARGE');
       const at=cacheNow();mediaDeadlines.set(blob,{key:cacheKey,epoch,freshUntil:at+MEDIA_FRESH_MS});
-      removeMedia(cacheKey);mediaCache.set(cacheKey,{blob,at});mediaBytes+=blob.size;
+      removeMedia(cacheKey);mediaCache.set(cacheKey,{blob,at,etag:response.headers.get('ETag')||undefined});mediaBytes+=blob.size;
       while(mediaCache.size>64||mediaBytes>MEDIA_CACHE_BYTES)removeMedia(mediaCache.keys().next().value!);
       return blob;
     })();

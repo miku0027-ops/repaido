@@ -4,17 +4,18 @@ import type {CommunityMember} from '../../types/repaidians';
 import type {NetworkConnection,NetworkConnectionsPage,NetworkPreferences,NetworkRecommendation,NetworkRecommendationsPage} from '../../types/repaidiansNetwork';
 import {decideRecommendation,networkConnections,networkPreferences,networkRecommendations,subscribeNetworkReads,updateConnection,updateNetworkPreferences} from '../../services/repaidiansNetworkService';
 import {Avatar,tradeName} from './common';
+import {peekCommunityView,communityViewScope,rememberCommunityView,dropCommunityView} from '../../services/repaidiansService';
 import './professional-network.css';
 
 export function useNetworkResource<T>(key:string,load:(force:boolean,signal:AbortSignal)=>Promise<T>,enabled=true){
   const loader=useRef(load);loader.current=load;
-  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>({key,data:null,busy:enabled,error:''});
+  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>(()=>({key,data:peekCommunityView<T>('network-panel:'+key),busy:enabled,error:''}));
   const [revision,setRevision]=useState(0),sequence=useRef(0),controller=useRef<AbortController|null>(null),mounted=useRef(true);
   const refresh=useCallback(async(force=true)=>{
-    if(!enabled)return;controller.current?.abort();const abort=new AbortController();controller.current=abort;const stamp=++sequence.current;
-    setState(prior=>({key,data:prior.key===key?prior.data:null,busy:true,error:''}));
-    try{const data=await loader.current(force,abort.signal);if(mounted.current&&sequence.current===stamp&&!abort.signal.aborted)setState({key,data,busy:false,error:''});}
-    catch(error){if(mounted.current&&sequence.current===stamp&&!abort.signal.aborted)setState(prior=>({...prior,data:[401,403,404].includes((error as {status?:number}).status||0)?null:prior.data,busy:false,error:(error as Error).message}));}
+    if(!enabled)return;controller.current?.abort();const abort=new AbortController();controller.current=abort;const stamp=++sequence.current,owner=communityViewScope();
+    setState(prior=>({key,data:prior.key===key?prior.data:peekCommunityView<T>('network-panel:'+key),busy:true,error:''}));
+    try{const data=await loader.current(force,abort.signal);if(mounted.current&&sequence.current===stamp&&!abort.signal.aborted&&owner===communityViewScope()){rememberCommunityView('network-panel:'+key,data);setState({key,data,busy:false,error:''});}}
+    catch(error){if([401,402,403,404].includes((error as {status?:number}).status||0))dropCommunityView('network-panel:'+key);if(mounted.current&&sequence.current===stamp&&!abort.signal.aborted&&owner===communityViewScope())setState(prior=>({...prior,data:[401,403,404].includes((error as {status?:number}).status||0)?null:prior.data,busy:false,error:(error as Error).message}));}
   },[key,enabled]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;sequence.current++;controller.current?.abort();};},[]);
   useEffect(()=>subscribeNetworkReads(()=>setRevision(value=>value+1)),[]);
