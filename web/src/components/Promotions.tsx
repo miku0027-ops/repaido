@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {onIdTokenChanged} from 'firebase/auth';
 import {ArrowRight,Car,ChevronLeft,ChevronRight,Gift,Headphones,IndianRupee,Leaf,Pause,Play,Repeat2,ShieldCheck,Sparkles,Wrench,X,Zap} from 'lucide-react';
 import {auth} from '../firebase';
@@ -9,21 +9,51 @@ import {Modal} from './ui';
 import {seededServices} from '../data';
 import type {Service} from '../types';
 import './promotions.css';
+import {createReadCache} from '../services/readCache.mjs';
 export type Placement='home'|'explore'|'checkout'|'launch'|'push';
 export type Promotion={home_service?:string;event_name?:string;image_url?:string;image_alt?:string;layout?:string;launch_only?:boolean;id:string;version:number;title:string;body:string;icon:string;tone:string;terms:string;ends_at:number;discount_paise:number;price_paise:number;offer_price_paise:number;per_user_limit:number;reason:string;service?:{id:string;name:string;category:Service['category'];description:string;price_paise:number;duration_minutes:number;included:string[];excluded:string[]}};
 const icons:Record<string,typeof Gift>={gift:Gift,sparkles:Sparkles,wrench:Wrench,shield:ShieldCheck,rupee:IndianRupee,headset:Headphones,repeat:Repeat2,leaf:Leaf,car:Car,zap:Zap};
 const defaults:Promotion[]=[['sparkles','A little care. A better home.','Find the right service for your next home project.'],['shield','Your home. Your call.','Review the scope, price and any extras before approving.'],['wrench','From plans to progress.','Follow your visits, home plans and contracts in Bookings.'],['headset','Care beyond the visit.','Keep booking records and support together, whenever you need them.']].map(([icon,title,body],i)=>({id:'usp-'+i,version:1,title,body,icon,tone:i%2?'blue':'mint',terms:body,ends_at:0,discount_paise:0,price_paise:0,offer_price_paise:0,per_user_limit:0,reason:''}));
 export function promotionService(c:Promotion):Service{const s=c.service!;const art=seededServices.find(a=>a.id===s.id)||seededServices.find(a=>a.category===s.category);return {...s,price:s.price_paise,duration:s.duration_minutes,image:art?.image||'',imageTile:art?.imageTile,imageAlt:s.name};}
-function useCampaigns(city:string,placement:Placement,serviceId=''){
- const feedKey=useRef('');const [uid,setUid]=useState<string>();const [cards,setCards]=useState<Promotion[]>([]),[seconds,setSeconds]=useState(4),[busy,setBusy]=useState(true),[error,setError]=useState(''),[epoch,setEpoch]=useState(0);
- useEffect(()=>onIdTokenChanged(auth,u=>setUid(u?.uid)),[]);
- useEffect(()=>{const refresh=()=>{if(document.visibilityState==='visible')setEpoch(x=>x+1);};const timer=setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('repaido:interests',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('repaido:interests',refresh);};},[]);
- useEffect(()=>{let alive=true;const key=JSON.stringify([uid,city,placement,serviceId]);if(feedKey.current!==key){setCards([]);feedKey.current=key;}setBusy(true);setError('');const body=JSON.stringify({city,placement,service_id:serviceId});const fetchCards=async()=>{try{let data:{cards:Promotion[];rotation_seconds:number};if(uid)data=await operation('/campaigns/feed/personal',{method:'POST',body},{background:true});else{const r=await apiFetch('/api/operations/campaigns/feed',{method:'POST',headers:{'Content-Type':'application/json'},body,signal:AbortSignal.timeout(10000)},{background:true});if(!r.ok)throw Error('Offers could not load.');data=await r.json();}if(alive){setCards(data.cards);setSeconds(data.rotation_seconds);}}catch{if(alive)setError('Offers could not load. Regular services are still available.');}finally{if(alive)setBusy(false);}};void fetchCards();return()=>{alive=false;};},[uid,city,placement,serviceId,epoch]);
- return {cards,seconds,busy,error,uid,retry:()=>setEpoch(n=>n+1)};
+const campaignCache=createReadCache({maxEntries:16});
+export type CampaignFeed={cards:Promotion[];seconds:number;busy:boolean;error:string;uid:string|undefined;retry:()=>void};
+export function useCampaigns(city:string,placement:Placement,serviceId='',active=true):CampaignFeed{
+ const [uid,setUid]=useState<string>();
+ const [state,setState]=useState<{key:string;cards:Promotion[];seconds:number;busy:boolean;error:string}>({key:'',cards:[],seconds:4,busy:false,error:''}),[epoch,setEpoch]=useState(0);
+ const key=JSON.stringify([uid,city,placement,serviceId]);
+ useEffect(()=>onIdTokenChanged(auth,u=>setUid(u?.uid||'')),[]);
+ useEffect(()=>{
+  if(!active)return;
+  const refresh=()=>{if(!document.hidden)setEpoch(x=>x+1);};
+  const interests=()=>{campaignCache.invalidate();refresh();};
+  const timer=setInterval(refresh,60000);
+  window.addEventListener('focus',refresh);window.addEventListener('repaido:interests',interests);window.addEventListener('repaido:discovery-intent',interests);window.addEventListener('repaido:operations-updated',interests);
+  return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('repaido:interests',interests);window.removeEventListener('repaido:discovery-intent',interests);window.removeEventListener('repaido:operations-updated',interests);};
+ },[active]);
+ useEffect(()=>{
+  if(!active||uid===undefined)return;
+  let alive=true;
+  setState(old=>({...old,key,cards:old.key===key?old.cards:[],busy:true,error:''}));
+  const body=JSON.stringify({city,placement,service_id:serviceId});
+  void campaignCache.read(key,async()=>{
+   if(uid)return operation<{cards:Promotion[];rotation_seconds:number}>('/campaigns/feed/personal',{method:'POST',body},{background:true,feedback:false});
+   const r=await apiFetch('/api/operations/campaigns/feed',{method:'POST',headers:{'Content-Type':'application/json'},body,signal:AbortSignal.timeout(10000)},{background:true,feedback:false});
+   if(!r.ok)throw Error('Offers could not load.');return r.json();
+  },{freshMs:20000}).then(data=>{if(alive)setState({key,cards:data.cards,seconds:data.rotation_seconds,busy:false,error:''});}).catch(()=>{if(alive)setState({key,cards:[],seconds:4,busy:false,error:'Offers could not load. Regular services are still available.'});});
+  return()=>{alive=false;};
+ },[key,active,uid,city,placement,serviceId,epoch]);
+ const cards=useMemo(()=>state.key===key?state.cards.filter(card=>card.ends_at>Date.now()/1000):[],[state,key,epoch]);
+ useEffect(()=>{
+  const expiry=Math.min(...cards.map(c=>c.ends_at));if(!Number.isFinite(expiry))return;
+  const timer=setTimeout(()=>setEpoch(n=>n+1),Math.min(2147483647,Math.max(1,expiry*1000-Date.now())));
+  return()=>clearTimeout(timer);
+ },[cards]);
+ return {cards,seconds:state.seconds,busy:active&&(uid===undefined||state.key!==key||state.busy),error:state.key===key?state.error:'',uid,retry:()=>{campaignCache.invalidate(key);setEpoch(n=>n+1);}};
 }
 async function interaction(card:Promotion,kind:'open'|'impression'|'dismiss'){if(!auth.currentUser||card.id.startsWith('usp-'))return;await operation(`/campaigns/${encodeURIComponent(card.id)}/events`,{method:'POST',body:JSON.stringify({kind,event_id:crypto.randomUUID()})},{background:true});}
-export function PromotionRail({city,placement='home',serviceId='',onOpen,onSignIn,onCards,onExplore}:{city:string;placement?:Placement;serviceId?:string;onOpen:(c:Promotion)=>void;onSignIn?:()=>void;onCards?:(cards:Promotion[])=>void;onExplore?:()=>void}){
- const feed=useCampaigns(city,placement,serviceId),[index,setIndex]=useState(0),[paused,setPaused]=useState(false),[hovered,setHovered]=useState(false),[reduced,setReduced]=useState(false),[visible,setVisible]=useState(false),[detail,setDetail]=useState<Promotion|null>(null),[dismissed,setDismissed]=useState(false),[status,setStatus]=useState('');const rail=useRef<HTMLElement>(null),touch=useRef<{x:number;y:number}|null>(null);
+export function PromotionRail({city,placement='home',serviceId='',onOpen,onSignIn,onCards,onExplore,campaignFeed}:{campaignFeed?:CampaignFeed;city:string;placement?:Placement;serviceId?:string;onOpen:(c:Promotion)=>void;onSignIn?:()=>void;onCards?:(cards:Promotion[])=>void;onExplore?:()=>void}){
+ const localFeed=useCampaigns(city,placement,serviceId,!campaignFeed),feed=campaignFeed||localFeed;const [index,setIndex]=useState(0),[paused,setPaused]=useState(false),[hovered,setHovered]=useState(false),[reduced,setReduced]=useState(false),[visible,setVisible]=useState(false),[detail,setDetail]=useState<Promotion|null>(null),[dismissed,setDismissed]=useState(false),[status,setStatus]=useState('');const rail=useRef<HTMLElement>(null),touch=useRef<{x:number;y:number}|null>(null);
+ useEffect(()=>{setDetail(null);setIndex(0);},[feed.uid,city]);
  useEffect(()=>{onCards?.(feed.cards);},[feed.cards,onCards]);
  const [launchHidden,setLaunchHidden]=useState(false);
  const cards=placement==='home'?[...feed.cards.filter(c=>!c.launch_only||!launchHidden),...defaults]:feed.cards;const current=index%Math.max(1,cards.length),card=cards[current];

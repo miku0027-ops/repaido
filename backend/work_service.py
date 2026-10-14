@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from work_runtime import health, initialize, shared_core
 from http_boundary import TransportBoundaryMiddleware
+from work_dispatch import WorkEventDispatchMiddleware
 
 logger = logging.getLogger('repaido.work.api')
 
@@ -40,6 +41,7 @@ def create_app(core=None):
         yield
 
     application = FastAPI(title='Repaido work discovery API', version='1.0.0', lifespan=lifespan)
+    application.add_middleware(WorkEventDispatchMiddleware)
     application.add_middleware(CORSMiddleware,
         allow_origins=['https://repaido.com', 'https://www.repaido.com',
                        'https://repaido.web.app', 'https://repaido.firebaseapp.com',

@@ -1,6 +1,9 @@
 # Upload only the sources needed by the root Cloud Build pipeline.
 **
 !cloudbuild.yaml
+!cloudbuild-web.yaml
+!cloudbuild-api.yaml
+!cloudbuild-rules.yaml
 !firebase.json
 !firebase.security-tests.json
 !firestore.rules
@@ -9,11 +12,16 @@
 !scripts/
 !scripts/*.py
 !scripts/*.mjs
+!scripts/*.sh
+!deployment/
+!deployment/cpanel/
+!deployment/cpanel/.htaccess
 !backend/
 !backend/*.py
 !backend/requirements.txt
 !backend/requirements-dev.txt
 !backend/Dockerfile
+!backend/.dockerignore
 !web/
 !web/**
 web/node_modules/

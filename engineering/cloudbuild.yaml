@@ -1,0 +1,25 @@
+# Manual build only. Deployment runs separately under the Cloud Shell operator.
+steps:
+  - id: authorize-and-test
+    name: python:3.12-slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        python3 engineering/release.py --check-build --commit='$COMMIT_SHA' --approved='${_RELEASE_APPROVED}'
+        pip install --no-cache-dir -r engineering/requirements.txt pytest==8.3.5 httpx==0.28.1
+        python -m pytest -q engineering/tests
+  - id: build-console
+    name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args: ['build', '-f', 'engineering/Dockerfile', '--build-arg', 'SOURCE_REVISION=$COMMIT_SHA', '-t', '${_IMAGE}:$BUILD_ID', '.']
+  - id: push-console
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}:$BUILD_ID']
+images: ['${_IMAGE}:$BUILD_ID']
+substitutions:
+  _RELEASE_APPROVED: 'false'
+  _IMAGE: us-central1-docker.pkg.dev/repaido/cloud-run-source-deploy/repaido-engineering
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

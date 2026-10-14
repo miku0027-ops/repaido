@@ -1,3 +1,4 @@
+import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
 import {HomeDiscoveryHub} from './components/HomeDiscoveryHub';
 import {TransportRail} from './components/TransportRail';
 import {MobilityHub,ScrapHub,TransportBookings} from './components/LocalBusiness';
@@ -23,7 +24,7 @@ import {StoresIcon} from './components/StoresIcon';
 import {auth} from './firebase';
 import {useCustomerIdentity} from './services/customerIdentity';
 import {operation,operationSnapshot,invalidateOperationReads,type Job} from './services/operations';
-import {PromotionRail,PromotionPreferences,promotionService,type Promotion} from './components/Promotions';
+import {PromotionRail,PromotionPreferences,promotionService,useCampaigns,type Promotion} from './components/Promotions';
 import {Hiring,HireRequests} from './components/Hiring';
 import {Marketplace} from './components/Marketplace';
 import {HomeServiceDetails} from './components/HomeServiceDetails';
@@ -221,7 +222,7 @@ export default function App() {
   const [customContractId,setCustomContractId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-contract')||undefined);
   const [customProjectId,setCustomProjectId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('project_id')||undefined);
   const [customProposalId,setCustomProposalId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-proposal')||undefined);
-  const [communityProfileId,setCommunityProfileId]=useState<string>(),[communityContractReturn,setCommunityContractReturn]=useState(false);
+  const [communityProfileId,setCommunityProfileId]=useState<string|undefined>(()=>{const id=new URLSearchParams(location.search).get('repaidians-profile');return id&&/^[A-Za-z0-9_-]{1,100}$/.test(id)?id:undefined;}),[communityContractReturn,setCommunityContractReturn]=useState(false);
   const [communityJobId,setCommunityJobId]=useState<string>();
   const [communityStart,setCommunityStart]=useState<CommunityTab>(()=>new URLSearchParams(location.search).get('community')==='notifications'?'notifications':'feed'),[communityReference,setCommunityReference]=useState<OpportunityReference>();
   const [communityReturn,setCommunityReturn]=useState(false),[communityNative,setCommunityNative]=useState<{kind:'career';card:CommunityOpportunity}|{kind:'applications'}|{kind:'workspace';tab:'Tenders'|'Hiring';tenderId?:string;projectId?:string;agent?:boolean}|null>(null);
@@ -359,7 +360,7 @@ export default function App() {
   const [marketProfile,setMarketProfile]=useState<'exchange'|'second_hand'|null>(()=>new URLSearchParams(location.search).get('market')==='exchange'?'exchange':new URLSearchParams(location.search).get('market')==='second_hand'?'second_hand':null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedPromotion,setSelectedPromotion]=useState<string|undefined>();
-  const openPromotion=(c:Promotion)=>{if(c.home_service){setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);setHomeHub(c.home_service);return;}if(c.service){setSelectedPromotion(c.id);setSelectedService(promotionService(c));}};
+  const openPromotion=(c:Promotion)=>{if(c.home_service){setSelectedService(null);setPreferredProfessional(undefined);setSelectedPromotion(undefined);setHomeHub(c.home_service);return;}if(c.service){setPreferredProfessional(undefined);setSelectedPromotion(c.id);setSelectedService(promotionService(c));}};
   const [bookingStep, setBookingStep] = useState(0);
 
   // Booking Form State for 4-Step Android Booking Sheet
@@ -408,12 +409,15 @@ export default function App() {
   useEffect(()=>{setCommunityNative(null);setCommunityReference(undefined);setCommunityJobId(undefined);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityRouteError('');},[user?.id]);
   const customerIdentity=useCustomerIdentity(user,portal);
   const accountProfile=useAccountProfile(user?.id);
+  const captainMembership=useCaptain();
+  const captainPhoto=useCaptainPhoto(captainMembership.data?.profile.photo_id);
   const [emailProfileOpen,setEmailProfileOpen]=useState(()=>!!emailVerificationLink());
   useEffect(()=>{setEmailProfileOpen(!!emailVerificationLink());},[user?.id]);
   const [offerSettings,setOfferSettings]=useState(false);
   useEffect(()=>{const campaign=new URLSearchParams(location.search).get('campaign');if(!campaign)return;let alive=true;const body=JSON.stringify({city:place.city,placement:'push'});const load=async()=>{try{await auth.authStateReady();const r=auth.currentUser?await operation<{cards:Promotion[]}>('/campaigns/feed/personal',{method:'POST',body}):await apiFetch('/api/operations/campaigns/feed',{method:'POST',headers:{'Content-Type':'application/json'},body}).then(r=>r.json());const match=r.cards.find((c:Promotion)=>c.id===campaign);if(alive&&match)openPromotion(match);else if(alive)setError('This offer is no longer available. You can still browse regular services.');}catch{if(alive)setError('Offer could not load. Please retry from notifications.');}};void load();return()=>{alive=false;};},[place.city]);
   const [finderSlot] = useState(()=>2+Math.floor(Math.random()*3));
   const hydration = useServiceHydration(user?.id, place.city, tab === 'Explore' && !discoveryOpen);
+  const homeCampaigns=useCampaigns(place.city,'home','',tab==='Explore'&&!query);
 
   // Customer Auth Flow: Create account vs Already Have Account
   const [authMode, setAuthMode] = useState<'create' | 'signin'>('create');
@@ -931,7 +935,7 @@ export default function App() {
           {/* 1. EXPLORE TAB */}
           {tab === 'Explore' && (
                 <div className="android-explore-screen">
-                  <HomeGreeting greeting={user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:'Hello there!'} location={place.address||place.city} onLocation={()=>setCityModalOpen(true)}/>
+                  <HomeGreeting offers={homeCampaigns.cards} onOffer={openPromotion} greeting={user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:'Hello there!'} location={place.address||place.city} onLocation={()=>setCityModalOpen(true)}/>
               <h1 className="sr-only">Home services</h1>
               {/* Search Field */}
               <div className="repaido-search-container">
@@ -957,13 +961,13 @@ export default function App() {
 
               {!query && (
                 <>
-                  <HomeDiscoveryHub location={place} accountKey={user?.id||'guest'} onLocation={()=>setCustomerMapModalOpen(true)} onSignIn={()=>setSheet('auth')} personalised={hydration.enabled} transportInterest={hydration.feed?.transport_interest} repairInterest={hydration.feed?.cards.some(card=>card.personalised)} transportMode={hydration.feed?.preferred_transport_mode||undefined} onEvent={hydration.event} onBook={(service,professional)=>{setPreferredProfessional(professional);setSelectedPromotion(undefined);setSelectedService(service);}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}}/>
+                  <HomeDiscoveryHub location={place} accountKey={user?.id||'guest'} onLocation={()=>setCustomerMapModalOpen(true)} onSignIn={()=>setSheet('auth')} personalised={hydration.enabled} transportInterest={hydration.feed?.transport_interest} repairInterest={hydration.feed?.cards.some(card=>card.personalised)} transportMode={hydration.feed?.preferred_transport_mode||undefined} preferredFocus={hydration.feed?.preferred_discovery_focus} repairCategory={hydration.feed?.preferred_repair_category} onEvent={hydration.event} onBook={(service,professional)=>{setPreferredProfessional(professional);setSelectedPromotion(undefined);setSelectedService(service);}} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}}/>
                   {user?.id&&<CustomerContractMatches key={user.id} accountKey={user.id} onOpen={openCustomContract}/>}
                   <HomeQuickActions city={place.city} location={place.confirmed&&typeof place.lat==='number'&&typeof place.lng==='number'?{lat:place.lat,lng:place.lng}:undefined} onLocation={()=>setCustomerMapModalOpen(true)} onMarket={(section,options)=>{openStoreSection(section);setMarketQuick(options||{});}} onHire={()=>setTab('Hire')} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} onService={handleOpenBooking} onCatalogue={()=>{setActiveCategory('all');setTab('Services');}} onOpenCart={()=>setShowCartDrawer(true)}/>
                   <div className="home-promotion-slot"><HomeEntry onOpen={()=>setHomeHub('')}/></div>
 
                   {/* 3-Column Service Category Grid with Modern Motion Graphics, 3D Option Slides, Offers & Depth Shadows */}
-                  <HomeServiceDiscovery key={place.city+':'+(user?.id||'guest')} city={place.city} activeCategory={activeCategory} onSelectCategory={catId=>{setActiveCategory(catId);setTab('Services');}} onOpen={openPromotion} onSignIn={()=>setSheet('auth')}/>
+                  <HomeServiceDiscovery campaignFeed={homeCampaigns} key={place.city+':'+(user?.id||'guest')} city={place.city} activeCategory={activeCategory} onSelectCategory={catId=>{setActiveCategory(catId);setTab('Services');}} onOpen={openPromotion} onSignIn={()=>setSheet('auth')}/>
                   {/* Marketplace Sliding Notifier: Buy, Rent, Exchange, Sell */}
                   <div className="marketplace-sliding-notifier-container">
                     <div className="marketplace-sliding-header">
@@ -1094,7 +1098,7 @@ export default function App() {
               <div className="w-full market-experience">
                 <BusinessTabs label="Marketplace destination" panelId="market-destination-panel" value={marketSubTab} onChange={setMarketSubTab} items={[{id:'spares',label:'Marketplace'},{id:'b2b',label:'B2B Wholesale'},{id:'tenders',label:'Contracts'},{id:'mobility',label:'Cabs & cars'},{id:'scrap',label:'Sell scrap'}]}/>
                 <div id="market-destination-panel" role="tabpanel" aria-label={marketSubTab==='mobility'?'Cabs and car rentals':marketSubTab==='scrap'?'Sell scrap':marketSubTab==='spares'?'Marketplace':marketSubTab==='b2b'?'B2B Wholesale':'Contracts'}>
-                {marketSubTab === 'mobility' ? <MobilityHub initialMode={hydration.feed?.preferred_transport_mode||undefined} onSearch={mode=>hydration.event({kind:'search',category:'transport_'+mode})} key={'mobility:'+(auth.currentUser?.uid||'guest')} initialLocation={place} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'scrap' ? <ScrapHub key={'scrap:'+(auth.currentUser?.uid||'guest')} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'spares' ? (
+                {marketSubTab === 'mobility' ? <MobilityHub initialMode={hydration.feed?.preferred_transport_mode||undefined} onModeSelect={mode=>hydration.event({kind:'category_view',category:'transport_'+mode})} onSearch={mode=>hydration.event({kind:'search',category:'transport_'+mode})} key={'mobility:'+(auth.currentUser?.uid||'guest')} initialLocation={place} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'scrap' ? <ScrapHub key={'scrap:'+(auth.currentUser?.uid||'guest')} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'spares' ? (
                   <SparePartsShop
                     onContracts={()=>setMarketSubTab('tenders')}
                     onSignIn={()=>setSheet('auth')}
@@ -1132,7 +1136,7 @@ export default function App() {
               <>
                 <AccountHub
                   key={user?.id || 'guest'}
-                  identity={user ? {name:customerIdentity.name,label:customerIdentity.accountLabel,email:accountProfile.profile?.email||undefined,phone:user.phone,photoURL:customerIdentity.photoURL||user.photoURL,agentLabel:customerIdentity.agentLabel} : null}
+                  identity={user ? {name:customerIdentity.name,label:customerIdentity.accountLabel,email:accountProfile.profile?.email||undefined,phone:user.phone,photoURL:captainPhoto||customerIdentity.photoURL||user.photoURL,agentLabel:customerIdentity.agentLabel} : null}
                   emailStatus={accountProfile.profile?.verification_status}
                   onCompleteEmail={user?()=>setEmailProfileOpen(true):undefined}
                   city={place.city}
@@ -1172,7 +1176,7 @@ export default function App() {
           </main>
 
           {/* Mobile Bottom Navigation Bar */}
-          <nav className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
+          <nav data-captain-gold={captainMembership.gold} className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
             <button
               className={`android-nav-item ${tab === 'Explore' ? 'active' : ''}`}
               onClick={() => navigate('Explore')}

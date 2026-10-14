@@ -2,7 +2,7 @@ import {beforeEach,test} from 'node:test';
 import assert from 'node:assert/strict';
 import {connectStream,streamEndpoint} from '../src/services/streamConnection.mjs';
 let peers,calls,response;
-beforeEach(()=>{peers=[];calls=[];response=()=>new Response('valid-test-sdp-answer',{status:201,headers:{Location:'/session/opaque'}});globalThis.RTCPeerConnection=class{constructor(){this.iceGatheringState='complete';this.connectionState='new';this.tracks=[];peers.push(this);}addTrack(track){this.tracks.push(track);}addTransceiver(kind,config){this.tracks.push({kind,...config});}async createOffer(){return {type:'offer',sdp:'valid-test-sdp-offer'};}async setLocalDescription(value){this.localDescription=value;}async setRemoteDescription(value){this.remoteDescription=value;}close(){this.closed=true;}};globalThis.fetch=async(url,init)=>{calls.push({url,init});return response(url,init);};});
+beforeEach(()=>{peers=[];calls=[];response=()=>new Response('valid-test-sdp-answer',{status:201,headers:{Location:'/session/opaque'}});globalThis.RTCPeerConnection=class extends EventTarget{constructor(){super();this.iceGatheringState='complete';this.connectionState='connected';this.tracks=[];peers.push(this);}addTrack(track){this.tracks.push(track);}addTransceiver(kind,config){this.tracks.push({kind,...config});}async createOffer(){return {type:'offer',sdp:'valid-test-sdp-offer'};}async setLocalDescription(value){this.localDescription=value;}async setRemoteDescription(value){this.remoteDescription=value;}close(){this.closed=true;}};globalThis.fetch=async(url,init)=>{calls.push({url,init});return response(url,init);};});
 test('browser publishing and viewing use only the Cloudflare media endpoints',async()=>{
  const stream={getTracks:()=>[{kind:'video'}]},sender=await connectStream('https://customer-test.cloudflarestream.com/secret/webRTC/publish',{stream});assert.equal(calls[0].init.headers['Content-Type'],'application/sdp');assert.equal(peers[0].tracks[0].kind,'video');assert.equal(peers[0].remoteDescription.type,'answer');await sender.close();assert.equal(calls.at(-1).init.method,'DELETE');assert.equal(peers[0].closed,true);
  const viewer=await connectStream('https://customer-test.cloudflarestream.com/signed/webRTC/play');assert.deepEqual(peers[1].tracks,[{kind:'video',direction:'recvonly'},{kind:'audio',direction:'recvonly'}]);await viewer.close();
@@ -20,4 +20,17 @@ test('separate audio and video events keep one playable stream',async()=>{
  const received=[],viewer=await connectStream('https://customer-test.cloudflarestream.com/signed/webRTC/play',{onTrack:stream=>received.push(stream)});
  peers[0].ontrack({track:{id:'video',kind:'video'},streams:[]});peers[0].ontrack({track:{id:'audio',kind:'audio'},streams:[]});
  assert.equal(received[0],received[1]);assert.deepEqual(received[1].getTracks().map(track=>track.kind),['video','audio']);await viewer.close();
+});
+test('an answered offer cannot be reported as connected when media transport failed',async()=>{
+ const original=globalThis.RTCPeerConnection;
+ globalThis.RTCPeerConnection=class extends original{async setRemoteDescription(value){await super.setRemoteDescription(value);this.connectionState='failed';}};
+ await assert.rejects(connectStream('https://customer-test.cloudflarestream.com/secret/webRTC/publish'),/connection stopped/);
+ assert.equal(peers[0].closed,true);assert.equal(calls.at(-1).init.method,'DELETE');
+});
+
+test('publishing waits for a connected media transport after the SDP answer',async()=>{
+ const original=globalThis.RTCPeerConnection;
+ globalThis.RTCPeerConnection=class extends original{async setRemoteDescription(value){await super.setRemoteDescription(value);this.connectionState='connecting';setTimeout(()=>{this.connectionState='connected';this.dispatchEvent(new Event('connectionstatechange'));},25);}};
+ let settled=false;const session=connectStream('https://customer-test.cloudflarestream.com/secret/webRTC/publish').then(value=>{settled=true;return value;});
+ await new Promise(resolve=>setTimeout(resolve,5));assert.equal(settled,false);const result=await session;assert.equal(result.peer.connectionState,'connected');await result.close();
 });

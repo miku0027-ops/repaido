@@ -132,3 +132,65 @@ def test_push_relay_rechecks_budget_and_sends_data_only_once(api,monkeypatch):
         c=u.get('campaigns','later-offer');c['reserved_paise']=c['budget_paise'];u.put('campaigns',c['id'],c)
     main.operations_store.run(exhaust);main.integrations_relay()
     assert len(sent)==1
+
+
+def test_campaign_ceiling_horizon_and_legacy_recheck(api):
+    c=campaign(api)
+    # Sufficient margin must not override the hard 25% campaign ceiling.
+    main.operations_store.run(lambda u:u.put('policies','current',{**POLICY,'worker_share_bps':5000,'bonus_reserve_bps':0}))
+    body={k:v for k,v in c.items() if k not in ('id','updated_at','reserved_paise','redemptions','opens','impressions')}
+    body.update(discount_paise=14975,budget_paise=100000)
+    r=api.put('/operations/admin/campaigns/test-offer',headers=ADMIN,json=body)
+    assert r.status_code==200,r.text
+    body['version']=r.json()['version'];body['discount_paise']=14976
+    assert api.put('/operations/admin/campaigns/test-offer',headers=ADMIN,json=body).status_code==422
+    body['discount_paise']=1000;body['ends_at']=body['starts_at']+181*86400
+    assert api.put('/operations/admin/campaigns/test-offer',headers=ADMIN,json=body).status_code==422
+    cfg=api.get('/operations/admin/campaigns',headers=ADMIN).json()['controls']
+    assert api.put('/operations/admin/campaign-controls',headers=ADMIN,json={**cfg,'maximum_discount_bps':2501}).status_code==422
+    assert api.put('/operations/admin/campaign-controls',headers=ADMIN,json={**cfg,'maximum_discount_bps':2000}).status_code==200
+    assert feed(api,True).json()['cards']==[]
+    assert api.post('/operations/campaigns/quote',headers=auth('customer'),json={'campaign_id':c['id'],'service_id':c['service_id'],'city':'Balasore'}).status_code==409
+
+
+def test_selected_offer_is_idempotent_private_and_removed_or_rechecked(api):
+    c=campaign(api)
+    body={'campaign_id':c['id'],'service_id':c['service_id'],'city':'Balasore'}
+    path='/operations/campaigns/selection?service_id=ac-service&city=Balasore'
+    assert api.post('/operations/campaigns/select',json=body).status_code==401
+    for _ in range(2):
+        result=api.post('/operations/campaigns/select',headers=auth('customer'),json=body)
+        assert result.status_code==200,result.text
+    rows=main.operations_store.run(lambda u:u.all('campaign_selections'))
+    assert len(rows)==1
+    saved=api.get(path,headers=auth('customer')).json()['offer']
+    assert saved['campaign_id']==c['id'] and saved['price_paise']==57900
+    assert api.get(path,headers=auth('stranger')).json()=={'offer':None}
+    assert api.get(path.replace('Balasore','Bhubaneswar'),headers=auth('customer')).json()=={'offer':None}
+    assert main.operations_store.run(lambda u:u.get('campaigns',c['id']))['reserved_paise']==0
+    assert main.operations_store.run(lambda u:u.all('campaign_redemptions'))==[]
+    assert api.delete('/operations/campaigns/selection',headers=auth('customer')).status_code==422
+    assert api.request('DELETE','/operations/campaigns/selection',headers=auth('customer'),json={'service_id':c['service_id'],'city':'Balasore'}).status_code==200
+    assert api.get(path,headers=auth('customer')).json()=={'offer':None}
+    api.post('/operations/campaigns/select',headers=auth('customer'),json=body)
+    main.operations_store.run(lambda u:u.put('campaigns',c['id'],{**c,'version':c['version']+1}))
+    assert api.get(path,headers=auth('customer')).json()=={'offer':None}
+
+
+def test_selected_offer_booking_reserves_once_and_rejects_changed_quote(api):
+    c=campaign(api)
+    quote=api.post('/operations/campaigns/select',headers=auth('customer'),json={'campaign_id':c['id'],'service_id':c['service_id'],'city':'Balasore'}).json()
+    body=dict(service_id='ac-service',city='Balasore',address='Isolated customer test address',phone='9876543210',location=PIN,
+              starts_at=datetime.fromtimestamp(time.time()+4000,ZoneInfo('UTC')).isoformat(),promotion_id=c['id'],
+              promotion_version=quote['version'],promotion_discount_paise=quote['discount_paise'],idempotency_key=str(uuid.uuid4()))
+    main.operations_store.run(lambda u:u.put('campaigns',c['id'],{**c,'version':c['version']+1,'discount_paise':1000}))
+    r=api.post('/operations/bookings',headers=auth('customer'),json=body)
+    assert r.status_code==409 and r.json()['detail']['code']=='OFFER_CHANGED'
+    assert main.operations_store.run(lambda u:u.all('campaign_redemptions'))==[]
+    body.update(promotion_version=c['version']+1,promotion_discount_paise=1000)
+    first=api.post('/operations/bookings',headers=auth('customer'),json=body)
+    assert first.status_code==201,first.text
+    assert first.json()['total_paise']==58900
+    assert api.post('/operations/bookings',headers=auth('customer'),json=body).json()['id']==first.json()['id']
+    assert api.get('/operations/campaigns/selection?service_id=ac-service&city=Balasore',headers=auth('customer')).json()=={'offer':None}
+    assert len(main.operations_store.run(lambda u:u.all('campaign_redemptions')))==1

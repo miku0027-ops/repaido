@@ -110,6 +110,9 @@ class Discovery(Input):
 class Booking(Input):
     coupon_code: str | None = Field(default=None,max_length=30)
     promotion_id: str | None = Field(default=None,max_length=80)
+    promotion_version: int | None = Field(default=None,ge=1)
+    promotion_discount_paise: int | None = Field(default=None,ge=0)
+    promotion_original_price_paise: int | None = Field(default=None,ge=0)
     service_id: str
     city: str
     address: str = Field(min_length=10, max_length=500)
@@ -142,6 +145,9 @@ class Store:
             # Browse by city and fetch a candidate's work without reading every record.
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_city ON operation_records(json_extract(body,'$.city')) WHERE kind='workers'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_online ON operation_records(json_extract(body,'$.online')) WHERE kind='workers'")
+            for kind, fields in {'cleanup_reports': ('customer_id','owner_id','state','city_key','queue'), 'cleanup_points': ('user_id',), 'captain_profiles': ('city_key',)}.items():
+                for field in fields:
+                    c.execute(f"CREATE INDEX IF NOT EXISTS operation_{kind}_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='{kind}'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_customer ON operation_records(json_extract(body,'$.customer_id')) WHERE kind='jobs'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_members_handle ON operation_records(json_extract(body,'$.handle')) WHERE kind='rp_members'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_blocks_owner ON operation_records(json_extract(body,'$.from')) WHERE kind='rp_blocks'")
@@ -158,14 +164,19 @@ class Store:
                 u = Unit(self.core, transaction=transaction)
                 result = callback(u)
                 u.flush()
-                return result
-            return apply(self.core.fb_db.transaction())
-        with self.core.db() as c:
-            c.execute('BEGIN IMMEDIATE')
-            u = Unit(self.core, connection=c)
-            result = callback(u)
-            u.flush()
-            return result
+                return result, u.work_events
+            result, work_events = apply(self.core.fb_db.transaction())
+        else:
+            with self.core.db() as c:
+                c.execute('BEGIN IMMEDIATE')
+                u = Unit(self.core, connection=c)
+                result = callback(u)
+                u.flush()
+                work_events = u.work_events
+        if work_events:
+            from work_dispatch import mark_committed
+            mark_committed()
+        return result
 
 
 class Unit:
@@ -173,6 +184,7 @@ class Unit:
         self.core, self.tx, self.conn = core, transaction, connection
         self.pending = {}
         self.fetched = {}
+        self.work_events = False
 
     def get(self, kind, key):
         if (kind, key) in self.pending:
@@ -210,23 +222,32 @@ class Unit:
         rows.update({key: copy.deepcopy(value) for (k, key), value in self.pending.items() if k == kind})
         return list(rows.values())
 
-    def find(self, kind, field, value):
+    def find(self, kind, field, value, *, limit=None, after=None):
         """Indexed equality lookups with transaction-local writes overlaid."""
-        allowed = {'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
+        allowed = {'cleanup_reports': {'customer_id','owner_id','state','city_key','queue'}, 'cleanup_points': {'user_id'}, 'captain_profiles': {'city_key'}, 'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id'},
                    'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:
             query = self.core.fs_collection('ops_' + kind).where(field, '==', value)
+            if limit is not None:
+                query = query.order_by('__name__')
+                if after: query = query.start_after({'__name__': self.core.fs_doc('ops_' + kind, after)})
+                query = query.limit(limit)
             rows = {s.id: s.to_dict() for s in query.stream(transaction=self.tx)}
         else:
             sql = f"SELECT id,body FROM operation_records WHERE kind=? AND json_extract(body,'$.{field}')=?"
-            rows = {r['id']: json.loads(r['body']) for r in self.conn.execute(sql, (kind, int(value) if isinstance(value, bool) else value))}
+            params = [kind, int(value) if isinstance(value, bool) else value]
+            if limit is not None:
+                if after: sql += ' AND id>?'; params.append(after)
+                sql += ' ORDER BY id LIMIT ?'; params.append(limit)
+            rows = {r['id']: json.loads(r['body']) for r in self.conn.execute(sql, params)}
         self.fetched.update({(kind, key): copy.deepcopy(item) for key, item in rows.items()})
         for (pending_kind, key), item in self.pending.items():
             if pending_kind == kind:
                 if item.get(field) == value: rows[key] = copy.deepcopy(item)
                 else: rows.pop(key, None)
+        if limit is not None: return [rows[key] for key in sorted(rows) if not after or key > after][:limit]
         return list(rows.values())
 
     def for_workers(self, kind, worker_ids, fields=None):
@@ -263,6 +284,8 @@ class Unit:
 
     def put(self, kind, key, value):
         self.pending[kind, key] = copy.deepcopy(value)
+        if kind in ('rp_work_project_queue', 'rp_work_member_share_queue', 'rp_work_push_queue') and value.get('active'):
+            self.work_events = True
         if kind == 'shared_departures':
             from transport_discovery import index_record as index_transport_record
             index_transport_record(self, key, value)
@@ -766,7 +789,9 @@ def install(core):
         else:
             with core.db() as c: service = dict(core.service_by_id(c, body.service_id))
         key = hashlib.sha256((user['id']+body.idempotency_key).encode()).hexdigest()
-        fingerprint = hashlib.sha256(body.model_dump_json(exclude={'preferred_worker_id'} if body.preferred_worker_id is None else None).encode()).hexdigest()
+        # Preserve retry fingerprints from clients released before quote metadata.
+        optional={'preferred_worker_id','promotion_version','promotion_discount_paise','promotion_original_price_paise'}
+        fingerprint = hashlib.sha256(body.model_dump_json(exclude={k for k in optional if getattr(body,k) is None}).encode()).hexdigest()
         def save(u):
             old = u.get('booking_keys', key)
             if old:
@@ -792,7 +817,7 @@ def install(core):
                 attach_job(job,reserve(u,user["id"],body.coupon_code,"service",service["price_paise"],"job:"+job["id"],now))
             if body.promotion_id:
                 from promotions import reserve_discount
-                reserve_discount(u,job,user['id'],body.promotion_id,service,body.city,now)
+                reserve_discount(u,job,user['id'],body.promotion_id,service,body.city,now,body.promotion_version,body.promotion_discount_paise,body.promotion_original_price_paise)
             job['service_terms']=copy.deepcopy(service_terms)
             event(u, job, 'BookingRequested', user['id'])
             if body.preferred_worker_id:job['requested_worker_id']=body.preferred_worker_id

@@ -3,6 +3,18 @@ export function streamEndpoint(value){
  if(url.protocol!=='https:'||!url.hostname.endsWith('.cloudflarestream.com')||url.username||url.password||url.hash||url.port&&url.port!=='443')throw Error('Video returned an invalid connection.');
  return url.href;
 }
+async function connected(peer,signal){
+ if(peer.connectionState==='connected')return;
+ if(['closed','failed','disconnected'].includes(peer.connectionState))throw Error('Video connection stopped. Please retry.');
+ await new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>finish(Error('Video has not connected. Please retry.')),20000);
+  const change=()=>{if(peer.connectionState==='connected')finish();else if(['closed','failed','disconnected'].includes(peer.connectionState))finish(Error('Video connection stopped. Please retry.'));};
+  const abort=()=>finish(Error('Video connection cancelled.'));
+  function finish(error){clearTimeout(timer);peer.removeEventListener('connectionstatechange',change);signal?.removeEventListener('abort',abort);error?reject(error):resolve();}
+  peer.addEventListener('connectionstatechange',change);signal?.addEventListener('abort',abort,{once:true});
+  if(signal?.aborted)abort();else change();
+ });
+}
 export async function connectStream(url,{stream,onTrack,onFailure,signal}={}){
  const endpoint=streamEndpoint(url),peer=new RTCPeerConnection({bundlePolicy:'max-bundle'});let resource='',stopped=false,incoming;
  const close=async()=>{if(stopped)return;stopped=true;peer.close();if(resource)try{await fetch(resource,{method:'DELETE',signal:AbortSignal.timeout(5000)});}catch{}};
@@ -18,6 +30,7 @@ export async function connectStream(url,{stream,onTrack,onFailure,signal}={}){
   if(!response.ok)throw Error('Video could not connect. Please retry.');
   const location=response.headers.get('Location');if(location){const candidate=streamEndpoint(new URL(location,endpoint).href);if(new URL(candidate).origin!==new URL(endpoint).origin)throw Error('Video returned an invalid session.');resource=candidate;}
   await peer.setRemoteDescription({type:'answer',sdp:await response.text()});
+  await connected(peer,signal);
   return {peer,close:async()=>{signal?.removeEventListener('abort',abort);await close();}};
  }catch(error){signal?.removeEventListener('abort',abort);await close();throw error;}
 }

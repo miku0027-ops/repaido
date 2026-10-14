@@ -1,3 +1,4 @@
+import {InteractionMotion} from './InteractionMotion';
 import {useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import {createPortal} from 'react-dom';
 import {CheckCircle2,AlertCircle,Info,LoaderCircle,X} from 'lucide-react';
@@ -8,13 +9,15 @@ import {loadingLabel} from '../services/loadingMessages.mjs';
 import {actionFeedback,clearFeedback,dismissFeedback,notifyFeedback,type Feedback} from '../services/actionFeedback';
 import './app-experience.css';
 
+function InteractionMotionOrIcon({tone,Icon}:{tone:Feedback['tone'];Icon:typeof Info}){return tone==='success'||tone==='pending'?<InteractionMotion kind={tone==='success'?'success':'search'}/>:<Icon size={22} aria-hidden="true"/>;}
+
 function FeedbackCard({item}:{item:Feedback}){
  const [paused,setPaused]=useState(false),[slow,setSlow]=useState(false);
  useEffect(()=>{setSlow(false);if(item.tone!=='pending')return;const timer=setTimeout(()=>setSlow(true),10000);return()=>clearTimeout(timer);},[item.id,item.tone]);
  useEffect(()=>{if(paused||item.tone==='pending'||item.tone==='error')return;const timer=setTimeout(()=>dismissFeedback(item.id),9000);return()=>clearTimeout(timer);},[item.id,item.at,item.tone,paused]);
  const Icon=item.tone==='pending'?LoaderCircle:item.tone==='success'?CheckCircle2:item.tone==='error'?AlertCircle:Info;
  return <div className="app-feedback-card" data-tone={item.tone} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setPaused(false);}}>
-  <Icon size={22} aria-hidden="true" className={item.tone==='pending'?'app-feedback-spinner':''}/>
+  <InteractionMotionOrIcon tone={item.tone} Icon={Icon}/>
   <div role={item.tone==='error'?'alert':'status'} aria-atomic="true"><strong>{item.title}</strong>{(item.message||slow)&&<p>{item.message||'Still waiting for confirmation…'}</p>}</div>
   {item.tone!=='pending'&&<button type="button" aria-label="Dismiss notification" onClick={()=>dismissFeedback(item.id)}><X size={18}/></button>}
  </div>;

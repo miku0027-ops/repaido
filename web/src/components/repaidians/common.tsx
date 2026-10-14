@@ -27,8 +27,8 @@ export function Media({asset,active=false,muted=true,controls=false,paused=false
   const video=useRef<HTMLVideoElement>(null);
   useEffect(()=>{
     const element=video.current;if(!element)return;
-    element.muted=muted;
-    if(active&&!paused)void element.play().catch(()=>{});else element.pause();
+    const control=()=>{element.muted=muted;if(active&&!paused&&!document.hidden)void element.play().catch(()=>{});else element.pause();};
+    control();document.addEventListener('visibilitychange',control);return()=>document.removeEventListener('visibilitychange',control);
   },[active,paused,muted,url]);
   return <div ref={container} className="rp-media-wrap">{failed?<div className="rp-media-missing" role="status"><ImageOff size={28}/><span>This media could not be loaded.</span></div>:!url?<div className="rp-media-missing" role="status">Opening media…</div>:asset.kind==='image'?<img className={'rp-media '+className} src={url} alt={asset.alt} loading="lazy" decoding="async" onError={()=>setFailed(true)}/>:<video ref={video} className={'rp-media '+className} src={url} controls={controls} muted={muted} loop={loop} playsInline preload="metadata" aria-label={asset.alt} onEnded={onEnded} onError={()=>setFailed(true)}/>}</div>;
 }
@@ -58,25 +58,27 @@ function leaseObjectUrl(blob:Blob){
 function useAssetUrl(source:string,enabled=true) {
   const scope=communityMediaScope(),[asset,setAsset]=useState({source,scope,url:protectedAsset(source)?'':source,freshUntil:0}),[failed,setFailed]=useState(false),[revision,setRevision]=useState(0);
   const [documentVisible,setDocumentVisible]=useState(document.visibilityState!=='hidden'),active=enabled&&documentVisible;
+  const heldLease=useRef<{release:()=>void}|null>(null);
+  useEffect(()=>()=>{heldLease.current?.release();heldLease.current=null;},[source,scope]);
   useEffect(()=>subscribeCommunityMedia(()=>setRevision(value=>value+1)),[]);
   useEffect(()=>{
     const visibility=()=>setDocumentVisible(document.visibilityState!=='hidden');
     document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility);
   },[]);
   useEffect(()=>{
-    let live=true,release:(()=>void)|undefined,timer:ReturnType<typeof setTimeout>|undefined;const controller=new AbortController();
-    setFailed(false);setAsset({source,scope,url:active&&!protectedAsset(source)?source:'',freshUntil:0});
+    let live=true,timer:ReturnType<typeof setTimeout>|undefined;const controller=new AbortController();
+    setFailed(false);setAsset(old=>old.source===source&&old.scope===scope?old:{source,scope,url:!protectedAsset(source)?source:'',freshUntil:0});
     if(protectedAsset(source)&&active)void loadMedia(source,controller.signal).then(blob=>{
       if(!live||scope!==communityMediaScope())return;if(!blob){setFailed(true);return;}
       const freshUntil=mediaFreshUntil(source,blob);
       // Recheck visible protected assets at the original authorization expiry.
       // Shared observers still make one request; warm mounts never renew it.
       if(freshUntil<=performance.now()){setRevision(value=>value+1);return;}
-      const lease=leaseObjectUrl(blob);release=lease.release;setAsset({source,scope,url:lease.url,freshUntil});
+      const lease=leaseObjectUrl(blob);heldLease.current?.release();heldLease.current=lease;setAsset({source,scope,url:lease.url,freshUntil});
       timer=setTimeout(()=>setRevision(value=>value+1),Math.max(0,freshUntil-performance.now()));
     }).catch(error=>{if(live&&scope===communityMediaScope()&&(error as Error).name!=='AbortError')setFailed(true);});
-    return()=>{live=false;controller.abort();if(timer!==undefined)clearTimeout(timer);release?.();};
+    return()=>{live=false;controller.abort();if(timer!==undefined)clearTimeout(timer);};
   },[source,active,scope,revision]);
   const fresh=!protectedAsset(source)||performance.now()<asset.freshUntil;
-  return {url:active&&fresh&&asset.source===source&&asset.scope===scope?asset.url:'',failed,setFailed};
+  return {url:fresh&&asset.source===source&&asset.scope===scope?asset.url:'',failed,setFailed};
 }

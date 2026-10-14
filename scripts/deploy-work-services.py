@@ -60,13 +60,14 @@ def request_health(url, build_id, token, service):
             assert health['status'] == 'ok' and health['storage'] == 'firestore' and health['build_id'] == build_id and health['service'] == service
             if service == 'repaido-work-worker':
                 assert health['push_enabled'] and health['scheduler_configured'], 'Work delivery configuration is incomplete.'
-            if service == 'repaido-work-api':
-                probe = urllib.request.Request(url + '/repaidians/work/jobs', headers={'X-Serverless-Authorization': 'Bearer ' + token})
+            if service in ('repaido-work-api', 'repaido-community-api'):
+                path = '/repaidians/work/jobs' if service == 'repaido-work-api' else '/repaidians/professional/workspace'
+                probe = urllib.request.Request(url + path, headers={'X-Serverless-Authorization': 'Bearer ' + token})
                 try:
                     urllib.request.urlopen(probe, timeout=20)
                     raise AssertionError('Work discovery must require a member identity.')
                 except urllib.error.HTTPError as error:
-                    assert error.code == 401, 'Work discovery route/auth boundary failed.'
+                    assert error.code == 401, 'Professional route/auth boundary failed.'
             return
         except Exception:
             if attempt == 11:
@@ -110,16 +111,22 @@ def deploy(args):
                '--display-name=Repaido work update scheduler', '--project=' + args.project)
     candidates = []
     tag = 'b-' + args.build.replace('-', '')[:20]
-    for name, module, worker in [('repaido-work-api', 'work_service', False), ('repaido-work-worker', 'work_worker', True)]:
+    services = [('repaido-work-api', 'work_service', False), ('repaido-work-worker', 'work_worker', True)]
+    if environment.get('REPAIDO_COMMUNITY_API_ENABLED', '').lower() == 'true':
+        services.append(('repaido-community-api', 'community_service', False))
+    for name, module, worker in services:
         previous = exists('run', 'services', 'describe', name, *common)
         values = dict(environment)
         service_secrets=list(secrets)
         if not worker:
             # Only the scheduler worker sends email. The public discovery service
             # needs neither the mailbox password nor email ownership signing key.
-            for key in ('REPAIDO_SMTP_PASSWORD','REPAIDO_EMAIL_CHALLENGE_SECRET','CLOUDFLARE_STREAM_ACCOUNT_ID','CLOUDFLARE_STREAM_API_TOKEN','CLOUDFLARE_STREAM_KEY_ID','CLOUDFLARE_STREAM_SIGNING_PEM'):
+            private_keys = ('REPAIDO_SMTP_PASSWORD','REPAIDO_EMAIL_CHALLENGE_SECRET')
+            if module == 'work_service':
+                private_keys += ('CLOUDFLARE_STREAM_ACCOUNT_ID','CLOUDFLARE_STREAM_API_TOKEN','CLOUDFLARE_STREAM_KEY_ID','CLOUDFLARE_STREAM_SIGNING_PEM')
+            for key in private_keys:
                 values.pop(key,None)
-            service_secrets=[binding for binding in service_secrets if not binding.startswith(('REPAIDO_SMTP_PASSWORD=', 'REPAIDO_EMAIL_CHALLENGE_SECRET=','CLOUDFLARE_STREAM_'))]
+            service_secrets=[binding for binding in service_secrets if not binding.startswith(tuple(key+'=' for key in private_keys))]
         if worker:
             for key in ('CLOUDFLARE_STREAM_KEY_ID','CLOUDFLARE_STREAM_SIGNING_PEM'):values.pop(key,None)
             service_secrets=[binding for binding in service_secrets if not binding.startswith(('CLOUDFLARE_STREAM_KEY_ID=','CLOUDFLARE_STREAM_SIGNING_PEM='))]
@@ -135,7 +142,7 @@ def deploy(args):
                        '--service-account=' + runtime, '--command=uvicorn',
                        '--args=' + module + ':app,--host,0.0.0.0,--port,8080,--no-proxy-headers',
                        '--port=8080', '--env-vars-file=' + config.name,
-                       '--concurrency=' + ('1' if worker else '64'), '--cpu=1', '--memory=512Mi',
+                       '--concurrency=' + ('1' if worker else '32' if module == 'community_service' else '64'), '--cpu=1', '--memory=512Mi',
                        '--timeout=' + ('240' if worker else '60'), '--min-instances=0',
                        '--max-instances=' + ('2' if worker else '20'),
                        '--no-allow-unauthenticated' if worker else '--allow-unauthenticated', '--tag=' + tag]

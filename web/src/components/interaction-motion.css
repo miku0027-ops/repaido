@@ -1,0 +1,10 @@
+.interaction-motion{display:inline-grid;position:relative;place-items:center;flex:none;width:44px;height:44px;border-radius:14px;background:#152d50;color:#91c2ff;vertical-align:middle;overflow:hidden;box-shadow:inset 0 1px 0 #ffffff20,0 3px 8px #0b132b0c}
+.interaction-motion[data-kind=success]{background:#123c30;color:#6ee7b7}
+.interaction-motion-player,.interaction-motion-fallback{grid-area:1/1}
+.interaction-motion-player{width:100%;height:100%;opacity:0;pointer-events:none}
+.interaction-motion[data-ready=true] .interaction-motion-player{opacity:1}
+.interaction-motion[data-ready=true] .interaction-motion-fallback{visibility:hidden}
+.discovery-state{display:flex;align-items:center;gap:12px;padding:14px 0;min-width:0}
+.discovery-state>div{min-width:0}.discovery-state p{margin:0!important}
+.discovery-state .interaction-motion{width:44px;height:44px}
+.discovery-state-success{padding:12px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-subtle);color:var(--ui-ink);font-size:.8125rem;line-height:1.6}

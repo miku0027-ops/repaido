@@ -116,6 +116,10 @@ class ReadNotifications(Input):
     ids: list[str] = Field(max_length=50)
 
 
+class FeedValidation(Input):
+    ids: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(max_length=100)
+
+
 class Report(Input):
     targetId: str = Field(min_length=1, max_length=100)
     reason: Literal['spam', 'harassment', 'unsafe', 'fraud', 'other']
@@ -632,38 +636,54 @@ def install(core):
     # The native opportunity bridge shares this authentication/cookie path.
     core.repaidians_actor = actor
 
+    def snapshot_data(u, a, content='compact'):
+        from repaidians_work import notification_visible, prefetch_notification_targets
+        user = a['user']
+        current = member_ensure(u, user) if user else {'id': 'guest', 'name': 'Guest', 'handle': 'guest', 'trade': 'cleaning', 'role': 'Guest', 'avatarUrl': '', 'bio': ''}
+        bill = subscription_state(u, (user or {}).get('id'))
+        remaining = QUOTA if bill['active'] else 0 if user else usage(u, a['subject'], True)
+        # New clients load the selected feed and stories separately. Keep
+        # the full bootstrap for older clients, but avoid four duplicate
+        # feeds and global activity-lane scans in metadata refreshes.
+        pages = {k: feed_page(u, a, k, limit=15) for k in ('post', 'story', 'reel', 'tender')} if remaining and content == 'full' else {}
+        activity = {key: [row['id'] for row in actor_rows(u, 'rp_' + key, user['id'], 200)] if user and remaining and content == 'full' else [] for key in ('likes', 'saved', 'following', 'bids')}
+        activity['messages'] = []
+        all_members = {m['id']: m for p in pages.values() for m in p['members']}
+        public_current = member_public(u, current) if user else current
+        if user:
+            all_members[user['id']] = public_current
+        notes = query(u, lane('rp_notifications', user['id']), 200) if user and remaining else []
+        prefetch_blocks(u, a, [row['authorId'] for row in notes])
+        if user:
+            prefetch_notification_targets(u, notes, user['id'])
+        return {'data': {'version': 1, 'members': list(all_members.values()),
+                         'posts': pages.get('post', {}).get('items', []), 'stories': pages.get('story', {}).get('items', []),
+                         'reels': pages.get('reel', {}).get('items', []), 'tenders': pages.get('tender', {}).get('items', []),
+                         'comments': [], 'follows': [{'from': user['id'], 'to': key} for key in activity['following']] if user else []},
+                'member': public_current, 'activity': activity, 'subscription': bill['subscription'], 'trial': bill['trial'],
+                'serverNow': bill['serverNow'], 'remainingMs': remaining,
+                'authenticated': bool(user), 'capabilities': capabilities(u, a), 'paymentsReady': bill['paymentsReady'], 'mediaReady': storage.ready(core),
+                'storage': 'firestore' if core.USE_FIRESTORE else 'sqlite',
+                'cursors': {k: p['nextCursor'] for k, p in pages.items()},
+                'unreadCount': sum(not row.get('read') for row in notes if not blocked(u, user['id'], row['authorId']) and notification_visible(u, row, user['id'])) if user else 0}
+
     @r.get('/state')
     def state(content: Literal['full', 'compact'] = 'full', a=Depends(actor)):
+        return store.run(lambda u: snapshot_data(u, a, content))
+
+    @r.get('/bootstrap')
+    def bootstrap(response: Response, kind: Literal['post', 'reel', 'tender'] = 'post',
+                  limit: int = 12, a=Depends(actor)):
+        if not 1 <= limit <= 20:
+            fail('INVALID_LIMIT', 'Choose a page size between 1 and 20.', 422)
+        response.headers['Cache-Control'] = 'private, no-store'
         def read(u):
-            from repaidians_work import notification_visible, prefetch_notification_targets
-            user = a['user']
-            current = member_ensure(u, user) if user else {'id': 'guest', 'name': 'Guest', 'handle': 'guest', 'trade': 'cleaning', 'role': 'Guest', 'avatarUrl': '', 'bio': ''}
-            bill = subscription_state(u, (user or {}).get('id'))
-            remaining = QUOTA if bill['active'] else 0 if user else usage(u, a['subject'], True)
-            # New clients load the selected feed and stories separately. Keep
-            # the full bootstrap for older clients, but avoid four duplicate
-            # feeds and global activity-lane scans in metadata refreshes.
-            pages = {k: feed_page(u, a, k, limit=15) for k in ('post', 'story', 'reel', 'tender')} if remaining and content == 'full' else {}
-            activity = {key: [row['id'] for row in actor_rows(u, 'rp_' + key, user['id'], 200)] if user and remaining and content == 'full' else [] for key in ('likes', 'saved', 'following', 'bids')}
-            activity['messages'] = []
-            all_members = {m['id']: m for p in pages.values() for m in p['members']}
-            public_current = member_public(u, current) if user else current
-            if user:
-                all_members[user['id']] = public_current
-            notes = query(u, lane('rp_notifications', user['id']), 200) if user and remaining else []
-            prefetch_blocks(u, a, [row['authorId'] for row in notes])
-            if user:
-                prefetch_notification_targets(u, notes, user['id'])
-            return {'data': {'version': 1, 'members': list(all_members.values()),
-                             'posts': pages.get('post', {}).get('items', []), 'stories': pages.get('story', {}).get('items', []),
-                             'reels': pages.get('reel', {}).get('items', []), 'tenders': pages.get('tender', {}).get('items', []),
-                             'comments': [], 'follows': [{'from': user['id'], 'to': key} for key in activity['following']] if user else []},
-                    'member': public_current, 'activity': activity, 'subscription': bill['subscription'], 'trial': bill['trial'],
-                    'serverNow': bill['serverNow'], 'remainingMs': remaining,
-                    'authenticated': bool(user), 'capabilities': capabilities(u, a), 'paymentsReady': bill['paymentsReady'], 'mediaReady': storage.ready(core),
-                    'storage': 'firestore' if core.USE_FIRESTORE else 'sqlite',
-                    'cursors': {k: p['nextCursor'] for k, p in pages.items()},
-                    'unreadCount': sum(not row.get('read') for row in notes if not blocked(u, user['id'], row['authorId']) and notification_visible(u, row, user['id'])) if user else 0}
+            metadata = snapshot_data(u, a)
+            empty = {'items': [], 'members': [], 'nextCursor': None}
+            if metadata['remainingMs'] <= 0:
+                return {'state': metadata, 'timeline': empty, 'stories': empty}
+            return {'state': metadata, 'timeline': feed_page(u, a, kind, limit=limit),
+                    'stories': feed_page(u, a, 'story', limit=15) if kind == 'post' else empty}
         return store.run(read)
 
     @r.post('/usage')
@@ -683,6 +703,31 @@ def install(core):
             fail('INVALID_FILTER', 'Choose a supported trade and a page size between 1 and 50.', 422)
         return store.run(lambda u: feed_page(u, a, kind, trade, mode, cursor, limit))
 
+    @r.post('/feed/validate')
+    def validate_feed(body: FeedValidation, response: Response, a=Depends(actor)):
+        response.headers['Cache-Control'] = 'private, no-store'
+        def read(u):
+            browse(u, a)
+            ids = list(dict.fromkeys(body.ids))
+            u.prefetch([('rp_publications', key) for key in ids])
+            rows = [row for key in ids if (row := u.get('rp_publications', key))]
+            prefetch_blocks(u, a, [row['authorId'] for row in rows])
+            items = [row for row in rows if visible(u, row, a)]
+            uid = (a.get('user') or {}).get('id')
+            if uid:
+                u.prefetch([('rp_activity', digest(uid + ':' + action + ':' + row['id']))
+                            for row in items for action in ('likes', 'saved')])
+                u.prefetch([('rp_bids', digest(row['id'] + ':' + uid))
+                            for row in items if row['kind'] == 'tender'])
+            from repaidians_opportunities import reference_pairs
+            u.prefetch(reference_pairs([row['reference'] for row in items if row.get('reference')]))
+            from repaidians_milestones import prefetch as prefetch_milestones
+            prefetch_milestones(u, [row['milestone'] for row in items if row.get('milestone')])
+            return {'items': [clean_item(row, u, a) for row in items],
+                    'members': members_for(u, [row['authorId'] for row in items], a),
+                    'unavailable': [key for key in ids if key not in {row['id'] for row in items}]}
+        return store.run(read)
+
     @r.get('/members')
     def members(search: str = '', cursor: str | None = None, limit: int = 20, trade: str = '', city: str = '',
                 workStatus: str = '', professionalType: str = '', a=Depends(actor)):
@@ -692,7 +737,11 @@ def install(core):
                    'workStatus': workStatus, 'professionalType': professionalType}.items() if value and value != 'all'}
         if filters.get('trade') and filters['trade'] not in TRADES or filters.get('workStatus') and filters['workStatus'] not in WORK_STATUSES or filters.get('professionalType') and filters['professionalType'] not in PROFESSIONAL_TYPES:
             fail('INVALID_FILTER', 'Choose a supported trade, work status and profile type.', 422)
-        prefix = search.strip().casefold()[:20]
+        search_words = search.strip().casefold().split()
+        # One indexed lane narrows candidates; exact prefix matches require all
+        # query terms, including reversed name order. Bloom positives are only
+        # a prefilter and cannot create a member result.
+        prefix = max(search_words, key=len)[:20] if search_words else ''
         def read(u):
             browse(u, a)
             # Legacy directory migration runs in the private bounded worker.
@@ -704,7 +753,16 @@ def install(core):
             source = 'rp_search_' + digest(prefix) if prefix else 'rp_member_filter_' + filter_key(filters) if filters else 'rp_member_directory'
             scan_limit = min(100, limit * 3 + 1)
             rows = query(u, source, scan_limit, cursor_decode(cursor))
-            found = {member['id']: member for member in members_for(u, [row['id'] for row in rows if row.get('active', True)], a)}
+            active = [row['id'] for row in rows if row.get('active', True)]
+            u.prefetch([('rp_members', key) for key in active])
+            candidates = [(key, member) for key in active if (member := u.get('rp_members', key))]
+            if search_words:
+                from search_index import public_search
+                tokenize = lambda text: re.findall(r'[\w.]+', text.casefold())
+                scores = public_search.scores([member['name'] + ' ' + member['handle']
+                                              for _, member in candidates], ' '.join(search_words), tokenize, threshold=1)
+                active = [key for index, (key, _) in enumerate(candidates) if index in scores]
+            found = {member['id']: member for member in members_for(u, active, a)}
             results = []
             examined = None
             for row in rows:
@@ -1381,4 +1439,6 @@ def install(core):
     install_milestones(core,r,actor)
     from repaidians_live import install as install_live
     install_live(core,r,actor)
+    from repaidians_tools import install as install_tools
+    install_tools(core,r,actor)
     core.app.include_router(r)

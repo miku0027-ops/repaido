@@ -1,9 +1,18 @@
 # Cloud Build deployment
 
-Configure the GitHub push trigger for `miku0027-ops/repaido`, branch `^main$`,
-using the repository configuration file `/cloudbuild.yaml`.
-Include both frontend and backend changes in the trigger; do not filter it to
-only one subdirectory. The trigger must use project `repaido`.
+Release only when the user explicitly requests deployment. Keep development
+changes local or on a non-deploying branch and batch them into one or two
+requested releases per day. Disable the existing production GitHub push trigger
+for `miku0027-ops/repaido`; do not automatically deploy on `main` pushes or on a
+timer. See [cost controls](CLOUD_COST_CONTROLS.md) for the read-only audit and
+trigger-disable instructions.
+
+The first step fails before dependency installation, tests, image builds, or
+deployment unless the manual batch supplies `_RELEASE_APPROVED=true` and its full
+Git commit SHA. Keep this substitution false on automatic triggers. This guard
+is a fallback, not a substitute for disabling the trigger: a triggered guard
+failure still starts a small Cloud Build run. Repository edits alone do not
+disable an existing cloud trigger.
 
 The Python test step also installs Node.js: the camera metadata integration test
 executes the frontend's actual JavaScript encoder through a Node subprocess.
@@ -79,7 +88,7 @@ account receives FCM send capability; the current SDK account already has it.
 Future builds read enabled API status and skip enablement when it is complete.
 The build never runs this bootstrap or grants itself these project permissions.
 
-Inspect the trigger build in Cloud Build History after pushing. Verify the deployed
+Inspect the requested build in Cloud Build History after submission. Verify the deployed
 commit at `https://repaido.web.app/build-info.json` and API build IDs at
 `https://repaido.web.app/api/health` and
 `https://repaido.web.app/api/repaidians/work/health`. Only matching IDs establish that these components
@@ -89,11 +98,18 @@ Cloud Run's combined tag/service-name limit. The release-order step waits for
 earlier active runs from the same trigger before changing production traffic;
 an unreadable history or a wait exceeding 15 minutes fails the build.
 
-For manual submission from the repository root:
+For a requested manual batch, commit the reviewed changes and verify there are
+no pending tracked or untracked source changes. Submit from the repository root
+using the existing build service account; replace `BUILD_ACCOUNT_EMAIL` below.
+Do not run this command during development or while another production release
+is active. Manual builds have no trigger ID, so the trigger-specific ordering
+step does not serialize them.
 
 ```sh
+REPAIDO_RELEASE_COMMIT=$(git rev-parse HEAD)
 gcloud builds submit . --project=repaido --region=us-central1 \
   --config=cloudbuild.yaml \
+  --substitutions="_RELEASE_APPROVED=true,COMMIT_SHA=$REPAIDO_RELEASE_COMMIT" \
   --service-account=projects/repaido/serviceAccounts/BUILD_ACCOUNT_EMAIL
 ```
 
@@ -101,3 +117,71 @@ The root `.gcloudignore` includes backend tests, deployment scripts, rules and
 Firebase/emulator configuration, and
 excludes dependencies, databases and environment files. Review the source upload
 inventory with `gcloud meta list-files-for-upload` before manual submission.
+
+A reviewed, clean checkout can also use the guarded Cloud Shell helper:
+
+```sh
+bash scripts/release-batch.sh --release FULL_REVIEWED_COMMIT_SHA
+```
+
+It checks the exact commit and clean worktree, validates the actual
+`gcloud meta list-files-for-upload` inventory before any upload, and refuses to submit while a build is
+active in `global` or `us-central1`, and uses the existing
+`firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com` build identity. It applies
+approval to that one manual build only and verifies Hosting and both public API
+build IDs afterward. It does not enable or update any automatic trigger.
+
+The upload allowlist includes shell helpers as well as Python/JavaScript files.
+Backend tests execute `scripts/configure-transactional-email.sh` with a fake
+gcloud; omitting it from a manual source upload causes failures even when the
+full local checkout passes. `scripts/check-build-source.py` rejects that omission
+and local dependency/environment files before a paid build is submitted.
+
+## Component-scoped releases
+
+The full batch remains `cloudbuild.yaml`. The checked-in `cloudbuild-web.yaml`,
+`cloudbuild-api.yaml`, and `cloudbuild-rules.yaml` are generated from its reviewed
+steps by `scripts/generate-selective-builds.py`. Run that generator after changing
+the canonical pipeline, and run it with `--check` before release. All four
+pipelines retain the explicit release gate; none is an automatic trigger.
+
+| Changed component | Release work | Work skipped |
+| --- | --- | --- |
+| Customer/worker SPA (`web/`) | Web tests, Vite build, Firebase Hosting | Backend tests, API image, Run revisions, Rules publication |
+| API (`backend/`) | Backend tests, one image, main API and both work services | Vite build, Hosting, Rules publication |
+| Firestore rules | Emulator rules tests, Rules API publication | Web build, backend tests, API image, Hosting |
+| Shared or multiple components | Existing full release | Nothing |
+| Engineering console | Its independent `engineering/release.py` workflow | Customer pipeline |
+
+The API and work services currently share one backend image. An API-only release
+therefore updates those three services together. Splitting one endpoint into its
+own deployable service would require a separate image, runtime configuration,
+traffic checks, and ownership of its shared dependencies. The customer,
+worker, shop-admin, and company-admin screens are routes of one web build, so a
+change to any of them publishes that web build as a unit.
+
+For a requested release, compare the reviewed checkout with the **actual
+deployed commit**, then inspect the offline plan before submitting. Do not use
+`HEAD~1` as a guess for production; after a partial release, web and API can
+have different deployed commits. Use the oldest relevant deployed baseline to
+avoid skipping changes, even when that selects the full pipeline. The first
+command makes no cloud call. The second requires the user's release request and
+uses the same clean-checkout, source-inventory, build-concurrency, and pinned
+commit checks as the full release:
+
+```sh
+bash scripts/release-batch.sh --plan REVIEWED_FULL_COMMIT_SHA \
+  --changed-from DEPLOYED_FULL_COMMIT_SHA
+bash scripts/release-batch.sh --release REVIEWED_FULL_COMMIT_SHA \
+  --changed-from DEPLOYED_FULL_COMMIT_SHA
+```
+
+Omit `--changed-from` to use the existing full release. The planner selects a
+full release for overlapping web/API/Rules changes or unfamiliar build inputs.
+It refuses to silently publish Firestore indexes, which have no release step.
+Engineering console changes require a separate console release even when the
+customer planner selects a customer component. The site and API build IDs will
+differ after a partial release; each partial pipeline verifies only the component
+it updated. A later full release restores matching IDs. Run
+`python3 scripts/generate-selective-builds.py --check` and the offline
+`backend/test_selective_release.py` before submitting.

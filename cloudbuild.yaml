@@ -1,5 +1,12 @@
 # Submit from the repository root; see docs/CLOUD_BUILD.md.
 steps:
+  # Disable the production push trigger as well: this fallback still starts a
+  # small failed build, whereas a disabled trigger starts no build at all.
+  - id: require-explicit-release
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: python3
+    args: ['scripts/check-release-authorization.py', '--approved=${_RELEASE_APPROVED}', '--commit=$COMMIT_SHA']
+
   - id: check-build-history-access
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: python3
@@ -171,6 +178,8 @@ steps:
                 time.sleep(5)
 
 substitutions:
+  # Set only for a batch the user explicitly asks to release, never on a trigger.
+  _RELEASE_APPROVED: 'false'
   _REGION: us-central1
   _SERVICE: repaido-api
   # Confirm this Artifact Registry repository exists before submission.

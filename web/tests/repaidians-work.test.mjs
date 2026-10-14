@@ -6,7 +6,7 @@ import {createReadCache} from '../src/services/readCache.mjs';
 
 const source=await readFile(new URL('../src/services/repaidiansWorkService.ts',import.meta.url),'utf8');
 let executable=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
-for(const [dependency,injected] of [['../firebase','const auth=globalThis.__workAuth;'],['./repaidiansService','const communityRequest=globalThis.__workRequest;'],['./operations','const operation=globalThis.__workOperation;'],['./readCache.mjs','const createReadCache=globalThis.__workCache;'],['./repaidiansPushService','const syncWorkPushAccount=async()=>{};']]) {
+for(const [dependency,injected] of [['../firebase','const auth=globalThis.__workAuth;'],['./repaidiansService','const communityRequest=globalThis.__workRequest;const communityIdentityKey=(()=>{let saw=false;return()=>{const user=auth.currentUser;if(user)saw=true;return user?.uid||(!saw?localStorage.getItem("repaido.token"):null)||"guest";};})();'],['./operations','const operation=globalThis.__workOperation;'],['./readCache.mjs','const createReadCache=globalThis.__workCache;'],['./repaidiansPushService','const syncWorkPushAccount=async()=>{};']]) {
   const escaped=dependency.replaceAll('.','\\.');const pattern=new RegExp(`^import .+ from ['"]${escaped}['"];?$`,'m');assert.match(executable,pattern);executable=executable.replace(pattern,injected);
 }
 let service,revision=0,calls,now,transport,values;
@@ -37,6 +37,13 @@ test('account switch rejects late private results and retires old cache entries'
   values.set('repaido.token','account-b-session');transport=async()=>({items:[{id:'b-only'}],nextCursor:null});await service.workJobs('b');
   pending.resolve({items:[{id:'a-private'}],nextCursor:null});await assert.rejects(old,/account or work details changed/);assert.equal(service.peekWorkJobs('a'),null);assert.equal(service.peekWorkJobs('b').items[0].id,'b-only');
 });
+
+test('SDK sign-out discards a pending work response even when the local legacy token remains',async()=>{
+  globalThis.__workAuth.currentUser={uid:'firebase-a'};const pending=deferred();transport=()=>pending.promise;
+  const old=service.workJobs('a');await tick();globalThis.__workAuth.currentUser=null;
+  assert.equal(service.peekWorkJobs('a'),null);pending.resolve({items:[{id:'old-private'}],nextCursor:null});
+  await assert.rejects(old,/account or work details changed/);
+});
 test('failed reads never become cached, and parameters are bounded and encoded',async()=>{
   transport=async()=>{throw Error('offline');};await assert.rejects(service.workJobs('a'),/offline/);assert.equal(service.peekWorkJobs('a'),null);
   transport=async()=>({items:[],nextCursor:null});await service.workJobs('a',{query:'wiring & testing',sector:'Education',trade:'electrician',limit:1000,experience:0});
@@ -51,6 +58,15 @@ test('offer responses and withdrawals carry optimistic concurrency guards',async
   await service.respondToWorkOffer('project/one',8,'offer-one','accept');assert.equal(calls[0].path,'/contractor/projects/project%2Fone/commands');assert.deepEqual(JSON.parse(calls[0].init.body),{expected_version:8,action:'accept',target_id:'offer-one'});
   await service.withdrawWorkApplication('application-one',4);assert.deepEqual(JSON.parse(calls[1].init.body),{expected_version:4});
   await service.workApplication('a','old/application',true);assert.equal(calls[2].path,'/contractor/hiring/applications/old%2Fapplication');
+});
+
+test('likes and behavioural receipts preserve loaded work and do not trigger a full work refresh',async()=>{
+  await service.workJobs('a');await service.workInterests('a');let updates=0;
+  window.addEventListener('repaidians:work-update',()=>updates++);
+  window.dispatchEvent(new CustomEvent('repaidians:update',{detail:{contentChanged:false,path:'/activity/likes/post'}}));
+  assert.ok(service.peekWorkJobs('a'));assert.equal(updates,0);
+  await service.trackWorkBehavior('a',{trade:'electrician',type:'view',sourceId:'job'});
+  assert.ok(service.peekWorkJobs('a'));assert.equal(service.peekWorkInterests('a'),null);assert.equal(updates,0);
 });
 test('a discovery target refreshes the exact job and preserves an unavailable response',async()=>{
   transport=async()=>({id:'project/one',title:'Electrical work'});

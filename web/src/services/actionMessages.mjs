@@ -2,6 +2,7 @@
 export function quietRequest(path, init = {}) {
  const method = (init.method || 'GET').toUpperCase(), route = path.split('?')[0];
  if (['GET','HEAD','OPTIONS'].includes(method)) return true;
+ if (/\/campaigns\/[^/]+\/events$/.test(route)) return true;
  if (/\/(search|leaderboard|feed|agent-opportunities|view|seen|read|read-all|heartbeat|position|telemetry|tracking-session)(\/|$)/.test(route) || /\/(devices|activity|presence)(\/|$)/.test(route)) return true;
  if (/\/(hiring\/recommendations|discovery\/events|coupons\/launch|auth\/session|community\/usage|community\/work\/behavior)$/.test(route)) return true;
  let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Binary uploads. */ }
@@ -26,6 +27,14 @@ export function actionMessages(path, init = {}) {
   const status = data.status || data.state || data.listing?.status || data.rfq?.status;
   const note = (title, message, tone = 'success') => ({title, message, tone});
   if (data.ok === false || data.success === false) return note('Action needs attention', data.message || 'The server did not confirm this action. Review the details before trying again.', 'error');
+  if (/\/captain\/profile$/.test(route)) return note('Profile updated','Your photo and leaderboard privacy choice are saved.');
+  if (/\/cleanup\/(reports|admin)\/[^/]+\/actions$/.test(route)) {
+   if (!data.id || !status) return note('Update not confirmed','Refresh the cleanup report before trying again.','error');
+   if (action === 'record_cash' || action === 'resolve_payment') return note('Cash record updated','The reporter still needs to confirm cash receipt.','info');
+   if (action === 'received') return data.payment_state === 'received' ? note('Cash receipt confirmed','Your receipt is saved with the cleanup report.') : note('Receipt not confirmed','Check the latest payment status.','info');
+   const messages = {self_accept:['Cleanup accepted','Submit your after photos and disposal details when the approved work is finished.'],release:['Task released','Another approved collector can accept this cleanup.'],reassign:['Cleanup reopened','Another approved collector can accept this cleanup.'],approve:['Collection approved','The authorised cleanup is ready for a nearby collector.'], accept:['Cleanup accepted','You can now manage this site from Community cleanup.'], submit:['Evidence submitted','Your cleanup is ready for independent review.'], verify:['Cleanup verified','The reporter’s earned points are now recorded.'], rework:['Follow-up requested','The collector can review your notes and submit fresh evidence.'], cancel:['Report cancelled','No points or cash reward were issued.'], reject:['Report closed','Your review reason is saved with the report.'], refer:['Referral recorded','The authority case reference is saved with the report.'], payment_concern:['Payment concern sent','Repaido will review the cash payment record.']};
+   return note(...(messages[action] || ['Report updated','Open the report for its current status.']));
+  }
   if (/payment|checkout|refund|payout|razorpay|subscription\/(order|check)|\/prime\/(order|check)/.test(route)) return note('Payment status updated', 'Check the payment status below. Payment is complete only when confirmed.', 'info');
   if (upload) return data.id || data.image_url || data.url || data.media?.id || data.document_id || data.photo_id ? note('Upload complete', 'Your file is ready. Save the form to attach it.') : note('Upload response received','Check the file preview or saved attachment before submitting the form.','info');
   if (/\/market\/listings$/.test(route) && (!data.id || !status)) return note('Listing not confirmed','Check My listings before submitting again.','error');
@@ -51,6 +60,7 @@ export function actionMessages(path, init = {}) {
   if (/\/(profile|settings|preferences|hiring-policy)$/.test(route)) return note('Changes saved','Your settings are up to date.');
   if (/\/quotes?$/.test(route)) return note('Quote ready','Review the estimate and terms before confirming.', 'info');
   if (/\/coupons\/check$/.test(route)) return note('Offer checked','The eligible offer is shown in your price summary.', 'info');
+  if (/\/bookings$/.test(route)) return data.id ? note('Booking request sent','Follow the professional’s response in Bookings.') : note('Request not confirmed','Check Bookings before trying again.','error');
   if (/\/validate$/.test(route)) return note('Details checked','Review the validation result shown in this view.', 'info');
   if (status === 'pending' || status === 'pending_review' || status === 'submitted') return note('Submitted for review','Your submission was received. Approval is still pending.');
   return note('Update saved', 'Your changes are saved.');

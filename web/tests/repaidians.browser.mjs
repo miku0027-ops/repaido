@@ -19,6 +19,7 @@ const python=process.env.REPAIDIANS_TEST_PYTHON||resolve(backend,'.venv/bin/pyth
 const origin=process.env.REPAIDIANS_PREVIEW_ORIGIN||'http://127.0.0.1:5187';
 const port=Number(process.env.REPAIDIANS_TEST_PORT||8019),apiOrigin='http://127.0.0.1:'+port;
 const errors=[];
+const performanceChecks=[];
 const releaseReads=[];
 let server,browser,serverLog='',succeeded=false;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -81,9 +82,12 @@ async function newPage(account,width=390,clockMs){
     await route.fulfill({response});
   });
   const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
+  let bootstrapStarted=0;
+  page.on('request',request=>{if(new URL(request.url()).pathname==='/api/repaidians/bootstrap')bootstrapStarted=performance.now();});
   await page.goto(origin+'/tests/repaidians-preview.html');
   await page.getByRole('dialog',{name:'Repaidians community',exact:true}).waitFor();
   await page.locator('.rp-loading').waitFor({state:'hidden'});
+  if(bootstrapStarted)performanceChecks.push({check:'bootstrap to rendered timeline',milliseconds:Math.round(performance.now()-bootstrapStarted)});
   return page;
 }
 async function delayedRealRead(page,path){
@@ -682,6 +686,48 @@ try{
   await paginationPage.waitForLoadState('networkidle');
   await laterPost.getByRole('button',{name:'Unlike post',exact:true}).waitFor();
   assert.ok(await shell(paginationPage).locator('.rp-post').count()>=loadedExtent,'An authoritative update replaces fresh records across the loaded window without removing the second page.');
+
+  let timelineReads=0;
+  const countTimeline=request=>{const url=new URL(request.url());if(url.pathname==='/api/repaidians/feed'&&url.searchParams.get('kind')==='post')timelineReads++;};
+  paginationPage.on('request',countTimeline);
+  const rememberedScroll=await shell(paginationPage).locator('.rp-content').evaluate(content=>content.scrollTop);
+  await nav(paginationPage,'Search');
+  // Pass the transport cache deadline without waiting or altering server time.
+  await paginationPage.evaluate(()=>{const real=performance.now.bind(performance);Object.defineProperty(performance,'now',{configurable:true,value:()=>real()+20000});});
+  const warmStarted=performance.now();await nav(paginationPage,'Home');await laterPost.waitFor();
+  performanceChecks.push({check:'return to retained multi-page feed',milliseconds:Math.round(performance.now()-warmStarted)});
+  assert.equal(timelineReads,0,'Returning after the 15-second transport deadline uses the retained feed instead of fetching its pages again.');
+  const resumedScroll=await shell(paginationPage).locator('.rp-content').evaluate(content=>content.scrollTop);
+  assert.ok(Math.abs(resumedScroll-rememberedScroll)<=8,'Returning to the feed restores its scroll position.');
+  await shell(paginationPage).getByRole('button',{name:'Close Repaidians',exact:true}).click();
+  await paginationPage.getByRole('button',{name:'Open Repaidians community',exact:true}).click();
+  await shell(paginationPage).locator('.rp-loading').waitFor({state:'hidden'});await laterPost.waitFor();
+  assert.equal(timelineReads,0,'Closing and reopening retains the same loaded feed after the live metadata gate.');
+  paginationPage.off('request',countTimeline);
+
+  await openWork(paginationPage);
+  await shell(paginationPage).getByRole('button',{name:'Professional tools',exact:true}).click();
+  await shell(paginationPage).getByRole('button',{name:'Overview',exact:true}).click();
+  const workspace=shell(paginationPage).getByRole('region',{name:'Professional workspace',exact:true});
+  await workspace.locator('.rp-workspace-identity').waitFor();
+  const beforeReady=(await api('/repaidians/professional/workspace',carol)).member.workStatus;
+  const ready=beforeReady==='available'||beforeReady==='open_to_work';
+  await workspace.getByRole('button',{name:ready?'Ready for work':'Set availability',exact:true}).click();
+  await workspace.getByText(ready?'Your availability is off.':'You are ready for work.',{exact:true}).waitFor();
+  assert.equal((await api('/repaidians/professional/workspace',carol)).member.workStatus,ready?'not_looking':'open_to_work');
+  await workspace.getByText('Build your profile',{exact:true}).click();
+  assert.equal(await workspace.locator('.rp-workspace-checklist li').count(),8);
+  for(const [width,theme,zoom] of [[320,'light','100%'],[390,'dark','100%'],[1280,'light','100%'],[390,'dark','200%']]){
+    await paginationPage.setViewportSize({width,height:850});await paginationPage.evaluate(({theme,zoom})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=zoom;},{theme,zoom});
+    await layout(paginationPage);await audit(paginationPage);
+    const contrast=await paginationPage.evaluate(async()=>window.axe.run(document.querySelector('.rp-professional-workspace'),{runOnly:{type:'rule',values:['color-contrast-enhanced']}}));
+    assert.deepEqual(contrast.violations.map(row=>({id:row.id,nodes:row.nodes.map(node=>node.target)})),[],'Workspace text meets enhanced contrast.');
+    await paginationPage.screenshot({path:resolve(web,'test-results/repaidians-workspace-'+width+'-'+theme+'-'+zoom.replace('%','')+'.png')});
+  }
+  await paginationPage.evaluate(()=>{document.documentElement.style.fontSize='100%';document.documentElement.dataset.theme='light';});
+  await workspace.getByRole('button',{name:/^Matching jobs/}).click();await shell(paginationPage).getByRole('heading',{name:'My jobs',exact:true}).waitFor();
+  await writeFile(resolve(web,'test-results/repaidians-performance.json'),JSON.stringify(performanceChecks,null,2));
+  assert.ok(performanceChecks.filter(row=>row.check==='bootstrap to rendered timeline').every(row=>row.milliseconds<=2000),'Local bootstrap stays within the requested two-second content budget: '+JSON.stringify(performanceChecks));
 
   const guest=await newPage(null);
   const cookies=await guest.context().cookies(origin);

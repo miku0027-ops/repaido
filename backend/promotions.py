@@ -14,7 +14,8 @@ from integrations import audit
 IST = ZoneInfo('Asia/Kolkata')
 PLACEMENTS = Literal['home','explore','checkout','launch','push']
 DEFAULT = dict(version=1, enabled=True, push_enabled=True, slots=[510,870,1230], daily_cap=3,
-               repeat_hours=72, rotation_seconds=4, minimum_margin_bps=500, risk_cost_bps=300)
+               repeat_hours=72, rotation_seconds=4, minimum_margin_bps=500, risk_cost_bps=300,
+               maximum_discount_bps=2500)
 
 class Controls(Input):
     version:int=Field(ge=1)
@@ -26,6 +27,7 @@ class Controls(Input):
     rotation_seconds:int=Field(default=4,ge=3,le=10)
     minimum_margin_bps:int=Field(default=500,ge=0,le=5000)
     risk_cost_bps:int=Field(default=300,ge=100,le=5000)
+    maximum_discount_bps:int=Field(default=2500,ge=0,le=2500)
     @model_validator(mode='after')
     def schedule(self):
         if any(not 480<=v<1380 for v in self.slots) or len(set(self.slots))!=len(self.slots) or any(b-a<120 for a,b in zip(sorted(self.slots),sorted(self.slots)[1:])):
@@ -75,15 +77,27 @@ class Interaction(Input):
     kind:Literal['impression','open','dismiss']
     event_id:str=Field(pattern=r'^[A-Za-z0-9_-]{16,80}$')
 class OfferQuote(Input):
-    campaign_id:str
-    service_id:str
-    city:str
+    campaign_id:str=Field(min_length=1,max_length=80)
+    service_id:str=Field(min_length=1,max_length=100)
+    city:str=Field(min_length=1,max_length=80)
+
+class OfferSelection(Input):
+    service_id:str=Field(min_length=1,max_length=100)
+    city:str=Field(min_length=1,max_length=80)
+
+def selection_key(uid,service_id,city):
+    return hashlib.sha256(f'{uid}\0{service_id}\0{city}'.encode()).hexdigest()
+
+def quoted_offer(c,s):
+    return dict(campaign_id=c['id'],version=c['version'],discount_paise=c['discount_paise'],
+                original_price_paise=s['price_paise'],price_paise=s['price_paise']-c['discount_paise'],
+                terms=c['terms'],title=c['title'],ends_at=c['ends_at'])
 
 def campaign_services(catalog):
     from home_plans import OFFERINGS
     return {**{s['id']:s for s in catalog['services']},**{'home:'+s['id']:dict(id='home:'+s['id'],name=s['name'],category=s['category'],description=s['description'],price_paise=0,duration_minutes=0,included=['Written scope and quote before confirmation'],excluded=['Work and availability require approval'],home_service=s['id']) for s in OFFERINGS}}
 
-def controls(u):return u.get('campaign_controls','current') or DEFAULT.copy()
+def controls(u):return {**DEFAULT,**(u.get('campaign_controls','current') or {})}
 def prefs(u,uid):return u.get('campaign_preferences',uid) or dict(consent_version=1,personalised=False,push=False,launch=True,daily_cap=3,city='Balasore')
 def history(u,uid):
     return [j for j in u.all('jobs') if j.get('customer_id')==uid and j['state']=='completed' and j.get('payment_status')=='verified'] if uid else []
@@ -92,10 +106,12 @@ def margin(u,c,s,policy=None):
     if not c['discount_paise']:return True
     if not policy:return False
     config=controls(u);base=s['price_paise'];worker=base*policy['worker_share_bps']//10000;bonus=base*policy.get('bonus_reserve_bps',0)//10000
+    if c['discount_paise']*10000>base*min(2500,config['maximum_discount_bps']):return False
     return base-worker-bonus-c['discount_paise'] >= math.ceil(base*(config['minimum_margin_bps']+config['risk_cost_bps'])/10000)
 def eligible(u,c,s,uid,city,now,placement=None):
     config=controls(u)
     if not config['enabled'] or not c.get('active') or not c['starts_at']<=now<c['ends_at'] or city not in c['cities'] or not s or not s.get('active',True):return False
+    if c['ends_at']-c['starts_at']>180*86400:return False
     if placement and placement not in c['placements']:return False
     if not margin(u,c,s):return False
     if c['discount_paise'] and c.get('reserved_paise',0)+c['discount_paise']>c['budget_paise']:return False
@@ -142,9 +158,10 @@ def recommendations(u,catalog,body,uid=None,now=None):
     for row in selected:row.pop('_score',None)
     return selected[:8]
 
-def reserve_discount(u,j,uid,campaign_id,service,city,now):
+def reserve_discount(u,j,uid,campaign_id,service,city,now,expected_version=None,expected_discount=None,expected_price=None):
     c=u.get('campaigns',campaign_id)
     if not c or c['service_id']!=service['id'] or not eligible(u,c,service,uid,city,now):fail('OFFER_UNAVAILABLE','This offer changed, ended, or reached its limit. Remove it to book at the displayed regular price.',409)
+    if (expected_version is not None and expected_version!=c['version']) or (expected_discount is not None and expected_discount!=c['discount_paise']) or (expected_price is not None and expected_price!=service['price_paise']):fail('OFFER_CHANGED','This offer changed. Check the updated price before booking.',409)
     discount=c['discount_paise'];c['reserved_paise']=c.get('reserved_paise',0)+discount;c['redemptions']=c.get('redemptions',0)+1;u.put('campaigns',c['id'],c)
     u.put('campaign_redemptions',j['id'],dict(id=j['id'],campaign_id=c['id'],user_id=uid,discount_paise=discount,at=now,status='reserved'))
     j.update(promotion_discount_paise=discount,promotion={'id':c['id'],'version':c['version'],'title':c['title'],'terms':c['terms'],'discount_paise':discount,'minimum_margin_bps':controls(u)['minimum_margin_bps'],'risk_cost_bps':controls(u)['risk_cost_bps']},total_paise=j['total_paise']-discount)
@@ -211,7 +228,7 @@ def install(core):
             if old.get('version',0)!=body.version:fail('VERSION_CHANGED','Campaign changed. Refresh before saving.')
             for key in ('reserved_paise','redemptions','impressions','opens'):value[key]=old.get(key,0)
             if value['budget_paise']<value['reserved_paise']:fail('BUDGET_COMMITTED','Budget cannot be lower than already reserved discounts.')
-            if value['active'] and (value['ends_at']<=time.time() or not margin(u,value,s)):fail('UNFUNDED_OFFER','Offer does not leave the configured company margin and risk allowance after worker pay and bonus reserve. Reduce the discount or configure an accepted earnings policy.',422)
+            if value['active'] and (value['ends_at']<=time.time() or not margin(u,value,s)):fail('UNFUNDED_OFFER','Offer exceeds the discount ceiling (up to 25%) or leaves too little company margin after worker pay, bonus reserve and risk allowance. Reduce the discount.',422)
             u.put('campaigns',cid,value);audit(u,'CampaignSaved',admin['id'],campaign_id=cid,version=value['version']);return value
         return store.run(save)
     @r.post('/campaigns/feed')
@@ -249,8 +266,34 @@ def install(core):
         def read(u):
             c=u.get('campaigns',body.campaign_id);s=services.get(body.service_id)
             if not c or c['service_id']!=body.service_id or not eligible(u,c,s,user['id'],body.city,time.time()):fail('OFFER_UNAVAILABLE','This offer is unavailable. Remove it or choose another offer.',409)
-            return {'discount_paise':c['discount_paise'],'price_paise':s['price_paise']-c['discount_paise'],'terms':c['terms'],'title':c['title']}
+            return quoted_offer(c,s)
         return store.run(read)
+    @r.post('/campaigns/select')
+    def select_offer(body:OfferQuote,user=Depends(core.current_user)):
+        services={s['id']:s for s in catalog()['services']}
+        def save(u):
+            now=time.time();c=u.get('campaigns',body.campaign_id);s=services.get(body.service_id)
+            if not c or c['service_id']!=body.service_id or not eligible(u,c,s,user['id'],body.city,now):fail('OFFER_UNAVAILABLE','This offer has ended or changed. Choose another offer.',409)
+            key=selection_key(user['id'],body.service_id,body.city)
+            row=dict(campaign_id=c['id'],version=c['version'],service_id=s['id'],city=body.city,user_id=user['id'])
+            old=u.get('campaign_selections',key)
+            if not old or any(old.get(k)!=v for k,v in row.items()):u.put('campaign_selections',key,{**row,'selected_at':now})
+            # A click remembers intent; only booking reserves money and consumes a use.
+            return quoted_offer(c,s)
+        return store.run(save)
+    @r.get('/campaigns/selection')
+    def selected_offer(service_id:str,city:str,user=Depends(core.current_user)):
+        services={s['id']:s for s in catalog()['services']}
+        def read(u):
+            row=u.get('campaign_selections',selection_key(user['id'],service_id,city))
+            c=u.get('campaigns',row['campaign_id']) if row else None;s=services.get(service_id)
+            if not c or row['version']!=c['version'] or c['service_id']!=service_id or not eligible(u,c,s,user['id'],city,time.time()):return {'offer':None}
+            return {'offer':quoted_offer(c,s)}
+        return store.run(read)
+    @r.delete('/campaigns/selection')
+    def clear_selection(body:OfferSelection,user=Depends(core.current_user)):
+        store.run(lambda u:u.put('campaign_selections',selection_key(user['id'],body.service_id,body.city),{'campaign_id':'','cleared_at':time.time()}))
+        return {'cleared':True}
     def tick():
         now=time.time();local=datetime.fromtimestamp(now,IST);minute=local.hour*60+local.minute;date=local.date().isoformat();data=catalog()
         def schedule(u):

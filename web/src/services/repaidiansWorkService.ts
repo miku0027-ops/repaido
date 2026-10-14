@@ -1,5 +1,5 @@
 import {auth} from '../firebase';
-import {communityRequest} from './repaidiansService';
+import {communityRequest,communityIdentityKey} from './repaidiansService';
 import {operation} from './operations';
 import {createReadCache} from './readCache.mjs';
 import {syncWorkPushAccount} from './repaidiansPushService';
@@ -12,11 +12,11 @@ const reads=createReadCache({maxEntries:64});
 let identityScope='',generation=0;
 const UPDATE='repaidians:work-update';
 let ownChange=false;
-function identityNow(){return auth.currentUser?.uid||localStorage.getItem('repaido.token')||'guest';}
+function identityNow(){return communityIdentityKey();}
 function syncIdentity(){const current=identityNow();if(current!==identityScope){identityScope=current;generation++;reads.invalidate();void syncWorkPushAccount();}return current;}
 export function clearWorkReads(){generation++;reads.invalidate();}
-function changed(){clearWorkReads();ownChange=true;try{window.dispatchEvent(new Event(UPDATE));window.dispatchEvent(new Event('repaidians:update'));}finally{ownChange=false;}}
-window.addEventListener('repaidians:update',()=>{if(!ownChange){clearWorkReads();window.dispatchEvent(new Event(UPDATE));}});
+function changed(){clearWorkReads();ownChange=true;try{window.dispatchEvent(new Event(UPDATE));window.dispatchEvent(new CustomEvent('repaidians:update',{detail:{path:'/work',contentChanged:false}}));}finally{ownChange=false;}}
+window.addEventListener('repaidians:update',event=>{const change=(event as CustomEvent<{contentChanged?:boolean;path?:string}>).detail;if(change?.contentChanged===false)return;if(!ownChange){clearWorkReads();window.dispatchEvent(new Event(UPDATE));}});
 export function subscribeWorkReads(listener:()=>void){window.addEventListener(UPDATE,listener);return()=>window.removeEventListener(UPDATE,listener);}
 function queryString(filters:Record<string,unknown>){const params=new URLSearchParams();for(const [key,value] of Object.entries(filters))if(value!==undefined&&value!==null&&value!=='')params.set(key,String(value));return params.toString();}
 function keyFor(account:string,path:string){syncIdentity();return account+':'+path;}
@@ -66,5 +66,5 @@ export const congratulatePlacement=(id:string,message:WorkCongratulations,client
 export async function trackWorkBehavior(account:string,event:{trade:Trade;type:'search'|'view'|'apply'|'save';query?:string;sourceId?:string;eventId?:string}){
   await auth.authStateReady();const scope=syncIdentity();
   await communityRequest('/work/behavior',{method:'POST',body:JSON.stringify({...event,query:event.query?.slice(0,120),eventId:event.eventId||crypto.randomUUID()})});
-  if(syncIdentity()===scope){reads.invalidate();window.dispatchEvent(new CustomEvent('repaidians:work-interests',{detail:{account}}));}
+  if(syncIdentity()===scope){reads.invalidate(keyFor(account,'/work/interests'));window.dispatchEvent(new CustomEvent('repaidians:work-interests',{detail:{account}}));}
 }

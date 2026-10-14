@@ -1,0 +1,84 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {spawn} from 'node:child_process';
+import {mkdtemp,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdtemp(resolve(tmpdir(),'repaido-hydration-'));
+const api='http://127.0.0.1:8059',origin='http://127.0.0.1:5187',requests=[],errors=[],checks=[];
+const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/modern_discovery_api.py',work+'/test.db','8059'],{cwd:resolve(web,'../backend'),stdio:['ignore','pipe','pipe']});
+let log='',browser,page;for(const stream of [server.stdout,server.stderr])stream.on('data',chunk=>log+=chunk);
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+try{
+ for(let i=0;i<120;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}
+ browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+ const context=await browser.newContext({viewport:{width:390,height:850},reducedMotion:'no-preference'});
+ // Fix only the discovery clock outside peaks; request/cache clocks keep real time.
+ await context.addInitScript(()=>{const Original=Date;window.Date=class extends Original{constructor(...args){super(...(args.length?args:['2026-10-12T08:00:00Z']));}};});
+ await context.route('**/@vite/client',async route=>{const response=await route.fetch();const body=(await response.text()).replace(/new WebSocket\(/g,'new PreviewSocket(');await route.fulfill({response,body:'class PreviewSocket { addEventListener(){} removeEventListener(){} send(){} close(){} }\n'+body});});
+ await context.route('**/api/**',async route=>{const request=route.request(),url=new URL(request.url());requests.push({path:url.pathname,method:request.method(),body:request.postData()});try{const response=await route.fetch({url:api+url.pathname+url.search});await route.fulfill({response});}catch{await route.abort().catch(()=>{});}});
+ page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
+ let releasePreferences;const heldPreferences=new Promise(resolve=>releasePreferences=resolve);
+ await page.route('**/api/operations/discovery/preferences',async route=>{
+  if(route.request().method()!=='GET')return route.fallback();
+  const response=await route.fetch({url:api+'/operations/discovery/preferences'});await heldPreferences;await route.fulfill({response});
+ });
+ await page.goto(origin+'/tests/hydration-design-preview.html');
+ await page.getByRole('button',{name:'Find a cab',exact:true}).waitFor();
+ await page.getByText('Your service suggestions',{exact:true}).click();
+ await page.getByRole('button',{name:'Enable personalised suggestions',exact:true}).click();
+ await page.getByRole('button',{name:'Turn off & clear interests',exact:true}).waitFor();releasePreferences();await pause(300);
+ assert.equal(await page.getByRole('button',{name:'Turn off & clear interests',exact:true}).count(),1);
+ await page.unroute('**/api/operations/discovery/preferences');
+ checks.push('a late preferences read cannot undo a confirmed consent change');
+ await page.getByRole('button',{name:'Record repair search',exact:true}).click();
+ await page.getByRole('heading',{name:'What needs fixing?',exact:true}).waitFor();
+ assert(requests.some(row=>row.path.endsWith('/discovery/events')&&JSON.parse(row.body).query==='AC'));
+ checks.push('real recorded activity updates the Home panel through the production hydration hook');
+ const query=page.getByRole('searchbox',{name:'Describe the work'});await query.fill('AC not cooling');
+ const chips=await page.getByRole('group',{name:'Repair ideas'}).innerText();await pause(1100);
+ const plumbingReceipt=page.waitForResponse(response=>response.url().endsWith('/discovery/events')&&response.request().postData()?.includes('plumber'));
+ await page.getByRole('button',{name:'Record plumbing category',exact:true}).click();assert.equal((await (await plumbingReceipt).json()).recorded,true);await pause(300);
+ assert.equal(await page.getByRole('group',{name:'Repair ideas'}).innerText(),chips);
+ await page.getByRole('button',{name:'Rides',exact:true}).click();await page.getByRole('button',{name:'Self-drive',exact:true}).click();
+ await page.getByRole('button',{name:'Repairs',exact:true}).click();assert.equal(await query.inputValue(),'AC not cooling');
+ await page.getByRole('button',{name:'Rides',exact:true}).click();await page.getByRole('heading',{name:'Drive your own way.',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Record shared search',exact:true}).click();await pause(300);
+ assert.equal(await page.getByRole('heading',{name:'Drive your own way.',exact:true}).count(),1);
+ checks.push('draft, chip order and manual ride mode survive switching and background preference updates');
+ await page.getByRole('button',{name:'Cab rental',exact:true}).click();
+ assert(await page.locator('.mobility-mode-intro').evaluate(element=>getComputedStyle(element).animationName!=='none'));
+ await pause(1000);assert.equal(await page.locator('.home-discovery-hub').evaluate(element=>element.getAnimations({subtree:true}).filter(animation=>animation.playState==='running').length),0);
+ await page.getByRole('button',{name:'Cab',exact:true}).click();
+ await page.emulateMedia({reducedMotion:'reduce'});
+ assert.equal(await page.locator('.home-discovery-hub').evaluate(element=>element.getAnimations({subtree:true}).filter(animation=>animation.playState==='running').length),0);
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.evaluate(()=>document.documentElement.classList.add('reduce-motion'));
+ await page.getByRole('button',{name:'Shared ride',exact:true}).click();
+ assert.equal(await page.locator('.home-discovery-hub').evaluate(element=>element.getAnimations({subtree:true}).filter(animation=>animation.playState==='running').length),0);
+ await page.evaluate(()=>document.documentElement.classList.remove('reduce-motion'));
+ checks.push('finite geometric transitions end; OS and app reduced-motion settings disable them');
+ await pause(1100);
+ const rentalReceipt=page.waitForResponse(response=>response.url().endsWith('/discovery/events')&&response.request().postData()?.includes('transport_rental'));
+ const refreshedFeed=page.waitForResponse(response=>response.url().includes('/discovery/feed/personal')).catch(()=>null);
+ await page.getByRole('button',{name:'Record rental search',exact:true}).click();assert.equal((await (await rentalReceipt).json()).recorded,true);
+ const refreshed=await refreshedFeed;assert(refreshed);assert.equal((await refreshed.json()).preferred_transport_mode,'rental');await pause(100);
+ const feeds=()=>requests.filter(row=>row.path.includes('/discovery/feed')).length;
+ const before=feeds();await page.getByRole('button',{name:'Toggle home visibility',exact:true}).click();await page.getByRole('button',{name:'Toggle home visibility',exact:true}).click();await page.getByRole('button',{name:'Plan a cab rental',exact:true}).waitFor();await pause(300);assert.equal(feeds(),before);
+ checks.push('returning to Home reuses the account-scoped feed cache without a new feed request');
+ // Delay an event receipt, then opt out before it arrives. It must not repopulate preferences.
+ await pause(1100);let releaseEvent,recordedEvent;const heldEvent=new Promise(resolve=>releaseEvent=resolve),eventRecorded=new Promise(resolve=>recordedEvent=resolve);
+ await page.route('**/api/operations/discovery/events',async route=>{const response=await route.fetch({url:api+'/operations/discovery/events'});recordedEvent(await response.json());await heldEvent;await route.fulfill({response});});
+ await page.getByRole('button',{name:'Record electrical category',exact:true}).click();assert.equal((await eventRecorded).recorded,true);
+ await page.getByRole('button',{name:'Turn off & clear interests',exact:true}).click();await page.getByRole('button',{name:'Enable personalised suggestions',exact:true}).waitFor();releaseEvent();await pause(300);
+ assert.equal(await page.getByRole('heading',{name:'Make your next move.',exact:true}).count(),1);
+ await page.unroute('**/api/operations/discovery/events');
+ await page.getByRole('button',{name:'Switch test account',exact:true}).click();await page.getByRole('button',{name:'Repairs',exact:true}).click();assert.equal(await query.inputValue(),'');
+ checks.push('opt-out discards a late behavior receipt, and account switching clears private drafts');
+ const auto=requests.length;await pause(700);assert(requests.slice(auto).every(row=>row.method==='GET'));
+ const activeFeedback=await page.locator('.app-feedback-card').allTextContents();assert(activeFeedback.every(text=>!text.includes('Changes saved')));
+ await page.screenshot({path:work+'/repair-motion.png',fullPage:true});
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks,work}));
+}catch(error){console.error(error);if(page)await page.screenshot({path:work+'/failure.png',fullPage:true}).catch(()=>{});console.error(log.slice(-1500));process.exitCode=1;}
+finally{await writeFile(work+'/report.json',JSON.stringify({checks,requests,errors},null,2));await browser?.close();server.kill('SIGTERM');console.log('Evidence: '+work);}

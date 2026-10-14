@@ -1,0 +1,27 @@
+{
+  "name": "repaido-engineering",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5190 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.9.0",
+    "firebase": "^12.19.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "axe-core": "^4.13.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  }
+}
