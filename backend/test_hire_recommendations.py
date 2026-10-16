@@ -96,6 +96,17 @@ def test_no_consent_or_interest_has_truthful_cold_start(api, monkeypatch):
     assert explicit['professionals'][0]['comparison']['hire_readiness']['quote_required']
 
 
+def test_native_sixty_year_experience_profile_remains_recommendable(api, monkeypatch):
+    setup_hire(api, monkeypatch)
+    main.operations_store.run(lambda u: u.put('workers', 'worker', {
+        **u.get('workers', 'worker'), 'experience_years': 60}))
+    result = recommend(api, category='ac')
+    row = result['professionals'][0]
+    assert row['id'] == 'worker' and row['experience_years'] == 60
+    experience = next(part for part in row['recommendation']['components'] if part['id'] == 'experience')
+    assert experience['points'] == experience['maximum'] == 10
+
+
 def test_personalisation_is_account_scoped_and_reset_or_opt_out_takes_effect(api, monkeypatch):
     setup_hire(api, monkeypatch)
     interest(api)
