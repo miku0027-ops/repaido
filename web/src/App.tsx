@@ -153,6 +153,8 @@ import './reference.css';
 
 const RepaidiansModal=lazy(()=>import('./components/repaidians/RepaidiansModal'));
 const CustomContractHub=lazy(()=>import('./components/CustomContracts').then(module=>({default:module.CustomContractHub})));
+const PublicSellerProfile=lazy(()=>import('./components/PublicSellerProfile'));
+const ShopStorefront=lazy(()=>import('./components/ShopStorefront'));
 const MarketInbox=lazy(()=>import('./components/MarketInbox').then(module=>({default:module.MarketInbox})));
 const MarketAccessModal=lazy(()=>import('./components/MarketAccessPanel').then(module=>({default:module.MarketAccessModal})));
 
@@ -224,6 +226,7 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 export default function App() {
   const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
   const [quickHireOpen,setQuickHireOpen]=useState(false);
+  const [publicSeller,setPublicSeller]=useState<{listingId?:string;chatId?:string}|null>(null),[publicShop,setPublicShop]=useState<string>(()=>new URLSearchParams(location.search).get('shop-profile')||'');
   const [marketChatId,setMarketChatId]=useState(()=>{const id=new URLSearchParams(location.search).get('market-chat');return id&&/^[A-Za-z0-9_-]{1,100}$/.test(id)?id:'';});
   const [marketAccessOpen,setMarketAccessOpen]=useState(false);
   const [customContractId,setCustomContractId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-contract')||undefined);
@@ -302,6 +305,13 @@ export default function App() {
     setTab('ShopSpares');
     if(sec==='refurbished'||sec==='rentals'||sec==='preowned')hydration.event({kind:'category_view',category:'market_'+(sell?'sell':sec)});
   };
+  useEffect(()=>{
+    const shop=(event:Event)=>{const id=(event as CustomEvent).detail?.id;if(typeof id==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(id)){setPublicSeller(null);setMarketChatId('');navigatePortal('customer');setPublicShop(id);}};
+    const listing=(event:Event)=>{const d=(event as CustomEvent).detail;if(!d||typeof d.id!=='string'||!['exchange','second_hand'].includes(d.mode))return;setPublicSeller(null);setPublicShop('');setMarketChatId('');navigatePortal('customer');openStoreSection(d.mode==='exchange'?'exchange':'preowned');setMarketQuick({listingId:d.id});};
+    const rental=(event:Event)=>{const id=(event as CustomEvent).detail?.id;if(typeof id!=='string')return;setPublicSeller(null);setPublicShop('');setMarketChatId('');navigatePortal('customer');openStoreSection('rentals');setMarketQuick({rentalId:id});};
+    window.addEventListener('repaido:market-open-shop',shop);window.addEventListener('repaido:market-open-listing',listing);window.addEventListener('repaido:market-open-rental',rental);
+    return()=>{window.removeEventListener('repaido:market-open-shop',shop);window.removeEventListener('repaido:market-open-listing',listing);window.removeEventListener('repaido:market-open-rental',rental);};
+  },[]);
   const [portal, setPortal] = useState<'customer' | 'worker' | 'shop-admin' | 'company-admin'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
@@ -2537,7 +2547,9 @@ export default function App() {
         </Modal>
       )}
 
-      {!!marketChatId&&<Suspense fallback={<Modal title="Market messages" onClose={()=>setMarketChatId('')}><p role="status">Opening your conversation…</p></Modal>}><MarketInbox key={user?.id||'guest'} initialChatId={marketChatId} onClose={()=>setMarketChatId('')} onSignIn={()=>setSheet('auth')} onAccess={()=>setMarketAccessOpen(true)}/></Suspense>}
+      {publicSeller&&<Suspense fallback={<p role="status">Opening seller profile…</p>}><PublicSellerProfile key={user?.id||'guest'} {...publicSeller} onClose={()=>setPublicSeller(null)} onSignIn={()=>setSheet('auth')}/></Suspense>}
+      {!!publicShop&&<Suspense fallback={<p role="status">Opening shop profile…</p>}><ShopStorefront shopId={publicShop} onClose={()=>setPublicShop('')} onProduct={id=>{setPublicShop('');openStoreSection('spares');setMarketQuick({productId:id});}} onRental={id=>{setPublicShop('');openStoreSection('rentals');setMarketQuick({rentalId:id});}} onShop={setPublicShop} onSignIn={()=>setSheet('auth')}/></Suspense>}
+      {!!marketChatId&&<Suspense fallback={<Modal title="Market messages" onClose={()=>setMarketChatId('')}><p role="status">Opening your conversation…</p></Modal>}><MarketInbox key={user?.id||'guest'} initialChatId={marketChatId} onOpenProfile={chatId=>setPublicSeller({chatId})} onClose={()=>setMarketChatId('')} onSignIn={()=>setSheet('auth')} onAccess={()=>setMarketAccessOpen(true)}/></Suspense>}
       {marketAccessOpen&&<Suspense fallback={<Modal title="Marketplace access" onClose={()=>setMarketAccessOpen(false)}><p role="status">Checking marketplace access…</p></Modal>}><MarketAccessModal key={user?.id||'guest'} onClose={()=>setMarketAccessOpen(false)} onSignIn={()=>setSheet('auth')}/></Suspense>}
 
       <CustomerNotificationDrawer

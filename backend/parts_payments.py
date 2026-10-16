@@ -18,11 +18,13 @@ def apply_capture(u,a,p):
         j.update(parts_refund_hold=True,payout_status='held')
     elif p.get('status')=='captured' and p.get('captured') is True and a['status'] not in ('captured','refunded','partially_refunded'):
         q=j.get('proposal',{})
-        valid=j['state']=='in_progress' and q.get('id')==a['id'] and q.get('status')=='awaiting_payment' and q['expires_at']>now and q['base_scope_version']==j['scope_version']
+        valid=j['state']=='in_progress' and q.get('id')==a['id'] and q.get('status')=='awaiting_payment' and q.get('amount_paise')==a['amount_paise'] and q['expires_at']>now and q['base_scope_version']==j['scope_version']
         if valid:
             for line in q['items']:
                 product=u.get('inventory',line['product_id'])
-                if not live_product(u,product,now) or product['stock']<line['quantity'] or product['price_paise']!=line['unit_price_paise']:valid=False;break
+                from shop_pricing import price as shop_price
+                current_price=(shop_price(u,product,now)['price_paise'] if line.get('price_policy')=='shop-offers-v1' else product['price_paise']) if product else None
+                if not live_product(u,product,now) or product['stock']<line['quantity'] or current_price!=line['unit_price_paise']:valid=False;break
         a.update(status='captured',payment_id=p['id'],allocated=bool(valid))
         if valid:
             for line in q['items']:

@@ -20,6 +20,7 @@ from operations import Input, fail
 from integrations import audit
 from marketplace import active
 from market_access import access_status, require_access
+from market_presence import add_routes as add_presence_routes, presence_view
 
 PAGE_SIZE = 50
 
@@ -344,7 +345,7 @@ def install(core):
             ids = [_message_id(cid, seq) for seq in range(start, end + 1)]
             u.prefetch([('market_chat_messages', mid) for mid in ids])
             rows = [u.get('market_chat_messages', mid) for mid in ids]
-            return dict(chat=_chat_view(u, chat, user['id']), messages=[_message_view(row, side) for row in rows if row],
+            return dict(chat=_chat_view(u, chat, user['id']), presence=presence_view(u, chat, side), messages=[_message_view(row, side) for row in rows if row],
                         next_cursor=start if start > 1 and rows else None,
                         next_after=end if rows else (after or 0), has_more=end < latest if after is not None else start > 1)
         return store.run(read)
@@ -482,4 +483,5 @@ def install(core):
             return {'status': row['status']}
         return store.run(save)
 
+    add_presence_routes(router, core, _participant, _chat_view)
     core.app.include_router(router)

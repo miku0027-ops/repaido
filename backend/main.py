@@ -1186,6 +1186,8 @@ import market_access
 market_access.install(__import__(__name__))
 import market_messaging
 market_messaging.install(__import__(__name__))
+import market_profiles
+market_profiles.install(__import__(__name__))
 
 import parts_payments
 parts_payments.install(__import__(__name__))
@@ -1232,6 +1234,12 @@ professional_offers.install(sys.modules[__name__])
 
 import shop_prime
 shop_prime.install(sys.modules[__name__])
+import shop_access
+shop_access.install(sys.modules[__name__])
+import shop_pricing
+shop_pricing.install(sys.modules[__name__])
+import shop_discovery
+shop_discovery.install(sys.modules[__name__])
 
 import repaidians_billing
 repaidians_billing.install(sys.modules[__name__])

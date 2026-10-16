@@ -202,6 +202,11 @@ def test_full_ecosystem_synchronization(api):
         'items': [{'product_id': prod_id, 'quantity': 1}]
     })
     assert job['proposal']['status'] == 'pending'
+    # A genuinely dated registration supplies the owner-funded 5% trial offer.
+    assert job['proposal']['items'][0]['base_unit_price_paise'] == 45000
+    assert job['proposal']['items'][0]['unit_price_paise'] == 42750
+    parts_amount = job['proposal']['amount_paise']
+    assert parts_amount == 42750  # ₹450 less the exact 5% merchant-funded offer
     proposal_id = job['proposal']['id']
 
     # Customer approves proposed replacement parts
@@ -218,7 +223,7 @@ def test_full_ecosystem_synchronization(api):
         'order_id': 'order_parts_sync',
         'kind': 'parts',
         'job_id': job_id,
-        'amount_paise': 45000,
+        'amount_paise': parts_amount,
         'currency': 'INR',
         'status': 'created',
         'created_at': time.time()
@@ -227,7 +232,7 @@ def test_full_ecosystem_synchronization(api):
     payment_payload = {
         'id': 'pay_parts_sync',
         'order_id': 'order_parts_sync',
-        'amount': 45000,
+        'amount': parts_amount,
         'currency': 'INR',
         'status': 'captured',
         'captured': True
@@ -335,7 +340,7 @@ def test_full_ecosystem_synchronization(api):
     assert r_payables.status_code == 200, r_payables.text
     payables = r_payables.json()['payables']
     assert len(payables) == 1
-    assert payables[0]['amount_paise'] == 45000  # ₹450 credited to shop ledger
+    assert payables[0]['amount_paise'] == parts_amount == 42750  # Actual discounted amount owed to the shop
     assert payables[0]['shop_id'] == shop_id
 
     print('\n[SUCCESS] Ecosystem synchronization: 100% verified across Shop, Worker, Customer, and Admin!')

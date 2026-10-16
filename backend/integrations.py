@@ -81,6 +81,9 @@ class TrackingPing(Position):
 
 def apply_payment(u, payment):
     """Only called with an authenticated provider GET, never browser/webhook claims."""
+    from shop_access import apply_provider_payment as apply_shop_access_payment
+    shop_access = apply_shop_access_payment(u, payment)
+    if shop_access is not None: return shop_access
     from market_access import apply_provider_payment as apply_market_access_payment
     market_access = apply_market_access_payment(u, payment)
     if market_access is not None: return market_access
@@ -916,7 +919,9 @@ def install(core):
         except Exception:fail('FORBIDDEN','Scheduler authentication required.',403)
 
     @router.post('/internal/tick',dependencies=[Depends(scheduler_auth)])
-    def scheduler():return {'network':core.network_tick(),'partner_program':core.partner_program_tick(),'home_plans':core.home_plans_tick(),'operations':core.operations_tick(),'procurement':core.procurement_tick(),'rentals':core.rentals_tick(),'shop_payouts':core.shop_payouts_tick(),'rewards':core.rewards_tick(),'refunds':core.refunds_tick(),'promotions':core.promotions_tick(),'notifications':relay(),'reconciliation':reconcile(),'marketplace':core.market_tick(),'hiring':core.hiring_tick()}
+    def scheduler():
+        from shop_discovery import process_updates as commerce_updates
+        return {'network':core.network_tick(),'partner_program':core.partner_program_tick(),'home_plans':core.home_plans_tick(),'operations':core.operations_tick(),'procurement':core.procurement_tick(),'rentals':core.rentals_tick(),'shop_payouts':core.shop_payouts_tick(),'rewards':core.rewards_tick(),'refunds':core.refunds_tick(),'promotions':core.promotions_tick(),'notifications':relay(),'reconciliation':reconcile(),'marketplace':core.market_tick(),'shop_access':core.shop_access_tick(),'hiring':core.hiring_tick(),'commerce':commerce_updates(core,limit=2)}
 
     core.integrations_relay=relay
     core.integrations_reconcile=reconcile

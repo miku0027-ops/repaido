@@ -213,7 +213,7 @@ def test_native_hundred_item_stock_change_does_not_amplify_index_writes(api, lis
         u.put('retail_orders', 'bulk-order', {'id': 'bulk-order', 'customer_id': 'customer', 'state': 'paid', 'payment_id': 'pay_bulk',
             'items': [{'product_id': f'bulk{index:03}', 'quantity': 1} for index in range(100)]})
         assert sum(kind == 'inventory' for kind, _ in u.pending) == 100
-        assert len(u.pending) == 301  # 100 products + order + 100 proof references + 100 per-user references.
+        assert len(u.pending) == 302  # 100 products + order + 100 proof references + 100 per-user references + one commerce envelope.
     main.operations_store.run(checkout)
 
 

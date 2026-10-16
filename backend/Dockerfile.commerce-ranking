@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12-slim
+
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=8080 \
+    REPAIDO_HTTP_JSON_MAX_BYTES=16384 \
+    REPAIDO_API_MAX_INFLIGHT=16 \
+    REPAIDO_API_MAX_WAITING=16 \
+    REPAIDO_HTTP_BODY_IDLE_SECONDS=2 \
+    REPAIDO_HTTP_BODY_TOTAL_SECONDS=5
+
+COPY --chmod=644 requirements-commerce-ranking.txt ./
+# The optional public CA bundle is mounted only while pip runs. Normal release
+# builders can omit it; managed development builders can supply their proxy CA.
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -f /run/secrets/proxy_ca ]; then export PIP_CERT=/run/secrets/proxy_ca; fi; \
+    pip install --no-cache-dir -r requirements-commerce-ranking.txt
+
+# This service has no application core, database adapter or cloud storage client.
+COPY --chmod=644 commerce_ranking.py commerce_ranking_service.py http_boundary.py ./
+USER 65532:65532
+EXPOSE 8080
+CMD ["sh", "-c", "exec uvicorn commerce_ranking_service:app --host 0.0.0.0 --port ${PORT:-8080} --no-proxy-headers --no-access-log"]

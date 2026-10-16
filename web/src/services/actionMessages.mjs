@@ -6,6 +6,7 @@ export function quietRequest(path, init = {}) {
  if (/\/scrap\/capture-sessions(?:\/|$)/.test(route)) return true;
  if (/\/(search|leaderboard|feed|agent-opportunities|view|seen|read|read-all|heartbeat|position|telemetry|tracking-session)(\/|$)/.test(route) || /\/(devices|activity|presence)(\/|$)/.test(route)) return true;
  if (/\/(hiring\/recommendations|discovery\/events|coupons\/launch|auth\/session|community\/usage|community\/work\/behavior)$/.test(route)) return true;
+ if (/\/shop-discovery\/(?:recommendations(?:\/personal)?|personal|events|presence)$/.test(route)) return true;
  let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Binary uploads. */ }
  return /\/worker\/availability$/.test(route) && body.heartbeat === true;
 }

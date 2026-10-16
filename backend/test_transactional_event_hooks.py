@@ -343,7 +343,8 @@ def test_maximum_basket_supplier_email_fanout_stays_below_transaction_cap(api,mo
     assert len(deliveries('shop_order_paid',oid))==len(deliveries('shop_order_received',oid))==101
     assert {row['recipient_id'] for row in deliveries('shop_order_paid',oid)}=={'customer',*(
         'supplier-'+str(index) for index in range(size))}
-    assert source_writes<=403 and source_writes>=400 and max(writes)<500
+    # One coalesced commerce envelope adds one write to the existing 403-write source budget.
+    assert source_writes<=404 and source_writes>=400 and max(writes)<500
     initial_count=len(deliveries(record=oid))
     assert api.post(path+'/verify',headers=auth('customer'),json={'payment_id':'pay_many'}).status_code==200
     assert api.post(path+'/received',headers=auth('customer')).status_code==200

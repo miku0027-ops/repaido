@@ -150,6 +150,9 @@ class Store:
                     c.execute(f"CREATE INDEX IF NOT EXISTS operation_{kind}_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='{kind}'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_market_chat_activity ON operation_records(json_extract(body,'$.user_id'),json_extract(body,'$.updated_at') DESC,id DESC) WHERE kind='market_chat_inbox'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_market_chat_side ON operation_records(json_extract(body,'$.user_id'),json_extract(body,'$.side'),json_extract(body,'$.updated_at') DESC,id DESC) WHERE kind='market_chat_inbox'")
+            for kind,fields in {'shops':('status','city','owner_id'),'inventory':('shop_id','category','status'),'rental_inventory':('shop_id',),'shop_reviews':('shop_id','product_id','order_id'),'commerce_events':('user_id',),'commerce_order_facts':('shop_id',),'commerce_product_pairs':('product_id',),'shop_access_payments':('status',),'commerce_projection_queue':('active',)}.items():
+                for field in fields:
+                    c.execute(f"CREATE INDEX IF NOT EXISTS operation_{kind}_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='{kind}'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_customer ON operation_records(json_extract(body,'$.customer_id')) WHERE kind='jobs'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_members_handle ON operation_records(json_extract(body,'$.handle')) WHERE kind='rp_members'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_blocks_owner ON operation_records(json_extract(body,'$.from')) WHERE kind='rp_blocks'")
@@ -228,6 +231,7 @@ class Unit:
         """Indexed equality lookups with transaction-local writes overlaid."""
         allowed = {'cleanup_reports': {'customer_id','owner_id','state','city_key','queue'}, 'cleanup_points': {'user_id'}, 'captain_profiles': {'city_key'}, 'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state','customer_id','owner_id'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id','customer_id'}, 'rentals': {'customer_id'}, 'rental_payments': {'rental_id'}, 'retail_orders': {'customer_id'}, 'home_plans': {'customer_id'},
                    'support_cases': {'customer_id','job_id','state'}, 'support_messages': {'case_id'}, 'market_listings': {'owner_id'}, 'market_chat_inbox': {'user_id'}, 'market_chat_reports': {'status'}, 'market_access_payments': {'status'}, 'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
+        allowed.update({'shops':{'status','city','owner_id'},'inventory':{'shop_id','category','status'},'rental_inventory':{'shop_id'},'shop_reviews':{'shop_id','product_id','order_id'},'commerce_events':{'user_id'},'commerce_order_facts':{'shop_id'},'commerce_product_pairs':{'product_id'},'shop_access_payments':{'status'},'commerce_projection_queue':{'active'}})
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:
@@ -286,7 +290,7 @@ class Unit:
 
     def put(self, kind, key, value):
         self.pending[kind, key] = copy.deepcopy(value)
-        if kind in ('rp_work_project_queue', 'rp_work_member_share_queue', 'rp_work_push_queue') and value.get('active'):
+        if kind in ('rp_work_project_queue', 'rp_work_member_share_queue', 'rp_work_push_queue', 'commerce_projection_queue') and value.get('active'):
             self.work_events = True
         if kind == 'shared_departures':
             from transport_discovery import index_record as index_transport_record
@@ -302,6 +306,9 @@ class Unit:
         if kind in ('workers', 'contract_tenders'):
             from custom_contracts import index_record as index_contract_record
             index_contract_record(self, kind, key, value)
+        if kind in ('shops','inventory','rental_inventory','retail_orders','discovery_preferences'):
+            from shop_discovery import index_record as index_shop_record
+            index_shop_record(self,kind,key,value)
         if kind in ('devices', 'rp_work_delivery'):
             from work_push import index_record as index_push_record
             index_push_record(self, kind, key, value)
@@ -944,7 +951,9 @@ def install(core):
                     if j.get('procurement_version',1)>=2 and not live_product(u,product,now): fail('STALE_INVENTORY','Use recently confirmed stock from an approved shop.')
                     if not product or product.get('status') != 'approved': fail('PART_UNAVAILABLE', 'This part is not in the verified shop inventory.')
                     if type(quantity) is not int or not 1 <= quantity <= product['stock']: fail('INSUFFICIENT_STOCK', 'The shop does not have this quantity.')
-                    items.append({'product_id': product['id'], 'quantity': quantity, 'unit_price_paise': product['price_paise'], 'name': product['name'], 'shop_id': product['shop_id']})
+                    from shop_pricing import price as shop_price
+                    pricing=shop_price(u,product,now)
+                    items.append({'product_id': product['id'], 'quantity': quantity, 'unit_price_paise': pricing['price_paise'], 'base_unit_price_paise':pricing['base_price_paise'], 'offer_source':pricing['offer_source'], 'price_policy':'shop-offers-v1', 'name': product['name'], 'shop_id': product['shop_id']})
                 if len({i['product_id'] for i in items}) != len(items): fail('DUPLICATE_PART', 'Combine quantities for each part.', 422)
                 if j.get('procurement_version',1)>=2 and len({i['shop_id'] for i in items})!=1: fail('ONE_SHOP_PER_ORDER','Choose parts from one shop per request.')
                 j['proposal'] = {'id': str(uuid.uuid4()), 'status': 'pending', 'base_scope_version': j['scope_version'], 'items': items, 'amount_paise': sum(i['quantity']*i['unit_price_paise'] for i in items), 'expires_at': now+3600}
@@ -958,7 +967,9 @@ def install(core):
                 elif a == 'approve_parts':
                     for line in quote['items']:
                         product = u.get('inventory', line['product_id'])
-                        if not product or product['stock'] < line['quantity'] or product['price_paise'] != line['unit_price_paise']: fail('STOCK_OR_PRICE_CHANGED', 'The shop stock or price changed. Request a fresh quote.')
+                        from shop_pricing import price as shop_price
+                        current_price=(shop_price(u,product,now)['price_paise'] if line.get('price_policy')=='shop-offers-v1' else product['price_paise']) if product else None
+                        if not product or product['stock'] < line['quantity'] or current_price != line['unit_price_paise']: fail('STOCK_OR_PRICE_CHANGED', 'The shop stock or price changed. Request a fresh quote.')
                         product['stock'] -= line['quantity']
                         u.put('inventory', product['id'], product)
                     if j.get('procurement_version',1)>=2:
@@ -1096,7 +1107,8 @@ def install(core):
     @router.get('/inventory')
     def inventory(user=Depends(core.current_user)):
         from procurement import live_product
-        return store.run(lambda u: {'items': [{**{k:p.get(k) for k in ('id','name','sku','category','compatibility','price_paise','stock','shop_id','stock_confirmed_at')},'shop_name':u.get('shops',p['shop_id'])['name']} for p in u.all('inventory') if live_product(u,p,time.time()) and p['stock']>0]})
+        from shop_pricing import effective_product
+        return store.run(lambda u: {'items': [{**effective_product(u,p),'shop_name':u.get('shops',p['shop_id'])['name']} for p in u.all('inventory') if live_product(u,p,time.time()) and p['stock']>0]})
 
     core.operations_tick = sweep
     core.app.include_router(router)

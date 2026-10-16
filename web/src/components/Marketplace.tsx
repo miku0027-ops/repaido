@@ -4,6 +4,7 @@ import {Plus,MapPin,MessageCircle,Share2,PhoneCall,SlidersHorizontal,Search,Refr
 import {operation,currentPosition,money} from '../services/operations';
 import {apiFetch,apiAssetUrl} from '../services/api';
 import {Modal,CustomerSearchField,ActionStatus} from './ui';
+import PublicSellerProfile from './PublicSellerProfile';
 import {MarketInbox,MarketInboxButton} from './MarketInbox';
 import {MarketChatModeration} from './MarketChatModeration';
 import {MarketAccessModal,MarketAccessSummary} from './MarketAccessPanel';
@@ -65,7 +66,7 @@ const typeLabels:Record<string,string>={all:'All Finds',phone:'Phones & Tablets'
 
 export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=false,initialListingId,initialLocation,initialSearch=''}:{mode:Mode;manage?:boolean;onSignIn?:()=>void;onShare?:(reference:ListingReference)=>void;initialCreate?:boolean;initialListingId?:string;initialLocation?:{lat:number;lng:number};initialSearch?:string}){
  const [mine,setMine]=useState(manage),[rows,setRows]=useState<Item[]>([]),[query,setQuery]=useState(initialSearch),[map,setMap]=useState(false),[form,setForm]=useState(false),[detail,setDetail]=useState<Item|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
- const [inbox,setInbox]=useState<{listingId?:string}|null>(null),[accessOpen,setAccessOpen]=useState(false);
+ const [inbox,setInbox]=useState<{listingId?:string}|null>(null),[accessOpen,setAccessOpen]=useState(false),[sellerProfile,setSellerProfile]=useState<{listingId?:string;chatId?:string}|null>(null);
  const [filters,setFilters]=useState<SearchFilters>(()=>defaultFilters(marketArea(initialLocation)));
  const [draft,setDraft]=useState(filters),[filterOpen,setFilterOpen]=useState(false),[locating,setLocating]=useState(false),[filterError,setFilterError]=useState('');
  const searchSnapshot=useRef({filters,query:initialSearch});
@@ -121,7 +122,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
    }
  };
  useEffect(()=>{loadSequence.current++;pendingLoad.current=false;void load();},[mine,mode,uid]);
- useEffect(()=>{if(previousAccount.current===uid)return;const wasGuest=!previousAccount.current;previousAccount.current=uid;const resume=wasGuest&&!!uid&&guestResume.current?.uid===uid&&guestResume.current.mode===mode&&guestResume.current.epoch===editorOwner.current.epoch;if(!wasGuest||!uid){editorOwner.current.epoch++;guestResume.current=null;}else if(resume){guestResume.current=null;}setDetail(null);setRowsAreMine(false);setMessage('');setError('');setInbox(null);setAccessOpen(false);setForm(resume);},[uid]);
+ useEffect(()=>{if(previousAccount.current===uid)return;const wasGuest=!previousAccount.current;previousAccount.current=uid;const resume=wasGuest&&!!uid&&guestResume.current?.uid===uid&&guestResume.current.mode===mode&&guestResume.current.epoch===editorOwner.current.epoch;if(!wasGuest||!uid){editorOwner.current.epoch++;guestResume.current=null;}else if(resume){guestResume.current=null;}setDetail(null);setRowsAreMine(false);setMessage('');setError('');setInbox(null);setAccessOpen(false);setSellerProfile(null);setForm(resume);},[uid]);
  useEffect(()=>{
    const refreshed=()=>{invalidateMarketplaceReads();loadSequence.current++;pendingLoad.current=false;if(!document.hidden&&navigator.onLine)void load(mine,searchSnapshot.current,true,true);};
    window.addEventListener('repaido:operations-updated',refreshed);
@@ -212,15 +213,16 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
   </div>
 
   {loaded&&rowsKey===currentViewKey&&!busy&&!error&&!displayedRows.length&&<p className="ops-empty">{mine?'You have no listings in this section yet.':'No listings match this category and area. Try another category, search or radius.'}</p>}
-  {detail&&detailOwner===uid&&<MarketDetails key={uid+':'+detail.id} item={detail} own={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)} onMessage={()=>{setDetail(null);setInbox(mine&&rowsAreMine?{}:{listingId:detail.id});}} onShare={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)?onShare:undefined} onSignIn={onSignIn} onClose={()=>{detailSequence.current++;setDetail(null);}}/>}
+  {detail&&detailOwner===uid&&<MarketDetails key={uid+':'+detail.id} item={detail} onProfile={()=>setSellerProfile({listingId:detail.id})} own={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)} onMessage={()=>{setDetail(null);setInbox(mine&&rowsAreMine?{}:{listingId:detail.id});}} onShare={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)?onShare:undefined} onSignIn={onSignIn} onClose={()=>{detailSequence.current++;setDetail(null);}}/>}
   {form&&<MarketListingForm key={uid+':'+mode+':'+guestResumeVersion} mode={mode} onSignIn={onSignIn} onAccess={()=>setAccessOpen(true)} onGuestDraftClaimed={account=>{if(uid||!editorOwner.current.mounted||editorOwner.current.mode!==mode||editorOwner.current.epoch!==editorEpoch||(auth.currentUser?.uid||'')!==account)return;guestResume.current={uid:account,mode,epoch:editorEpoch};setGuestResumeVersion(version=>version+1);setForm(true);}} onCheckListings={()=>{invalidateMarketplaceReads();closeListingForm();setMine(true);void load(true,searchSnapshot.current,false,true);}} onClose={closeListingForm} onSaved={item=>{if((auth.currentUser?.uid||'')!==uid)return;closeListingForm();setMine(true);setMessage(published(item)?'Your listing was saved and published.':item.status==='published'?'Your existing listing was found, but its free period has ended. Review My listings before publishing again.':item.status==='awaiting_fee'?'Your listing was saved. Review marketplace access before publishing.':`Your listing was saved with status: ${item.status.replaceAll('_',' ')}.`);void load(true);}}/>}
-  {inbox&&<MarketInbox key={uid+':'+(inbox.listingId||'inbox')} initialListingId={inbox.listingId} mode={mode} onClose={()=>setInbox(null)} onSignIn={onSignIn} onAccess={()=>setAccessOpen(true)}/>}
+  {inbox&&<MarketInbox key={uid+':'+(inbox.listingId||'inbox')} initialListingId={inbox.listingId} mode={mode} onClose={()=>setInbox(null)} onSignIn={onSignIn} onAccess={()=>setAccessOpen(true)} onOpenProfile={chatId=>setSellerProfile({chatId})}/>}
+  {sellerProfile&&<PublicSellerProfile {...sellerProfile} onClose={()=>setSellerProfile(null)} onSignIn={onSignIn}/>}
   {accessOpen&&<MarketAccessModal key={'market-access:'+uid} onClose={()=>setAccessOpen(false)} onSignIn={onSignIn} onUpdated={()=>{invalidateMarketplaceReads();void load(mine,searchSnapshot.current,false,true);}}/>}
   {map&&<LocationPickerModal isOpen areaOnly title="Choose search area" confirmLabel="Use this area" initialLat={draft.pin?.lat} initialLng={draft.pin?.lng} onClose={()=>setMap(false)} onConfirmLocation={pin=>{locationSequence.current++;setLocating(false);setFilterError('');setDraft(v=>({...v,pin}));setMap(false);}}/>}
  </section>;
 }
 
-function MarketDetails({item,onClose,onShare,onSignIn,onMessage,own}:{item:Item;own:boolean;onClose:()=>void;onShare?:(reference:ListingReference)=>void;onSignIn?:()=>void;onMessage:()=>void}){
+function MarketDetails({item,onClose,onShare,onSignIn,onMessage,own,onProfile}:{item:Item;own:boolean;onProfile:()=>void;onClose:()=>void;onShare?:(reference:ListingReference)=>void;onSignIn?:()=>void;onMessage:()=>void}){
  const [contact,setContact]=useState<{name:string;phone:string}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[report,setReport]=useState(''),[message,setMessage]=useState('');
  return <Modal title={item.name} className="market-detail-modal" onClose={onClose}>
   <div className="operations market-detail">
@@ -252,6 +254,7 @@ function MarketDetails({item,onClose,onShare,onSignIn,onMessage,own}:{item:Item;
     </p>
 
     {published(item)&&<button type="button" className="ops-primary market-chat-seller" onClick={onMessage}><MessageCircle size={17} aria-hidden="true"/>{own?'View buyer messages':'Message seller'}</button>}
+    <button type="button" className="market-seller-profile" onClick={onProfile}>View seller profile & listings</button>
     {contact ? (
       <div className="market-contact-revealed">
         <PhoneCall size={18} className="text-emerald-700"/>

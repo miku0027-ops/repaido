@@ -149,7 +149,8 @@ def install(core):
         def save(u):
             previous = u.get('discovery_preferences', user['id']) or {}
             row = previous if body.enabled and settings(previous)['enabled'] else {}
-            row.update(enabled=body.enabled, consent_version=body.consent_version or 3, updated_at=time.time())
+            now=time.time()
+            row.update(enabled=body.enabled, consent_version=body.consent_version or 3, updated_at=now, market_consent_epoch=now)
             if body.consent_version == 2:
                 for field in ('signals', 'categories'):
                     if field in row: row[field] = {k:v for k,v in row[field].items() if k not in MARKET_CATEGORIES}
@@ -164,7 +165,8 @@ def install(core):
     def reset(user=Depends(core.current_user)):
         def save(u):
             previous = settings(u.get('discovery_preferences', user['id']))
-            row = dict(enabled=previous['enabled'], consent_version=previous['consent_version'], categories={}, updated_at=time.time())
+            now=time.time()
+            row = dict(enabled=previous['enabled'], consent_version=previous['consent_version'], categories={}, updated_at=now, market_consent_epoch=now)
             u.put('discovery_preferences', user['id'], row)
             return settings(row)
         return store.run(save)

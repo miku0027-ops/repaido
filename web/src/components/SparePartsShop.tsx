@@ -1,3 +1,6 @@
+import {ShopStorefront,ShopSuggestions} from './ShopStorefront';
+import {readShopCatalogue,shopCatalogueSnapshot,shopOffer,recordShopActivity,type ShopProduct} from '../services/shopDiscovery';
+import './compact-spares-discovery.css';
 import {StoryCarousel} from './CompactExperience';
 import './market-refinement.css';
 import {CustomerCartDrawer} from './CustomerCartDrawer';
@@ -5,7 +8,7 @@ import MarketOpportunities from './MarketOpportunities';
 import type {QuickMarket} from './HomeQuickActions';
 import {Marketplace} from './Marketplace';
 import {RentalMarket} from './Rentals';
-import { apiFetch,apiAssetUrl } from '../services/api';
+import {apiAssetUrl} from '../services/api';
 import {opportunityDetails} from '../services/repaidiansService';
 import type {OpportunityReference} from '../types/repaidians';
 import { cartService } from '../services/cartService';
@@ -101,7 +104,11 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
   useEffect(()=>{alignMarketSection(section);},[section]);
 
   const [detail, setDetail] = useState<SparePartProduct|null>(null);
+  const [storefront,setStorefront]=useState<string|null>(null);
+  const [canonicalProducts,setCanonicalProducts]=useState<ShopProduct[]>([]);
+  const pendingProduct=useRef<string|null>(null);
   const [intentError,setIntentError]=useState('');
+  useEffect(()=>{if(detail?.id)void recordShopActivity('view_product',{product_id:detail.id}).catch(()=>{});},[detail?.id]);
   const [shareableProductId,setShareableProductId]=useState<string|null>(null);
   const handledProductId=useRef<string|undefined>(undefined);
   useEffect(()=>{
@@ -148,28 +155,27 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
   const [paymentError, setPaymentError] = useState('');
   const [activeOrderId, setActiveOrderId] = useState<string>('');
 
+  const mapProduct=(p:any,shops:{id:string;name:string}[]=liveShops.map(s=>({id:s.id,name:s.shopName}))):SparePartProduct=>({
+    id:p.id,shopId:p.shop_id,shopName:shops.find(s=>s.id===p.shop_id)?.name||'',name:p.name,partNumber:p.sku||'',category:p.category,
+    price:p.price_paise/100,mrp:(p.base_price_paise??p.mrp_paise??p.price_paise)/100,stock:p.stock,image:p.image_url?apiAssetUrl(p.image_url):'',condition:p.condition||'new',
+    warranty:p.warranty,warrantyMonths:0,refurbishmentDetails:p.refurbishment_details,refurbishment:p.refurbishment,refurbishedGrade:p.refurbishment?.grade,prime:p.prime,
+    brand:p.brand||'',compatibility:p.compatibility||'',gstRate:p.gst_bps==null?NaN:p.gst_bps/10000,status:'approved',description:p.compatibility||'',lastRestockedAt:p.stock_confirmed_at?new Date(p.stock_confirmed_at*1000).toISOString():undefined
+  });
   useEffect(() => {
-    let active=true;setCatalogLoading(true);setCatalogError('');
-    void apiFetch('/api/operations/products/catalog',{signal:AbortSignal.timeout(15000)},{background:true}).then(async r=>{
-      if(!r.ok)throw Error('Shop products could not load. Please retry.');
-      const d=await r.json();
-      if(!active)return;
-      setLiveShops(d.shops.map((s:any)=>({id:s.id,shopName:s.name,address:s.address||'',city:s.city||'',lat:s.location?.lat,lng:s.location?.lng})));
-      if (!Array.isArray(d.items)) throw Error('Invalid catalogue response. Please retry.');
-      setProducts(d.items.map((p:any)=>({
-        id:p.id,shopId:p.shop_id,shopName:d.shops?.find((s:any)=>s.id===p.shop_id)?.name||'',
-        name:p.name,partNumber:p.sku,category:p.category,price:p.price_paise/100,
-        mrp:p.mrp_paise ? p.mrp_paise/100 : p.price_paise/100,stock:p.stock,
-        image:p.image_url?apiAssetUrl(p.image_url):'',condition:p.condition||'new',
-        warranty:p.warranty,warrantyMonths:0,refurbishmentDetails:p.refurbishment_details,
-        refurbishment:p.refurbishment,refurbishedGrade:p.refurbishment?.grade,prime:p.prime,
-        brand:p.brand||'',compatibility:p.compatibility||'',gstRate:p.gst_bps==null?NaN:p.gst_bps/10000,
-        status:'approved',description:p.compatibility,lastRestockedAt:new Date(p.stock_confirmed_at*1000).toISOString()
-      })));
-    }).catch(e=>{if(active){setProducts([]);setLiveShops([]);setCatalogError(e.message||'Products could not load. Please retry.');}
-    }).finally(()=>{if(active)setCatalogLoading(false);});
-    return()=>{active=false;};
+    let active=true;const controller=new AbortController(),warm=shopCatalogueSnapshot();setCatalogLoading(!warm);setCatalogError('');
+    const apply=(d:NonNullable<typeof warm>)=>{if(!active)return;setLiveShops(d.shops.map(s=>({id:s.id,shopName:s.name,address:s.address||'',city:s.city||'',lat:s.location?.lat??NaN,lng:s.location?.lng??NaN})));setCanonicalProducts(d.items);setProducts(d.items.map(p=>mapProduct(p,d.shops)));};
+    if(warm)apply(warm);
+    void readShopCatalogue(catalogAttempt>0,controller.signal).then(apply).catch(e=>{if(active&&e.name!=='AbortError'){if(!warm){setProducts([]);setLiveShops([]);setCanonicalProducts([]);}setCatalogError(e.message||'Products could not load. Please retry.');}}).finally(()=>{if(active)setCatalogLoading(false);});
+    return()=>{active=false;controller.abort();};
   }, [catalogAttempt]);
+  useEffect(()=>{const update=()=>setCatalogAttempt(n=>n+1);window.addEventListener('repaido:operations-updated',update);return()=>window.removeEventListener('repaido:operations-updated',update);},[]);
+  const openProduct=(id:string)=>{
+    const product=products.find(p=>p.id===id);setStorefront(null);
+    if(product){setDetail(product);setIntentError('');}
+    else {pendingProduct.current=id;setCatalogAttempt(n=>n+1);}
+  };
+  useEffect(()=>{const id=pendingProduct.current;if(!id||catalogLoading)return;pendingProduct.current=null;const product=products.find(p=>p.id===id);if(product)setDetail(product);else setIntentError('This item is not available in the current catalogue. Refresh or choose another item.');},[products,catalogLoading]);
+  const addSuggested=(raw:ShopProduct)=>{addToCart(mapProduct(raw));};
   useEffect(()=>{
     const id=quickIntent?.productId;
     if(!id){handledProductId.current=undefined;setIntentError('');return;}
@@ -193,7 +199,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
     { id: 'plumber', label: 'Plumbing & Pipes', icon: Droplets }
   ];
 
-  const handleSelectCategory = (catId:string) => setSelectedCategory(catId);
+  const handleSelectCategory = (catId:string) => {setSelectedCategory(catId);if(catId!=='all')void recordShopActivity('search',{category:catId}).catch(()=>{});};
 
   // Filtering & Sorting
   const categories=[...standardCategories,...[...new Set(products.filter(p=>(p.condition||'new')===(section==='refurbished'?'refurbished':'new')).map(p=>p.category))].filter(c=>c!=='refurbished'&&!standardCategories.some(s=>s.id===c)).map(c=>({id:c,label:c,icon:Wrench}))];
@@ -230,6 +236,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
   });
 
   const addToCart = (product: SparePartProduct) => {
+    void recordShopActivity('add_to_cart',{product_id:product.id}).catch(()=>{});
     cartService.addItem({
       id: product.id,
       title: product.name,
@@ -273,7 +280,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
   useEffect(()=>{const sync=()=>setCart(cartService.getItems().flatMap(i=>{const product=products.find(p=>p.id===i.id);return product?[{product,quantity:i.quantity}]:[];}));sync();return cartService.subscribe(sync);},[products]);
   // Pricing Calculations
   const subtotalPaise = cart.reduce((sum, item) => sum + item.product.price * 100 * item.quantity, 0);
-  const totalMrpPaise = cart.reduce((sum, item) => sum + (item.product.mrp || item.product.price * 1.3) * 100 * item.quantity, 0);
+  const totalMrpPaise = cart.reduce((sum, item) => sum + (item.product.mrp || item.product.price) * 100 * item.quantity, 0);
   const savingsPaise = Math.max(0, totalMrpPaise - subtotalPaise);
   const gstPaise = Math.round(subtotalPaise * 0.18);
   const deliveryPaise = cart.length > 0 ? 0 : 0; // Free delivery like Flipkart Plus / Assured
@@ -282,7 +289,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
 
 
   return (
-    <div className="spare-parts-shop-container stores-hub-container bg-slate-100/70 text-slate-800 pb-6 text-sm antialiased selection:bg-blue-600 selection:text-white font-sans">
+    <div className="spare-parts-shop-container stores-hub-container compact-spares-discovery bg-slate-100/70 text-slate-800 pb-6 text-sm antialiased selection:bg-blue-600 selection:text-white font-sans">
       <div className="stores-mobile-app-shell">
         {/* 1. MASTER STORES HUB HEADER */}
       <header className="stores-hub-header">
@@ -408,7 +415,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                   type="search"
                   value={searchQuery}
                   onChange={e=>setSearchQuery(e.target.value)}
-                  aria-label="Search spare parts"
+                  aria-label="Search spare parts" maxLength={150}
                   placeholder="Search parts by name, model or SKU..."
                 />
                 {searchQuery && (
@@ -469,8 +476,9 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           {sortBy==='popularity'&&sortedProducts.some(p=>p.prime?.active)&&<p className="prime-placement-note">Prime shops receive paid priority in these results. Price and newest sorts follow your selection.</p>}
 
       {/* 4. Flipkart-Style Product Grid ("more alligned cards with shadowed back") */}
-      <section aria-label="Products" className="max-w-7xl mx-auto p-2 sm:p-4 pt-1 sm:pt-2">
-        {catalogLoading?<p role="status" className="prime-placement-note">Loading shop inventory…</p>:catalogError?null:sortedProducts.length === 0 ? (
+      <section aria-label="Products" className="spare-catalogue-section max-w-7xl mx-auto p-2 sm:p-4 pt-1 sm:pt-2"><div className="spare-catalogue-title"><div><span className="shop-micro-label">{section==='refurbished'?'REPAIDO RENEW':'REPAIDO PARTS'}</span><h2>{section==='refurbished'?'Refurbished finds':'The right part, nearby.'}</h2></div><span>{sortedProducts.length} items</span></div>
+        {catalogError&&products.length>0&&<p role="status" className="prime-placement-note">Showing the earlier catalogue. Stock and prices will be checked again at checkout.</p>}
+        {catalogLoading?<p role="status" className="prime-placement-note">Loading shop inventory…</p>:catalogError&&products.length===0?null:sortedProducts.length === 0 ? (
           <div className="spare-catalog-empty bg-white rounded-xl border border-slate-200 p-12 text-center shadow-md max-w-lg mx-auto space-y-3">
             <Package className="w-12 h-12 text-slate-300 mx-auto" />
             <h3 className="text-sm font-bold text-slate-900">{section==='refurbished'?'No refurbished products available':'No new parts available'}</h3>
@@ -492,20 +500,17 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             </button>}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+          <div className="spare-compact-product-grid grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 items-stretch">
             {sortedProducts.map(product => {
               const inCart = cart.find(i => i.product.id === product.id);
-              const discountPercent =
-                product.mrp > product.price
-                  ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
-                  : 0;
+              const raw=canonicalProducts.find(p=>p.id===product.id),offer=raw?shopOffer(raw):null;
 
               return (
                 <div
                   key={product.id}
                   className="spare-compact-card relative bg-white rounded-xl border border-slate-200/90 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between overflow-hidden group h-full"
                 >
-                  <button type="button" className="product-details-trigger" aria-label={`View details for ${product.name}`} aria-haspopup="dialog" onClick={() => setDetail(product)} />
+                  <button type="button" className="product-details-trigger" aria-label={`View details for ${product.name}`} aria-haspopup="dialog" onClick={() => openProduct(product.id)} />
                   
                   {/* Refurbished Badges */}
                   {(product as any).condition === 'refurbished' && (
@@ -520,12 +525,12 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                   <div className="spare-card-summary">
                     {product.image?<img className="spare-card-image" src={product.image} alt="" loading="lazy" />:<Wrench className="spare-card-image" aria-label="Product photo not provided"/>}
                     <div className="spare-card-copy">
-                      <h3 title={product.name}>{product.name}</h3><span className="spare-card-seller">{product.shopName}</span><PrimeBadge prime={product.prime}/>
+                      <h3 title={product.name}>{product.name}</h3><button type="button" className="spare-card-seller spare-shop-profile" onClick={()=>setStorefront(product.shopId)} aria-label={`View ${product.shopName||'shop'} profile`}><Store size={12} aria-hidden="true"/>{product.shopName||'View shop'}<ChevronRight size={12} aria-hidden="true"/></button><PrimeBadge prime={product.prime}/>
                       <div className="spare-card-price">
                         <strong>{formatMoney(Math.round(product.price*100))}</strong>
-                        {discountPercent>0&&<span>{discountPercent}% off</span>}
+                        {offer&&offer.discount>0&&<><s>{formatMoney(offer.base)}</s><span>{offer.percent}% off</span></>}
                       </div>
-                      {(product as any).condition === 'refurbished' ? (
+                      {offer&&offer.discount>0&&<small className="spare-offer-source">{offer.label}</small>}{(product as any).condition === 'refurbished' ? (
                         <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
                           <CheckCircle2 size={11} className="shrink-0" />
                           <span>{product.refurbishment?product.refurbishment.warranty_days>0?`${product.refurbishment.warranty_days}-day shop warranty`:'No shop warranty':'Open condition details'}</span>
@@ -543,6 +548,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                         <button
                           type="button"
                           onClick={() => updateQuantity(product.id, -1)}
+                          aria-label={`Decrease ${product.name} quantity`}
                           className="w-7 h-7 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded font-extrabold text-sm flex items-center justify-center transition-colors shadow-2xs"
                         >
                           -
@@ -553,6 +559,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                         <button
                           type="button"
                           onClick={() => updateQuantity(product.id, 1)}
+                          aria-label={`Increase ${product.name} quantity`}
                           className="w-7 h-7 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded font-extrabold text-sm flex items-center justify-center transition-colors shadow-2xs"
                         >
                           +
@@ -575,6 +582,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           </div>
         )}
       </section>
+      {section==='spares'&&<ShopSuggestions context={{query:searchQuery,category:selectedCategory==='all'?'':selectedCategory,cart_product_ids:cart.map(i=>i.product.id)}} onShop={setStorefront} onProduct={openProduct} onAdd={addSuggested} onSignIn={onSignIn}/>}
         </section>
       )}
 
@@ -588,7 +596,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       {/* EXCHANGE TAB CONTAINER */}
       {section === 'exchange' && (
         <section id="panel-exchange" role="tabpanel" aria-labelledby="tab-exchange" className="stores-module-container">
-          <Marketplace mode="exchange" onSignIn={onSignIn} onShare={onShare} />
+          <Marketplace key={quickIntent?.listingId||'exchange'} mode="exchange" initialListingId={quickIntent?.listingId} initialLocation={quickIntent?.location} initialSearch={quickIntent?.search} onSignIn={onSignIn} onShare={onShare} />
         </section>
       )}
 
@@ -712,11 +720,12 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
         <div className="spare-detail-summary">
           <img src={detail.image} alt="" width={96} height={96} onError={e=>{e.currentTarget.style.display='none';}} />
           <div><p>{detail.brand || 'Brand not listed'}</p><strong>{formatMoney(Math.round(detail.price*100))}</strong>
-            {detail.mrp>detail.price && <p>MRP <s>{formatMoney(Math.round(detail.mrp*100))}</s></p>}
+            {detail.mrp>detail.price && <p>Shop price <s>{formatMoney(Math.round(detail.mrp*100))}</s></p>}
             <p>{detail.stock} listed in stock</p></div>
         </div>
         <p>{detail.description || 'No description provided. Check compatibility with the shop before buying.'}</p>
         
+        {(()=>{const raw=canonicalProducts.find(p=>p.id===detail.id),offer=raw?shopOffer(raw):null;return offer&&offer.discount>0?<p className="spare-offer-source">{offer.label} · save {formatMoney(offer.discount)}</p>:null;})()}
         <PrimeBadge prime={detail.prime}/>
         {detail.prime?.active&&<p className="prime-placement-note">This reviewed shop has an active paid Prime membership. The badge does not certify individual product testing. Condition and cover below are declared by the shop.</p>}
         {detail.condition==='refurbished'&&<RefurbishmentDetails details={detail.refurbishment} legacy={detail.refurbishmentDetails}/>}
@@ -730,13 +739,16 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
         </dl>
         <section className="spare-detail-store" aria-label="Store location">
           <h3><MapPin size={18} aria-hidden="true"/> {shop?.shopName || detail.shopName || 'Store not listed'}</h3>
-          <p>{address || 'The shop address is not available yet.'}</p>
+          <p>{address || 'The shop address is not available yet.'}</p><button type="button" className="spare-open-storefront" onClick={()=>{setStorefront(detail.shopId);setDetail(null);}}><Store size={15} aria-hidden="true"/>View shop profile & catalogue<ArrowRight size={15} aria-hidden="true"/></button>
           <p className="spare-detail-note">Catalogue information may change. Confirm stock, compatibility and the final price with the shop before travelling.</p>
           {directions ? <a className="spare-directions" href={directions} target="_blank" rel="noopener noreferrer">Directions to store <ArrowRight size={18} aria-hidden="true"/><span className="sr-only"> (opens Google Maps in a new tab)</span></a> : <p role="status">Directions will be available when the shop adds its location.</p>}
         </section>
         <button type="button" className="ops-primary" disabled={detail.stock<=0} onClick={()=>addToCart(detail)}><ShoppingBag size={16}/> Add to cart</button>
+        <ShopSuggestions context={{product_id:detail.id,category:detail.category,city:shop?.city,cart_product_ids:cart.map(i=>i.product.id)}} onShop={id=>{setDetail(null);setStorefront(id);}} onProduct={openProduct} onAdd={addSuggested} onSignIn={onSignIn} compact/>
         {shareableProductId===detail.id&&onShare&&<button type="button" className="ops-primary" onClick={()=>onShare({source:'inventory',id:detail.id})}><Share2 size={16}/> Share on Repaidians</button>}
       </Modal>}
+
+      {storefront&&<ShopStorefront shopId={storefront} onClose={()=>setStorefront(null)} onProduct={openProduct} onRental={id=>{setStorefront(null);window.dispatchEvent(new CustomEvent('repaido:market-open-rental',{detail:{id}}));}} onSignIn={onSignIn}/>}
 
       {/* Floating Cart Quick Access Pill (Positioned neatly above bottom nav bar) */}
       {cart.length > 0 && !showCartDrawer && (

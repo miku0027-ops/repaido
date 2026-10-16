@@ -9,6 +9,7 @@ from operations import Input,fail
 from integrations import razorpay
 from rentals import payments_ready,next_weekly,post
 from procurement import live_product
+from shop_pricing import price
 from coupons import reserve,validate
 class Line(Input):
     product_id:str=Field(min_length=1,max_length=100)
@@ -44,8 +45,8 @@ def quote(u,body,uid):
         if line.product_id in seen:fail('DUPLICATE_ITEM','Combine quantities for each product.',422)
         seen.add(line.product_id);p=u.get('inventory',line.product_id)
         if not live_product(u,p,time.time()) or p['stock']<line.quantity:fail('STOCK_CHANGED','Refresh your cart: a price or available stock needs review.',409)
-        total=p['price_paise']*line.quantity;gst=p.get('gst_bps');base=total*10000//(10000+gst) if gst is not None else None
-        rows.append(dict(product_id=p['id'],shop_id=p['shop_id'],name=p['name'],quantity=line.quantity,unit_price_paise=p['price_paise'],total_paise=total,gst_bps=gst,base_paise=base,condition=p.get('condition','new'),category=p.get('category',''),version=p.get('version',1)))
+        pricing=price(u,p);total=pricing['price_paise']*line.quantity;gst=p.get('gst_bps');base=total*10000//(10000+gst) if gst is not None else None
+        rows.append(dict(product_id=p['id'],shop_id=p['shop_id'],name=p['name'],quantity=line.quantity,unit_price_paise=pricing['price_paise'],base_unit_price_paise=pricing['base_price_paise'],shop_discount_paise=pricing['discount_paise']*line.quantity,shop_discount_bps=pricing['discount_bps'],offer_source=pricing['offer_source'],offer_valid_until=pricing['valid_until'],total_paise=total,gst_bps=gst,base_paise=base,condition=p.get('condition','new'),category=p.get('category',''),version=p.get('version',1)))
     captain=bool(body.coupon_code and body.coupon_code.strip().upper().startswith('CAPTAIN'))
     from captain_rewards import APPLIANCES
     for row in rows:row['reward_eligible']=row['condition']=='refurbished' and (not captain or row['category'].strip().casefold() in APPLIANCES)
@@ -55,7 +56,7 @@ def quote(u,body,uid):
         if not base:fail('TAX_BREAKDOWN_REQUIRED','This coupon requires a refurbished item with a shop-declared tax breakdown.',422)
         offer=validate(u,uid,body.coupon_code,'refurbished');discount=min(base*offer['bps']//10000,offer.get('cap_paise') or base)
     subtotal=sum(x['total_paise'] for x in rows)
-    return dict(items=rows,subtotal_paise=subtotal,discount_paise=discount,eligible_base_paise=base,total_paise=subtotal-discount,coupon=offer,fulfillment='Shop confirmation required; delivery charges cannot be added without approval.',tax_note='Listed prices are inclusive. No unconfirmed 18% tax is added at checkout.')
+    return dict(items=rows,base_subtotal_paise=sum(x['base_unit_price_paise']*x['quantity'] for x in rows),shop_discount_paise=sum(x['shop_discount_paise'] for x in rows),subtotal_paise=subtotal,discount_paise=discount,eligible_base_paise=base,total_paise=subtotal-discount,coupon=offer,fulfillment='Shop confirmation required; delivery charges cannot be added without approval.',tax_note='Listed prices are inclusive. No unconfirmed 18% tax is added at checkout.')
 def install(core):
     r=APIRouter(prefix='/operations/retail',tags=['Retail checkout']);store=core.operations_store
     @r.post('/quote')

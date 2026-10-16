@@ -60,7 +60,8 @@ class Assessment(Input):
 
 def live_product(u,p,now):
     shop=u.get('shops',p['shop_id']) if p else None
-    return bool(p and p.get('status')=='approved' and shop and shop['status']=='approved' and now-p.get('stock_confirmed_at',0)<=86400)
+    from shop_access import visible
+    return bool(p and p.get('status')=='approved' and shop and visible(u,shop,now) and 0 <= now-p.get('stock_confirmed_at',0)<=86400)
 
 def create_order(u,j,now):
     q=j['proposal'];shop_ids={i['shop_id'] for i in q['items']}
@@ -157,7 +158,8 @@ def install(core):
             for p in u.all('inventory'):
                 if p['shop_id'] not in shops or not live_product(u,p,time.time()) or p['stock']<=0:continue
                 shop,distance=shops[p['shop_id']]
-                items.append({**{k:p.get(k) for k in ('id','shop_id','name','sku','category','compatibility','price_paise','stock','version','image_url','condition','warranty','refurbishment_details')},'shop_name':shop['name'],'distance_km':round(distance/1000,2)})
+                from shop_pricing import effective_product
+                items.append({**effective_product(u,p),'shop_name':shop['name'],'distance_km':round(distance/1000,2)})
             from rentals import public_listing
             rentals=[]
             for p in u.all('rental_inventory'):
@@ -204,7 +206,7 @@ def install(core):
             if any(x['id']!=product_id and x['shop_id']==s['id'] and x.get('sku','').casefold()==body.sku.casefold() for x in u.all('inventory')):fail('SKU_EXISTS','Edit the existing SKU instead of adding a duplicate.')
             if body.condition=='refurbished' and not body.refurbishment:fail('DETAILS_REQUIRED','Complete the refurbished condition, inspection, repairs, warranty and return details.',422)
             if body.condition=='new' and body.refurbishment:fail('INVALID_CONDITION','Refurbishment details belong in the Refurbished inventory section.',422)
-            item=dict(body.model_dump(mode='json',exclude={'expected_version','on_hand'}),id=product_id,shop_id=s['id'],stock=body.on_hand-reserved,reserved=reserved,version=body.expected_version+1,stock_confirmed_at=time.time())
+            item=dict(body.model_dump(mode='json',exclude={'expected_version','on_hand'}),**({'shop_offer':p['shop_offer']} if p and p.get('shop_offer') else {}),id=product_id,shop_id=s['id'],stock=body.on_hand-reserved,reserved=reserved,version=body.expected_version+1,stock_confirmed_at=time.time())
             u.put('inventory',product_id,item);audit(u,'ShopStockAdjusted',user['id'],product_id=product_id,old_available=(p or {}).get('stock',0),available=item['stock'],reserved=reserved);return item
         return store.run(save)
     @r.get('/shop/purchase-orders')

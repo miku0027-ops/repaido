@@ -8,7 +8,7 @@ test('searches, polling, device registrations and tracking do not report a saved
  for(const path of ['/jobs','/market/search','/hiring/recommendations','/hiring/leaderboard','/custom-contracts/queries/a/view','/local-business/journeys/shared/a/position','/devices','/community/activity/heartbeat'])assert.equal(actionMessages(path,{method:path==='/jobs'?'GET':'POST'}),null,path);
 });
 test('automatic account, coupon, browsing, discovery and location receipts never announce a save',async()=>{
- for(const path of ['/api/auth/session','/api/operations/coupons/launch','/discovery/events','/community/usage','/community/work/behavior','/notifications/read-all','/worker/availability']){
+ for(const path of ['/api/auth/session','/api/operations/coupons/launch','/discovery/events','/community/usage','/community/work/behavior','/shop-discovery/recommendations','/shop-discovery/recommendations/personal','/shop-discovery/personal','/shop-discovery/events','/shop-discovery/presence','/notifications/read-all','/worker/availability']){
   const init={method:'POST',body:JSON.stringify({heartbeat:true})};
   assert.equal(actionMessages(path,init),null,path);assert.equal(changesAccountData(path,init),false,path);
   await withActionFeedback(path,init,async()=>({ok:true}));
