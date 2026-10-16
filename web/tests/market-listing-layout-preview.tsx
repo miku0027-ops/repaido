@@ -1,0 +1,20 @@
+import {createRoot} from 'react-dom/client';
+import {useState} from 'react';
+import {auth} from '../src/firebase';
+import {MarketListingForm} from '../src/components/MarketListingForm';
+import {freshListingDraft,keepListingDraft} from '../src/services/marketListingDraft';
+import '../src/styles.css';
+import '../src/design-system.css';
+import '../src/components/compact-market.css';
+import '../src/brand-system.css';
+await auth.authStateReady();
+(auth as any).currentUser={uid:'listing-layout-fixture',getIdToken:async()=>'fixture-only'};
+const query=new URLSearchParams(location.search),mode=query.get('mode')==='exchange'?'exchange':'second_hand';
+const draft=freshListingDraft();
+Object.assign(draft.fields,{name:'Samsung Galaxy M34',brand:'Samsung',type:'phone',value:'8000',purchase:'20000',age:'18',year:'2025',condition:'Works well. A small scratch on the back; original charger and box included.',warranty:'No warranty',reason:'Upgrading to a newer model',city:'Balasore',desired_product:'A working laptop',desired_type:'computer'});
+draft.step=Math.max(0,Math.min(3,Number(query.get('step'))||0));draft.pin={lat:21.4934,lng:86.9135};
+const raw=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='),c=>c.charCodeAt(0));
+const file=new File([raw],'my-phone.png',{type:'image/png'});draft.photoName=file.name;
+keepListingDraft('listing-layout-fixture',mode,draft,file);
+function Preview(){const [open,setOpen]=useState(true);return <main><h1>Listing layout checks</h1><button onClick={()=>setOpen(true)}>Reopen listing</button>{open&&<MarketListingForm mode={mode} onClose={()=>setOpen(false)} onSaved={()=>setOpen(false)}/>}</main>;}
+createRoot(document.getElementById('root')!).render(<Preview/>);

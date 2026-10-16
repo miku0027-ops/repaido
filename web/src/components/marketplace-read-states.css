@@ -1,0 +1,6 @@
+.community-market .market-view-actions{display:flex;align-items:center;gap:6px;flex:none}
+.community-market .market-view-actions>button{min-width:44px;min-height:44px;padding:8px;border:1px solid var(--ui-control);border-radius:10px;background:var(--ui-surface);color:var(--ui-ink);font:inherit;font-size:.75rem}
+.community-market .market-area-note{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.75rem;color:var(--ui-muted)}
+.community-market .market-area-note>button{min-height:44px;padding:8px 12px;background:var(--ui-surface);color:var(--ui-link);border:1px solid var(--ui-control);border-radius:10px}
+@media(max-width:380px){.community-market .ops-heading{flex-wrap:wrap}.community-market .market-view-actions{margin-left:auto}}
+@layer repaido-brand{#root .community-market .market-view-actions>button{min-height:44px!important;min-width:44px!important;height:auto!important;color:var(--ui-ink)!important;background:var(--ui-surface)!important}}

@@ -2,6 +2,7 @@ import { useEffect, useRef, type InputHTMLAttributes, type ReactNode } from 'rea
 import { X, ArrowUpRight, Search, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import './app-experience.css';
 import RepaidoBrand from './RepaidoBrand';
+import {acquireModalScrollLock} from '../services/modalScrollLock';
 
 export function Brand({compact=false}:{compact?:boolean}) {
   return <RepaidoBrand size={compact ? 'sm' : 'md'} />;
@@ -15,7 +16,16 @@ export function Field({label,error,id,className='',...props}:InputHTMLAttributes
 }
 export function Modal({title,children,onClose,className='',frameless=false}:{title:string;children:ReactNode;onClose:()=>void;className?:string;frameless?:boolean}) {
   const ref=useRef<HTMLDialogElement>(null);
-  useEffect(()=>{const dialog=ref.current;const focus=document.activeElement as HTMLElement|null;dialog?.showModal();dialog?.querySelector<HTMLElement>('[data-autofocus]')?.focus();const previous=document.body.style.overflow;const previousRoot=document.documentElement.style.overflow;document.body.style.overflow='hidden';document.documentElement.style.overflow='hidden';return()=>{dialog?.close();document.body.style.overflow=previous;document.documentElement.style.overflow=previousRoot;focus?.focus();};},[]);
+  useEffect(()=>{
+    const dialog=ref.current,focus=document.activeElement as HTMLElement|null;
+    dialog?.showModal();dialog?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    const unlock=acquireModalScrollLock();
+    return()=>{
+      dialog?.close();unlock();
+      const openDialogs=document.querySelectorAll('dialog[open]'),remaining=openDialogs[openDialogs.length-1];
+      if(focus?.isConnected&&(!remaining||remaining.contains(focus)))focus.focus();
+    };
+  },[]);
   useEffect(()=>{
     const dialog=ref.current;
     const containFocus=(event:KeyboardEvent)=>{

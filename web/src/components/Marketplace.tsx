@@ -1,16 +1,19 @@
 import {Card} from './Card';
 import {useEffect,useRef,useState} from 'react';
-import {Plus,MapPin,Tag,Sparkles,Share2,PhoneCall,SlidersHorizontal,Search} from 'lucide-react';
+import {Plus,MapPin,Tag,Share2,PhoneCall,SlidersHorizontal,Search,RefreshCw} from 'lucide-react';
 import {operation,currentPosition,money} from '../services/operations';
 import {apiFetch,apiAssetUrl} from '../services/api';
-import {auth} from '../firebase';
 import {Modal,CustomerSearchField,ActionStatus} from './ui';
-import {notifyFeedback} from '../services/actionFeedback';
 import {loadCheckout} from './PaymentPanel';
 import {LocationPickerModal} from './LocationPickerModal';
 import './operations.css';
-type Mode='exchange'|'second_hand';
-type Item={
+import './marketplace-read-states.css';
+import {MarketListingForm} from './MarketListingForm';
+import {onIdTokenChanged} from 'firebase/auth';
+import {invalidateMarketplaceReads,marketMineSnapshot,marketSearchSnapshot,readMarketMine,readMarketSearch,type MarketSearch} from '../services/marketplaceReads';
+import {auth} from '../firebase';
+export type Mode='exchange'|'second_hand';
+export type Item={
   id:string;
   mode:Mode;
   name:string;
@@ -44,23 +47,41 @@ const published=(item:Item)=>item.status==='published'&&(!item.expires_at||item.
 async function publicMarketRequest<T>(path:string,init?:RequestInit):Promise<T>{
  const response=await apiFetch(`/api/operations/market${path}`,init,{background:true});
  const body=await response.json().catch(()=>({}));
- if(!response.ok)throw new Error(body.detail?.message||(typeof body.detail==='string'?body.detail:null)||(response.status===404?'This listing is no longer available.':'Unable to load listings. Check your connection and retry.'));
+ if(!response.ok)throw Object.assign(new Error(body.detail?.message||(typeof body.detail==='string'?body.detail:null)||(response.status===404?'This listing is no longer available.':'Unable to load listings. Check your connection and retry.')),{status:response.status});
  return body as T;
 }
 type SearchFilters={pin:{lat:number;lng:number}|null;radius:number;category:string;budget:string;sort:string};
 const defaultFilters=(pin:SearchFilters['pin']):SearchFilters=>({pin,radius:10,category:'all',budget:'',sort:'nearby'});
+function marketArea(initial?:{lat:number;lng:number}):SearchFilters['pin']{
+ const pin=(value:unknown)=>{const p=value as {lat?:number;lng?:number};return p&&typeof p.lat==='number'&&Number.isFinite(p.lat)&&Math.abs(p.lat)<=90&&typeof p.lng==='number'&&Number.isFinite(p.lng)&&Math.abs(p.lng)<=180?{lat:p.lat,lng:p.lng}:null;};
+ if(initial)return pin(initial);
+ try{const stored=JSON.parse(localStorage.getItem('repaido.place')||'null');return stored?.confirmed?pin(stored):null;}catch{return null;}
+}
+
 const types=['phone','computer','television','appliance','camera','audio','tools','other'];
 const typeLabels:Record<string,string>={all:'All Finds',phone:'Phones & Tablets',computer:'Laptops & PCs',television:'TVs & Screens',appliance:'Appliances',camera:'Cameras',audio:'Audio & Sound',tools:'Workshop Tools',other:'Other'};
 
 export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=false,initialListingId,initialLocation,initialSearch=''}:{mode:Mode;manage?:boolean;onSignIn?:()=>void;onShare?:(reference:ListingReference)=>void;initialCreate?:boolean;initialListingId?:string;initialLocation?:{lat:number;lng:number};initialSearch?:string}){
  const [mine,setMine]=useState(manage),[rows,setRows]=useState<Item[]>([]),[query,setQuery]=useState(initialSearch),[map,setMap]=useState(false),[form,setForm]=useState(false),[detail,setDetail]=useState<Item|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
- const [filters,setFilters]=useState<SearchFilters>(()=>defaultFilters(initialLocation||{lat:21.4934,lng:86.9135}));
+ const [filters,setFilters]=useState<SearchFilters>(()=>defaultFilters(marketArea(initialLocation)));
  const [draft,setDraft]=useState(filters),[filterOpen,setFilterOpen]=useState(false),[locating,setLocating]=useState(false),[filterError,setFilterError]=useState('');
  const searchSnapshot=useRef({filters,query:initialSearch});
  const locationSequence=useRef(0);
  const closeFilters=()=>{locationSequence.current++;setLocating(false);setMap(false);setFilterOpen(false);setFilterError('');};
  useEffect(()=>()=>{locationSequence.current++;loadSequence.current++;},[]);
  const activeFilters=Number(filters.category!=='all')+Number(filters.radius!==10)+Number(!!filters.budget)+Number(filters.sort!=='nearby');
+ const [uid,setUid]=useState(auth.currentUser?.uid||''),[rowsKey,setRowsKey]=useState(''),[detailOwner,setDetailOwner]=useState(auth.currentUser?.uid||'');
+ const previousAccount=useRef(uid);
+ const [guestResumeVersion,setGuestResumeVersion]=useState(0);
+ const editorOwner=useRef({mounted:true,mode,epoch:0}),guestResume=useRef<{uid:string;mode:Mode;epoch:number}|null>(null);
+ if(editorOwner.current.mode!==mode){editorOwner.current.mode=mode;editorOwner.current.epoch++;guestResume.current=null;}
+ const editorEpoch=editorOwner.current.epoch;
+ useEffect(()=>{editorOwner.current.mounted=true;return()=>{editorOwner.current.mounted=false;guestResume.current=null;};},[]);
+ const closeListingForm=()=>{editorOwner.current.epoch++;guestResume.current=null;setForm(false);};
+ useEffect(()=>onIdTokenChanged(auth,user=>setUid(user?.uid||'')),[]);
+ const viewKey=(forMine:boolean,snapshot=searchSnapshot.current,actor=uid)=>JSON.stringify([actor,mode,forMine,snapshot.query,snapshot.filters.pin?.lat,snapshot.filters.pin?.lng,snapshot.filters.radius]);
+ const currentViewKey=viewKey(mine);
+ const searchBody=(snapshot:typeof searchSnapshot.current):MarketSearch|null=>snapshot.filters.pin?{mode,location:{lat:snapshot.filters.pin.lat,lng:snapshot.filters.pin.lng},radius_km:snapshot.filters.radius,query:snapshot.query}:null;
  const [listingError,setListingError]=useState('');
  const [rowsAreMine,setRowsAreMine]=useState(false);
 
@@ -69,50 +90,46 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
  const detailSequence=useRef(0);
  const loadInitialListing=async()=>{
    if(!initialListingId)return;
-   const sequence=++detailSequence.current;setListingError('');
+   const sequence=++detailSequence.current,actor=auth.currentUser?.uid||'';setListingError('');
    try{
      const item=await publicMarketRequest<Item>(`/listings/${encodeURIComponent(initialListingId)}`);
-     if(sequence===detailSequence.current){if(item.mode===mode)setDetail(item);else setListingError('This listing belongs to another market section.');}
+     if(sequence===detailSequence.current&&(auth.currentUser?.uid||'')===actor){if(item.mode===mode){setDetailOwner(actor);setDetail(item);}else setListingError('This listing belongs to another market section.');}
    }catch(e){if(sequence===detailSequence.current)setListingError((e as Error).message);}
  };
  useEffect(()=>{
    setDetail(null);setListingError('');void loadInitialListing();
    return()=>{detailSequence.current++;};
- },[initialListingId,mode]);
+ },[initialListingId,mode,uid]);
 
- const load=async(forMine=mine,snapshot=searchSnapshot.current,background=false)=>{
+ const load=async(forMine=mine,snapshot=searchSnapshot.current,background=false,force=false)=>{
    if(background&&pendingLoad.current)return;
    pendingLoad.current=true;
-   const sequence=++loadSequence.current;
-   if(!background){setRowsAreMine(false);setBusy(true);setError('');}
+   const sequence=++loadSequence.current,actor=uid,key=viewKey(forMine,snapshot,actor),body=searchBody(snapshot);
+   const cached=forMine?marketMineSnapshot():body?marketSearchSnapshot(body):null;
+   if(cached){setRows(forMine?cached.filter(item=>item.mode===mode):cached);setRowsKey(key);setRowsAreMine(forMine);setLoaded(true);}
+   if(!background){setBusy(!cached&&rowsKey!==key);setError('');}
    try{
-     let apiItems: Item[] = [];
-     if(forMine){
-       const d=await operation<{listings:Item[]}>('/market/mine');
-       apiItems=d.listings.filter(x=>x.mode===mode);
-     } else if(snapshot.filters.pin){
-       const d=await publicMarketRequest<{items:Item[]}>('/search',{
-           method:'POST',
-           headers:{'Content-Type':'application/json'},
-           body:JSON.stringify({mode,location:{lat:snapshot.filters.pin.lat,lng:snapshot.filters.pin.lng},radius_km:snapshot.filters.radius,query:snapshot.query})
-       });
-       apiItems=d.items;
-     }
-     
-     if(sequence===loadSequence.current){setRows(apiItems);setRowsAreMine(forMine);setLoaded(true);setError('');}
+     const items=forMine?await readMarketMine(force):body?await readMarketSearch(body,force):[];
+     if(sequence===loadSequence.current&&(auth.currentUser?.uid||'')===actor){setRows(forMine?items.filter(item=>item.mode===mode):items);setRowsKey(key);setRowsAreMine(forMine);setLoaded(true);setError('');}
    }catch(e){
-     if(sequence===loadSequence.current){if(!background||[401,402,403,404].includes((e as Error&{status?:number}).status||0))setRows([]);setError((e as Error).message);}
+     if(sequence===loadSequence.current&&(auth.currentUser?.uid||'')===actor){if([401,402,403,404].includes((e as Error&{status?:number}).status||0)){setRows([]);setRowsKey('');}setError((e as Error).message);}
    }finally{
-     if(sequence===loadSequence.current){pendingLoad.current=false;if(!background)setBusy(false);}
+     if(sequence===loadSequence.current){pendingLoad.current=false;setBusy(false);}
    }
  };
-
- useEffect(()=>{void load();},[mine,mode]);
- useEffect(()=>{const id=window.setInterval(()=>{if(document.visibilityState==='visible'&&navigator.onLine)void load(mine,searchSnapshot.current,true);},60000);return()=>clearInterval(id);},[mine,mode]);
+ useEffect(()=>{loadSequence.current++;pendingLoad.current=false;void load();},[mine,mode,uid]);
+ useEffect(()=>{if(previousAccount.current===uid)return;const wasGuest=!previousAccount.current;previousAccount.current=uid;const resume=wasGuest&&!!uid&&guestResume.current?.uid===uid&&guestResume.current.mode===mode&&guestResume.current.epoch===editorOwner.current.epoch;if(!wasGuest||!uid){editorOwner.current.epoch++;guestResume.current=null;}else if(resume){guestResume.current=null;}setDetail(null);setRowsAreMine(false);setMessage('');setError('');setForm(resume);},[uid]);
+ useEffect(()=>{
+   const refreshed=()=>{invalidateMarketplaceReads();loadSequence.current++;pendingLoad.current=false;if(!document.hidden&&navigator.onLine)void load(mine,searchSnapshot.current,true,true);};
+   window.addEventListener('repaido:operations-updated',refreshed);
+   const id=window.setInterval(()=>{if(!document.hidden&&navigator.onLine)void load(mine,searchSnapshot.current,true,true);},60000);
+   return()=>{clearInterval(id);window.removeEventListener('repaido:operations-updated',refreshed);};
+ },[mine,mode,uid]);
  const run=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const pay=async(item:Item)=>{setBusy(true);setError('');try{const order=await operation<{key_id:string;order_id:string;amount:number;currency:string}>(`/market/${item.id}/payment-order`,{method:'POST'});await loadCheckout();const widget=new window.Razorpay!({key:order.key_id,order_id:order.order_id,amount:order.amount,currency:order.currency,name:'Repaido',description:`${mode==='exchange'?'Exchange':'Used item'} listing fee`,handler:()=>void run(()=>operation(`/market/${item.id}/payment-check`,{method:'POST'})),modal:{ondismiss:()=>setMessage('Checkout closed. If debited, use Check payment before retrying.')}});widget.on('payment.failed',()=>setError('Fee payment was not confirmed. Check payment before retrying.'));widget.open();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  
- const displayedRows=mine?[...rows]:rows.filter(item=>(filters.category==='all'||item.product_type===filters.category)&&(!filters.budget||item.value_paise<=Number(filters.budget)*100));
+ const visibleRows=rowsKey===currentViewKey?rows:[];
+ const displayedRows=mine?[...visibleRows]:visibleRows.filter(item=>(filters.category==='all'||item.product_type===filters.category)&&(!filters.budget||item.value_paise<=Number(filters.budget)*100));
  if(filters.sort==='price_low')displayedRows.sort((a,b)=>a.value_paise-b.value_paise);
  if(filters.sort==='price_high')displayedRows.sort((a,b)=>b.value_paise-a.value_paise);
  if(filters.sort==='nearby')displayedRows.sort((a,b)=>(a.distance_km??Infinity)-(b.distance_km??Infinity));
@@ -123,7 +140,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
       <h2>{mode==='exchange'?'Let’s exchange':'Second-hand finds'}</h2>
       <p>{mode==='exchange'?'Find compatible swaps near you.':'Discover used items listed by sellers near you.'}</p>
     </div>
-    <button onClick={()=>setMine(v=>!v)} className="market-toggle-btn">{mine?'Browse nearby':'My listings'}</button>
+    <div className="market-view-actions"><button type="button" aria-label="Refresh listings" disabled={busy} onClick={()=>{invalidateMarketplaceReads();void load(mine,searchSnapshot.current,false,true);}}><RefreshCw size={16} aria-hidden="true"/></button><button onClick={()=>setMine(v=>!v)} className="market-toggle-btn">{mine?'Browse nearby':'My listings'}</button></div>
   </div>
   
   <div className="market-policy">
@@ -135,11 +152,13 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
     <Plus size={16}/> {mode==='exchange'?'List for exchange':'Sell a used item'}
   </button>
 
-  {!mine&&<form className="market-search market-search-compact" onSubmit={e=>{e.preventDefault();searchSnapshot.current={filters,query};void load();}}>
+  {!mine&&<form className="market-search market-search-compact" onSubmit={e=>{e.preventDefault();searchSnapshot.current={filters,query};void load(mine,searchSnapshot.current,false,true);}}>
     <div className="market-query"><CustomerSearchField label="Find a product" value={query} onChange={value=>setQuery(value.slice(0,120))} placeholder="Product, brand or model…"/></div>
     <button type="button" className={`market-filter-trigger ${activeFilters?'is-filtered':''}`} aria-haspopup="dialog" aria-label={`Open filters${activeFilters?`, ${activeFilters} active`:''}`} onClick={()=>{setDraft(filters);setFilterError('');setFilterOpen(true);}}><SlidersHorizontal size={15} aria-hidden="true"/><span>Filter</span>{activeFilters>0&&<span className="market-filter-count">{activeFilters}</span>}</button>
     <button type="submit" className="market-search-submit" aria-label="Search nearby" disabled={busy||!filters.pin}><Search size={16} aria-hidden="true"/></button>
   </form>}
+
+  {!mine&&!filters.pin&&<p className="market-area-note" role="status">Choose an area to find nearby listings.<button type="button" onClick={()=>{setDraft(filters);setFilterOpen(true);}}>Choose area</button></p>}
 
   {filterOpen&&<Modal title={mode==='exchange'?'Swap filters':'Pre-owned filters'} className="market-filter-modal" onClose={closeFilters}>
    <form className="market-filter-form" onSubmit={e=>{e.preventDefault();searchSnapshot.current={filters:draft,query};setFilters(draft);closeFilters();void load(mine,searchSnapshot.current);}}>
@@ -154,7 +173,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
      <button type="button" disabled={locating} onClick={async()=>{const sequence=++locationSequence.current;setLocating(true);setFilterError('');try{const pin=await currentPosition(true);if(sequence===locationSequence.current)setDraft(v=>({...v,pin}));}catch(e){if(sequence===locationSequence.current)setFilterError((e as Error).message);}finally{if(sequence===locationSequence.current)setLocating(false);}}}>{locating?'Locating…':'Use my location'}</button>
     </div></fieldset>
     {filterError&&<p role="alert" className="ops-error">{filterError}</p>}
-    <div className="market-filter-actions"><button type="button" onClick={()=>{locationSequence.current++;setLocating(false);setFilterError('');setDraft(defaultFilters(initialLocation||{lat:21.4934,lng:86.9135}));}}>Reset</button><button type="submit" className="ops-primary" disabled={locating||!draft.pin}>Apply filters</button></div>
+    <div className="market-filter-actions"><button type="button" onClick={()=>{locationSequence.current++;setLocating(false);setFilterError('');setDraft(defaultFilters(marketArea(initialLocation)));}}>Reset</button><button type="submit" className="ops-primary" disabled={locating||!draft.pin}>Apply filters</button></div>
    </form>
   </Modal>}
 
@@ -165,7 +184,7 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
 
   <div className="market-grid">
     {displayedRows.map(item=><Card className="market-card" key={item.id}>
-      <button className="market-card-open" onClick={()=>{detailSequence.current++;setListingError('');setDetail(item);}}>
+      <button className="market-card-open" onClick={()=>{detailSequence.current++;setListingError('');setDetailOwner(uid);setDetail(item);}}>
         <div className="market-card-img-wrap">
           {published(item)&&item.image_url?<img src={apiAssetUrl(item.image_url)} alt={item.name} onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/images/icon-appliance.png';}}/>:<span className="market-image-placeholder">Photo saved privately</span>}
         </div>
@@ -191,187 +210,11 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
     </Card>)}
   </div>
 
-  {loaded&&!busy&&!error&&!displayedRows.length&&<p className="ops-empty">{mine?'You have no listings in this section yet.':'No listings match this category and area. Try another category, search or radius.'}</p>}
-  {detail&&<MarketDetails key={detail.id} item={detail} onShare={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)?onShare:undefined} onSignIn={onSignIn} onClose={()=>{detailSequence.current++;setDetail(null);}}/>}
-  {form&&<ListingForm mode={mode} onSignIn={onSignIn} onClose={()=>setForm(false)} onSaved={item=>{setForm(false);setMine(true);setMessage(item.status==='published'?'Your listing was saved and published.':item.status==='awaiting_fee'?'Your listing was saved. Pay its listing fee to publish it.':`Your listing was saved with status: ${item.status.replaceAll('_',' ')}.`);void load(true);}}/>}
+  {loaded&&rowsKey===currentViewKey&&!busy&&!error&&!displayedRows.length&&<p className="ops-empty">{mine?'You have no listings in this section yet.':'No listings match this category and area. Try another category, search or radius.'}</p>}
+  {detail&&detailOwner===uid&&<MarketDetails key={uid+':'+detail.id} item={detail} onShare={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)?onShare:undefined} onSignIn={onSignIn} onClose={()=>{detailSequence.current++;setDetail(null);}}/>}
+  {form&&<MarketListingForm key={uid+':'+mode+':'+guestResumeVersion} mode={mode} onSignIn={onSignIn} onGuestDraftClaimed={account=>{if(uid||!editorOwner.current.mounted||editorOwner.current.mode!==mode||editorOwner.current.epoch!==editorEpoch||(auth.currentUser?.uid||'')!==account)return;guestResume.current={uid:account,mode,epoch:editorEpoch};setGuestResumeVersion(version=>version+1);setForm(true);}} onCheckListings={()=>{invalidateMarketplaceReads();closeListingForm();setMine(true);void load(true,searchSnapshot.current,false,true);}} onClose={closeListingForm} onSaved={item=>{if((auth.currentUser?.uid||'')!==uid)return;closeListingForm();setMine(true);setMessage(published(item)?'Your listing was saved and published.':item.status==='published'?'Your existing listing was found, but its free period has ended. Review My listings before publishing again.':item.status==='awaiting_fee'?'Your listing was saved. Pay its listing fee to publish it.':`Your listing was saved with status: ${item.status.replaceAll('_',' ')}.`);void load(true);}}/>}
   {map&&<LocationPickerModal isOpen areaOnly title="Choose search area" confirmLabel="Use this area" initialLat={draft.pin?.lat} initialLng={draft.pin?.lng} onClose={()=>setMap(false)} onConfirmLocation={pin=>{locationSequence.current++;setLocating(false);setFilterError('');setDraft(v=>({...v,pin}));setMap(false);}}/>}
  </section>;
-}
-
-function ListingForm({mode,onClose,onSaved,onSignIn}:{mode:Mode;onClose:()=>void;onSaved:(item:Item)=>void;onSignIn?:()=>void}){
- const [pin,setPin]=useState<{lat:number;lng:number}|null>({lat:21.4934,lng:86.9135});
- const [map,setMap]=useState(false);
- const [file,setFile]=useState<File|null>(null);
- const [photoPreview,setPhotoPreview]=useState<string>('');
- const [value,setValue]=useState('');
- const [busy,setBusy]=useState(false);
- const [phase,setPhase]=useState<'idle'|'uploading'|'saving'>('idle');
- const submitting=useRef(false);
- const [error,setError]=useState('');
- const [requestId]=useState(()=>crypto.randomUUID());
- const [photoId,setPhotoId]=useState('');
- const [free,setFree]=useState<boolean|null>(null);
- const [eligibilityError,setEligibilityError]=useState('');
-
- useEffect(()=>{
-   let cancelled=false;
-   setFree(null);setEligibilityError('');
-   operation<Record<Mode,boolean>>('/market/eligibility').then(d=>{if(!cancelled)setFree(d[mode]);}).catch(e=>{if(!cancelled)setEligibilityError((e as Error).message);});
-   return()=>{cancelled=true;};
- },[mode]);
- useEffect(()=>{
-   if(!file){setPhotoPreview('');return;}
-   const preview=URL.createObjectURL(file);setPhotoPreview(preview);
-   return()=>URL.revokeObjectURL(preview);
- },[file]);
-
- const handleFileSelect = (f: File | null) => {
-   setPhotoId('');
-   if(f&&(!['image/jpeg','image/png'].includes(f.type)||f.size>5*1024*1024)){
-     setFile(null);setError('Choose a JPG or PNG photo no larger than 5 MB.');notifyFeedback({tone:'error',title:'Photo not selected',message:'Choose a JPG or PNG photo no larger than 5 MB.'},'market-photo');return;
-   }
-   setFile(f);setError('');
- };
-
- return <Modal title={mode==='exchange'?'List for Exchange':'Sell Your Used Item on Repaido'} className="market-form-modal" onClose={onClose}>
-  <form className="operations market-form" aria-busy={busy} onSubmit={async e=>{
-    e.preventDefault();
-    if(submitting.current)return;
-    submitting.current=true;
-    const f=new FormData(e.currentTarget);
-    setBusy(true);
-    setError('');
-    try{
-      if(!pin)throw new Error('Choose the location of your item.');
-      if(!file)throw new Error('Choose a product photo before saving your listing.');
-      let pid=photoId;
-      if(!pid){
-        setPhase('uploading');
-        await auth.authStateReady();
-        const token=await auth.currentUser?.getIdToken();
-        if(!token)throw new Error('Sign in to upload your product photo. Your draft will stay open.');
-        const response=await apiFetch('/api/operations/market/photos',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':file.type},body:file});
-        const body=await response.json().catch(()=>({}));
-        if(!response.ok)throw new Error(body.detail?.message||(typeof body.detail==='string'?body.detail:null)||'Your photo was not saved. Please retry.');
-        if(typeof body.id!=='string'||!body.id)throw new Error('Your photo was not confirmed. Please retry.');
-        pid=body.id;setPhotoId(pid);
-      }
-      setPhase('saving');
-      const saved=await operation<Item>('/market/listings',{
-          method:'POST',
-          body:JSON.stringify({
-            request_id:requestId,
-            mode,
-            name:f.get('name'),
-            brand:f.get('brand'),
-            product_type:f.get('type'),
-            desired_type:mode==='exchange'?f.get('desired_type'):null,
-            desired_product:String(f.get('desired_product')||''),
-            value_paise:Math.round(Number(value)*100),
-            purchase_paise:Math.round(Number(f.get('purchase'))*100),
-            age_months:Number(f.get('age')),
-            manufacture_year:Number(f.get('year')),
-            warranty:f.get('warranty'),
-            condition:f.get('condition'),
-            reason:f.get('reason'),
-            city:f.get('city'),
-            location:{lat:pin.lat,lng:pin.lng},
-            radius_km:Number(f.get('radius')||10),
-            photo_id:pid,
-            share_contact:true
-          })
-      });
-      if(!saved.id||!saved.status)throw new Error('The server did not confirm your listing. Check My listings before trying again.');
-      onSaved(saved);
-    }catch(e){
-      setError((e as Error).message);
-      notifyFeedback({tone:'error',title:'Listing not confirmed',message:(e as Error).message},'/market/listings');
-    }finally{
-      submitting.current=false;setPhase('idle');
-      setBusy(false);
-    }
-  }}>
-    <div className="market-form-promo-badge">
-      <Sparkles size={14} className="text-amber-500"/>
-      <span>{free===null?'Free eligibility will be confirmed by Repaido.':free?mode==='exchange'?'Eligible: your first exchange listing is free for 30 days.':'Eligible: this listing can use your seller’s 90-day free period.':'Your free period is unavailable. Save your listing, then review its fee before publishing.'}</span>
-    </div>
-    {file&&<ActionStatus title={phase==='uploading'?'Uploading photo…':photoId?'Photo uploaded':'Photo selected'} tone={photoId?'success':'info'}>{file.name} · {Math.max(1,Math.round(file.size/1024))} KB. {phase==='uploading'?'Please wait for upload confirmation.':photoId?'Your photo is saved; finish submitting the listing.':'This is a preview. The photo uploads when you submit the listing.'}</ActionStatus>}
-
-    <div className="ops-grid">
-      <label>Product Name<input name="name" required minLength={3} maxLength={120} placeholder="e.g. Voltas 1.5T Inverter Split AC / Dell Inspiron 15"/></label>
-      <label>Brand / OEM<input name="brand" required minLength={2} maxLength={80} placeholder="e.g. Voltas / Daikin / Samsung / Dell"/></label>
-      <label>Product Category
-        <select name="type">
-          {types.map(t=><option key={t} value={t}>{typeLabels[t]||t}</option>)}
-        </select>
-      </label>
-      <label>{mode==='exchange'?'Estimated Value (₹)':'Selling Price (₹)'}<input value={value} onChange={e=>setValue(e.target.value)} type="number" min={100} max={1000000} step="1" required placeholder="Expected price"/></label>
-      <label>Original Purchase Price (₹)<input name="purchase" type="number" min="1" max={1000000} step="1" required placeholder="Price you paid"/></label>
-      <label>Age (months)<input name="age" type="number" min={0} max={600} required/></label>
-      <label>Manufacture Year<input name="year" type="number" min={1970} max={new Date().getFullYear()} required/></label>
-      <label>City / Location<input name="city" required defaultValue="Balasore" minLength={2} maxLength={80}/></label>
-    </div>
-
-    <label>Condition, Working Status & Included Accessories
-      <textarea name="condition" required minLength={10} maxLength={1500} placeholder="Describe its working condition, any defects and included accessories."/>
-    </label>
-    <label>Warranty Status
-      <textarea name="warranty" required minLength={3} maxLength={500} placeholder="State any remaining warranty and its terms, or write No warranty."/>
-    </label>
-    <label>Reason for Selling / Exchanging
-      <textarea name="reason" required minLength={5} maxLength={500} placeholder="Tell buyers why you are selling or exchanging this item."/>
-    </label>
-
-    <div className="market-photo-section">
-      <label className="market-photo-label">Product Photo (JPG/PNG)</label>
-      <div className="market-photo-box">
-        {photoPreview ? (
-          <div className="market-photo-preview-wrap">
-            <img src={photoPreview} alt="Selected preview" className="market-photo-thumb"/>
-            <button type="button" disabled={busy} aria-label="Remove product photo" onClick={()=>handleFileSelect(null)} className="market-photo-remove">✕</button>
-          </div>
-        ) : (
-          <div className="market-photo-placeholder">
-            <span>No photo selected</span>
-          </div>
-        )}
-        <div className="market-photo-controls">
-          <input aria-label="Product photo" type="file" disabled={busy} accept="image/jpeg,image/png" onChange={e=>handleFileSelect(e.target.files?.[0]||null)}/>
-          <span className="text-xs text-slate-500">Attach your own clear JPG or PNG photo, up to 5 MB.</span>
-        </div>
-      </div>
-    </div>
-
-    {mode==='exchange'&&<div className="ops-grid">
-      <label>Wanted Product Type
-        <select name="desired_type">{types.map(t=><option key={t} value={t}>{typeLabels[t]||t}</option>)}</select>
-      </label>
-      <label>Wanted Brand / Requirements
-        <input name="desired_product" required minLength={3} maxLength={200} placeholder="e.g. Any 1.5 Ton Copper AC or Tablet"/>
-      </label>
-    </div>}
-
-    <div className="market-form-loc-row">
-      <button type="button" onClick={()=>setMap(true)} className="market-form-loc-btn">
-        <MapPin size={15}/> {pin?'Location Set (Tap to Change)':'Confirm Location'}
-      </button>
-      <span className="market-policy-badge">{free===true?'No charge to publish during your eligible free period.':'No charge to save a draft. Review any listing fee before publishing.'}</span>
-    </div>
-
-    <label className="ops-check market-terms-check">
-      <input type="checkbox" required/>
-      <span>I confirm these details are accurate, agree to Marketplace guidelines, and consent to sharing my seller contact with eligible signed-in buyers.</span>
-    </label>
-
-    {eligibilityError&&<p role="status">Free eligibility could not be checked: {eligibilityError}</p>}
-    {error&&<p role="alert" className="ops-error">{error}{onSignIn&&error.toLowerCase().includes('sign')&&<button type="button" onClick={onSignIn}>Sign in</button>}</p>}
-    {!file&&<p className="hire-small">Add a product photo to enable submission.</p>}
-    <button className="ops-primary market-submit-btn" disabled={busy||!file} aria-busy={busy}>
-      {busy?phase==='uploading'?'Uploading photo…':'Saving listing…':free===true?'Publish listing':'Save listing'}
-    </button>
-  </form>
-  {map&&<LocationPickerModal isOpen onClose={()=>setMap(false)} onConfirmLocation={p=>{setPin(p);setMap(false);}}/>}
- </Modal>;
 }
 
 function MarketDetails({item,onClose,onShare,onSignIn}:{item:Item;onClose:()=>void;onShare?:(reference:ListingReference)=>void;onSignIn?:()=>void}){
