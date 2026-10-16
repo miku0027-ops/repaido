@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {onIdTokenChanged} from 'firebase/auth';
 import {auth} from '../firebase';
 import {operation} from '../services/operations';
-import {ArrowRight,ChevronLeft,ChevronRight,FileCheck2,RefreshCw} from 'lucide-react';
+import {ArrowRight,ChevronLeft,ChevronRight,FileCheck2,RefreshCw,Pause,Play} from 'lucide-react';
 import {CustomContractError,customContractQueries,subscribeCustomContracts} from '../services/customContractsService';
 import type {CustomContractQuery} from '../types/customContracts';
 import {RepaidianBadge} from './RepaidianBadge';
@@ -42,16 +42,17 @@ export default function OpportunityCarousel({slides=opportunities,variant='marke
  const [ranking,setRanking]=useState<string[]>([]);
  const ordered=[...slides.filter(s=>s.legacy||s.id==='services'),...slides.filter(s=>!s.legacy&&s.id!=='services').sort((a,b)=>{const ai=ranking.indexOf(a.id),bi=ranking.indexOf(b.id);return (ai<0?99:ai)-(bi<0?99:bi);})];
  useEffect(()=>{let generation=0;const read=()=>{const g=++generation;setRanking([]);if(auth.currentUser)void operation<{ids:string[]}>('/opportunities/order',{}, {background:true}).then(d=>{if(g===generation)setRanking(d.ids);}).catch(()=>{});};const off=onIdTokenChanged(auth,read);window.addEventListener('repaido:interests',read);return()=>{generation++;off();window.removeEventListener('repaido:interests',read);};},[]);
+ const [paused,setPaused]=useState(false);
  const [index,setIndex]=useState(0),[shape]=useState(bannerShape),[engaged,setEngaged]=useState(false),[visible,setVisible]=useState(false),[reduced,setReduced]=useState(false),[hidden,setHidden]=useState(document.hidden);const ref=useRef<HTMLElement>(null),touch=useRef<{x:number;y:number}|null>(null);const slide=ordered[index%ordered.length];
  useEffect(()=>{const q=matchMedia('(prefers-reduced-motion: reduce)'),read=()=>setReduced(q.matches||document.documentElement.classList.contains('reduce-motion')),visibility=()=>setHidden(document.hidden);read();q.addEventListener('change',read);document.addEventListener('visibilitychange',visibility);const mo=new MutationObserver(read);mo.observe(document.documentElement,{attributes:true,attributeFilter:['class']});const io=new IntersectionObserver(e=>setVisible(!!e[0]?.isIntersecting),{threshold:.3});if(ref.current)io.observe(ref.current);return()=>{q.removeEventListener('change',read);document.removeEventListener('visibilitychange',visibility);mo.disconnect();io.disconnect();};},[]);
- const playing=visible&&!hidden&&!reduced&&!engaged;
+ const playing=visible&&!hidden&&!reduced&&!engaged&&!paused;
  useEffect(()=>{if(!playing||slides.length<2)return;const timer=setInterval(()=>setIndex(i=>(i+1)%slides.length),6500);return()=>clearInterval(timer);},[playing,slides.length]);
  const move=(n:number)=>setIndex(i=>(i+n+slides.length)%slides.length);
  return <section ref={ref} className={`opportunity-carousel opportunity-${variant} opportunity-shape-${shape} ${playing?'is-playing':''} ${slide.legacy?'is-legacy':''}`} aria-label={variant==='home'?'Repaido highlights':'Marketplace opportunities'} aria-roledescription="carousel" onPointerEnter={()=>setEngaged(true)} onPointerLeave={()=>setEngaged(false)} onFocusCapture={()=>setEngaged(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setEngaged(false);}} onTouchStart={e=>{touch.current={x:e.touches[0].clientX,y:e.touches[0].clientY};setEngaged(true);}} onTouchEnd={e=>{const p=touch.current;touch.current=null;if(p){const dx=e.changedTouches[0].clientX-p.x,dy=e.changedTouches[0].clientY-p.y;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)*1.5)move(dx<0?1:-1);}setEngaged(false);}}>
- <button className="opportunity-slide" key={slide.id} onClick={()=>{if(!slide.legacy&&slide.id!=='services'&&auth.currentUser)void operation('/opportunities/open',{method:'POST',body:JSON.stringify({category:slide.id})},{background:true}).catch(()=>{});onOpen(slide);}} aria-label={slide.legacy?'Book a home service — browse services':slide.cta}>
+ <button className="opportunity-slide" key={slide.id} onClick={()=>{if(!slide.legacy&&slide.id!=='services'&&auth.currentUser)void operation('/opportunities/open',{method:'POST',body:JSON.stringify({category:slide.id})},{background:true,feedback:false}).catch(()=>{});onOpen(slide);}} aria-label={slide.legacy?'Book a home service — browse services':slide.cta}>
  <img className="opportunity-photo" src={slide.image.startsWith('/')?slide.image:`/images/banners/${slide.image}.jpg`} alt={slide.alt} width={1536} height={1024} decoding="async"/>
  {!slide.legacy&&<><span className="opportunity-scrim"/><span className="opportunity-copy"><small>{slide.tag}</small><strong>{slide.title}</strong><span>{slide.body}</span><b>{slide.cta}<ArrowRight size={13}/></b></span></>}
- </button>{!slide.legacy&&<MotionAccent playing={playing}/>}
- <div className="opportunity-controls"><button aria-label="Previous banner" onClick={()=>move(-1)}><ChevronLeft size={13}/></button><span aria-label={`Slide ${index+1} of ${slides.length}`}>{index+1}/{slides.length}</span><button aria-label="Next banner" onClick={()=>move(1)}><ChevronRight size={13}/></button></div>
+ </button>{!slide.legacy&&visible&&!hidden&&!reduced&&<MotionAccent playing={playing}/>}
+ <div className="opportunity-controls"><button type="button" aria-label={reduced?'Automatic banners paused for reduced motion':paused?'Resume automatic banners':'Pause automatic banners'} disabled={reduced} aria-pressed={paused||reduced} onClick={()=>setPaused(value=>!value)}>{paused||reduced?<Play size={13} aria-hidden="true"/>:<Pause size={13} aria-hidden="true"/>}</button><button aria-label="Previous banner" onClick={()=>move(-1)}><ChevronLeft size={13}/></button><span aria-label={`Slide ${index+1} of ${slides.length}`}>{index+1}/{slides.length}</span><button aria-label="Next banner" onClick={()=>move(1)}><ChevronRight size={13}/></button></div>
  </section>;
 }

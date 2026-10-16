@@ -286,7 +286,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       <div className="stores-mobile-app-shell">
         {/* 1. MASTER STORES HUB HEADER */}
       <header className="stores-hub-header">
-        <MarketOpportunities onChoose={kind=>{if(kind==='contracts'){onContracts?.();return;}if(kind==='refurbished'){setSection('refurbished');return;}if(kind==='sell'){setSection('preowned');setSellLaunch(v=>v+1);return;}setSection(kind);}}/>
+        <MarketOpportunities onSignIn={onSignIn} onChoose={kind=>{if(kind==='contracts'){onContracts?.();return;}if(kind==='refurbished'){setSection('refurbished');return;}if(kind==='sell'){setSection('preowned');setSellLaunch(v=>v+1);return;}setSection(kind);}}/>
 
         <div className="stores-header-actions">
           {totalItemsCount > 0 && (

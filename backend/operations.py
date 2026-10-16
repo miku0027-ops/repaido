@@ -145,7 +145,7 @@ class Store:
             # Browse by city and fetch a candidate's work without reading every record.
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_city ON operation_records(json_extract(body,'$.city')) WHERE kind='workers'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_workers_online ON operation_records(json_extract(body,'$.online')) WHERE kind='workers'")
-            for kind, fields in {'cleanup_reports': ('customer_id','owner_id','state','city_key','queue'), 'cleanup_points': ('user_id',), 'captain_profiles': ('city_key',), 'scrap_collections': ('customer_id','owner_id','state'), 'hires': ('customer_id',), 'rentals': ('customer_id',), 'rental_payments': ('rental_id',), 'retail_orders': ('customer_id',), 'home_plans': ('customer_id',)}.items():
+            for kind, fields in {'cleanup_reports': ('customer_id','owner_id','state','city_key','queue'), 'cleanup_points': ('user_id',), 'captain_profiles': ('city_key',), 'scrap_collections': ('customer_id','owner_id','state'), 'hires': ('customer_id',), 'rentals': ('customer_id',), 'rental_payments': ('rental_id',), 'retail_orders': ('customer_id',), 'home_plans': ('customer_id',), 'support_cases': ('customer_id','job_id','state','updated_at'), 'support_messages': ('case_id',)}.items():
                 for field in fields:
                     c.execute(f"CREATE INDEX IF NOT EXISTS operation_{kind}_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='{kind}'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_customer ON operation_records(json_extract(body,'$.customer_id')) WHERE kind='jobs'")
@@ -225,7 +225,7 @@ class Unit:
     def find(self, kind, field, value, *, limit=None, after=None):
         """Indexed equality lookups with transaction-local writes overlaid."""
         allowed = {'cleanup_reports': {'customer_id','owner_id','state','city_key','queue'}, 'cleanup_points': {'user_id'}, 'captain_profiles': {'city_key'}, 'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state','customer_id','owner_id'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id','customer_id'}, 'rentals': {'customer_id'}, 'rental_payments': {'rental_id'}, 'retail_orders': {'customer_id'}, 'home_plans': {'customer_id'},
-                   'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
+                   'support_cases': {'customer_id','job_id','state'}, 'support_messages': {'case_id'}, 'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:

@@ -37,6 +37,8 @@ import { apiFetch } from './services/api';
 import SearchDiscovery from './components/SearchDiscovery';
 import {stopNativeSession} from './services/native';
 import {SupportCenter,NotificationInbox} from './components/Lifecycle';
+import {SupportDialog,SupportQuickButton} from './components/SupportWorkspace';
+import {ContributeBookings,CustomerBookingNavigation} from './components/ContributeBookings';
 import { CategoryPicks } from './components/ServiceShowcase';
 import ReferenceArt from './components/ReferenceArt';
 import { CustomerCartDrawer } from './components/CustomerCartDrawer';
@@ -229,15 +231,21 @@ export default function App() {
   const [communityTenderId,setCommunityTenderId]=useState<string>(),[communityRouteBusy,setCommunityRouteBusy]=useState(false),[communityRouteError,setCommunityRouteError]=useState('');
   const [homePreferred,setHomePreferred]=useState<{id:string;name:string}>();
   const [preferredProfessional,setPreferredProfessional]=useState<{id:string;name:string}>();
-  const [contractBookings,setContractBookings]=useState(()=>new URLSearchParams(location.search).has('custom-contract')||new URLSearchParams(location.search).get('view')==='contracts');
-  const [rideBookings,setRideBookings]=useState(new URLSearchParams(location.search).get('view')==='rides');
+  const [contractBookings,updateContractBookings]=useState(()=>new URLSearchParams(location.search).has('custom-contract')||new URLSearchParams(location.search).get('view')==='contracts');
+  const [rideBookings,updateRideBookings]=useState(new URLSearchParams(location.search).get('view')==='rides');
   const [sharedRideId,setSharedRideId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
-  const [hireBookings,setHireBookings]=useState(new URLSearchParams(location.search).has('hiring'));
-  const [homeHub,setHomeHub]=useState<string|null>(null),[homePlans,setHomePlans]=useState(new URLSearchParams(location.search).has('home-plan'));
+  const [hireBookings,updateHireBookings]=useState(new URLSearchParams(location.search).has('hiring'));
+  const [homeHub,setHomeHub]=useState<string|null>(null),[homePlans,updateHomePlans]=useState(new URLSearchParams(location.search).has('home-plan'));
+  const [contributeBookings,setContributeBookings]=useState(()=>new URLSearchParams(location.search).get('view')==='contribute');
+  const [supportCaseId,setSupportCaseId]=useState(()=>new URLSearchParams(location.search).get('support-case')||'');
+  const setContractBookings=(value:boolean)=>{setContributeBookings(false);updateContractBookings(value);};
+  const setRideBookings=(value:boolean)=>{setContributeBookings(false);updateRideBookings(value);};
+  const setHireBookings=(value:boolean)=>{setContributeBookings(false);updateHireBookings(value);};
+  const setHomePlans=(value:boolean)=>{setContributeBookings(false);updateHomePlans(value);};
   const [tab,setTab]=useSavedTab<Tab>('repaido.customer.tab',['Explore','Services','Bookings','ShopSpares','You','Hire'],'Explore',(()=>{
     const sp = new URLSearchParams(location.search);
     if(sp.get('view')==='account'||sp.get('view')==='support_case')return 'You';
-    if (sp.has('booking') || sp.has('home-plan') || sp.has('hiring') || sp.has('custom-contract') || ['contracts','rides'].includes(sp.get('view')||'')) return 'Bookings';
+    if (sp.has('booking') || sp.has('home-plan') || sp.has('hiring') || sp.has('custom-contract') || ['contracts','rides','contribute'].includes(sp.get('view')||'')) return 'Bookings';
     const t = sp.get('tab')?.toLowerCase();
     if (t === 'hire') return 'Hire';
     if (t === 'shop' || t === 'shopspares' || t === 'marketplace' || t === 'market') return 'ShopSpares';
@@ -376,6 +384,7 @@ export default function App() {
   const [receiptBooking, setReceiptBooking] = useState<BookingRecord | null>(null);
 
   const [sheet, setSheet] = useState(()=>new URLSearchParams(location.search).get('section')==='support'?'support_ticket':'');
+  useEffect(()=>{const open=(event:Event)=>{const id=(event as CustomEvent<{caseId?:string}>).detail?.caseId||'';setSupportCaseId(id);setSheet('support_ticket');};window.addEventListener('repaido:open-support',open);return()=>window.removeEventListener('repaido:open-support',open);},[]);
   const [message, setMessage] = useState('');
   const [workerSession, setWorkerSession] = useState(() => readWorkerSession());
   const [workerPhone, setWorkerPhone] = useState('');
@@ -1121,7 +1130,7 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'Bookings' && <div className="customer-bookings-page"><div className="customer-home-plans-switch" role="group" aria-label="Booking service type"><button aria-pressed={!rideBookings&&!contractBookings&&!homePlans&&!hireBookings} onClick={()=>{setRideBookings(false);setContractBookings(false);setHomePlans(false);setHireBookings(false);}}><Wrench size={15} aria-hidden="true"/>Visits</button><button aria-pressed={!rideBookings&&!contractBookings&&homePlans} onClick={()=>{setRideBookings(false);setContractBookings(false);setHomePlans(true);setHireBookings(false);}}><CalendarDays size={15} aria-hidden="true"/>Home plans</button><button aria-pressed={!rideBookings&&!contractBookings&&hireBookings&&!homePlans} onClick={()=>{setRideBookings(false);setContractBookings(false);setHomePlans(false);setHireBookings(true);}}><BriefcaseBusiness size={15} aria-hidden="true"/>Hiring</button><button aria-pressed={!rideBookings&&contractBookings} onClick={()=>{setRideBookings(false);setContractBookings(true);setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}><FileText size={15} aria-hidden="true"/>Contracts</button><button aria-pressed={rideBookings} onClick={()=>setRideBookings(true)}><Car size={15} aria-hidden="true"/>Rides</button></div>{!user&&!auth.currentUser?<BookingSignIn title={rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:rideBookings?<TransportBookings initialSharedRideId={sharedRideId} key={(user?.id||'guest')+sharedRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
+            {tab === 'Bookings' && <div className="customer-bookings-page"><CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialSharedRideId={sharedRideId} key={(user?.id||'guest')+sharedRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
@@ -1204,6 +1213,7 @@ export default function App() {
 
           {/* Mobile Bottom Navigation Bar */}
           <nav data-captain-gold={captainMembership.gold} className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
+            <SupportQuickButton onOpen={()=>{setSupportCaseId('');setSheet('support_ticket');}}/>
             <button
               className={`android-nav-item ${tab === 'Explore' ? 'active' : ''}`}
               onClick={() => navigate('Explore')}
@@ -1223,7 +1233,7 @@ export default function App() {
             </button>
 
             <button
-              className={`android-nav-item ${tab === 'Bookings' ? 'active' : ''}`}
+              data-bookings-nav className={`android-nav-item ${tab === 'Bookings' ? 'active' : ''}`}
               onClick={() => navigate('Bookings')}
               aria-current={tab === 'Bookings' ? 'page' : undefined}
             >
@@ -2494,7 +2504,7 @@ export default function App() {
       )}
 
       {/* Support Ticket Modal */}
-      {sheet === 'support_ticket' && <Modal title="Repaido support" onClose={()=>setSheet('')}><SupportCenter onSignIn={()=>setSheet('auth')}/></Modal>}
+      {sheet === 'support_ticket' && <SupportDialog initialCaseId={supportCaseId} onClose={()=>setSheet('')} onSignIn={()=>setSheet('auth')}/>}
 
       {/* Generic Notice Modal */}
       {sheet && !['Register as specialist/technician', 'partner_registration', 'partner_registered_success', 'auth', 'support_ticket'].includes(sheet) && (

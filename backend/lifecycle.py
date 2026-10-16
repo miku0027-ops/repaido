@@ -6,9 +6,12 @@ import hashlib
 import json
 import time
 import uuid
+import base64
+import math
+import re
 from datetime import datetime,timezone
 from typing import Literal
-from fastapi import APIRouter,Depends
+from fastapi import APIRouter,Depends,Query
 from pydantic import Field
 from operations import Input,Pin,fail,event,assign,public_job
 from integrations import audit
@@ -29,7 +32,7 @@ class Profile(Input):
     larger_text: bool=False
 class Ticket(Input):
     job_id: str|None=None
-    category: Literal['general','booking','warranty','payment','penalty','safety']
+    category: Literal['general','booking','warranty','payment','penalty','safety','market','rental','scrap','rewards','hiring','account']
     message: str=Field(min_length=5,max_length=3000)
     request_id: str=Field(min_length=16,max_length=100)
 class Message(Input):
@@ -67,6 +70,29 @@ class MetricCorrection(Input):
 
 
 def identify(user,*parts):return hashlib.sha256(':'.join([user,*parts]).encode()).hexdigest()
+
+def support_page(u, cursor='', limit=60):
+    """Bound the company inbox by most recently updated case, with a stable tie-break."""
+    after=None
+    if cursor:
+        try:
+            after=json.loads(base64.urlsafe_b64decode(cursor+'='*(-len(cursor)%4)))
+            if not isinstance(after,list) or len(after)!=2 or type(after[0]) not in (int,float) or not math.isfinite(after[0]) or after[0]<0 or not isinstance(after[1],str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}',after[1]):raise ValueError()
+        except Exception:fail('INVALID_CURSOR','Refresh the inbox to load its latest page.',422)
+    if u.tx is not None:
+        from google.cloud.firestore_v1.field_path import FieldPath
+        q=u.core.fs_collection('ops_support_cases').order_by('updated_at',direction='DESCENDING').order_by(FieldPath.document_id(),direction='DESCENDING')
+        if after:q=q.start_after({'updated_at':after[0],FieldPath.document_id():u.core.fs_doc('ops_support_cases',after[1])})
+        rows=[{**snapshot.to_dict(),'id':snapshot.id} for snapshot in q.limit(limit+1).stream(transaction=u.tx)]
+    else:
+        query="SELECT body FROM operation_records WHERE kind='support_cases'";params=[]
+        if after:
+            query+=" AND (json_extract(body,'$.updated_at')<? OR (json_extract(body,'$.updated_at')=? AND id<?))";params=[after[0],after[0],after[1]]
+        query+=" ORDER BY json_extract(body,'$.updated_at') DESC,id DESC LIMIT ?";params.append(limit+1)
+        rows=[json.loads(row['body']) for row in u.conn.execute(query,params)]
+    page=rows[:limit]
+    next_cursor=base64.urlsafe_b64encode(json.dumps([page[-1]['updated_at'],page[-1]['id']],separators=(',',':')).encode()).decode().rstrip('=') if len(rows)>limit else None
+    return dict(cases=page,next_cursor=next_cursor,page_size=limit)
 def read_community_discovery(u, notification, uid):
     """Acknowledge the matching discovery in this account's community lane."""
     if notification.get('kind') != 'job_discovery' or notification.get('destination') != 'repaidians':
@@ -129,7 +155,7 @@ def install(core):
                 return old
             j=scoped_job(u,body.job_id,user['id']) if body.job_id else None
             if body.category in ('warranty','payment','penalty','booking') and not j:fail('BOOKING_REQUIRED','Choose the related booking.',422)
-            t=dict(id=key,customer_id=user['id'],job_id=body.job_id,category=body.category,state='open',version=1,created_at=time.time(),updated_at=time.time(),fingerprint=fingerprint)
+            t=dict(id=key,customer_id=user['id'],customer_name=user.get('name','Customer'),job_id=body.job_id,category=body.category,state='open',priority='urgent' if body.category=='safety' else 'normal',version=1,created_at=time.time(),updated_at=time.time(),fingerprint=fingerprint,preview=body.message[:160],last_actor_role='requester',message_count=1,request_id=body.request_id)
             u.put('support_cases',key,t)
             u.put('support_messages',key,dict(id=key,case_id=key,actor_id=user['id'],actor_role='requester',message=body.message,created_at=time.time()))
             if j and body.category in ('warranty','payment','penalty','safety'):
@@ -141,9 +167,10 @@ def install(core):
         return store.run(save)
     @r.get('/support')
     def tickets(user=Depends(core.current_user)):
-        return store.run(lambda u:{'cases':sorted([t for t in u.all('support_cases') if t['customer_id']==user['id']],key=lambda t:t['updated_at'],reverse=True)})
+        return store.run(lambda u:{'cases':sorted(u.find('support_cases','customer_id',user['id']),key=lambda t:t['updated_at'],reverse=True)})
     @r.get('/admin/support',dependencies=[Depends(core.operator)])
-    def admin_tickets():return store.run(lambda u:{'cases':sorted(u.all('support_cases'),key=lambda t:t['updated_at'],reverse=True)})
+    def admin_tickets(cursor:str=Query(default='',max_length=512),limit:int=Query(default=60,ge=1,le=100)):
+        return store.run(lambda u:support_page(u,cursor,limit))
     def case_access(u,case_id,uid,admin=False):
         t=u.get('support_cases',case_id)
         if not t or (not admin and t['customer_id']!=uid):fail('NOT_FOUND','Support case not found.',404)
@@ -151,7 +178,7 @@ def install(core):
     def messages(case_id,user,admin=False):
         def read(u):
             t=case_access(u,case_id,user['id'],admin)
-            return {'case':t,'messages':sorted([m for m in u.all('support_messages') if m['case_id']==case_id],key=lambda m:m['created_at'])}
+            return {'case':t,'messages':sorted(u.find('support_messages','case_id',case_id),key=lambda m:(m['created_at'],m['id']))}
         return store.run(read)
     @r.get('/support/{case_id}')
     def customer_messages(case_id:str,user=Depends(core.current_user)):return messages(case_id,user)
@@ -165,12 +192,14 @@ def install(core):
             if old:
                 if old['message']!=body.message:fail('KEY_REUSED','Message retry differs.')
                 return old
+            if admin and t.get('assigned_to') not in (None,user['id']):fail('CASE_ASSIGNED','This case is assigned to a teammate. Refresh the inbox.',409)
             if t['state']=='resolved':fail('CASE_CLOSED','Reopen the case before replying.')
             m=dict(id=key,case_id=case_id,actor_id=user['id'],actor_role='support' if admin else 'requester',message=body.message,created_at=time.time())
-            u.put('support_messages',key,m);t.update(updated_at=time.time(),version=t['version']+1);u.put('support_cases',case_id,t)
+            u.put('support_messages',key,m);t.update(updated_at=time.time(),version=t['version']+1,preview=body.message[:160],last_actor_role=m['actor_role'],message_count=t['message_count']+1 if type(t.get('message_count')) is int else len(u.find('support_messages','case_id',case_id)));u.put('support_cases',case_id,t)
             if admin:
                 from transactional_mail import enqueue
                 enqueue(u,'support-reply:'+key,'support_reply',[t['customer_id']],{'record_type':'support_case','record_id':case_id,'path':'/?view=account&section=support'})
+                u.put('notifications','support-'+key,dict(id='support-'+key,user_id=t['customer_id'],title='Repaido support replied',body='Open your private conversation to read the reply.',destination='support',case_id=case_id,created_at=time.time(),read=False))
             return m
         return store.run(save)
     @r.post('/support/{case_id}/messages')
@@ -180,13 +209,18 @@ def install(core):
     def case_action(case_id,body,user,admin=False):
         def save(u):
             t=case_access(u,case_id,user['id'],admin)
+            intent=dict(action=body.action,reason=body.reason,actor_id=user['id'],expected_version=body.expected_version)
+            if t.get('last_action')==intent and t['version']==body.expected_version+1:return t
             if t['version']!=body.expected_version:fail('STALE_VERSION','Refresh this support case.')
             if body.action=='resolve' and not admin:fail('ADMIN_REQUIRED','Support must record the resolution.',403)
-            t.update(state={'escalate':'escalated','resolve':'resolved','reopen':'open'}[body.action],resolution=body.reason,version=t['version']+1,updated_at=time.time())
+            if admin and t.get('assigned_to') not in (None,user['id']):fail('CASE_ASSIGNED','This case is assigned to a teammate. Refresh the inbox.',409)
+            if (body.action=='reopen')!=(t['state']=='resolved'):fail('INVALID_TRANSITION','Refresh the case before changing its status.',409)
+            t.update(state={'escalate':'escalated','resolve':'resolved','reopen':'open'}[body.action],resolution=body.reason,last_action=intent,version=t['version']+1,updated_at=time.time())
+            if body.action=='escalate':t['priority']='high' if t.get('priority')!='urgent' else 'urgent'
             u.put('support_cases',case_id,t)
             if t.get('job_id'):
                 j=u.get('jobs',t['job_id'])
-                other=any(c['job_id']==j['id'] and c['id']!=case_id and c['state']!='resolved' and c['category'] in ('warranty','payment','penalty','safety') for c in u.all('support_cases'))
+                other=any(c['id']!=case_id and c['state']!='resolved' and c['category'] in ('warranty','payment','penalty','safety') for c in u.find('support_cases','job_id',j['id']))
                 j['financial_hold']=other or (t['state']!='resolved' and t['category'] in ('warranty','payment','penalty','safety'))
                 u.put('jobs',j['id'],j)
             audit(u,'SupportCase'+body.action,user['id'],case_id=case_id,reason=body.reason)

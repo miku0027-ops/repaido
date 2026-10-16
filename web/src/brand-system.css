@@ -233,7 +233,7 @@
   .repaido-badge-emerald { background: #ecfdf5 !important; color: #14532d !important; }
   .repaido-badge-sky { background: #f0f9ff !important; color: #123a66 !important; }
   .repaido-badge-amber,.repaido-badge-flame { background: #fff4e6 !important; color: #713f12 !important; }
-  .customer-home-plans-switch button:not([aria-pressed=true]) { color: #26364e !important; }
+  .customer-home-plans-switch button:not([aria-pressed=true]) { color: var(--ui-muted) !important; }
   .story-label { overflow: clip !important; }
   .repaido-customer-footer,.android-explore-screen,.service-stories,.uc-services-controls,.uc-discovery-main,.local-business-hub { background: var(--ui-subtle) !important; }
   .home-greeting,.hydration-controls,.android-footer-slogan { background: var(--ui-subtle) !important; }

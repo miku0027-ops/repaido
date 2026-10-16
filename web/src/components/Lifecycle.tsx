@@ -2,37 +2,17 @@ import {auth} from '../firebase';
 import {nativeAvailable,enableNativePush,stopNativeSession} from '../services/native';
 import {useEffect,useRef,useState} from 'react';
 import {operation,money,type Job} from '../services/operations';
+import {SupportCenter} from './SupportWorkspace';
 
 function persistentId(scope:string,payload:string){
  const key='repaido.lifecycle.intent.'+JSON.stringify([scope,payload]);
  const existing=sessionStorage.getItem(key);if(existing)return existing;
  const id=crypto.randomUUID();sessionStorage.setItem(key,id);return id;
 }
-function supportDraft(key:string){try{return sessionStorage.getItem(key)||'';}catch{return '';}}
-type Case={assigned_to?:string;id:string;job_id?:string;category:string;state:string;version:number;resolution?:string};
-type Thread={case:Case;messages:{id:string;actor_role:string;message:string;created_at:number}[]};
 export const post=(path:string,body:object)=>operation(path,{method:'POST',body:JSON.stringify(body)});
-export function SupportCenter({jobId,admin=false,onSignIn}:{jobId?:string;admin?:boolean;onSignIn?:()=>void}){
- const draftKey='repaido.support-draft.'+(jobId||'general')+(admin?'.admin':'');
- const [cases,setCases]=useState<Case[]>([]),[thread,setThread]=useState<Thread|null>(null),[text,setText]=useState(()=>supportDraft(draftKey)),[category,setCategory]=useState(jobId?'booking':'general'),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false);
- const [stateFilter,setStateFilter]=useState('all');
- const prefix=admin?'/admin/support':'/support';
- const request=useRef<{text:string;key:string}>({text:'',key:crypto.randomUUID()});
- const key=(value:string)=>{if(request.current.text!==value)request.current={text:value,key:persistentId(prefix,value)};return request.current.key;};
- const load=async()=>{const d=await operation<{cases:Case[]}>(prefix);setCases(d.cases.filter(c=>!jobId||c.job_id===jobId));setLoaded(true);};
- const run=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
- useEffect(()=>{void run(load);},[jobId,admin]);
- useEffect(()=>{sessionStorage.setItem(draftKey,text);},[draftKey,text]);
- const open=async(id:string)=>{setThread(await operation<Thread>(`${prefix}/${id}`));setText('');};
- return <section className="operations ops-card"><h3>{admin?'Support inbox':'Help with your service'}</h3><p>Keep messages about your booking here. Do not include identity documents, bank details or passwords. For an immediate emergency, contact local emergency services.</p>{error&&<p role="alert" className="ops-error">{error}{onSignIn&&error.toLowerCase().includes('sign')&&<button onClick={onSignIn}>Sign in</button>}</p>}<button disabled={busy} onClick={()=>void run(async()=>{await load();if(thread)await open(thread.case.id);})}>Refresh messages</button>
- {admin&&<label>Case status<select value={stateFilter} onChange={e=>setStateFilter(e.target.value)}><option value="all">All cases</option><option value="open">Open · needs attention</option><option value="escalated">Escalated · urgent review</option><option value="resolved">Resolved</option></select></label>}{loaded&&!cases.length&&<p>No support cases yet.</p>}<div className="support-case-grid">{cases.filter(c=>stateFilter==='all'||c.state===stateFilter).map(c=><button className={`support-case ${c.state==='resolved'?'status-green':c.state==='escalated'?'status-red':'status-orange'}`} key={c.id} disabled={busy} onClick={()=>void run(()=>open(c.id))}>{c.category} · {c.state} · {c.id.slice(0,8)}</button>)}</div>
- {thread?<><div className="ops-notice"><h4>{thread.case.category} · {thread.case.state}</h4>{admin&&<div className="ops-actions"><span>{!thread.case.assigned_to?'Unassigned':thread.case.assigned_to===auth.currentUser?.uid?'Assigned to you':'Assigned to a teammate'}</span><button disabled={busy||!!thread.case.assigned_to&&thread.case.assigned_to!==auth.currentUser?.uid} onClick={()=>void run(async()=>{await post(`/admin/support/${thread.case.id}/claim`,{expected_version:thread.case.version,release:thread.case.assigned_to===auth.currentUser?.uid});await open(thread.case.id);await load();})}>{thread.case.assigned_to===auth.currentUser?.uid?'Release to team':'Assign to me'}</button></div>}{thread.case.job_id&&<p>Booking: {thread.case.job_id}</p>}{thread.messages.map(m=><article key={m.id}><strong>{m.actor_role==='support'?'Repaido support':'You'}</strong><p style={{whiteSpace:'pre-wrap'}}>{m.message}</p><small>{new Date(m.created_at*1000).toLocaleString()}</small></article>)}{thread.case.resolution&&<p>Latest decision: {thread.case.resolution}</p>}</div><label>{thread.case.state==='resolved'?'Reason to reopen':'Message or resolution reason'}<textarea value={text} onChange={e=>setText(e.target.value)} maxLength={3000}/></label>
- {thread.case.state!=='resolved'&&<button disabled={busy||!text.trim()} onClick={()=>void run(async()=>{await post(`${prefix}/${thread.case.id}/messages`,{message:text,request_id:key(thread.case.id+text)});await open(thread.case.id);await load();})}>Send reply</button>}
- <button disabled={busy||text.trim().length<10} onClick={()=>void run(async()=>{await post(`${prefix}/${thread.case.id}/actions`,{action:thread.case.state==='resolved'?'reopen':admin?'resolve':'escalate',reason:text,expected_version:thread.case.version});await open(thread.case.id);await load();})}>{thread.case.state==='resolved'?'Reopen case':admin?'Record resolution':'Request escalation'}</button><button onClick={()=>{setThread(null);setText('');}}>Back to cases</button></>:!admin&&<form onSubmit={e=>{e.preventDefault();void run(async()=>{const c=await post('/support',{job_id:jobId||null,category,message:text,request_id:key(category+text)}) as Case;await load();await open(c.id);});}}><label>What do you need help with?<select value={category} onChange={e=>setCategory(e.target.value)}>{(jobId?['booking','warranty','payment','penalty','safety']:['general','safety']).map(c=><option key={c} value={c}>{c}</option>)}</select></label><label>Tell us what happened<textarea required minLength={5} maxLength={3000} value={text} onChange={e=>setText(e.target.value)}/></label><button className="ops-primary" disabled={busy||text.trim().length<5}>{busy?'Saving…':'Send to Repaido support'}</button></form>}
- </section>;
-}
-
+export {SupportCenter};
 type Resolution={id:string;status:string;proposal:{action:string;reason:string;final_paise?:number;final_base_paise?:number;starts_at?:string}};
+
 export function BookingRecovery({job,worker,onRefresh}:{job:Job;worker:boolean;onRefresh:()=>Promise<void>}){
  const [proposals,setProposals]=useState<Resolution[]>([]),[reason,setReason]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[receipt,setReceipt]=useState<{document_type:string;final_total_paise:number;payment_status:string;tax_note:string}|null>(null);
  const load=async()=>setProposals((await operation<{resolutions:Resolution[]}>(`/jobs/${job.id}/resolutions`)).resolutions);

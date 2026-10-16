@@ -17,7 +17,7 @@ export default function PortalAccess({shop=false,children}:{shop?:boolean;childr
   return (
     <>
       <div className="auth-bg-motion"><div className="orb orb-1"/><div className="orb orb-2"/><div className="orb orb-3"/></div>
-      <main className="operations portal-login relative z-10">
+      <main className={"operations portal-login relative z-10"+(!shop?" crm-login":"")}>
         <section className="portal-intro">
           <RepaidoBrand size="lg"/>
           <span className="ops-eyebrow" style={{color: 'var(--op-blue)', fontSize: '0.9rem', marginBottom: 8}}>{shop?'Shop Workspace':'Company Workspace'}</span>
