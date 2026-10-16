@@ -3,6 +3,7 @@ import {Search,MapPin,ArrowUpRight,Star} from 'lucide-react';
 import {apiFetch} from '../services/api';
 import {Modal} from './ui';
 import {ProfessionalAvatar,ProfessionalDetails,type Professional} from './Hiring';
+import {ProfessionalQuickActions} from './ProfessionalQuickActions';
 import {RepaidianBadge} from './RepaidianBadge';
 import './repaidian-professional.css';
 export function NearbyDiscovery({city,pin,radius,onClose,initialCategory=''}:{city:string;pin:{lat:number;lng:number};radius:number;onClose:()=>void;initialCategory?:string}){
@@ -13,6 +14,6 @@ export function NearbyDiscovery({city,pin,radius,onClose,initialCategory=''}:{ci
  {busy&&<p role="status">Finding matching professionals nearby…</p>}{error&&<p role="alert">{error}<button onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}{!busy&&!error&&<p className="nearby-count">{total} matching profiles · {rows.length<total?'Showing the top 40. Refine your search.':'Service availability is confirmed on request.'}</p>}
  <div className="nearby-results">{rows.map(p=><article key={p.id} className="nearby-person"><div className="nearby-person-header"><ProfessionalAvatar p={p}/><div><div className="repaidian-professional-name"><h3>{p.name}</h3><RepaidianBadge badge={p.repaidianBadge}/></div><p>{p.contractor_verified?'Verified contractor':p.role} · {p.distance_km} km</p></div></div><p>{p.specialties?.slice(0,3).join(' · ')||p.skills.slice(0,3).join(' · ')}</p><div className="nearby-stats"><span><Star size={12}/>{p.rating==null?'New':p.rating.toFixed(1)} · {p.review_count} reviews</span><span>{p.completed_tasks} completed</span><span>{p.experience_years} years</span></div><button onClick={()=>setSelected(p)}>Full profile, services & rates<ArrowUpRight size={14}/></button></article>)}</div>
  {!busy&&!error&&!rows.length&&<p>No matching profiles inside this radius. Try another skill or remove a filter.</p>}
- {selected&&<Modal title={selected.name} className="hire-profile-modal nearby-profile" onClose={()=>setSelected(null)}><ProfessionalDetails p={selected}/><button onClick={()=>{setQuery('');setCategory(selected.categories[0]||'');setRole('all');setSelected(null);}}>More similar profiles nearby</button></Modal>}
+ {selected&&<Modal title={selected.name} className="hire-profile-modal nearby-profile" onClose={()=>setSelected(null)}><ProfessionalDetails p={selected} category={category} renderActions={p=><ProfessionalQuickActions p={p} category={category} onNavigate={()=>{setSelected(null);onClose();}}/>}/><button onClick={()=>{setQuery('');setCategory(selected.categories[0]||'');setRole('all');setSelected(null);}}>More similar profiles nearby</button></Modal>}
  </Modal>;
 }

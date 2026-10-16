@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 import calendar, re
 from html import escape
 from typing import Literal
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import Field
 from operations import Input, fail
 from integrations import audit
@@ -277,11 +277,40 @@ def install(core):
         store.run(lambda u:u.put('worker_media',mid,dict(id=mid,worker_id=user['id'],kind=kind,object=key,created_at=time.time())))
         return {'id':mid}
     @r.get('/professionals/{wid}')
-    def professional(wid:str):
+    def professional(wid:str,response:Response,category:str=Query(default='',max_length=60)):
+        response.headers['Cache-Control']='private, no-store'
+        catalog=core.catalog(False)
         def read(u):
             w=u.get('workers',wid)
             if not w or w['status']!='approved':fail('NOT_FOUND','Professional unavailable.',404)
-            return public_profile(u,w)
+            from hire_discovery import profile,bounded_rows,RECOMMENDATION_WORK_RECORDS,JOB_FIELDS
+            from hire_ranking import profile_recommendation
+            from home_plans import OFFERINGS
+            work=bounded_rows(u,'jobs','worker_id',wid,RECOMMENDATION_WORK_RECORDS+1,(*JOB_FIELDS,'verified_arrived_at','verified_arrival_starts_epoch'))
+            complete=len(work)<=RECOMMENDATION_WORK_RECORDS;work=work[:RECOMMENDATION_WORK_RECORDS]
+            offers=bounded_rows(u,'professional_offers','worker_id',wid,21)
+            row=profile(u,w,work,offers[:20])
+            # Retain the existing public service-area fields. Never return the
+            # professional's exact origin, presence or private contact details.
+            row.update(city=w.get('city'),radius_km=w.get('radius_km'))
+            row['service_packages']=[{k:s.get(k) for k in ('id','category','name','description','price_paise','duration_minutes','included','excluded')}
+                for s in catalog['services'] if s.get('active',True) and s['category'] in row['categories']]
+            row['evidence_scope']={'kind':'bounded_worker_records','record_limit':RECOMMENDATION_WORK_RECORDS,'complete':complete}
+            row['totals_scope']={'kind':'worker_records' if complete else 'bounded_worker_records','complete':complete}
+            if not complete:
+                # Completion/review commands maintain these native aggregates in
+                # the same transaction as the job. Legacy/incoherent counters
+                # cannot silently replace directly observed work evidence.
+                done,n,total=(w.get(k) for k in ('completed_tasks','rating_count','rating_sum'))
+                observed_sum=sum(int(stars)*count for stars,count in row['distribution'].items())
+                if (all(type(v) is int for v in (done,n,total)) and done>=row['completed_tasks']
+                        and row['review_count']<=n<=done
+                        and observed_sum+n-row['review_count']<=total<=observed_sum+5*(n-row['review_count'])):
+                    row.update(completed_tasks=done,review_count=n,rating=total/n if n else None)
+                    row['totals_scope']={'kind':'verified_worker_totals','complete':True}
+            row['work_history_scope']={'order':'completed_at_within_record_window','complete':complete}
+            row['profile_recommendation']=profile_recommendation(row,catalog,work,category,offerings=OFFERINGS,complete=complete,record_limit=RECOMMENDATION_WORK_RECORDS)
+            return row
         return store.run(read)
     @r.get('/professional-media/{mid}')
     def media(mid:str):

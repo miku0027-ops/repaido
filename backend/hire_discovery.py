@@ -14,6 +14,8 @@ from home_plans import OFFERINGS
 from discovery import relevance,terms
 from search_index import public_search
 from integrations import enabled,configured
+from hire_ranking import Evidence,profile_recommendation
+from hire_ranking_client import rank_candidates
 
 JOB_FIELDS=('worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at')
 RECOMMENDATION_CANDIDATES=64
@@ -53,7 +55,7 @@ def bounded_rows(u,kind,field,value,limit,fields=None):
         if fields:query=query.select(fields)
         rows={s.id:s.to_dict() for s in query.stream(transaction=u.tx)}
     else:
-        sql=f"SELECT id,body FROM operation_records WHERE kind=? AND json_extract(body,'$.{field}')=? LIMIT ?"
+        sql=f"SELECT id,body FROM operation_records WHERE kind=? AND json_extract(body,'$.{field}')=? ORDER BY id LIMIT ?"
         rows={r['id']:json.loads(r['body']) for r in u.conn.execute(sql,(kind,value,limit))}
     # A transaction's own writes must be represented without escaping the cap.
     for (k,key),item in u.pending.items():
@@ -179,6 +181,7 @@ def recommendation_read(u,core,body,user,catalog):
         return bool(w.get('online') and 0<=now-pos.get('received_at',0)<=300 and pos.get('accuracy',1000)<=100)
     eligible.sort(key=lambda pair:(pair[0]['id'] not in requested,-pair[1],not presence(pair[0]),-(pair[0].get('experience_years') or 0),pair[0]['id']))
     selected_workers=eligible[:RECOMMENDATION_PROFILES]
+    scoring=[]
     for w,match in selected_workers:
         wid=w['id']
         work=bounded_rows(u,'jobs','worker_id',wid,RECOMMENDATION_WORK_RECORDS+1,JOB_FIELDS)
@@ -189,7 +192,7 @@ def recommendation_read(u,core,body,user,catalog):
         offer_services={selected[5:]} if selected.startswith('home:') else {s['id'] for s in OFFERINGS if s['category']==selected}
         row['offers']=[offer for offer in row['offers'] if offer['service_id'] in offer_services]
         if body.min_completed>row['completed_tasks'] or (body.min_rating and (row['rating'] or 0)<body.min_rating):continue
-        row['service_packages']=[{k:s.get(k) for k in ('id','name','description','price_paise','duration_minutes','included','excluded')} for s in services]
+        row['service_packages']=[{k:s.get(k) for k in ('id','category','name','description','price_paise','duration_minutes','included','excluded')} for s in services]
         busy=any(j.get('state') in ('offered','accepted','en_route','travelling','arrived','in_progress','collecting_parts','parts_pending','parts_approved','completion_pending') for j in work)
         busy=busy or any(h.get('state') in ('offered','awaiting_choice','quoting','quoted') for h in hires)
         pos=w.get('position') or {};fresh=bool(w.get('online') and 0<=now-pos.get('received_at',0)<=300 and pos.get('accuracy',1000)<=100)
@@ -203,20 +206,19 @@ def recommendation_read(u,core,body,user,catalog):
         if body.location:row['distance_km']=round(metres(body.location.model_dump(),w['location'])/1000,1)
         record=next((c for c in row['category_records'] if c['category']==selected),None) or {'completed':0,'review_count':0,'rating':None}
         n=record['review_count'];rating=record['rating'];done=record['completed'];confidence=n/(n+5)
-        components=[{'id':'verified_reviews','label':'Verified category reviews','points':round((rating or 0)/5*confidence*60,2),'maximum':60,'source':'completed_work'},
-                    {'id':'completed_work','label':'Completed category work','points':round(min(done,20)/20*10,2),'maximum':10,'source':'completed_work'},
-                    {'id':'experience','label':'Listed years of experience','points':round(min(w.get('experience_years') or 0,10),2),'maximum':10,'source':'reviewed_profile'},
-                    {'id':'search_match','label':'Current search match','points':round(match*10,2) if body.query else 0,'maximum':10,'source':'current_request'},
-                    {'id':'availability','label':'Fresh presence without known active work','points':10 if row['available_now'] else 0,'maximum':10,'source':'current_presence'}]
+        scoring.append(Evidence(completed=done,review_count=n,rating=rating,
+            experience_years=w.get('experience_years') or 0,search_match=match,
+            has_query=bool(body.query),available_now=row['available_now']))
         reasons=[]
         if personalised:reasons.append(category_interest['reason'])
         if n:reasons.append(f'{n} verified reviews from completed work in this category')
-        else:reasons.append('No verified completed-work reviews in this category yet')
+        else:reasons.append('No verified category reviews in the inspected work records' if not complete else 'No verified completed-work reviews in this category yet')
         if body.query:reasons.append('Matches the skills or specialties in your current search')
         if row['available_now']:reasons.append('Recent presence checked; schedule still needs confirmation')
         if not complete:reasons.append('Work evidence is a bounded sample, not lifetime totals')
-        row['recommendation']={'score':round(sum(c['points'] for c in components),2),'components':components,'reasons':reasons,
+        row['recommendation']={'reasons':reasons,
             'score_is_probability':False,'evidence_scope':{'kind':'bounded_worker_records','record_limit':RECOMMENDATION_WORK_RECORDS,'complete':complete}}
+        row['profile_recommendation']=profile_recommendation(row,catalog,work,selected,offerings=OFFERINGS,complete=complete,record_limit=RECOMMENDATION_WORK_RECORDS)
         references=[{**{k:s.get(k) for k in ('id','name','price_paise','duration_minutes','included','excluded')},'basis':'catalogue_reference'} for s in services]
         prices=[s['price_paise'] for s in services if isinstance(s.get('price_paise'),int)]
         budget='unknown'
@@ -239,6 +241,9 @@ def recommendation_read(u,core,body,user,catalog):
             row['comparison']['home_service']=next(({k:s[k] for k in ('id','name','description','recurring')} for s in OFFERINGS if s['id']==selected[5:]),None)
             row['comparison']['budget_status']='unknown'
         result['professionals'].append(row)
+    if scoring:
+        for row,scored in zip(result['professionals'],rank_candidates(scoring)['scores']):
+            row['recommendation'].update(scored)
     sorters={'recommended':lambda row:(-row['recommendation']['score'],row['id']),
              'rating':lambda row:(-(row['comparison']['verified_work']['rating'] or 0),-row['comparison']['verified_work']['review_count'],row['id']),
              'experience':lambda row:(-(row.get('experience_years') or 0),-row['recommendation']['score'],row['id']),
@@ -419,7 +424,8 @@ def install(core):
                 if body.available_only and not available:continue
                 row=profile(u,w,by_worker[w['id']],by_offer_worker[w['id']],include_membership=False,include_network=False);row['available_now']=available
                 if body.strict_nearby:row['distance_km']=round(metres(body.location.model_dump(),origin)/1000,1)
-                row['service_packages']=[{k:s.get(k) for k in ('id','name','description','price_paise','duration_minutes','included','excluded')} for s in catalog['services'] if s['category'] in row['categories']]
+                row['service_packages']=[{k:s.get(k) for k in ('id','category','name','description','price_paise','duration_minutes','included','excluded')} for s in catalog['services'] if s.get('active',True) and s['category'] in row['categories']]
+                row['profile_recommendation']=profile_recommendation(row,catalog,by_worker[w['id']],body.category,offerings=OFFERINGS)
                 if body.language and body.language.casefold() not in [v.casefold() for v in row['languages']]:continue
                 if body.min_completed>row['completed_tasks'] or (body.min_rating and (row['rating'] or 0)<body.min_rating):continue
                 if body.query and relevance(body.query,' '.join([row['name'],*row['skills'],*row['specialties'],*[categories.get(c,c) for c in row['categories']],*[categories.get('home:'+c,c) for c in row['home_services']]]))<.5:continue

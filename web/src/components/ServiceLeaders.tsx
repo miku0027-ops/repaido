@@ -5,6 +5,7 @@ import {cachedHireProfiles,hireProfiles} from '../services/hireProfileCache';
 import {categories} from '../data';
 import {Modal} from './ui';
 import {ProfessionalDetails,type Professional} from './Hiring';
+import {ProfessionalQuickActions} from './ProfessionalQuickActions';
 import './service-leaders.css';
 import {RepaidianBadge} from './RepaidianBadge';
 import './repaidian-professional.css';
@@ -116,6 +117,6 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
       {count>rows.length&&<p className="catalog-professionals-note">Showing {rows.length} of {count}. Use the Hire directory to search more profiles.</p>}
       {!!rows.length&&<p className="catalog-professionals-footnote">Category ranks reflect verified completed-work reviews. New professionals are listed without a rank.</p>}
     </div>}
-    {selected&&<Modal title={selected.name} className="hire-profile-modal catalog-professional-dialog" onClose={()=>setSelected(null)}><ProfessionalDetails p={selected}/><p className="catalog-professionals-note">Review a service below to request work. The booking flow confirms availability and assignment.</p></Modal>}
+    {selected&&<Modal title={selected.name} className="hire-profile-modal catalog-professional-dialog" onClose={()=>setSelected(null)}><ProfessionalDetails p={selected} category={category} renderActions={p=><ProfessionalQuickActions p={p} category={category} onNavigate={()=>setSelected(null)}/>}/></Modal>}
   </section>;
 }

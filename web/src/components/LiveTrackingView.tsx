@@ -1,5 +1,6 @@
 import {ShareMilestone} from './ShareMilestone';
 import {ProfessionalAvatar,ProfessionalDetails,ProfileHighlights,type Professional} from './Hiring';
+import {ProfessionalQuickActions} from './ProfessionalQuickActions';
 import {publicProfessionalDetails} from '../services/hireProfileCache';
 import {Modal} from './ui';
 import './tracking-refinement.css';
@@ -586,7 +587,7 @@ export function LiveTrackingView({
         )}
 
         {job.worker_name&&<details className="rt-professional-panel"><summary className="rt-pro-card">{professional?<ProfessionalAvatar p={professional}/>:<span className="rt-pro-avatar"><User size={18}/></span>}<span className="rt-pro-details"><strong>{job.worker_name}</strong><small>{professional?.rating!=null?`${professional.rating.toFixed(1)} ★ · ${professional.review_count} reviews`:'Reviews available in profile'}</small></span><ChevronDown size={15}/></summary><div className="rt-professional-content">{professional?<><ProfileHighlights p={professional}/><div className="rt-quality-scores">{Object.entries(professional.performance?.scores||{}).map(([key,value])=><div key={key}><span>{key.replaceAll('_',' ')}</span><strong>{value.score===null?'Not rated':`${value.score}%`}</strong><progress max={100} value={value.score||0} aria-label={`${key}: ${value.score===null?'not rated':value.score+'%'}`}/><small>{value.samples} {value.source==='arrival_records'?'arrival records':'specific ratings'}</small></div>)}</div><button onClick={()=>setProfileOpen(true)}>Full profile & work history</button></>:<p>{profileError||'Loading profile…'}{profileError&&<button onClick={()=>setProfileAttempt(v=>v+1)}>Retry</button>}</p>}</div></details>}
-        {profileOpen&&<Modal title={job.worker_name||'Professional profile'} className="hire-professional-page" onClose={()=>setProfileOpen(false)}><div className="hire-profile-scroll">{professional?<ProfessionalDetails p={professional}/>:<p>{profileError||'Loading profile…'}</p>}</div></Modal>}
+        {profileOpen&&<Modal title={job.worker_name||'Professional profile'} className="hire-professional-page" onClose={()=>setProfileOpen(false)}><div className="hire-profile-scroll">{professional?<ProfessionalDetails p={professional} category={job.category} renderActions={p=><ProfessionalQuickActions p={p} category={job.category} onNavigate={()=>setProfileOpen(false)}/>}/>:<p>{profileError||'Loading profile…'}</p>}</div></Modal>}
 
         {/* Address & Booking Metadata Strip */}
         <div className="rt-meta-strip">

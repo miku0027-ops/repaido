@@ -46,8 +46,8 @@ export async function hireProfiles<T>(body:Record<string,unknown>,force=false):P
 }
 
 // Rich public background is read only after opening one profile, never for a directory page.
-export async function publicProfessionalDetails<T extends {id:string}>(id:string,signal:AbortSignal):Promise<T> {
-  const response=await apiFetch('/api/operations/professionals/'+encodeURIComponent(id),
+export async function publicProfessionalDetails<T extends {id:string}>(id:string,signal:AbortSignal,category=''):Promise<T> {
+  const response=await apiFetch('/api/operations/professionals/'+encodeURIComponent(id)+(category?'?category='+encodeURIComponent(category):''),
     {signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])},{background:true});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data.detail?.message||'Professional background could not load. Please retry.');
