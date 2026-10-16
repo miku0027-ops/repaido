@@ -7,7 +7,7 @@ import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdtemp(resolve(tmpdir(),'repaido-market-discovery-'));
-const origin='http://127.0.0.1:5187',api='http://127.0.0.1:8076',checks=[],errors=[],requests=[];
+const origin=process.env.MARKET_DISCOVERY_ORIGIN||'http://127.0.0.1:5187',api='http://127.0.0.1:8076',checks=[],errors=[],requests=[];
 let log='',browser,page,loseListing=true,malformedRepair=false,holdSearch=null,holdMine=null;
 const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/market-discovery-api.py',work+'/fixture.db','8076'],{stdio:['ignore','pipe','pipe']});
 for(const stream of [server.stdout,server.stderr])stream.on('data',data=>log+=data);

@@ -1,10 +1,12 @@
 import {Card} from './Card';
 import {useEffect,useRef,useState} from 'react';
-import {Plus,MapPin,Tag,Share2,PhoneCall,SlidersHorizontal,Search,RefreshCw} from 'lucide-react';
+import {Plus,MapPin,MessageCircle,Share2,PhoneCall,SlidersHorizontal,Search,RefreshCw} from 'lucide-react';
 import {operation,currentPosition,money} from '../services/operations';
 import {apiFetch,apiAssetUrl} from '../services/api';
 import {Modal,CustomerSearchField,ActionStatus} from './ui';
-import {loadCheckout} from './PaymentPanel';
+import {MarketInbox,MarketInboxButton} from './MarketInbox';
+import {MarketChatModeration} from './MarketChatModeration';
+import {MarketAccessModal,MarketAccessSummary} from './MarketAccessPanel';
 import {LocationPickerModal} from './LocationPickerModal';
 import './operations.css';
 import './marketplace-read-states.css';
@@ -63,6 +65,7 @@ const typeLabels:Record<string,string>={all:'All Finds',phone:'Phones & Tablets'
 
 export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=false,initialListingId,initialLocation,initialSearch=''}:{mode:Mode;manage?:boolean;onSignIn?:()=>void;onShare?:(reference:ListingReference)=>void;initialCreate?:boolean;initialListingId?:string;initialLocation?:{lat:number;lng:number};initialSearch?:string}){
  const [mine,setMine]=useState(manage),[rows,setRows]=useState<Item[]>([]),[query,setQuery]=useState(initialSearch),[map,setMap]=useState(false),[form,setForm]=useState(false),[detail,setDetail]=useState<Item|null>(null),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const [inbox,setInbox]=useState<{listingId?:string}|null>(null),[accessOpen,setAccessOpen]=useState(false);
  const [filters,setFilters]=useState<SearchFilters>(()=>defaultFilters(marketArea(initialLocation)));
  const [draft,setDraft]=useState(filters),[filterOpen,setFilterOpen]=useState(false),[locating,setLocating]=useState(false),[filterError,setFilterError]=useState('');
  const searchSnapshot=useRef({filters,query:initialSearch});
@@ -118,15 +121,15 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
    }
  };
  useEffect(()=>{loadSequence.current++;pendingLoad.current=false;void load();},[mine,mode,uid]);
- useEffect(()=>{if(previousAccount.current===uid)return;const wasGuest=!previousAccount.current;previousAccount.current=uid;const resume=wasGuest&&!!uid&&guestResume.current?.uid===uid&&guestResume.current.mode===mode&&guestResume.current.epoch===editorOwner.current.epoch;if(!wasGuest||!uid){editorOwner.current.epoch++;guestResume.current=null;}else if(resume){guestResume.current=null;}setDetail(null);setRowsAreMine(false);setMessage('');setError('');setForm(resume);},[uid]);
+ useEffect(()=>{if(previousAccount.current===uid)return;const wasGuest=!previousAccount.current;previousAccount.current=uid;const resume=wasGuest&&!!uid&&guestResume.current?.uid===uid&&guestResume.current.mode===mode&&guestResume.current.epoch===editorOwner.current.epoch;if(!wasGuest||!uid){editorOwner.current.epoch++;guestResume.current=null;}else if(resume){guestResume.current=null;}setDetail(null);setRowsAreMine(false);setMessage('');setError('');setInbox(null);setAccessOpen(false);setForm(resume);},[uid]);
  useEffect(()=>{
    const refreshed=()=>{invalidateMarketplaceReads();loadSequence.current++;pendingLoad.current=false;if(!document.hidden&&navigator.onLine)void load(mine,searchSnapshot.current,true,true);};
    window.addEventListener('repaido:operations-updated',refreshed);
    const id=window.setInterval(()=>{if(!document.hidden&&navigator.onLine)void load(mine,searchSnapshot.current,true,true);},60000);
    return()=>{clearInterval(id);window.removeEventListener('repaido:operations-updated',refreshed);};
  },[mine,mode,uid]);
- const run=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
- const pay=async(item:Item)=>{setBusy(true);setError('');try{const order=await operation<{key_id:string;order_id:string;amount:number;currency:string}>(`/market/${item.id}/payment-order`,{method:'POST'});await loadCheckout();const widget=new window.Razorpay!({key:order.key_id,order_id:order.order_id,amount:order.amount,currency:order.currency,name:'Repaido',description:`${mode==='exchange'?'Exchange':'Used item'} listing fee`,handler:()=>void run(()=>operation(`/market/${item.id}/payment-check`,{method:'POST'})),modal:{ondismiss:()=>setMessage('Checkout closed. If debited, use Check payment before retrying.')}});widget.on('payment.failed',()=>setError('Fee payment was not confirmed. Check payment before retrying.'));widget.open();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+ const run=async(fn:()=>Promise<unknown>)=>{setBusy(true);setError('');try{await fn();await load();}catch(e){setError((e as Error).message);if((e as Error&{status?:number}).status===402)setAccessOpen(true);}finally{setBusy(false);}};
+
  
  const visibleRows=rowsKey===currentViewKey?rows:[];
  const displayedRows=mine?[...visibleRows]:visibleRows.filter(item=>(filters.category==='all'||item.product_type===filters.category)&&(!filters.budget||item.value_paise<=Number(filters.budget)*100));
@@ -140,13 +143,11 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
       <h2>{mode==='exchange'?'Let’s exchange':'Second-hand finds'}</h2>
       <p>{mode==='exchange'?'Find compatible swaps near you.':'Discover used items listed by sellers near you.'}</p>
     </div>
-    <div className="market-view-actions"><button type="button" aria-label="Refresh listings" disabled={busy} onClick={()=>{invalidateMarketplaceReads();void load(mine,searchSnapshot.current,false,true);}}><RefreshCw size={16} aria-hidden="true"/></button><button onClick={()=>setMine(v=>!v)} className="market-toggle-btn">{mine?'Browse nearby':'My listings'}</button></div>
+    <div className="market-view-actions"><MarketInboxButton onOpen={()=>setInbox({})}/><button type="button" aria-label="Refresh listings" disabled={busy} onClick={()=>{invalidateMarketplaceReads();void load(mine,searchSnapshot.current,false,true);}}><RefreshCw size={16} aria-hidden="true"/></button><button onClick={()=>setMine(v=>!v)} className="market-toggle-btn">{mine?'Browse nearby':'My listings'}</button></div>
   </div>
   
-  <div className="market-policy">
-    <Tag size={16}/>
-    <span>{mode==='exchange'?'Your first eligible exchange listing is free for 30 days. No automatic charge.':'Eligible sellers can list during a 90-day free period starting with their first listing. No automatic charge.'}</span>
-  </div>
+  <MarketAccessSummary onOpen={()=>setAccessOpen(true)}/>
+
 
   <button className="ops-primary market-create-btn" onClick={()=>setForm(true)}>
     <Plus size={16}/> {mode==='exchange'?'List for exchange':'Sell a used item'}
@@ -200,10 +201,10 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
       </button>
       {mine&&rowsAreMine&&<div className="market-card-manage">
         <span className="status-chip">{item.status.replaceAll('_',' ')}</span>
-        {item.fee_status==='free_trial'?<p className="market-fee-note">{published(item)?`Free listing${item.expires_at?` until ${new Date(item.expires_at*1000).toLocaleDateString('en-IN')}`:''}`:'Free listing inactive'} · No automatic charge</p>:<p className="market-fee-note">Listing fee: {money(item.fee_paise||0)}</p>}
-        {item.free_eligible&&<button disabled={busy} onClick={()=>void run(()=>operation(`/market/${item.id}/publish-free`,{method:'POST'}))}>Publish free</button>}
-        {(item.status==='awaiting_fee'||item.status==='expired'||(published(item)&&item.fee_status==='free_trial'))&&<button disabled={busy} onClick={()=>void pay(item)}>Pay listing fee · {money(item.fee_paise||0)}</button>}
-        {item.fee_status!=='free_trial'&&item.fee_status!=='paid'&&<button disabled={busy} onClick={()=>void run(()=>operation(`/market/${item.id}/payment-check`,{method:'POST'}))}>Check payment</button>}
+        {['free_trial','access_paid'].includes(item.fee_status||'')&&<p className="market-fee-note">{published(item)?`Included in marketplace access${item.expires_at?` until ${new Date(item.expires_at*1000).toLocaleDateString('en-IN')}`:''}`:'Marketplace access ended'} · No automatic debit</p>}
+        {['awaiting_fee','expired'].includes(item.status)&&<button disabled={busy} onClick={()=>setAccessOpen(true)}>Review marketplace access</button>}
+        {(item.status==='awaiting_fee'||item.status==='expired')&&<button disabled={busy} onClick={()=>void run(()=>operation(`/market/${item.id}/publish-free`,{method:'POST'}))}>Publish with active access</button>}
+        {!!item.fee_paise&&!['free_trial','access_paid','paid'].includes(item.fee_status||'')&&<button disabled={busy} onClick={()=>void run(()=>operation(`/market/${item.id}/payment-check`,{method:'POST'}))}>Check earlier listing payment</button>}
         {item.mode==='second_hand'&&published(item)&&onShare&&<button onClick={()=>onShare({source:'second_hand',id:item.id})}><Share2 size={16}/> Share on Repaidians</button>}
         {!['closed','suspended'].includes(item.status)&&<button disabled={busy} onClick={()=>void run(async()=>{await operation(`/market/${item.id}/close`,{method:'POST'});if(detail?.id===item.id)setDetail(null);})}>Close listing</button>}
       </div>}
@@ -211,13 +212,15 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
   </div>
 
   {loaded&&rowsKey===currentViewKey&&!busy&&!error&&!displayedRows.length&&<p className="ops-empty">{mine?'You have no listings in this section yet.':'No listings match this category and area. Try another category, search or radius.'}</p>}
-  {detail&&detailOwner===uid&&<MarketDetails key={uid+':'+detail.id} item={detail} onShare={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)?onShare:undefined} onSignIn={onSignIn} onClose={()=>{detailSequence.current++;setDetail(null);}}/>}
-  {form&&<MarketListingForm key={uid+':'+mode+':'+guestResumeVersion} mode={mode} onSignIn={onSignIn} onGuestDraftClaimed={account=>{if(uid||!editorOwner.current.mounted||editorOwner.current.mode!==mode||editorOwner.current.epoch!==editorEpoch||(auth.currentUser?.uid||'')!==account)return;guestResume.current={uid:account,mode,epoch:editorEpoch};setGuestResumeVersion(version=>version+1);setForm(true);}} onCheckListings={()=>{invalidateMarketplaceReads();closeListingForm();setMine(true);void load(true,searchSnapshot.current,false,true);}} onClose={closeListingForm} onSaved={item=>{if((auth.currentUser?.uid||'')!==uid)return;closeListingForm();setMine(true);setMessage(published(item)?'Your listing was saved and published.':item.status==='published'?'Your existing listing was found, but its free period has ended. Review My listings before publishing again.':item.status==='awaiting_fee'?'Your listing was saved. Pay its listing fee to publish it.':`Your listing was saved with status: ${item.status.replaceAll('_',' ')}.`);void load(true);}}/>}
+  {detail&&detailOwner===uid&&<MarketDetails key={uid+':'+detail.id} item={detail} own={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)} onMessage={()=>{setDetail(null);setInbox(mine&&rowsAreMine?{}:{listingId:detail.id});}} onShare={mine&&rowsAreMine&&rows.some(row=>row.id===detail.id)?onShare:undefined} onSignIn={onSignIn} onClose={()=>{detailSequence.current++;setDetail(null);}}/>}
+  {form&&<MarketListingForm key={uid+':'+mode+':'+guestResumeVersion} mode={mode} onSignIn={onSignIn} onAccess={()=>setAccessOpen(true)} onGuestDraftClaimed={account=>{if(uid||!editorOwner.current.mounted||editorOwner.current.mode!==mode||editorOwner.current.epoch!==editorEpoch||(auth.currentUser?.uid||'')!==account)return;guestResume.current={uid:account,mode,epoch:editorEpoch};setGuestResumeVersion(version=>version+1);setForm(true);}} onCheckListings={()=>{invalidateMarketplaceReads();closeListingForm();setMine(true);void load(true,searchSnapshot.current,false,true);}} onClose={closeListingForm} onSaved={item=>{if((auth.currentUser?.uid||'')!==uid)return;closeListingForm();setMine(true);setMessage(published(item)?'Your listing was saved and published.':item.status==='published'?'Your existing listing was found, but its free period has ended. Review My listings before publishing again.':item.status==='awaiting_fee'?'Your listing was saved. Review marketplace access before publishing.':`Your listing was saved with status: ${item.status.replaceAll('_',' ')}.`);void load(true);}}/>}
+  {inbox&&<MarketInbox key={uid+':'+(inbox.listingId||'inbox')} initialListingId={inbox.listingId} mode={mode} onClose={()=>setInbox(null)} onSignIn={onSignIn} onAccess={()=>setAccessOpen(true)}/>}
+  {accessOpen&&<MarketAccessModal key={'market-access:'+uid} onClose={()=>setAccessOpen(false)} onSignIn={onSignIn} onUpdated={()=>{invalidateMarketplaceReads();void load(mine,searchSnapshot.current,false,true);}}/>}
   {map&&<LocationPickerModal isOpen areaOnly title="Choose search area" confirmLabel="Use this area" initialLat={draft.pin?.lat} initialLng={draft.pin?.lng} onClose={()=>setMap(false)} onConfirmLocation={pin=>{locationSequence.current++;setLocating(false);setFilterError('');setDraft(v=>({...v,pin}));setMap(false);}}/>}
  </section>;
 }
 
-function MarketDetails({item,onClose,onShare,onSignIn}:{item:Item;onClose:()=>void;onShare?:(reference:ListingReference)=>void;onSignIn?:()=>void}){
+function MarketDetails({item,onClose,onShare,onSignIn,onMessage,own}:{item:Item;own:boolean;onClose:()=>void;onShare?:(reference:ListingReference)=>void;onSignIn?:()=>void;onMessage:()=>void}){
  const [contact,setContact]=useState<{name:string;phone:string}|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[report,setReport]=useState(''),[message,setMessage]=useState('');
  return <Modal title={item.name} className="market-detail-modal" onClose={onClose}>
   <div className="operations market-detail">
@@ -248,6 +251,7 @@ function MarketDetails({item,onClose,onShare,onSignIn}:{item:Item;onClose:()=>vo
       Condition and warranty are supplied by the seller. Test and inspect the item before agreeing to a direct handover. Repaido does not collect the item’s sale price here.
     </p>
 
+    {published(item)&&<button type="button" className="ops-primary market-chat-seller" onClick={onMessage}><MessageCircle size={17} aria-hidden="true"/>{own?'View buyer messages':'Message seller'}</button>}
     {contact ? (
       <div className="market-contact-revealed">
         <PhoneCall size={18} className="text-emerald-700"/>
@@ -299,5 +303,5 @@ function MarketDetails({item,onClose,onShare,onSignIn}:{item:Item;onClose:()=>vo
 export function MarketplaceAdmin(){
  const [rows,setRows]=useState<Item[]>([]),[reports,setReports]=useState<{id:string;listing_id:string;reason:string}[]>([]),[error,setError]=useState(''),[reason,setReason]=useState('');
  const load=async()=>{try{const d=await operation<{listings:Item[];reports:typeof reports}>('/admin/market');setRows(d.listings);setReports(d.reports);}catch(e){setError((e as Error).message);}};useEffect(()=>{void load();},[]);
- return <section><h2>Community listings</h2><button onClick={()=>void load()}>Refresh</button><label>Moderation reason<textarea value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<div className="market-grid">{rows.map(x=><Card className="ops-card" key={x.id}><h3>{x.name}</h3><p>{x.mode} · {x.status} · fee {x.fee_status}</p>{reports.filter(r=>r.listing_id===x.id).map(r=><p key={r.id}>Report: {r.reason}</p>)}<button disabled={reason.trim().length<10||x.status==='suspended'} onClick={()=>void operation(`/admin/market/${x.id}/hide`,{method:'POST',body:JSON.stringify({reason})}).then(load).catch(e=>setError(e.message))}>Hide listing</button></Card>)}</div></section>;
+ return <section><MarketChatModeration/><h2>Community listings</h2><button onClick={()=>void load()}>Refresh</button><label>Moderation reason<textarea value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<div className="market-grid">{rows.map(x=><Card className="ops-card" key={x.id}><h3>{x.name}</h3><p>{x.mode} · {x.status} · fee {x.fee_status}</p>{reports.filter(r=>r.listing_id===x.id).map(r=><p key={r.id}>Report: {r.reason}</p>)}<button disabled={reason.trim().length<10||x.status==='suspended'} onClick={()=>void operation(`/admin/market/${x.id}/hide`,{method:'POST',body:JSON.stringify({reason})}).then(load).catch(e=>setError(e.message))}>Hide listing</button></Card>)}</div></section>;
 }

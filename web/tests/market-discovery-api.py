@@ -1,5 +1,5 @@
 """Disposable native marketplace/discovery API; images stay in local memory."""
-import os,sys,io
+import os,sys,io,time
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'backend'))
 os.environ.update(REPAIDO_STORAGE='sqlite',REPAIDO_DB=sys.argv[1],REPAIDO_ADMIN_KEY='test-operator-key',REPAIDO_KYC_BUCKET='local-memory-only')
@@ -23,4 +23,5 @@ with TestClient(main.app) as api:
  draft(api,'customer',mode='exchange',name='Private fixture camera')
  draft(api,'worker',trial=True,mode='exchange',name='Public exchange phone')
  draft(api,'worker',trial=True,mode='second_hand',name='Public secondhand phone')
+ main.operations_store.run(lambda u:u.put('market_access_members','customer',dict(id='customer',grants=[dict(attempt_id='fixture-paid-access',payment_id='fixture-capture',starts_at=time.time()-60,ends_at=time.time()+86400)],policy='market-shared-90d-99-month-v1')))
 uvicorn.run(main.app,host='127.0.0.1',port=int(sys.argv[2]))

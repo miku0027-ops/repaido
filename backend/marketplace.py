@@ -8,30 +8,31 @@ from operations import Input,Pin,fail,metres
 from integrations import audit,razorpay,enabled,configured
 from workspace import photo_body
 from evidence import upload_object,download_object
+from market_access import access_status,require_access,start_trial,sync_listings,POLICY as ACCESS_POLICY,TRIAL_DAYS
 
 TYPES=('phone','computer','television','appliance','camera','audio','tools','other')
-FREE_DAYS=30
-SELLER_FREE_DAYS=90
+FREE_DAYS=TRIAL_DAYS
+SELLER_FREE_DAYS=TRIAL_DAYS
 def active(row):
  return row['status']=='published' and (not row.get('expires_at') or row['expires_at']>time.time())
 def trial_key(uid,mode):return hashlib.sha256((uid+':'+mode).encode()).hexdigest()
 def eligible(u,uid,mode,lid=None):
- trial=u.get('market_trials',trial_key(uid,mode))
- if mode=='second_hand' and trial and trial.get('offer')=='seller90':return trial['expires_at']>time.time()
- return not u.get('market_trials',trial_key(uid,mode)) and not any(x['owner_id']==uid and x['mode']==mode and x['id']!=lid for x in u.all('market_listings'))
-def grant_trial(u,row):
- now=time.time();key=trial_key(row['owner_id'],row['mode']);trial=u.get('market_trials',key)
- if row['mode']=='second_hand':
-  if not trial:
-   trial=dict(id=key,listing_id=row['id'],claimed_at=now,offer='seller90',expires_at=now+SELLER_FREE_DAYS*86400);u.put('market_trials',key,trial)
-  expiry=trial['expires_at']
- else:
-  expiry=now+FREE_DAYS*86400
-  u.put('market_trials',key,dict(id=key,listing_id=row['id'],claimed_at=now))
- row.update(status='published',fee_status='free_trial',trial_started_at=now,expires_at=expiry)
- audit(u,'MarketplaceFreeListingPublished',row['owner_id'],listing_id=row['id'],expires_at=row['expires_at'])
+ state=access_status(u,uid)
+ return state['status'] in ('trial','not_started')
+def grant_trial(u,row,state=None):
+ state=state or start_trial(u,row['owner_id'])
+ if not state['active']:fail('MARKET_ACCESS_REQUIRED','Renew marketplace access for ₹99 per month to publish this listing.',402)
+ row.update(status='published',fee_paise=0,fee_status='access_paid' if state['status']=='paid' else 'free_trial',
+            trial_started_at=state['trial_started_at'],expires_at=state['current_period_ends_at'],access_policy=ACCESS_POLICY)
+ audit(u,'MarketplaceAccessListingPublished',row['owner_id'],listing_id=row['id'],expires_at=row['expires_at'])
+def refresh_access_rows(u):
+ # Search/expiry already visit published records. Keep legacy 30-day offers and
+ # exact public expiry projections consistent after the shared-plan migration.
+ rows=u.all('market_listings')
+ for uid in {row['owner_id'] for row in rows if row.get('fee_status') in ('free_trial','access_paid')}:
+  sync_listings(u,uid)
 def expire_trials(u):
- count=0;now=time.time()
+ count=0;now=time.time();refresh_access_rows(u)
  for row in u.all('market_listings'):
   if row['status']!='published' or not row.get('expires_at'):continue
   expired=row['expires_at']<=now
@@ -40,7 +41,7 @@ def expire_trials(u):
    audit(u,'MarketplaceFreeListingExpired','system',listing_id=row['id'])
   if expired or row['expires_at']-now<=3*86400:
    nid='market-'+('expired-' if expired else 'expiring-')+row['id']
-   if not u.get('notifications',nid):u.put('notifications',nid,dict(id=nid,user_id=row['owner_id'],title='Your free listing has expired' if expired else 'Your free listing ends soon',body='Your item has been removed from public results. Pay the listing fee to publish it again.' if expired else 'Your free listing ends in 3 days or less. Pay the listing fee to keep it visible. There is no automatic charge.',destination='exchange' if row['mode']=='exchange' else 'second_hand',created_at=now))
+   if not u.get('notifications',nid):u.put('notifications',nid,dict(id=nid,user_id=row['owner_id'],title='Your marketplace access has expired' if expired else 'Your marketplace access ends soon',body='Your item is hidden from public results. Renew marketplace access for ₹99 per month to publish it again.' if expired else 'Your marketplace access ends in 3 days or less. Renew for ₹99 per month to keep listings visible and send messages. There is no automatic charge.',destination='exchange' if row['mode']=='exchange' else 'second_hand',created_at=now))
  return count
 class MarketplacePin(Pin):
  # Older apps submit the location picker metadata together with coordinates.
@@ -120,23 +121,35 @@ def install(core):
   if not row or row['owner_id']!=user['id']:fail('NOT_FOUND','Listing not found.',404)
   return row
  @r.get('/market/policy')
- def policy():return {'first_listing_free_days':FREE_DAYS,'free_listing_per_mode':False,'second_hand_free_days':SELLER_FREE_DAYS,'second_hand_unlimited':True,'second_hand_daily_limit':10,'second_hand_offer_starts':'first_eligible_listing','exchange_fee_bps':1000,'second_hand_fee_bps':500,'default_radius_km':10,'max_value_difference_percent':15,'payments_ready':enabled('REPAIDO_PAYMENTS_ENABLED') and configured('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET')}
+ def policy():return {'first_listing_free_days':TRIAL_DAYS,'free_listing_per_mode':False,'second_hand_free_days':TRIAL_DAYS,'second_hand_unlimited':True,'second_hand_daily_limit':10,'second_hand_offer_starts':'shared_marketplace_trial','exchange_fee_bps':0,'second_hand_fee_bps':0,'shared_access':True,'monthly_access_paise':9900,'auto_renew':False,'default_radius_km':10,'max_value_difference_percent':15,'payments_ready':enabled('REPAIDO_PAYMENTS_ENABLED') and configured('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET')}
  @r.get('/market/eligibility')
  def eligibility(user=Depends(core.current_user)):
-  return store.run(lambda u:{mode:eligible(u,user['id'],mode) for mode in ('exchange','second_hand')})
+  def read(u):
+   state=access_status(u,user['id']);free=state['status'] in ('trial','not_started')
+   return {'exchange':free,'second_hand':free,'access':state}
+  return store.run(read)
  @r.post('/market/photos')
  async def photo(request:Request,user=Depends(core.current_user)):
+  if not user.get('phone_verified'):fail('PHONE_REQUIRED','Verify your mobile number before uploading an item photo.',403)
+  def preflight(u):
+   state=access_status(u,user['id'])
+   if not state['active'] and state['status']!='not_started':require_access(u,user)
+  store.run(preflight)
   if not os.getenv('REPAIDO_KYC_BUCKET'):fail('STORAGE_UNAVAILABLE','Photo storage is unavailable. Retry later.',503)
   if store.run(lambda u:sum(x['owner_id']==user['id'] and x['created_at']>time.time()-86400 for x in u.all('market_photos')))>=20:fail('LIMIT','Daily photo limit reached.',429)
   data=await photo_body(request);pid=str(uuid.uuid4());key='market-images/'+pid
   try:upload_object(key,data)
   except Exception:fail('UPLOAD_FAILED','Photo was not saved. Please retry.',503)
-  store.run(lambda u:u.put('market_photos',pid,dict(id=pid,owner_id=user['id'],object=key,created_at=time.time())))
+  def save(u):
+   require_access(u,user,start_trial=True)
+   u.put('market_photos',pid,dict(id=pid,owner_id=user['id'],object=key,created_at=time.time()))
+  store.run(save)
   return {'id':pid}
  @r.get('/market/photos/{pid}')
  def public_photo(pid:str):
   def read(u):
    p=u.get('market_photos',pid)
+   if p:sync_listings(u,p['owner_id'])
    if not p or not any(x['photo_id']==pid and active(x) for x in u.all('market_listings')):fail('NOT_FOUND','Photo unavailable.',404)
    return p
   p=store.run(read)
@@ -155,29 +168,32 @@ def install(core):
    p=u.get('market_photos',body.photo_id)
    if not p or p['owner_id']!=user['id']:fail('PHOTO_REQUIRED','Upload your own product photo first.',422)
    if sum(x['owner_id']==user['id'] and x['created_at']>time.time()-86400 for x in u.all('market_listings'))>=10:fail('LIMIT','Daily listing limit reached.',429)
-   fee=(body.value_paise*(1000 if body.mode=='exchange' else 500)+9999)//10000
+   state=require_access(u,user,start_trial=True)
+   fee=0
    row=dict(body.model_dump(exclude={'request_id'}),id=lid,owner_id=user['id'],contact_phone=user['phone'],owner_name=user.get('name','Member'),fingerprint=fingerprint,fee_paise=fee,status='awaiting_fee',fee_status='unpaid',created_at=time.time())
-   if eligible(u,user['id'],body.mode):grant_trial(u,row)
+   grant_trial(u,row,state)
    u.put('market_listings',lid,row);audit(u,'MarketplaceDraftCreated',user['id'],listing_id=lid);notify_matches(u);return row
   return store.run(save)
  @r.post('/market/{lid}/publish-free')
  def publish_free(lid:str,user=Depends(core.current_user)):
   def save(u):
    row=owned(u,lid,user)
-   if row.get('trial_started_at'):return {'status':view(row)['status']}
-   if row['status']!='awaiting_fee' or u.get('market_fees',lid) or not eligible(u,user['id'],row['mode'],lid):fail('FREE_LISTING_USED','The free first listing is not available for this item. Review the listing fee.',409)
-   grant_trial(u,row);u.put('market_listings',lid,row);notify_matches(u);return {'status':'published'}
+   if row['status'] in ('closed','suspended','payment_review') or row.get('fee_status')=='refunded':fail('NOT_PUBLISHABLE','This listing cannot be published.',409)
+   if row.get('fee_status')=='paid':return {'status':view(row)['status']}
+   if u.get('market_fees',lid):fail('PAYMENT_RECONCILING','Reconcile the previous listing payment before publishing.',409)
+   state=require_access(u,user,start_trial=True)
+   grant_trial(u,row,state);u.put('market_listings',lid,row);notify_matches(u);return {'status':'published'}
   return store.run(save)
  @r.get('/market/mine')
  def mine(user=Depends(core.current_user)):
   def read(u):
-   expire_trials(u)
+   sync_listings(u,user['id']);expire_trials(u)
    return {'listings':[{**view(x),'free_eligible':x['status']=='awaiting_fee' and not u.get('market_fees',x['id']) and eligible(u,user['id'],x['mode'],x['id']),'fee_paise':x['fee_paise'],'fee_status':x['fee_status'],'matches':matches(u,x) if x['mode']=='exchange' else []} for x in u.all('market_listings') if x['owner_id']==user['id']]}
   return store.run(read)
  @r.post('/market/search')
  def search(body:Area):
   def read(u):
-   rows=[]
+   refresh_access_rows(u);rows=[]
    for x in u.all('market_listings'):
     if not active(x) or x['mode']!=body.mode:continue
     distance=metres(body.location.model_dump(),x['location'])/1000
@@ -187,7 +203,7 @@ def install(core):
  @r.post('/market/{lid}/radius')
  def radius(lid:str,body:Radius,user=Depends(core.current_user)):
   def save(u):
-   x=owned(u,lid,user);x['radius_km']=body.radius_km;u.put('market_listings',lid,x);notify_matches(u);return {'status':'saved'}
+   x=owned(u,lid,user);require_access(u,user,start_trial=True);x['radius_km']=body.radius_km;u.put('market_listings',lid,x);notify_matches(u);return {'status':'saved'}
   return store.run(save)
  @r.post('/market/{lid}/close')
  def close(lid:str,user=Depends(core.current_user)):
@@ -198,7 +214,9 @@ def install(core):
  def contact(lid:str,user=Depends(core.current_user)):
   def read(u):
    x=u.get('market_listings',lid)
+   if x:sync_listings(u,x['owner_id']);x=u.get('market_listings',lid)
    if not x or not active(x):fail('NOT_FOUND','This listing is no longer available.',404)
+   require_access(u,user,start_trial=True)
    if x['mode']=='exchange' and not any(a['owner_id']==user['id'] and pair(a,x) for a in u.all('market_listings')):fail('MATCH_REQUIRED','Contact details are available only for an active match to your published exchange listing.',403)
    audit(u,'MarketplaceContactViewed',user['id'],listing_id=lid)
    return {'name':x['owner_name'],'phone':x['contact_phone']}
@@ -239,17 +257,11 @@ def install(core):
  def order(lid:str,user=Depends(core.current_user)):
   if not policy()['payments_ready']:fail('PAYMENTS_UNAVAILABLE','Paid listing checkout is not available yet. No charge was made. A free listing still ends on its displayed expiry date. Please contact support or retry later.',503)
   def reserve(u):
-   x=owned(u,lid,user)
-   if x['status'] not in ('awaiting_fee','expired') and not (x['status']=='published' and x['fee_status']=='free_trial'):fail('NOT_PAYABLE','This listing cannot take another payment.')
-   old=u.get('market_fees',lid)
-   if old:return old,False
-   p=dict(id=lid,amount=x['fee_paise'],receipt='ml_'+lid[:32],status='creating',created_at=time.time());u.put('market_fees',lid,p);return p,True
-  p,new=store.run(reserve)
-  if new:
-   result=razorpay('orders',{'amount':p['amount'],'currency':'INR','receipt':p['receipt'],'notes':{'market_listing':lid}})
-   def attach(u):
-    row=u.get('market_fees',lid);row['order_id']=result['id'];row['status']='created';u.put('market_fees',lid,row);return row
-   p=store.run(attach)
+   x=owned(u,lid,user);old=u.get('market_fees',lid)
+   if x['status'] in ('closed','suspended','payment_review') or x.get('fee_status') in ('paid','refunded'):fail('NOT_PAYABLE','This listing cannot take another payment.')
+   if old:return old
+   fail('SHARED_ACCESS_REQUIRED','Listing fees have been replaced by shared marketplace access. Start your free trial or renew for ₹99 per month.',402)
+  p=store.run(reserve)
   if not p.get('order_id'):fail('RECONCILING','Check payment status before retrying. We will not create a duplicate fee order.')
   return {'key_id':os.environ['RAZORPAY_KEY_ID'],'order_id':p['order_id'],'amount':p['amount'],'currency':'INR'}
  @r.post('/market/{lid}/payment-check')
@@ -275,10 +287,11 @@ def install(core):
    row=dict(id=sid,version=old['version']+1,text=body.text,updated_at=time.time());u.put('service_terms',sid,row);audit(u,'ServiceTermsPublished',admin['id'],service_id=sid,version=row['version']);return row
   return store.run(save)
  def tick():
+  access=core.market_access_tick() if hasattr(core,'market_access_tick') else {'attempted':0,'errors':0}
   failures=0;expired=store.run(expire_trials)
   if policy()['payments_ready']:
    for p in store.run(lambda u:sorted([p for p in u.all('market_fees') if p.get('checked_at',0)<time.time()-300],key=lambda p:p.get('checked_at',0)))[:30]:
     try:check_payment(p['id'])
     except Exception:failures+=1
-  return {'reconciliation_failures':failures,'expired_listings':expired}
+  return {'reconciliation_failures':failures,'expired_listings':expired,'access_reconciliation':access}
  core.market_tick=tick;core.app.include_router(r)

@@ -8,15 +8,31 @@ def draft(api,uid='worker',trial=False,**changes):
  body=dict(request_id=str(uuid.uuid4()),mode='exchange',name='Samsung phone',brand='Samsung',product_type='phone',desired_type='computer',desired_product='Laptop',value_paise=1000000,purchase_paise=2000000,age_months=12,manufacture_year=2025,warranty='No warranty',condition='Used, screen has a small scratch',reason='Need a laptop',photo_id=pid,city='Balasore',location=PIN,radius_km=10,share_contact=True)
  body.update(changes)
  if not trial:
+  # A pre-shared-plan unpaid listing and consumed offer, not a new API draft.
+  # New clients may never create another percentage-fee listing.
+  import hashlib
   key=marketplace.trial_key(uid,body['mode'])
-  main.operations_store.run(lambda u:u.put('market_trials',key,dict(id=key,listing_id='previous-fixture-listing',claimed_at=time.time())))
+  validated=marketplace.Listing(**body)
+  lid=hashlib.sha256((uid+body['request_id']).encode()).hexdigest()
+  row=dict(validated.model_dump(exclude={'request_id'}),id=lid,owner_id=uid,contact_phone='+919876543210',owner_name=uid,
+           fingerprint=hashlib.sha256(validated.model_dump_json().encode()).hexdigest(),
+           fee_paise=(body['value_paise']*(1000 if body['mode']=='exchange' else 500)+9999)//10000,
+           status='awaiting_fee',fee_status='unpaid',created_at=time.time())
+  main.operations_store.run(lambda u:(u.put('market_trials',key,dict(id=key,listing_id='previous-fixture-listing',claimed_at=time.time()-100*86400)),u.put('market_listings',lid,row)))
+  return row,body
  r=api.post('/operations/market/listings',headers=auth(uid),json=body);assert r.status_code==200,r.text
  return r.json(),body
 
 def paid(api,monkeypatch,lid):
  monkeypatch.setenv('REPAIDO_PAYMENTS_ENABLED','true')
  for key in ('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET'):monkeypatch.setenv(key,'test-only')
- orders={};calls=[]
+ amount=main.operations_store.run(lambda u:u.get('market_listings',lid))['fee_paise'] or 50000
+ # This reservation predates shared access and remains reconcilable.
+ def reserve(u):
+  row=u.get('market_listings',lid);row['fee_paise']=amount;row.pop('access_policy',None);u.put('market_listings',lid,row)
+  if not u.get('market_fees',lid):u.put('market_fees',lid,dict(id=lid,amount=amount,receipt='ml_'+lid[:32],status='created',order_id='order_'+lid,created_at=time.time()))
+ main.operations_store.run(reserve)
+ orders={'order_'+lid:{'amount':amount}};calls=[]
  def gateway(path,body=None):
   calls.append(path)
   if path=='orders':orders['order_'+lid]=body;return {'id':'order_'+lid}
@@ -44,11 +60,14 @@ def test_verified_payment_matching_privacy_and_close(api,monkeypatch):
   calls=paid(api,monkeypatch,row['id']);url='/operations/market/'+row['id']
   assert api.post(url+'/payment-order',headers=auth(uid)).status_code==200
   assert api.post(url+'/payment-order',headers=auth(uid)).status_code==200
-  assert calls.count('orders')==1
+  assert calls.count('orders')==0
   assert api.post(url+'/payment-check',headers=auth(uid)).json()['status']=='paid'
   assert api.post(url+'/payment-check',headers=auth(uid)).json()['status']=='paid'
  result=api.get('/operations/market/mine',headers=auth('worker')).json()['listings'][0]
  assert result['matches'][0]['id']==b['id'] and result['matches'][0]['value_difference_percent']==15
+ # Listing captures preserve visibility, but expired members must renew contact access.
+ assert api.get('/operations/market/'+b['id']+'/contact',headers=auth('worker')).status_code==402
+ main.operations_store.run(lambda u:u.put('market_access_members','worker',{'id':'worker','grants':[{'attempt_id':'fixture','payment_id':'fixture','starts_at':time.time()-1,'ends_at':time.time()+86400}]}))
  assert api.get('/operations/market/'+b['id']+'/contact',headers=auth('worker')).status_code==200
  assert api.get('/operations/market/'+b['id']+'/contact',headers=auth('stranger')).status_code==403
  public=api.post('/operations/market/search',json={'location':PIN}).json()['items']
@@ -92,8 +111,8 @@ def test_pending_wrong_amount_refund_and_unknown_order(api,monkeypatch):
  b,_=draft(api,'worker2');url='/operations/market/'+b['id']
  def timeout(path,body=None):marketplace.fail('UNKNOWN','Provider outcome unknown',503)
  monkeypatch.setattr(marketplace,'razorpay',timeout)
- assert api.post(url+'/payment-order',headers=auth('worker2')).status_code==503
- assert api.post(url+'/payment-order',headers=auth('worker2')).status_code==409
+ assert api.post(url+'/payment-order',headers=auth('worker2')).status_code==402
+ assert api.post(url+'/payment-order',headers=auth('worker2')).status_code==402
 
 def test_refurbished_requires_details_and_is_in_catalog(api):
  from test_procurement import setup_shop,STOCK
@@ -106,19 +125,19 @@ def test_refurbished_requires_details_and_is_in_catalog(api):
  row=api.get('/operations/products/catalog').json()['items'][0]
  assert row['condition']=='refurbished' and row['warranty']==body['warranty']
 
-def test_first_free_each_mode_no_gateway_and_no_reset(api,monkeypatch):
+def test_shared_90_day_free_modes_no_gateway_and_no_reset(api,monkeypatch):
  monkeypatch.setenv('REPAIDO_PAYMENTS_ENABLED','false')
- assert api.get('/operations/market/eligibility',headers=auth('worker')).json()=={'exchange':True,'second_hand':True}
+ eligibility=api.get('/operations/market/eligibility',headers=auth('worker')).json();assert eligibility['exchange'] and eligibility['second_hand'] and eligibility['access']['status']=='not_started'
  a,body=draft(api,trial=True)
  assert a['status']=='published' and a['fee_status']=='free_trial'
- assert a['expires_at']-a['trial_started_at']==30*86400
+ assert a['expires_at']-a['trial_started_at']==90*86400
  assert api.post('/operations/market/listings',headers=auth('worker'),json=body).json()['expires_at']==a['expires_at']
  assert api.post('/operations/market/'+a['id']+'/publish-free',headers=auth('worker')).status_code==200
  b,_=draft(api,trial=True,mode='second_hand');assert b['fee_status']=='free_trial'
- assert api.get('/operations/market/eligibility',headers=auth('worker')).json()=={'exchange':False,'second_hand':True}
+ eligibility=api.get('/operations/market/eligibility',headers=auth('worker')).json();assert eligibility['exchange'] and eligibility['second_hand'] and b['expires_at']==a['expires_at']
  assert api.post('/operations/market/'+a['id']+'/close',headers=auth('worker')).status_code==200
- c,_=draft(api,trial=True);assert c['status']=='awaiting_fee'
- assert api.post('/operations/market/'+c['id']+'/publish-free',headers=auth('worker')).status_code==409
+ c,_=draft(api,trial=True);assert c['status']=='published'
+ assert api.post('/operations/market/'+c['id']+'/publish-free',headers=auth('worker')).status_code==200
  assert api.post('/operations/market/'+c['id']+'/payment-order',headers=auth('worker')).status_code==503
  assert not main.operations_store.run(lambda u:u.all('market_fees'))
 
@@ -135,26 +154,27 @@ def test_expiry_hides_every_public_surface_and_notifies_once(api,monkeypatch):
  assert not any(x['id']==a['id'] for x in api.post('/operations/market/search',json={'location':PIN}).json()['items'])
  assert api.get('/operations/market/'+a['id']+'/contact',headers=auth('worker2')).status_code==404
  assert api.get('/operations/market/photos/'+a['photo_id']).status_code==404
- assert api.get('/operations/market/'+b['id']+'/contact',headers=auth('worker')).status_code==403
+ assert api.get('/operations/market/'+b['id']+'/contact',headers=auth('worker')).status_code==402
  main.market_tick();main.market_tick()
  row=api.get('/operations/market/mine',headers=auth('worker')).json()['listings'][0]
  assert row['status']=='expired' and not row['matches']
  assert len(main.operations_store.run(lambda u:[n for n in u.all('notifications') if n['id']=='market-expired-'+a['id']]))==1
- assert api.post('/operations/market/'+a['id']+'/publish-free',headers=auth('worker')).json()['status']=='expired'
+ assert api.post('/operations/market/'+a['id']+'/publish-free',headers=auth('worker')).status_code==402
 
 def test_expired_trial_paid_continuation_retries_and_refund(api,monkeypatch):
  a,_=draft(api,trial=True,mode='second_hand');url='/operations/market/'+a['id']
  def expire(u):
-  row=u.get('market_listings',a['id']);row['expires_at']=time.time()-1;u.put('market_listings',a['id'],row)
+  row=u.get('market_listings',a['id']);row['expires_at']=time.time()-1;row['fee_paise']=50000;row.pop('access_policy',None);u.put('market_listings',a['id'],row)
+  u.put('market_access_trials','worker',{'id':'worker','starts_at':time.time()-91*86400})
  main.operations_store.run(expire);main.market_tick()
  calls=paid(api,monkeypatch,a['id'])
  for _ in range(2):assert api.post(url+'/payment-order',headers=auth('worker')).status_code==200
- assert calls.count('orders')==1
+ assert calls.count('orders')==0
  for _ in range(2):assert api.post(url+'/payment-check',headers=auth('worker')).json()['listing_status']=='published'
  row=api.get('/operations/market/mine',headers=auth('worker')).json()['listings'][0]
  assert row['fee_status']=='paid' and row['expires_at'] is None and row['fee_paise']==50000
  assert api.post(url+'/payment-order',headers=auth('worker')).status_code==409
- monkeypatch.setattr(marketplace,'razorpay',lambda *args:{'items':[dict(id='pay',order_id='order_'+a['id'],status='refunded',amount=a['fee_paise'],currency='INR',amount_refunded=a['fee_paise'])]})
+ monkeypatch.setattr(marketplace,'razorpay',lambda *args:{'items':[dict(id='pay',order_id='order_'+a['id'],status='refunded',amount=row['fee_paise'],currency='INR',amount_refunded=row['fee_paise'])]})
  assert api.post(url+'/payment-check',headers=auth('worker')).json()['listing_status']=='closed'
 
 def test_existing_unpaid_draft_can_claim_but_other_owner_cannot(api):
@@ -199,21 +219,19 @@ def test_second_hand_picker_metadata_and_search(api):
  assert api.post('/operations/market/listings',headers=auth('worker'),json=bad).status_code==422
 
 def test_new_seller_unlimited_window_does_not_reset(api,monkeypatch):
- a,_=draft(api,trial=True,mode='second_hand')
+ a,body=draft(api,trial=True,mode='second_hand')
  assert abs(a['expires_at']-a['trial_started_at']-90*86400)<2
  b,_=draft(api,trial=True,mode='second_hand')
  assert b['status']=='published' and b['expires_at']==a['expires_at']
  assert api.get('/operations/market/eligibility',headers=auth('worker')).json()['second_hand']
  monkeypatch.setattr(marketplace.time,'time',lambda:a['expires_at']+1)
- c,_=draft(api,trial=True,mode='second_hand')
- assert c['status']=='awaiting_fee'
+ assert api.post('/operations/market/listings',headers=auth('worker'),json={**body,'request_id':str(uuid.uuid4())}).status_code==402
  assert not api.get('/operations/market/eligibility',headers=auth('worker')).json()['second_hand']
 
 def test_legacy_seller_not_reenrolled(api):
- a,_=draft(api,mode='second_hand')
+ a,body=draft(api,mode='second_hand')
  assert a['status']=='awaiting_fee'
- b,_=draft(api,trial=True,mode='second_hand')
- assert b['status']=='awaiting_fee'
+ assert api.post('/operations/market/listings',headers=auth('worker'),json={**body,'request_id':str(uuid.uuid4())}).status_code==402
 
 def test_new_seller_offer_preserves_daily_spam_limit(api):
  first,body=draft(api,trial=True,mode='second_hand')

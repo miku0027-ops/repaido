@@ -1182,6 +1182,10 @@ workspace.install(__import__(__name__))
 
 import marketplace
 marketplace.install(__import__(__name__))
+import market_access
+market_access.install(__import__(__name__))
+import market_messaging
+market_messaging.install(__import__(__name__))
 
 import parts_payments
 parts_payments.install(__import__(__name__))

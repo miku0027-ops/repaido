@@ -8,6 +8,7 @@ COPY cleanup.py captain_rewards.py captain_policy.py custom_contracts.py contrac
 COPY repaidians_tools.py community_service.py work_dispatch.py ./
 COPY hire_ranking.py hire_ranking_client.py hire_ranking_service.py ./
 COPY scrap_experience.py ./
+COPY market_access.py market_messaging.py market_delivery.py ./
 COPY fonts/ ./fonts/
 RUN chmod 755 /app/fonts && chmod 644 /app/fonts/*
 RUN chmod 644 /app/*.py /app/requirements.txt

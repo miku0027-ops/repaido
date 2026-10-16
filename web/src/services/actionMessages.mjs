@@ -10,7 +10,7 @@ export function quietRequest(path, init = {}) {
  return /\/worker\/availability$/.test(route) && body.heartbeat === true;
 }
 export function changesAccountData(path, init = {}) {
- if (quietRequest(path, init)) return false;
+ if (quietRequest(path, init) || /^\/market\/chats(?:\/|$)/.test(path.split('?')[0])) return false;
  // Estimates and validation acknowledge a user action without changing bookings.
  return !/\/(quotes?|validate|coupons\/check)$/.test(path.split('?')[0]);
 }

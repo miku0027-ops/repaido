@@ -1,5 +1,7 @@
 # Mobile listings and photo discovery
 
+The billing policy described in this earlier batch is superseded by [Marketplace messaging and shared access](MARKETPLACE_MESSAGING_ACCESS.md): one shared 90-day trial, then ₹99 per calendar month, with no new percentage listing fee.
+
 Development batch: `development/market-listing-discovery`. This batch does not deploy or change API contracts, database schemas, listing fees, payment providers, eligibility rules or infrastructure.
 
 ## Used-item and exchange editor

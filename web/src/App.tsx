@@ -153,6 +153,8 @@ import './reference.css';
 
 const RepaidiansModal=lazy(()=>import('./components/repaidians/RepaidiansModal'));
 const CustomContractHub=lazy(()=>import('./components/CustomContracts').then(module=>({default:module.CustomContractHub})));
+const MarketInbox=lazy(()=>import('./components/MarketInbox').then(module=>({default:module.MarketInbox})));
+const MarketAccessModal=lazy(()=>import('./components/MarketAccessPanel').then(module=>({default:module.MarketAccessModal})));
 
 type Tab = 'Explore' | 'Services' | 'Bookings' | 'ShopSpares' | 'You' | 'Hire';
 type Place = { city: string; address: string; landmark: string; label: string; lat?: number; lng?: number; accuracy?: number; confirmed: boolean };
@@ -222,6 +224,8 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 export default function App() {
   const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
   const [quickHireOpen,setQuickHireOpen]=useState(false);
+  const [marketChatId,setMarketChatId]=useState(()=>{const id=new URLSearchParams(location.search).get('market-chat');return id&&/^[A-Za-z0-9_-]{1,100}$/.test(id)?id:'';});
+  const [marketAccessOpen,setMarketAccessOpen]=useState(false);
   const [customContractId,setCustomContractId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-contract')||undefined);
   const [customProjectId,setCustomProjectId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('project_id')||undefined);
   const [customProposalId,setCustomProposalId]=useState<string|undefined>(()=>new URLSearchParams(location.search).get('custom-proposal')||undefined);
@@ -2533,7 +2537,11 @@ export default function App() {
         </Modal>
       )}
 
+      {!!marketChatId&&<Suspense fallback={<Modal title="Market messages" onClose={()=>setMarketChatId('')}><p role="status">Opening your conversation…</p></Modal>}><MarketInbox key={user?.id||'guest'} initialChatId={marketChatId} onClose={()=>setMarketChatId('')} onSignIn={()=>setSheet('auth')} onAccess={()=>setMarketAccessOpen(true)}/></Suspense>}
+      {marketAccessOpen&&<Suspense fallback={<Modal title="Marketplace access" onClose={()=>setMarketAccessOpen(false)}><p role="status">Checking marketplace access…</p></Modal>}><MarketAccessModal key={user?.id||'guest'} onClose={()=>setMarketAccessOpen(false)} onSignIn={()=>setSheet('auth')}/></Suspense>}
+
       <CustomerNotificationDrawer
+        onOpenMarketChat={id=>setMarketChatId(id)}
         onOpenSharedRide={id=>{setSharedRideId(id);setTab('Bookings');setRideBookings(true);}}
         key={user?.id||'guest'}
         isOpen={showNotificationDrawer}

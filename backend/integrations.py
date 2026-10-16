@@ -81,6 +81,9 @@ class TrackingPing(Position):
 
 def apply_payment(u, payment):
     """Only called with an authenticated provider GET, never browser/webhook claims."""
+    from market_access import apply_provider_payment as apply_market_access_payment
+    market_access = apply_market_access_payment(u, payment)
+    if market_access is not None: return market_access
     from local_business import apply_provider_payment as apply_business_payment
     business = apply_business_payment(u, payment)
     if business is not None: return business
@@ -829,6 +832,9 @@ def install(core):
                 n=u.get('notifications',d['notification_id']);device=u.get('devices',d['device_id']);j=u.get('jobs',n['job_id']) if n.get('job_id') else None
                 h=u.get('hires',n['hire_id']) if n.get('hire_id') else None
                 access=n['user_id'] in (j['customer_id'],j.get('worker_id')) if j else n['user_id'] in (h['customer_id'],h['worker_id']) if h else n.get('destination')=='wallet'
+                if n.get('market_chat_id'):
+                    from market_delivery import market_chat_delivery_allowed
+                    access=market_chat_delivery_allowed(u,n)
                 if n.get('alert_kind')=='hiring':access=access and h is not None and h['state']=='offered' and h['offer_expires_at']>time.time() and h['offer_expires_at']==n.get('offer_expires_at')
                 if n.get('destination')=='home_plan':
                     plan=u.get('home_plans',n.get('plan_id',''));access=bool(plan and n['user_id'] in (plan['customer_id'],plan.get('worker_id')))
@@ -846,6 +852,8 @@ def install(core):
                 urgent=n.get('alert_kind') in ('assignment','hiring','arrival')
                 ttl=max(1,min(900,int(n.get('offer_expires_at',time.time()+900)-time.time())))
                 data={'notification_id':n['id'],'job_id':n.get('job_id',''),'destination':n.get('destination','task'),'alert_kind':n.get('alert_kind','update'),'expires_at':str(int(n.get('offer_expires_at',0)))}
+                if n.get('market_chat_id'):
+                    data.update(market_chat_id=n['market_chat_id'],recipient_id=n['user_id'],market_message_seq=str(n['market_message_seq']))
                 if n.get('destination')=='home_plan':data['plan_id']=n.get('plan_id','')
                 if n.get('destination')=='promotion':
                     data.update(campaign_id=n['campaign_id'],title=n['title'],body=n['body'],expires_at=str(int(n['expires_at'])))

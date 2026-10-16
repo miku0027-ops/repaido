@@ -9,13 +9,14 @@ import './customer-notifications.css';
 
 export interface RawNotification {
   id:string;title:string;body:string;job_id?:string;destination?:string;campaign_id?:string;plan_id?:string;
-  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;kind?:string;business_id?:string;cleanup_id?:string;case_id?:string;
+  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;market_chat_id?:string;kind?:string;business_id?:string;cleanup_id?:string;case_id?:string;
   created_at?:number;read_at?:number|null;alert_kind?:string;event_type?:string;
 }
 type Filter='all'|'unread'|'bookings'|'offers'|'contracts'|'discoveries';
 interface Props {
   isOpen:boolean;onClose:()=>void;onOpenJob?:(id:string)=>void;
   onOpenCommunityJob?:(id:string)=>void;
+  onOpenMarketChat?:(id:string)=>void;
   onOpenSharedRide?:(id:string)=>void;
   onOpenContract?:(queryId:string,proposalId?:string)=>void;
   onOpenQuotationModal?:(quotation:B2BQuotation)=>void;onNavigateTab?:(tab:string,sub?:string)=>void;
@@ -25,7 +26,7 @@ export function CustomerNotificationDrawer(props:Props){
   // Mount the actual dialog only while open: native modal focus and inert background.
   return props.isOpen?<NotificationPanel {...props}/>:null;
 }
-function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenSharedRide,onOpenContract,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
+function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenMarketChat,onOpenSharedRide,onOpenContract,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
   const cached=operationSnapshot<{notifications:RawNotification[]}>('/notifications');
   const [notifications,setNotifications]=useState(cached?.notifications||[]);
   const [loading,setLoading]=useState(!cached),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState('');
@@ -62,6 +63,13 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenSharedRid
     finally{if(alive.current)setBusy('');}
   };
   const open=async(n:RawNotification)=>{
+    if(n.market_chat_id&&onOpenMarketChat){
+      if(openingDiscovery.current||busy)return;
+      openingDiscovery.current=true;
+      try{await mark(n.id);if(alive.current){onClose();onOpenMarketChat(n.market_chat_id);}}
+      finally{openingDiscovery.current=false;}
+      return;
+    }
     const communityJob=discoveryJob(n);
     if(communityJob&&onOpenCommunityJob){
       if(openingDiscovery.current||busy)return;
@@ -87,9 +95,9 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenSharedRid
     else if(n.kind==='local_business'&&onNavigateTab){onClose();if(n.destination==='scrap')onNavigateTab('ShopSpares','scrap');else onNavigateTab('Bookings','rides');}
     else if(n.destination==='b2b_quotation'&&onNavigateTab){onClose();onNavigateTab('ShopSpares','b2b');}
   };
-  const label=(n:RawNotification)=>n.destination==='support'?'Support reply':n.kind==='local_business'?(n.destination==='cleanup'?'Cleanup update':n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
-  const actionable=(n:RawNotification)=>!!((n.destination==='support'&&n.case_id)||(n.kind==='local_business'&&(onNavigateTab||n.destination==='cleanup'))||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
-  const actionLabel=(n:RawNotification)=>discoveryJob(n)?'View matching job':n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
+  const label=(n:RawNotification)=>n.market_chat_id?'Market message':n.destination==='support'?'Support reply':n.kind==='local_business'?(n.destination==='cleanup'?'Cleanup update':n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
+  const actionable=(n:RawNotification)=>!!((n.market_chat_id&&onOpenMarketChat)||(n.destination==='support'&&n.case_id)||(n.kind==='local_business'&&(onNavigateTab||n.destination==='cleanup'))||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
+  const actionLabel=(n:RawNotification)=>n.market_chat_id?'Open conversation':discoveryJob(n)?'View matching job':n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
   const date=(n:RawNotification)=>n.created_at?new Date(n.created_at*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Date unavailable';
   return <Modal title="Notifications" className="customer-notification-dialog" frameless onClose={onClose}>
     <section className="repaido-notif-drawer-panel">
