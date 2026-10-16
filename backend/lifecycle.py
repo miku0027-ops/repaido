@@ -9,10 +9,11 @@ import uuid
 import base64
 import math
 import re
+import os
 from datetime import datetime,timezone
 from typing import Literal
 from fastapi import APIRouter,Depends,Query
-from pydantic import Field
+from pydantic import Field,field_validator
 from operations import Input,Pin,fail,event,assign,public_job
 from integrations import audit
 
@@ -32,12 +33,19 @@ class Profile(Input):
     larger_text: bool=False
 class Ticket(Input):
     job_id: str|None=None
+    retail_order_id: str|None=Field(default=None,min_length=1,max_length=100,pattern=r'^[A-Za-z0-9_-]+$')
     category: Literal['general','booking','warranty','payment','penalty','safety','market','rental','scrap','rewards','hiring','account']
     message: str=Field(min_length=5,max_length=3000)
     request_id: str=Field(min_length=16,max_length=100)
 class Message(Input):
     message: str=Field(min_length=1,max_length=3000)
     request_id: str=Field(min_length=16,max_length=100)
+    attachment_ids: list[str]=Field(default_factory=list,max_length=5)
+    @field_validator('attachment_ids')
+    @classmethod
+    def valid_attachments(cls,value):
+        if len(set(value))!=len(value) or any(not re.fullmatch(r'[a-f0-9]{64}',item) for item in value):raise ValueError('Choose valid, distinct support attachments.')
+        return value
 class TicketAction(Input):
     action: Literal['escalate','resolve','reopen']
     reason: str=Field(min_length=10,max_length=1000)
@@ -70,6 +78,17 @@ class MetricCorrection(Input):
 
 
 def identify(user,*parts):return hashlib.sha256(':'.join([user,*parts]).encode()).hexdigest()
+
+def support_targets(now):
+    """Persist the targets applying to this case cycle; they are not guarantees."""
+    def hours(name,default):
+        try:
+            value=float(os.getenv(name,str(default)))
+            return value if math.isfinite(value) and 0<value<=720 else default
+        except ValueError:return default
+    response=hours('REPAIDO_SUPPORT_RESPONSE_TARGET_HOURS',24)
+    resolution=max(response,hours('REPAIDO_SUPPORT_RESOLUTION_TARGET_HOURS',72))
+    return dict(response_target_at=now+response*3600,resolution_target_at=now+resolution*3600,response_received_at=None,resolved_at=None,target_note='Service targets, not guaranteed deadlines.')
 
 def support_page(u, cursor='', limit=60):
     """Bound the company inbox by most recently updated case, with a stable tie-break."""
@@ -147,15 +166,21 @@ def install(core):
 
     @r.post('/support',status_code=201)
     def create_ticket(body:Ticket,user=Depends(core.current_user)):
-        key=identify(user['id'],body.request_id);fingerprint=identify('',body.model_dump_json())
+        key=identify(user['id'],body.request_id);fingerprint=identify('',body.model_dump_json(exclude={'retail_order_id'} if not body.retail_order_id else set()))
         def save(u):
             old=u.get('support_cases',key)
             if old:
                 if old['fingerprint']!=fingerprint:fail('KEY_REUSED','Use a new request ID for a different issue.')
                 return old
             j=scoped_job(u,body.job_id,user['id']) if body.job_id else None
+            if body.retail_order_id:
+                order=u.get('retail_orders',body.retail_order_id)
+                if not order or order.get('customer_id')!=user['id']:fail('NOT_FOUND','Order not found.',404)
+                if body.category!='market' or body.job_id:fail('ORDER_TOPIC','Use the market topic for an order support case.',422)
             if body.category in ('warranty','payment','penalty','booking') and not j:fail('BOOKING_REQUIRED','Choose the related booking.',422)
             t=dict(id=key,customer_id=user['id'],customer_name=user.get('name','Customer'),job_id=body.job_id,category=body.category,state='open',priority='urgent' if body.category=='safety' else 'normal',version=1,created_at=time.time(),updated_at=time.time(),fingerprint=fingerprint,preview=body.message[:160],last_actor_role='requester',message_count=1,request_id=body.request_id)
+            t.update(support_targets(t['created_at']))
+            if body.retail_order_id:t['retail_order_id']=body.retail_order_id
             u.put('support_cases',key,t)
             u.put('support_messages',key,dict(id=key,case_id=key,actor_id=user['id'],actor_role='requester',message=body.message,created_at=time.time()))
             if j and body.category in ('warranty','payment','penalty','safety'):
@@ -175,10 +200,12 @@ def install(core):
         t=u.get('support_cases',case_id)
         if not t or (not admin and t['customer_id']!=uid):fail('NOT_FOUND','Support case not found.',404)
         return t
+    from support_evidence import install as install_evidence,bind_attachments,public_message
+    install_evidence(core,r,case_access)
     def messages(case_id,user,admin=False):
         def read(u):
             t=case_access(u,case_id,user['id'],admin)
-            return {'case':t,'messages':sorted(u.find('support_messages','case_id',case_id),key=lambda m:(m['created_at'],m['id']))}
+            return {'case':t,'messages':[public_message(m,admin) for m in sorted(u.find('support_messages','case_id',case_id),key=lambda m:(m['created_at'],m['id']))]}
         return store.run(read)
     @r.get('/support/{case_id}')
     def customer_messages(case_id:str,user=Depends(core.current_user)):return messages(case_id,user)
@@ -190,17 +217,19 @@ def install(core):
             t=case_access(u,case_id,user['id'],admin)
             old=u.get('support_messages',key)
             if old:
-                if old['message']!=body.message:fail('KEY_REUSED','Message retry differs.')
-                return old
+                if old['message']!=body.message or old.get('attachment_ids',[])!=body.attachment_ids:fail('KEY_REUSED','Message retry differs.')
+                return public_message(old,admin)
             if admin and t.get('assigned_to') not in (None,user['id']):fail('CASE_ASSIGNED','This case is assigned to a teammate. Refresh the inbox.',409)
             if t['state']=='resolved':fail('CASE_CLOSED','Reopen the case before replying.')
             m=dict(id=key,case_id=case_id,actor_id=user['id'],actor_role='support' if admin else 'requester',message=body.message,created_at=time.time())
+            m['attachment_ids']=body.attachment_ids;m['attachments']=bind_attachments(u,case_id,user['id'],body.attachment_ids,key)
+            if admin and not t.get('response_received_at'):t['response_received_at']=m['created_at']
             u.put('support_messages',key,m);t.update(updated_at=time.time(),version=t['version']+1,preview=body.message[:160],last_actor_role=m['actor_role'],message_count=t['message_count']+1 if type(t.get('message_count')) is int else len(u.find('support_messages','case_id',case_id)));u.put('support_cases',case_id,t)
             if admin:
                 from transactional_mail import enqueue
                 enqueue(u,'support-reply:'+key,'support_reply',[t['customer_id']],{'record_type':'support_case','record_id':case_id,'path':'/?view=account&section=support'})
                 u.put('notifications','support-'+key,dict(id='support-'+key,user_id=t['customer_id'],title='Repaido support replied',body='Open your private conversation to read the reply.',destination='support',case_id=case_id,created_at=time.time(),read=False))
-            return m
+            return public_message(m,admin)
         return store.run(save)
     @r.post('/support/{case_id}/messages')
     def reply(case_id:str,body:Message,user=Depends(core.current_user)):return post_message(case_id,body,user)
@@ -217,6 +246,10 @@ def install(core):
             if (body.action=='reopen')!=(t['state']=='resolved'):fail('INVALID_TRANSITION','Refresh the case before changing its status.',409)
             t.update(state={'escalate':'escalated','resolve':'resolved','reopen':'open'}[body.action],resolution=body.reason,last_action=intent,version=t['version']+1,updated_at=time.time())
             if body.action=='escalate':t['priority']='high' if t.get('priority')!='urgent' else 'urgent'
+            if body.action=='resolve':
+                t['resolved_at']=t['updated_at']
+                if not t.get('response_received_at'):t['response_received_at']=t['updated_at']
+            if body.action=='reopen':t.update(support_targets(t['updated_at']))
             u.put('support_cases',case_id,t)
             if t.get('job_id'):
                 j=u.get('jobs',t['job_id'])

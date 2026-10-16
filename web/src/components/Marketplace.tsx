@@ -1,3 +1,4 @@
+import {SaveMarketItem} from './SaveMarketItem';
 import {Card} from './Card';
 import {useEffect,useRef,useState} from 'react';
 import {Plus,MapPin,MessageCircle,Share2,PhoneCall,SlidersHorizontal,Search,RefreshCw} from 'lucide-react';
@@ -230,7 +231,7 @@ function MarketDetails({item,onClose,onShare,onSignIn,onMessage,own,onProfile}:{
       {published(item)&&item.image_url?<img src={apiAssetUrl(item.image_url)} alt={item.name} onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/images/icon-appliance.png';}}/>:<span className="market-image-placeholder">Photo saved privately</span>}
     </div>
     
-    <div className="market-detail-price-hero">
+    <SaveMarketItem kind={item.mode} id={item.id} label={item.name}/><div className="market-detail-price-hero">
       <strong>{money(item.value_paise)}</strong>
     </div>
 

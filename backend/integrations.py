@@ -416,7 +416,8 @@ def install(core):
             onboarding_note(u,user['id'])
             rows=sorted(u.find('notifications','user_id',user['id']),key=lambda n:n['created_at'],reverse=True)[:100]
             prefetch_notification_targets(u,rows,user['id'])
-            return {'notifications':[row for row in rows if notification_visible(u,row,user['id'])]}
+            from saved_alerts import notification_visible as saved_notification_visible
+            return {'notifications':[row for row in rows if notification_visible(u,row,user['id']) and saved_notification_visible(u,row,user['id'])]}
         return store.run(read)
 
     @router.get('/jobs/{job_id}/tracking')
@@ -920,8 +921,9 @@ def install(core):
 
     @router.post('/internal/tick',dependencies=[Depends(scheduler_auth)])
     def scheduler():
+        from saved_alerts import process_updates as saved_updates
         from shop_discovery import process_updates as commerce_updates
-        return {'network':core.network_tick(),'partner_program':core.partner_program_tick(),'home_plans':core.home_plans_tick(),'operations':core.operations_tick(),'procurement':core.procurement_tick(),'rentals':core.rentals_tick(),'shop_payouts':core.shop_payouts_tick(),'rewards':core.rewards_tick(),'refunds':core.refunds_tick(),'promotions':core.promotions_tick(),'notifications':relay(),'reconciliation':reconcile(),'marketplace':core.market_tick(),'shop_access':core.shop_access_tick(),'hiring':core.hiring_tick(),'commerce':commerce_updates(core,limit=2)}
+        return {'network':core.network_tick(),'partner_program':core.partner_program_tick(),'home_plans':core.home_plans_tick(),'operations':core.operations_tick(),'procurement':core.procurement_tick(),'rentals':core.rentals_tick(),'shop_payouts':core.shop_payouts_tick(),'rewards':core.rewards_tick(),'refunds':core.refunds_tick(),'promotions':core.promotions_tick(),'notifications':relay(),'reconciliation':reconcile(),'marketplace':core.market_tick(),'shop_access':core.shop_access_tick(),'hiring':core.hiring_tick(),'commerce':commerce_updates(core,limit=2),'saved_updates':saved_updates(core,limit=2)}
 
     core.integrations_relay=relay
     core.integrations_reconcile=reconcile

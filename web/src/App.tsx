@@ -1,3 +1,5 @@
+import {CustomerActivityHub,type ActivityLaunch} from './components/CustomerActivityHub';
+import {publicProfessionalDetails} from './services/hireProfileCache';
 import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
 import {HomeDiscoveryLayout} from './components/HomeDiscoveryLayout';
 import {HomeDiscoveryPreferences} from './components/HomeDiscoveryPreferences';
@@ -153,6 +155,7 @@ import './reference.css';
 
 const RepaidiansModal=lazy(()=>import('./components/repaidians/RepaidiansModal'));
 const CustomContractHub=lazy(()=>import('./components/CustomContracts').then(module=>({default:module.CustomContractHub})));
+const BusinessAccounts=lazy(()=>import('./components/BusinessAccounts').then(m=>({default:m.BusinessAccounts})));
 const PublicSellerProfile=lazy(()=>import('./components/PublicSellerProfile'));
 const ShopStorefront=lazy(()=>import('./components/ShopStorefront'));
 const MarketInbox=lazy(()=>import('./components/MarketInbox').then(module=>({default:module.MarketInbox})));
@@ -263,6 +266,10 @@ export default function App() {
     if (t === 'you') return 'You';
     return undefined;
   })());
+  const [businessAccountsOpen,setBusinessAccountsOpen]=useState(false);
+  const [activityLaunch,setActivityLaunch]=useState<ActivityLaunch>();
+  const [activityRecord,setActivityRecord]=useState<{kind:string;id:string;token:number}>();
+  const [orderFocusId,setOrderFocusId]=useState<string>();
   const [marketQuick,setMarketQuick]=useState<QuickMarket>({});
   const [storeSection, setStoreSection] = useState<'spares' | 'refurbished' | 'rentals' | 'exchange' | 'preowned'>(() => {
     if (typeof window !== 'undefined') {
@@ -311,6 +318,34 @@ export default function App() {
     const rental=(event:Event)=>{const id=(event as CustomEvent).detail?.id;if(typeof id!=='string')return;setPublicSeller(null);setPublicShop('');setMarketChatId('');navigatePortal('customer');openStoreSection('rentals');setMarketQuick({rentalId:id});};
     window.addEventListener('repaido:market-open-shop',shop);window.addEventListener('repaido:market-open-listing',listing);window.addEventListener('repaido:market-open-rental',rental);
     return()=>{window.removeEventListener('repaido:market-open-shop',shop);window.removeEventListener('repaido:market-open-listing',listing);window.removeEventListener('repaido:market-open-rental',rental);};
+  },[]);
+  useEffect(()=>{
+    const open=async(event:Event)=>{
+      const detail=(event as CustomEvent).detail;if(!detail||typeof detail.kind!=='string'||typeof detail.id!=='string'||!detail.id||detail.id.length>128||detail.id.includes('/'))return;
+      const {kind,id}=detail;navigatePortal('customer');
+      if(kind==='product'){openStoreSection('spares');setMarketQuick({productId:id});return;}
+      if(kind==='home'||kind==='home_enquiries'){openStoreSection('rentals');setMarketQuick(kind==='home'?{homeId:id,homesTab:'browse'}:{homesTab:'enquiries'});return;}
+      if(kind==='rentals'){openStoreSection('rentals');setMarketQuick({rentalRequestId:id});return;}
+      if(kind==='retail_orders'||kind==='retail_resolution_cases'){setOrderFocusId(id);setShowCartDrawer(true);return;}
+      if(kind==='support_cases'){window.dispatchEvent(new CustomEvent('repaido:open-support',{detail:{caseId:id}}));return;}
+      if(kind==='professional'){const actor=auth.currentUser?.uid;try{const p=await publicProfessionalDetails<Professional>(id,AbortSignal.timeout(12000));if(actor!==auth.currentUser?.uid)return;setFocusedHire(p);setTab('Hire');}catch(e){setError((e as Error).message);}return;}
+      if(!['jobs','hires','home_plans','mobility_rides','scrap_collections','cleanup_reports','community_contributions'].includes(kind))return;
+      const destination=new URL(location.href);
+      if(kind==='home_plans')destination.searchParams.set('home-plan',id);
+      if(['scrap_collections','cleanup_reports','community_contributions'].includes(kind)){
+        destination.searchParams.set('view','contribute');
+        destination.searchParams.set('contribution',kind==='cleanup_reports'?'reports':kind==='community_contributions'?'rewards':'collections');
+        if(kind==='cleanup_reports')destination.searchParams.set('cleanup-report',id);
+        if(kind==='scrap_collections')destination.searchParams.set('scrap-collection',id);
+      }
+      history.replaceState(history.state,'',destination);
+      setActivityRecord({kind,id,token:Date.now()});
+      if(kind==='mobility_rides')setSharedRideId('');
+      updateRideBookings(kind==='mobility_rides');updateHireBookings(kind==='hires');updateHomePlans(kind==='home_plans');updateContractBookings(false);setContributeBookings(['scrap_collections','cleanup_reports','community_contributions'].includes(kind));
+      setNotificationJob(kind==='jobs'?id:undefined);
+      setTab('Bookings');
+    };
+    window.addEventListener('repaido:activity-open',open);return()=>window.removeEventListener('repaido:activity-open',open);
   },[]);
   const [portal, setPortal] = useState<'customer' | 'worker' | 'shop-admin' | 'company-admin'>(() => {
     if (typeof window !== 'undefined') {
@@ -1161,7 +1196,7 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'Bookings' && <div className="customer-bookings-page"><CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialSharedRideId={sharedRideId} key={(user?.id||'guest')+sharedRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
+            {tab === 'Bookings' && <div className="customer-bookings-page">{(user||auth.currentUser)&&<CustomerActivityHub key={user?.id||auth.currentUser?.uid} launch={activityLaunch}/>}{(user||auth.currentUser)&&<details className="customer-business-entry" open={businessAccountsOpen} onToggle={e=>setBusinessAccountsOpen(e.currentTarget.open)}><summary>Business & apartment accounts</summary>{businessAccountsOpen&&<Suspense fallback={<p role="status">Opening business accounts…</p>}><BusinessAccounts key={user?.id||auth.currentUser?.uid} onSignIn={()=>setSheet('auth')}/></Suspense>}</details>}<CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings key={activityRecord?.kind+':'+activityRecord?.token} onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialSharedRideId={sharedRideId} key={(user?.id||'guest')+sharedRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests initialRequestId={activityRecord?.kind==='hires'?activityRecord.id:undefined} onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans key={activityRecord?.kind==='home_plans'?activityRecord.token:undefined} onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
@@ -2553,6 +2588,8 @@ export default function App() {
       {marketAccessOpen&&<Suspense fallback={<Modal title="Marketplace access" onClose={()=>setMarketAccessOpen(false)}><p role="status">Checking marketplace access…</p></Modal>}><MarketAccessModal key={user?.id||'guest'} onClose={()=>setMarketAccessOpen(false)} onSignIn={()=>setSheet('auth')}/></Suspense>}
 
       <CustomerNotificationDrawer
+        onOpenSaved={()=>{setTab('Bookings');setActivityLaunch({view:'saved',token:Date.now()});}}
+        onOpenHomes={view=>{openStoreSection('rentals');setMarketQuick({homesTab:view});}}
         onOpenMarketChat={id=>setMarketChatId(id)}
         onOpenSharedRide={id=>{setSharedRideId(id);setTab('Bookings');setRideBookings(true);}}
         key={user?.id||'guest'}
@@ -2594,9 +2631,9 @@ export default function App() {
           onClose={() => setActiveQuotationForPdf(null)}
         />
       )}
-      <CustomerCartDrawer
+      <CustomerCartDrawer initialOrderId={orderFocusId}
         isOpen={showCartDrawer}
-        onClose={() => setShowCartDrawer(false)}
+        onClose={() => {setShowCartDrawer(false);setOrderFocusId(undefined);}}
         customerName={customerIdentity.name}
         customerPhone={user?.phone || ''}
         defaultAddress={place.address}

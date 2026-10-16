@@ -1,3 +1,4 @@
+import {SaveMarketItem,CompatibilityFinder} from './SaveMarketItem';
 import {ShopStorefront,ShopSuggestions} from './ShopStorefront';
 import {readShopCatalogue,shopCatalogueSnapshot,shopOffer,recordShopActivity,type ShopProduct} from '../services/shopDiscovery';
 import './compact-spares-discovery.css';
@@ -589,7 +590,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
       {/* RENTALS TAB CONTAINER */}
       {section === 'rentals' && (
         <section id="panel-rentals" role="tabpanel" aria-labelledby="tab-rentals" className="stores-module-container rental-page">
-          <RentalMarket onSignIn={onSignIn} initialListingId={quickIntent?.rentalId}/>
+          <RentalMarket key={quickIntent?.rentalRequestId||quickIntent?.homeId||quickIntent?.homesTab||'equipment'} initialRentalId={quickIntent?.rentalRequestId} onSignIn={onSignIn} initialListingId={quickIntent?.rentalId} homesTab={quickIntent?.homesTab} homeId={quickIntent?.homeId}/>
         </section>
       )}
 
@@ -723,7 +724,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             {detail.mrp>detail.price && <p>Shop price <s>{formatMoney(Math.round(detail.mrp*100))}</s></p>}
             <p>{detail.stock} listed in stock</p></div>
         </div>
-        <p>{detail.description || 'No description provided. Check compatibility with the shop before buying.'}</p>
+        <SaveMarketItem kind="product" id={detail.id} label={detail.name}/><CompatibilityFinder category={detail.category}/><p>{detail.description || 'No description provided. Check compatibility with the shop before buying.'}</p>
         
         {(()=>{const raw=canonicalProducts.find(p=>p.id===detail.id),offer=raw?shopOffer(raw):null;return offer&&offer.discount>0?<p className="spare-offer-source">{offer.label} · save {formatMoney(offer.discount)}</p>:null;})()}
         <PrimeBadge prime={detail.prime}/>

@@ -75,6 +75,7 @@ def create_app(core=None):
             import shared_departure_alerts
             import repaidians_live
             import shop_discovery
+            import saved_alerts
             result = {'profiles_indexing': repaidians.reindex_professional_members(core, limit=min(body.limit, 5)),
                       'indexing': repaidians_work.backfill(core, limit=min(body.limit, 20)),
                       'devices': work_push.backfill_devices(core, limit=min(body.limit, 20)),
@@ -85,7 +86,8 @@ def create_app(core=None):
                       'live_cleanup': repaidians_live.expire(core,limit=min(body.limit,12)),
                       'push': work_push.process_deliveries(core, limit=body.limit),
                       'email': transactional_mail.dispatch(core, limit=min(body.limit, 20)),
-                      'commerce': shop_discovery.process_updates(core, limit=min(body.limit, 10))}
+                      'commerce': shop_discovery.process_updates(core, limit=min(body.limit, 10)),
+                      'saved_updates': saved_alerts.process_updates(core, limit=min(body.limit, 10))}
             logger.info('work_dispatch completed indexing=%s updates=%s push=%s',
                         result['indexing'], result['updates'], result['push'])
             logger.info('commerce_projection completed processed=%s continued=%s',

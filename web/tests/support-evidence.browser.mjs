@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mkdir,writeFile} from 'node:fs/promises';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const origin='http://127.0.0.1:5192',out='/tmp/repaido-support-evidence-browser';await mkdir(out,{recursive:true});
+const authFixture=`const listeners=new Set();const user=uid=>uid?{uid,getIdToken:async()=>uid}:null;export const auth={currentUser:user('buyer'),authStateReady:async()=>{},onIdTokenChanged(next){const fn=typeof next==='function'?next:next.next.bind(next);listeners.add(fn);queueMicrotask(()=>fn(auth.currentUser));return()=>listeners.delete(fn);}};window.__supportSwitchAccount=uid=>{auth.currentUser=user(uid);listeners.forEach(fn=>fn(auth.currentUser));};export const db={};export const app={};export const analytics=null;export const firebaseConfig={};export default app;`;
+const now=Date.now()/1000,caseId='a'.repeat(64),aid='b'.repeat(64),png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j/kcAAAAASUVORK5CYII=','base64');
+let row={id:caseId,customer_name:'Fixture customer',category:'market',state:'open',version:1,created_at:now,updated_at:now,preview:'Please review this order receipt.',response_target_at:now+86400,resolution_target_at:now+259200};
+let messages=[{id:'first',actor_role:'requester',message:row.preview,created_at:now,attachments:[]}],failUpload=true,failMessage=false;
+const requests=[],errors=[],checks=[],commands=new Map();
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+try{
+ const context=await browser.newContext({viewport:{width:467,height:900},reducedMotion:'reduce'});
+ await context.route('**/*',async route=>{
+  const req=route.request(),url=new URL(req.url());if(url.origin!==origin)return route.abort();
+  if(url.pathname==='/src/firebase.ts')return route.fulfill({contentType:'text/javascript',body:authFixture});
+  if(!url.pathname.startsWith('/api/'))return route.continue();
+  let payload;try{payload=req.postDataJSON();}catch{}
+  requests.push({path:url.pathname,method:req.method(),headers:req.headers(),payload});const admin=url.pathname.includes('/admin/'),prefix='/api/operations'+(admin?'/admin/support':'/support');let data={};
+  if(req.headers().authorization!=='Bearer buyer')return route.fulfill({contentType:'application/json',body:JSON.stringify(url.pathname.endsWith('/support')?{cases:[]}:{detail:{message:'Support case not found.'}}),status:url.pathname.endsWith('/support')?200:404});
+  if(url.pathname.endsWith('/attachments')&&req.method()==='POST'){
+   if(failUpload){failUpload=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:{message:'Photo storage is unavailable. You can still send your message without a photo.'}})});}
+   data={id:aid,content_type:'image/jpeg',size:png.length,url:prefix+'/'+caseId+'/attachments/'+aid};
+  }else if(url.pathname.includes('/attachments/'))return route.fulfill({contentType:'image/png',body:png});
+  else if(url.pathname.endsWith('/messages')){
+   if(!commands.has(payload.request_id)){
+    const message={id:'message-'+commands.size,actor_role:admin?'support':'requester',message:payload.message,created_at:Date.now()/1000,attachments:(payload.attachment_ids||[]).map(id=>({id,content_type:'image/jpeg',size:png.length,url:prefix+'/'+caseId+'/attachments/'+id}))};
+    messages.push(message);commands.set(payload.request_id,message);row={...row,version:row.version+1,updated_at:Date.now()/1000};
+   }
+   data=commands.get(payload.request_id);if(failMessage){failMessage=false;return route.abort('failed');}
+  }else if(url.pathname.endsWith('/actions')){row={...row,state:{escalate:'escalated',resolve:'resolved',reopen:'open'}[payload.action],version:row.version+1,resolution:payload.reason};if(payload.action==='resolve')row.resolved_at=Date.now()/1000;if(payload.action==='reopen')row={...row,response_target_at:Date.now()/1000+86400,resolution_target_at:Date.now()/1000+259200,resolved_at:null,response_received_at:null};data=row;}
+  else if(url.pathname.endsWith('/support'))data={cases:[row]};
+  else if(url.pathname.endsWith(caseId))data={case:row,messages:messages.map(message=>({...message,attachments:message.attachments.map(attachment=>({...attachment,url:prefix+'/'+caseId+'/attachments/'+attachment.id}))}))};
+  return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+ });
+ const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(origin+'/tests/support-evidence-preview.html');await page.getByText('Response target',{exact:true}).waitFor();
+ await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});const axe=await page.evaluate(async()=>{const r=await window.axe.run(document.querySelector('.support-workspace'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}});return r.violations.map(x=>({id:x.id,nodes:x.nodes.map(n=>n.target)}));});assert.deepEqual(axe,[]);
+ for(const width of [320,467]){await page.setViewportSize({width,height:900});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:`${out}/support-${width}.png`,fullPage:true});}
+ checks.push('Support targets and evidence controls fit 320/467px and pass WCAG A/AA checks');
+ await page.getByLabel('Your reply',{exact:true}).fill('Here is the damaged packaging photo.');await page.getByLabel('Supporting photos',{exact:true}).setInputFiles({name:'evidence.png',mimeType:'image/png',buffer:png});await page.getByRole('button',{name:'Send reply',exact:true}).click();await page.getByText('Photo storage is unavailable. You can still send your message without a photo.',{exact:true}).waitFor();assert.equal(await page.getByLabel('Your reply',{exact:true}).inputValue(),'Here is the damaged packaging photo.');assert.equal(requests.filter(r=>r.path.endsWith('/messages')).length,0);
+ await page.getByRole('button',{name:'Remove evidence.png',exact:true}).click();await page.getByRole('button',{name:'Send reply',exact:true}).click();await page.getByText('Message sent.',{exact:true}).waitFor();assert.equal(messages.length,2);assert.equal(messages[1].attachments.length,0);
+ checks.push('Storage failures retain the message and let customers remove evidence and send text');
+ await page.getByLabel('Your reply',{exact:true}).fill('Please also check this receipt photo.');await page.getByLabel('Supporting photos',{exact:true}).setInputFiles({name:'receipt.png',mimeType:'image/png',buffer:png});failMessage=true;await page.getByRole('button',{name:'Send reply',exact:true}).click();await page.getByText('Could not confirm this action. Refresh messages to check its latest status.',{exact:true}).waitFor();const first=requests.filter(r=>r.path.endsWith('/messages')).at(-1);const uploadedCount=requests.filter(r=>r.path.endsWith('/attachments')&&r.method==='POST').length;
+ await page.reload();await page.getByLabel('Your reply',{exact:true}).waitFor();assert.equal(await page.getByLabel('Your reply',{exact:true}).inputValue(),'Please also check this receipt photo.');await page.getByRole('button',{name:'Remove receipt.png',exact:true}).waitFor();await page.getByRole('button',{name:'Send reply',exact:true}).click();await page.getByText('Message sent.',{exact:true}).waitFor();const retry=requests.filter(r=>r.path.endsWith('/messages')).at(-1);assert.deepEqual(retry.payload,first.payload);assert.equal(requests.filter(r=>r.path.endsWith('/attachments')&&r.method==='POST').length,uploadedCount);assert.equal(messages.length,3);
+ checks.push('An uncertain attachment-message retry survives reload with the same request ID and uploaded photo');
+ await page.getByRole('button',{name:'View supporting photo 1',exact:true}).click();await page.getByRole('img',{name:'Supporting photo 1',exact:true}).waitFor();const photoGet=requests.filter(r=>r.path.includes('/attachments/')&&r.method==='GET').at(-1);assert.equal(photoGet.headers.authorization,'Bearer buyer');assert((await page.getByRole('img',{name:'Supporting photo 1',exact:true}).getAttribute('src')).startsWith('blob:'));
+ checks.push('Shared evidence is fetched with authentication and displayed through a temporary object URL');
+ await page.locator('summary').filter({hasText:'Case actions'}).click();await page.getByRole('button',{name:'Request escalation',exact:true}).click();await page.getByLabel('Reason for this action',{exact:true}).fill('Please have the support lead review the condition photos.');await page.getByRole('button',{name:'Confirm escalation',exact:true}).click();await page.locator('.support-thread-heading').getByText('Escalated',{exact:true}).waitFor();assert.equal(row.response_target_at,now+86400);
+ await page.goto(origin+'/tests/support-evidence-preview.html?admin=1');await page.getByText('Response target',{exact:true}).waitFor();await page.locator('summary').filter({hasText:'Case actions'}).click();await page.getByRole('button',{name:'Record resolution',exact:true}).click();await page.getByLabel('Resolution details',{exact:true}).fill('Support reviewed the submitted evidence and recorded the agreed resolution.');await page.getByRole('button',{name:'Confirm resolution',exact:true}).click();await page.getByText('This case is resolved. Reopen it if you still need help.',{exact:true}).waitFor();assert.equal(await page.getByLabel('Supporting photos',{exact:true}).count(),0);
+ await page.goto(origin+'/tests/support-evidence-preview.html');await page.getByText('This case is resolved. Reopen it if you still need help.',{exact:true}).waitFor();await page.locator('summary').filter({hasText:'Case actions'}).click();await page.getByRole('button',{name:'Reopen case',exact:true}).click();await page.getByLabel('Reason for this action',{exact:true}).fill('The receipt issue remains and needs another review.');await page.getByRole('button',{name:'Confirm reopen',exact:true}).click();await page.getByLabel('Supporting photos',{exact:true}).waitFor();assert(row.response_target_at>now+86400);
+ checks.push('Escalation preserves targets, resolution closes evidence submission, and reopening starts new targets');
+ await page.getByRole('button',{name:'View supporting photo 1',exact:true}).click();await page.getByRole('img',{name:'Supporting photo 1',exact:true}).waitFor();await page.evaluate(()=>window.__supportSwitchAccount('other'));await page.getByText('Tell us what happened',{exact:true}).waitFor();assert.equal(await page.getByRole('img',{name:'Supporting photo 1',exact:true}).count(),0);
+ checks.push('Account switches clear private evidence and the previous conversation');
+ assert.deepEqual(errors,[]);await writeFile(out+'/report.json',JSON.stringify({checks,errors,network:'Fixtures only; HTTP backend tests verify real case permissions separately.'},null,2));console.log(JSON.stringify({out,checks}));
+}finally{await browser.close();}

@@ -1099,6 +1099,8 @@ def create_support_ticket(body: SupportTicketInput, user=Depends(current_user)):
         now = time.time()
         case = dict(id=ticket_id, customer_id=user['id'], job_id=None, category='general', state='open',
                     version=1, created_at=now, updated_at=now, fingerprint=fingerprint, source='legacy_support_ticket')
+        from lifecycle import support_targets
+        case.update(support_targets(now))
         u.put('support_cases', ticket_id, case)
         u.put('support_messages', ticket_id, dict(id=ticket_id, case_id=ticket_id, actor_id=user['id'],
               actor_role='requester', message=details['subject'] + '\n\n' + details['message'], created_at=now))
@@ -1269,3 +1271,21 @@ captain_rewards.install(sys.modules[__name__])
 
 import mobility_journeys
 mobility_journeys.install(sys.modules[__name__])
+
+import housing
+housing.install(sys.modules[__name__])
+
+import customer_hub
+customer_hub.install(sys.modules[__name__])
+
+import shop_tools
+shop_tools.install(sys.modules[__name__])
+
+import business_accounts
+business_accounts.install(sys.modules[__name__])
+
+import campaign_outcomes
+campaign_outcomes.install(sys.modules[__name__])
+
+import community_missions
+community_missions.install(sys.modules[__name__])

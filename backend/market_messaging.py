@@ -484,4 +484,6 @@ def install(core):
         return store.run(save)
 
     add_presence_routes(router, core, _participant, _chat_view)
+    from market_transactions import add_routes as add_transaction_routes
+    add_transaction_routes(router, core)
     core.app.include_router(router)

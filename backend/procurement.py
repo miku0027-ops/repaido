@@ -58,6 +58,29 @@ class Assessment(Input):
     expected_amount_paise:int=Field(ge=0)
     reason:str=Field(min_length=10,max_length=500)
 
+def prepare_stock_item(u,shop,product_id,body,*,now=None,catalogue=None):
+    """Validate an owner stock edit without writing; shared by forms and CSV preview.
+
+    The caller owns authentication and transaction scope. Returning a proposed
+    record is deliberate: imports must validate every row before the first put.
+    """
+    if not 1<=len(product_id)<=100 or not all(c.isalnum() or c in '-_' for c in product_id):fail('INVALID_ID','Invalid product ID.',422)
+    p=u.get('inventory',product_id)
+    if p and p['shop_id']!=shop['id']:fail('NOT_FOUND','Product not found.',404)
+    if (p or {}).get('version',0)!=body.expected_version:fail('STOCK_CHANGED','Refresh stock before saving.')
+    from workspace import validate_media
+    validate_media(u,body.image_url,shop['id'])
+    reserved=(p or {}).get('reserved',0)
+    if body.on_hand<reserved:fail('RESERVED_STOCK','Physical count is below reserved quantity. Reject pending orders or contact support before adjusting.')
+    catalogue=u.find('inventory','shop_id',shop['id']) if catalogue is None else catalogue
+    if any(x['id']!=product_id and x.get('sku','').casefold()==body.sku.casefold() for x in catalogue):fail('SKU_EXISTS','Edit the existing SKU instead of adding a duplicate.')
+    if body.condition=='refurbished' and not body.refurbishment:fail('DETAILS_REQUIRED','Complete the refurbished condition, inspection, repairs, warranty and return details.',422)
+    if body.condition=='new' and body.refurbishment:fail('INVALID_CONDITION','Refurbishment details belong in the Refurbished inventory section.',422)
+    floor=((p or {}).get('shop_offer') or {}).get('min_price_paise',0)
+    if body.condition=='new' and type(floor) is int and body.price_paise<floor:fail('INVALID_FLOOR','The base price is below this product\'s declared minimum selling price. Update its offer floor first.',422)
+    return dict(body.model_dump(mode='json',exclude={'expected_version','on_hand'}),**({'shop_offer':p['shop_offer']} if p and p.get('shop_offer') else {}),id=product_id,shop_id=shop['id'],stock=body.on_hand-reserved,reserved=reserved,version=body.expected_version+1,stock_confirmed_at=time.time() if now is None else now)
+
+
 def live_product(u,p,now):
     shop=u.get('shops',p['shop_id']) if p else None
     from shop_access import visible
@@ -197,16 +220,7 @@ def install(core):
         if not 1<=len(product_id)<=100 or not all(c.isalnum() or c in '-_' for c in product_id):fail('INVALID_ID','Invalid product ID.',422)
         def save(u):
             s=shop(u,user);p=u.get('inventory',product_id)
-            if p and p['shop_id']!=s['id']:fail('NOT_FOUND','Product not found.',404)
-            if (p or {}).get('version',0)!=body.expected_version:fail('STOCK_CHANGED','Refresh stock before saving.')
-            from workspace import validate_media
-            validate_media(u,body.image_url,s['id'])
-            reserved=(p or {}).get('reserved',0)
-            if body.on_hand<reserved:fail('RESERVED_STOCK','Physical count is below reserved quantity. Reject pending orders or contact support before adjusting.')
-            if any(x['id']!=product_id and x['shop_id']==s['id'] and x.get('sku','').casefold()==body.sku.casefold() for x in u.all('inventory')):fail('SKU_EXISTS','Edit the existing SKU instead of adding a duplicate.')
-            if body.condition=='refurbished' and not body.refurbishment:fail('DETAILS_REQUIRED','Complete the refurbished condition, inspection, repairs, warranty and return details.',422)
-            if body.condition=='new' and body.refurbishment:fail('INVALID_CONDITION','Refurbishment details belong in the Refurbished inventory section.',422)
-            item=dict(body.model_dump(mode='json',exclude={'expected_version','on_hand'}),**({'shop_offer':p['shop_offer']} if p and p.get('shop_offer') else {}),id=product_id,shop_id=s['id'],stock=body.on_hand-reserved,reserved=reserved,version=body.expected_version+1,stock_confirmed_at=time.time())
+            item=prepare_stock_item(u,s,product_id,body);reserved=item['reserved']
             u.put('inventory',product_id,item);audit(u,'ShopStockAdjusted',user['id'],product_id=product_id,old_available=(p or {}).get('stock',0),available=item['stock'],reserved=reserved);return item
         return store.run(save)
     @r.get('/shop/purchase-orders')

@@ -7,6 +7,7 @@ import {money} from '../services/operations';
 import {readMarketMine} from '../services/marketplaceReads';
 import type {Item} from './Marketplace';
 import {Modal} from './ui';
+import MarketTransactionPanel from './MarketTransactionPanel';
 import {blockMarketChat,decideMarketOffer,marketChatDraft,marketChatFailure,marketChatStartKey,marketInboxSnapshot,marketThreadSnapshot,markMarketChatRead,mergeMarketMessages,readMarketInbox,readMarketThread,rememberMarketThread,reportMarketChat,sendMarketMessage,startMarketChat,storeMarketChatDraft,writeMarketPresence,type MarketPresence,type MarketChat,type MarketChatMode,type MarketChatSide,type MarketComposerDraft,type MarketMessage,type MarketThreadPage} from '../services/marketMessaging';
 import './market-inbox.css';
 
@@ -130,6 +131,7 @@ function MarketConversation({uid,id,onBack,onSignIn,onAccess,onOpenProfile}:{uid
   {reporting&&<form className="market-chat-report" onSubmit={event=>{event.preventDefault();void run(async signal=>{await reportMarketChat(id,reason.trim(),undefined,signal);if(active(uid,signal)){setReportMessage('Your report was sent to Repaido for review.');setReason('');setReporting(false);}});}}><label htmlFor={'market-report-'+id}>What should Repaido review?</label><textarea id={'market-report-'+id} rows={2} maxLength={1000} minLength={10} required value={reason} onChange={event=>setReason(event.target.value)} placeholder="Describe the concern. Do not add passwords or bank details."/><div><button type="button" onClick={()=>setReporting(false)}>Cancel report</button><button className="market-chat-primary" disabled={actionBusy||reason.trim().length<10}>Send report</button></div></form>}
   {reportMessage&&<p className="market-chat-notice" role="status"><ShieldCheck size={15} aria-hidden="true"/>{reportMessage}</p>}{notice&&<p className="market-chat-notice" role="status">{notice}</p>}
   {error&&<ErrorNote message={error} status={errorStatus} onRetry={retry} onSignIn={onSignIn} onAccess={onAccess}/>}
+  <MarketTransactionPanel key={id} chat={chat} messages={page.messages} uid={uid}/>
   <div ref={log} className="market-chat-message-log" role="log" aria-label="Messages" aria-live="polite" aria-relevant="additions text" tabIndex={0} onScroll={event=>{const el=event.currentTarget;const was=nearBottom.current;nearBottom.current=el.scrollHeight-el.scrollTop-el.clientHeight<60;if(!was&&nearBottom.current)setViewVersion(value=>value+1);}}>
    {page.next_cursor!==null&&<button type="button" className="market-chat-load" disabled={paging} onClick={()=>void earlier()}>{paging?'Loading earlier messages…':'Earlier messages'}</button>}
    {!page.messages.length&&<div className="market-chat-first"><MessageCircle size={25} aria-hidden="true"/><strong>A little detail goes a long way.</strong><p>Ask about the item’s condition, included accessories or a convenient place to meet.</p></div>}

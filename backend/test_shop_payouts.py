@@ -72,3 +72,32 @@ def test_final_provider_refund_blocks_weekly_transfer(api,monkeypatch):
     assert calls==['payments/pay_test']
     assert main.operations_store.run(lambda u:u.get('jobs','job1'))['payment_status']=='refunded'
     assert not any(b.get('provider_id') for b in main.operations_store.run(lambda u:u.all('shop_batches')))
+
+@pytest.mark.parametrize('source',[
+    {'retail_order_id':'retail-order','job_id':''},
+    {'retail_order_id':'legacy-retail-order'},
+    {'job_id':''},
+])
+def test_unrelated_retail_or_missing_job_does_not_block_service_payout(api,monkeypatch,source):
+    eligible_fixture(api,monkeypatch)
+    withheld=dict(id='manual-allocation',shop_id='shop1',amount_paise=8000,
+                  weekly_due_at=time.time()-86400,status='retail_receipt_review',**source)
+    main.operations_store.run(lambda u:u.put('shop_payables',withheld['id'],withheld))
+    from operations import Unit
+    original_get=Unit.get
+    def strict_get(self,kind,key):
+        assert isinstance(key,str) and key,'Firestore document IDs must not be empty'
+        return original_get(self,kind,key)
+    monkeypatch.setattr(Unit,'get',strict_get)
+    payouts=[]
+    def provider(path,body=None,**kwargs):
+        if path.startswith('payments/'):return payment()
+        payouts.append(body)
+        return {**body,'id':'pout_service','status':'processed'}
+    monkeypatch.setattr(shop_payouts,'razorpay',provider)
+    assert main.shop_payouts_tick()['transfers']==1
+    assert len(payouts)==1 and payouts[0]['amount']==5000
+    batch=main.operations_store.run(lambda u:u.all('shop_batches'))[0]
+    assert batch['order_ids']==['order1'] and batch['status']=='processed'
+    saved=main.operations_store.run(lambda u:u.get('shop_payables',withheld['id']))
+    assert saved==withheld

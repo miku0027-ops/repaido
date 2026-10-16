@@ -42,6 +42,9 @@ def install(core):
             audit(u,'ShopPayoutReconciled','provider',batch_id=batch['id'],status=state);return batch
         return store.run(save)
     def eligible(u,p):
+        # Retail allocations stay in manual settlement review. They have no
+        # service job, and an empty Firestore document reference is invalid.
+        if not p or p.get('retail_order_id'):return False
         if p.get('rental_id'):
             r=u.get('rentals',p['rental_id']);s=u.get('shops',p['shop_id']);payment=u.get('rental_payments',p['rental_id']+':'+p['payment_kind'])
             if not r or not s or s['status']!='approved' or r['state']!='returned' or r['inspection'] not in ('clear','resolved') or r.get('financial_hold') or not payment:return False
@@ -49,10 +52,11 @@ def install(core):
                 refund=u.get('rental_refunds',r['id']) or {}
                 return refund.get('status') in ('processed','not_due') and bool(u.get('journals','rental-damage-'+r['id'])) and payment.get('amount_refunded',0)<=refund.get('amount_paise',0)
             return payment['status']=='captured' and not payment.get('amount_refunded') and bool(u.get('journals','rental-capture-'+payment['id']))
+        if not p.get('job_id'):return False
         j=u.get('jobs',p['job_id']);s=u.get('shops',p['shop_id'])
         journal=u.get('journals',j['id']) if j else None
         credit=sum(l['credit'] for l in (journal or {}).get('lines',[]) if l['account']=='parts_payable')
-        liability=sum(row['amount_paise'] for row in u.all('shop_payables') if row['job_id']==p['job_id'])
+        liability=sum(row['amount_paise'] for row in u.all('shop_payables') if row.get('job_id')==p['job_id'])
         return j and s and s['status']=='approved' and j['state']=='completed' and j['payment_status']=='verified' and not j.get('financial_hold') and not j.get('parts_refund_hold') and not j.get('allocation_review_required') and journal and journal.get('status')=='posted' and credit>=liability and not u.get('journals','reverse_'+j['id']) and not any(x['job_id']==j['id'] and x['status']!='failed' for x in u.all('refunds'))
 
     def weekly():

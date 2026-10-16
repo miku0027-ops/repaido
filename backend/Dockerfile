@@ -7,8 +7,9 @@ COPY b2b.py professional_offers.py shop_prime.py repaidians.py repaidians_milest
 COPY cleanup.py captain_rewards.py captain_policy.py custom_contracts.py contract_records.py account_profile.py transactional_mail.py repaidians_work.py work_runtime.py work_service.py work_worker.py work_push.py ./
 COPY repaidians_tools.py community_service.py work_dispatch.py ./
 COPY hire_ranking.py hire_ranking_client.py hire_ranking_service.py ./
-COPY scrap_experience.py ./
-COPY market_access.py market_messaging.py market_delivery.py market_presence.py market_profiles.py ./
+COPY scrap_experience.py housing.py customer_hub.py saved_alerts.py shop_tools.py business_accounts.py campaign_outcomes.py community_missions.py ./
+COPY retail_resolution.py support_evidence.py ./
+COPY market_access.py market_messaging.py market_delivery.py market_presence.py market_profiles.py market_transactions.py ./
 COPY shop_access.py shop_pricing.py shop_discovery.py commerce_ranking.py commerce_ranking_client.py commerce_ranking_service.py ./
 COPY fonts/ ./fonts/
 RUN chmod 755 /app/fonts && chmod 644 /app/fonts/*

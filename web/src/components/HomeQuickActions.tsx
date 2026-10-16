@@ -6,7 +6,7 @@ import RepaidoBrand from './RepaidoBrand';
 import QuickActionCatalog from './QuickActionCatalog';
 import './home-quick-actions.css';
 
-export type QuickMarket = {condition?:'refurbished';search?:string;budget?:number;sell?:boolean;listingId?:string;productId?:string;rentalId?:string;location?:{lat:number;lng:number}};
+export type QuickMarket = {rentalRequestId?:string;homesTab?:'browse'|'mine'|'enquiries';homeId?:string;condition?:'refurbished';search?:string;budget?:number;sell?:boolean;listingId?:string;productId?:string;rentalId?:string;location?:{lat:number;lng:number}};
 export interface HomeQuickActionsProps {
   city:string;
   location?:{lat:number;lng:number};

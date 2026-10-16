@@ -10,6 +10,7 @@ from integrations import razorpay
 from rentals import payments_ready,next_weekly,post
 from procurement import live_product
 from shop_pricing import price
+from retail_resolution import return_policy
 from coupons import reserve,validate
 class Line(Input):
     product_id:str=Field(min_length=1,max_length=100)
@@ -46,7 +47,7 @@ def quote(u,body,uid):
         seen.add(line.product_id);p=u.get('inventory',line.product_id)
         if not live_product(u,p,time.time()) or p['stock']<line.quantity:fail('STOCK_CHANGED','Refresh your cart: a price or available stock needs review.',409)
         pricing=price(u,p);total=pricing['price_paise']*line.quantity;gst=p.get('gst_bps');base=total*10000//(10000+gst) if gst is not None else None
-        rows.append(dict(product_id=p['id'],shop_id=p['shop_id'],name=p['name'],quantity=line.quantity,unit_price_paise=pricing['price_paise'],base_unit_price_paise=pricing['base_price_paise'],shop_discount_paise=pricing['discount_paise']*line.quantity,shop_discount_bps=pricing['discount_bps'],offer_source=pricing['offer_source'],offer_valid_until=pricing['valid_until'],total_paise=total,gst_bps=gst,base_paise=base,condition=p.get('condition','new'),category=p.get('category',''),version=p.get('version',1)))
+        rows.append(dict(product_id=p['id'],shop_id=p['shop_id'],name=p['name'],quantity=line.quantity,unit_price_paise=pricing['price_paise'],base_unit_price_paise=pricing['base_price_paise'],shop_discount_paise=pricing['discount_paise']*line.quantity,shop_discount_bps=pricing['discount_bps'],offer_source=pricing['offer_source'],offer_valid_until=pricing['valid_until'],total_paise=total,gst_bps=gst,base_paise=base,condition=p.get('condition','new'),category=p.get('category',''),version=p.get('version',1),return_policy=return_policy(p)))
     captain=bool(body.coupon_code and body.coupon_code.strip().upper().startswith('CAPTAIN'))
     from captain_rewards import APPLIANCES
     for row in rows:row['reward_eligible']=row['condition']=='refurbished' and (not captain or row['category'].strip().casefold() in APPLIANCES)
@@ -59,6 +60,20 @@ def quote(u,body,uid):
     return dict(items=rows,base_subtotal_paise=sum(x['base_unit_price_paise']*x['quantity'] for x in rows),shop_discount_paise=sum(x['shop_discount_paise'] for x in rows),subtotal_paise=subtotal,discount_paise=discount,eligible_base_paise=base,total_paise=subtotal-discount,coupon=offer,fulfillment='Shop confirmation required; delivery charges cannot be added without approval.',tax_note='Listed prices are inclusive. No unconfirmed 18% tax is added at checkout.')
 def install(core):
     r=APIRouter(prefix='/operations/retail',tags=['Retail checkout']);store=core.operations_store
+    @r.get('/orders/{oid}/reorder')
+    def reorder(oid:str,user=Depends(core.current_user)):
+        def read(u):
+            old=u.get('retail_orders',oid)
+            if not old or old['customer_id']!=user['id']:fail('NOT_FOUND','Order not found.',404)
+            result=[];unavailable=[]
+            for line in old['items']:
+                p=u.get('inventory',line['product_id'])
+                if not live_product(u,p,time.time()) or p['stock']<line['quantity']:
+                    unavailable.append(line['name']);continue
+                pricing=price(u,p)
+                result.append(dict(id=p['id'],title=p['name'],price_paise=pricing['price_paise'],quantity=line['quantity'],shop_id=p['shop_id'],stock=p['stock'],category=p.get('category',''),condition=p.get('condition','new')))
+            return {'items':result,'unavailable':unavailable,'note':'Current prices apply. Review the cart and confirm checkout; old coupons are not reused.'}
+        return store.run(read)
     @r.post('/quote')
     def get_quote(body:Basket,user=Depends(core.current_user)):return store.run(lambda u:quote(u,body,user['id']))
     @r.post('/orders',status_code=201)
@@ -154,3 +169,5 @@ def install(core):
             u.put('retail_orders',oid,row);mail_order(u,row,'received',suppliers=True);return row
         return store.run(save)
     core.app.include_router(r)
+    import retail_resolution
+    retail_resolution.install(core)
