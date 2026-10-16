@@ -114,6 +114,9 @@ def test_scrap_weight_quote_receipt_and_privacy(api):
     register(api,role='scrap_owner');body=dict(material='metal',description='Test household metal scrap',estimated_kg=10,location=PIN,address='Private collection address 123',city='Balasore',starts_at=time.time()+7200,phone='9876543210',request_id=str(uuid.uuid4()))
     body['photo_document_id']=pickup_photo('customer',body['request_id'])
     r=api.post(BASE+'/scrap',headers=auth('customer'),json=body);assert r.status_code==201,r.text;row=r.json()
+    assert api.post(BASE+'/scrap',headers=auth('customer'),json=body).json()['id']==row['id']
+    notes=main.operations_store.run(lambda u:u.find('notifications','user_id','worker'))
+    assert len([n for n in notes if n.get('business_id')==row['id']])==1
     candidate=latest(api,row,'worker','scrap');assert 'address' not in candidate and 'location' not in candidate
     row=act(api,row,'accept','worker','scrap');row=act(api,row,'depart','worker','scrap');row=act(api,row,'arrive','worker','scrap');evaluation=dict(expected_version=row['version'],command_id=str(uuid.uuid4()),lines=[dict(material='Steel',grade='Clean dry metal',gross_grams=10500,tare_grams=500,price_paise_per_kg=2500)],note='Inspected and scale zeroed before weighing',scale_reference='test-scale-123',weighing_document_id=doc('worker'))
     r=api.post(f'{BASE}/scrap/{row["id"]}/evaluation',headers=auth('worker'),json=evaluation);assert r.status_code==200,r.text;row=r.json();assert row['evaluation']['total_paise']==25000

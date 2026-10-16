@@ -162,7 +162,8 @@ def settlement(u, job_id):
     base=j.get('settlement_base_paise',j['base_price_paise'])
     promotion=j.get('promotion_discount_paise',0)
     vendor_discount=j.get('vendor_discount_paise',0)
-    if base>j['total_paise']+promotion+vendor_discount:fail('INVALID_ALLOCATION','Review the final service and parts allocation.')
+    community_reward=j.get('community_reward_paise',0)
+    if base>j['total_paise']+promotion+vendor_discount+community_reward:fail('INVALID_ALLOCATION','Review the final service and parts allocation.')
     gross = base * policy['worker_share_bps'] // 10000
     # Next-task obligations are pinned to the next *accepted* assignment, not settlement order.
     selected = [p for p in j['penalties'] if p.get('worker_id') == worker_id and (p.get('visit_id') == j['visit_id'] or any(v.get('visit_id')==p.get('visit_id') and v.get('worker_id')==worker_id for v in j.get('visit_history',[]))) and p.get('status')!='waived']
@@ -181,8 +182,8 @@ def settlement(u, job_id):
     company = base-gross-bonus-hire_bonus-promotion
     if company<0:fail('BONUS_UNFUNDED','Company margin cannot fund this hire bonus.')
     if vendor_discount>gross-deduction:fail('COUPON_ALLOCATION_REVIEW','Vendor-funded discount exceeds available vendor earnings; review before settlement.')
-    record = dict(id=job_id, worker_id=worker_id, gross_paise=gross, deduction_paise=deduction,vendor_discount_paise=vendor_discount,
-                  net_paise=gross-deduction-vendor_discount+travel+hire_bonus, hire_bonus_paise=hire_bonus, travel_reimbursement_paise=travel, gst_payable_paise=gst, bonus_reserve_paise=bonus, company_base_commission_paise=company, company_earnings_paise=company+deduction, promotion_discount_paise=promotion, parts_payable_paise=j['total_paise']+promotion+vendor_discount-base-travel-gst, policy=policy, obligations=[o['id'] for o in carry],
+    record = dict(id=job_id, worker_id=worker_id, gross_paise=gross, deduction_paise=deduction,vendor_discount_paise=vendor_discount,community_reward_paise=community_reward,
+                  net_paise=gross-deduction-vendor_discount+travel+hire_bonus, hire_bonus_paise=hire_bonus, travel_reimbursement_paise=travel, gst_payable_paise=gst, bonus_reserve_paise=bonus, company_base_commission_paise=company, company_earnings_paise=company+deduction, promotion_discount_paise=promotion, parts_payable_paise=j['total_paise']+promotion+vendor_discount+community_reward-base-travel-gst, policy=policy, obligations=[o['id'] for o in carry],
                   status='review_required', created_at=time.time(), currency='INR')
     u.put('settlements', job_id, record)
     audit(u, 'SettlementCalculated', 'settlement', job_id=job_id, gross_paise=gross, deduction_paise=deduction)
@@ -622,6 +623,8 @@ def install(core):
                    {'account':'locked_bonus_reserve','debit':0,'credit':s['bonus_reserve_paise']},
                    {'account':'parts_payable','debit':0,'credit':s['parts_payable_paise']},
                    {'account':'gst_payable','debit':0,'credit':s.get('gst_payable_paise',0)}]
+            if s.get('community_reward_paise'):
+                lines.append({'account':'community_reward_expense','debit':s['community_reward_paise'],'credit':0})
             if sum(l['debit']-l['credit'] for l in lines)!=0: fail('UNBALANCED_LEDGER','Accounting allocation needs review.')
             u.put('journals',job_id,dict(id=job_id,job_id=job_id,worker_id=s['worker_id'],lines=lines,posted_at=time.time(),status='posted'))
             u.put('bonus_reserves',job_id,dict(id=job_id,amount_paise=s['bonus_reserve_paise'],status='awaiting_payout',worker_id=s['worker_id'],source_job_id=job_id))

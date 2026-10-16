@@ -22,7 +22,7 @@ const date=(stamp:number)=>new Date(stamp*1000).toLocaleString('en-IN',{timeZone
 const stamp=(value:string)=>new Date(value).getTime()/1000;
 export function useBusinessRecords(kind:'rides'|'scrap'){
  const resource=useOperationResource<{rides?:any[];collections?:any[]}>('/local-business/'+kind,kind==='scrap'?8000:15000);
- return {rows:resource.data?.[kind==='rides'?'rides':'collections']||[],error:resource.error,refresh:()=>resource.refresh(),uid:resource.uid};
+ return {rows:resource.data?.[kind==='rides'?'rides':'collections']||[],error:resource.error,busy:resource.busy,loaded:resource.loaded,refresh:()=>resource.refresh(),uid:resource.uid};
 }
 function LocationButton({label,value,onClick}:{label:string;value:BusinessLocation|null;onClick:()=>void}){return <button type="button" className="business-location" onClick={onClick}><MapPin size={18}/><span><small>{label}</small><strong>{value?.address||value?.city||'Choose on the map'}</strong></span><ChevronRight size={15}/></button>;}
 function PrivatePhoto({path,label}:{path:string;label:string}){const [url,setUrl]=useState(''),action=useCustomContractAction();useEffect(()=>()=>{if(url)URL.revokeObjectURL(url);},[url]);return <><button type="button" disabled={action.busy} onClick={()=>void action.run(async()=>setUrl(await businessPrivatePhoto(path)))}>{label}</button><ContractError error={action.error}/>{url&&<Modal title={label} onClose={()=>setUrl('')}><img src={url} alt={label} style={{maxWidth:'100%',maxHeight:'65dvh',objectFit:'contain'}}/></Modal>}</>;}

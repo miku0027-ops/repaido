@@ -9,7 +9,7 @@ import './customer-notifications.css';
 
 export interface RawNotification {
   id:string;title:string;body:string;job_id?:string;destination?:string;campaign_id?:string;plan_id?:string;
-  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;kind?:string;business_id?:string;
+  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;kind?:string;business_id?:string;cleanup_id?:string;
   created_at?:number;read_at?:number|null;alert_kind?:string;event_type?:string;
 }
 type Filter='all'|'unread'|'bookings'|'offers'|'contracts'|'discoveries';
@@ -72,6 +72,10 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenSharedRid
       finally{openingDiscovery.current=false;}
       return;
     }
+    if(n.kind==='local_business'&&n.destination==='cleanup'&&(n.cleanup_id||n.business_id)){
+      await mark(n.id);if(!alive.current)return;onClose();const id=encodeURIComponent(n.cleanup_id||n.business_id||'');
+      window.location.assign(location.pathname.startsWith('/worker')?'/worker?mode=scrap_owner&cleanup-report='+id:'/?tab=market&sub=scrap&scrap-view=report&cleanup-report='+id);return;
+    }
     void mark(n.id);
     const queryId=n.query_id||n.queryId;
     if(n.destination==='custom_contract'&&queryId&&onOpenContract){onClose();onOpenContract(queryId,n.bid_id);}
@@ -82,8 +86,8 @@ function NotificationPanel({onClose,onOpenJob,onOpenCommunityJob,onOpenSharedRid
     else if(n.kind==='local_business'&&onNavigateTab){onClose();if(n.destination==='scrap')onNavigateTab('ShopSpares','scrap');else onNavigateTab('Bookings','rides');}
     else if(n.destination==='b2b_quotation'&&onNavigateTab){onClose();onNavigateTab('ShopSpares','b2b');}
   };
-  const label=(n:RawNotification)=>n.kind==='local_business'?(n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
-  const actionable=(n:RawNotification)=>!!((n.kind==='local_business'&&onNavigateTab)||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
+  const label=(n:RawNotification)=>n.kind==='local_business'?(n.destination==='cleanup'?'Cleanup update':n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
+  const actionable=(n:RawNotification)=>!!((n.kind==='local_business'&&(onNavigateTab||n.destination==='cleanup'))||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
   const actionLabel=(n:RawNotification)=>discoveryJob(n)?'View matching job':n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
   const date=(n:RawNotification)=>n.created_at?new Date(n.created_at*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Date unavailable';
   return <Modal title="Notifications" className="customer-notification-dialog" frameless onClose={onClose}>

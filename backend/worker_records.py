@@ -81,7 +81,7 @@ def task_record(u,j):
     return {**{k:j.get(k) for k in ('id','service_name','category','state','starts_at','created_at','accepted_at','reminder_at','reminder_ack_at','departed_at','started_at','completed_at','completion_notes','work_seconds','visit_id','payment_status','payout_status','base_price_paise','total_paise','terms','service_terms','settlement_policy')},
         'penalties':j.get('penalties',[]),'events':j.get('events',[]),'review':j.get('review'),
         'parts_assessments':[{k:o.get(k) for k in ('id','assessment_paise','assessment_status','assessment_reason','assessment_reviewed_at','picked_up_at','returned_at')} for oid in j.get('parts_order_ids',[]) if (o:=u.get('parts_orders',oid))],
-        'settlement':{k:settlement.get(k) for k in ('gross_paise','deduction_paise','net_paise','vendor_discount_paise','status','created_at','bonus_reserve_paise','travel_reimbursement_paise','hire_bonus_paise')} if settlement else None,
+        'settlement':{k:settlement.get(k) for k in ('gross_paise','deduction_paise','net_paise','vendor_discount_paise','community_reward_paise','status','created_at','bonus_reserve_paise','travel_reimbursement_paise','hire_bonus_paise')} if settlement else None,
         'payout':{k:payout.get(k) for k in ('status','amount_paise','checked_at','utr')} if payout else None,
         'schedule_history':j.get('schedule_history',[]),'points_awarded':j.get('points_awarded',10 if j.get('state')=='completed' else 0), 'generated_at':time.time()}
 

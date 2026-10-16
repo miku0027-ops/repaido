@@ -171,7 +171,8 @@ def event(u,row,kind,actor):
     audit(u,'LocalBusiness'+kind,actor,record_id=row['id'])
 def notice(u,uid,row,title):
     nid=digest('business:'+row['id']+':'+str(row['version'])+':'+uid+':'+title)
-    u.put('notifications',nid,{'id':nid,'user_id':uid,'title':title,'body':'Open your Repaido transport or scrap workspace for the current details.','kind':'local_business','destination':'mobility' if 'quotes' in row else 'scrap','business_id':row['id'],'created_at':time.time(),'read':False})
+    cleanup='public_place' in row
+    u.put('notifications',nid,{'id':nid,'user_id':uid,'title':title,'body':'Open your cleanup report for the latest review, points and reward status.' if cleanup else 'Open your Repaido transport or scrap workspace for the current details.','kind':'local_business','destination':'cleanup' if cleanup else 'mobility' if 'quotes' in row else 'scrap','business_id':row['id'],**({'cleanup_id':row['id']} if cleanup else {}),'created_at':time.time(),'read':False})
 def replay(u,uid,body):
     key=digest(uid+':business:'+body.command_id);old=u.get('business_commands',key)
     if old and old['fingerprint']!=fingerprint(body):fail('IDEMPOTENCY_CONFLICT','Use a new action key for a changed action.',409)
@@ -610,7 +611,12 @@ def install(core):
                 return view(row,user['id'])
             if row['version']!=body.expected_version or row['state'] not in ('accepted','evaluated'):fail('STALE','Refresh the collection before submitting its evaluation.',409)
             if row.get('experience_version',1)>=2 and row.get('travel_phase')!='arrived':fail('ARRIVAL_REQUIRED','Confirm arrival at the pickup before weighing the scrap.',409)
-            document(u,body.weighing_document_id,user['id'])
+            scale=document(u,body.weighing_document_id,user['id'])
+            if scale.get('kind')=='scrap_camera' or (u.get('captain_profiles',user['id']) or {}).get('photo_id')==body.weighing_document_id:
+                fail('SEPARATE_SCALE_PHOTO','Add a separate photo of this collection’s scale reading.',422)
+            if scale.get('weighing_collection_id') not in (None,identifier):
+                fail('PHOTO_USED','This scale photo belongs to another collection. Add a fresh photo.',409)
+            scale['weighing_collection_id']=identifier;u.put('business_documents',body.weighing_document_id,scale)
             lines=[]
             for line in body.lines:
                 net=line.gross_grams-line.tare_grams;lines.append({**line.model_dump(),'net_grams':net,'amount_paise':net*line.price_paise_per_kg//1000})
@@ -672,6 +678,8 @@ def install(core):
             elif a=='received':
                 if not customer or row['state']!='payment_reported':fail('INVALID_ACTION','Confirm only after you have received the buyer’s payment.',409)
                 row.update(state='completed',received_at=time.time(),payment_source='customer_confirmed_receipt',tracking_consent=False)
+                from captain_rewards import award_scrap
+                award_scrap(u,row,row['received_at'])
             elif a=='cancel':
                 if not (customer or owner) or row['state'] not in ('requested','accepted','evaluated'):fail('INVALID_ACTION','This collection can no longer be cancelled here.',409)
                 row.update(state='cancelled',cancel_reason=body.note,tracking_consent=False)

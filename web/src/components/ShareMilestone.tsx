@@ -4,7 +4,7 @@ import {communityRequest} from '../services/repaidiansService';
 import {auth} from '../firebase';
 import {Modal} from './ui';
 import './share-milestone.css';
-export type MilestoneSource='service'|'home'|'hire'|'cab'|'shared'|'contract'|'project';
+export type MilestoneSource='service'|'home'|'hire'|'cab'|'shared'|'contract'|'project'|'scrap'|'cleanup';
 type Preview={source:MilestoneSource;title:string;label:string;city:string;trade:string};
 export function ShareMilestone({source,id}:{source:MilestoneSource;id:string}){
  const [open,setOpen]=useState(false),[preview,setPreview]=useState<Preview|null>(null),[caption,setCaption]=useState(''),[visibility,setVisibility]=useState('public'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[posted,setPosted]=useState('');const request=useRef({body:'',key:crypto.randomUUID()}),account=auth.currentUser?.uid||'';

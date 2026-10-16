@@ -85,7 +85,7 @@ def scoped_job(u,jid,uid):
 
 def receipt(j):
     return dict(id=j['id'],service=j['service_name'],outcome=j.get('outcome','fulfilled' if j['state']=='completed' else j['state']),
-        currency='INR',vendor_discount_paise=j.get('vendor_discount_paise',0),coupon=j.get('coupon'),promotion_discount_paise=j.get('promotion_discount_paise',0),base_paise=j['base_price_paise'],approved_parts_paise=sum(s.get('quote',{}).get('amount_paise',0) for s in j['scopes']),
+        currency='INR',vendor_discount_paise=j.get('vendor_discount_paise',0),community_reward_paise=j.get('community_reward_paise',0),coupon=j.get('coupon'),promotion_discount_paise=j.get('promotion_discount_paise',0),base_paise=j['base_price_paise'],approved_parts_paise=sum(s.get('quote',{}).get('amount_paise',0) for s in j['scopes']),
         final_total_paise=j['total_paise'],payment_status=j['payment_status'],completed_at=j.get('completed_at'),
         scope_history=[{k:s[k] for k in ('version','price_paise','accepted_at') if k in s} for s in j['scopes']],
         document_type='payment_receipt' if j['payment_status']=='verified' else 'service_statement',
@@ -235,7 +235,7 @@ def install(core):
                     date=datetime.fromisoformat(body.starts_at)
                     if date.tzinfo is None or not time.time()+3600<date.timestamp()<time.time()+30*86400:raise ValueError()
                 except (TypeError,ValueError):fail('INVALID_SLOT','A future follow-up appointment is required.',422)
-            if body.action=='partial_close' and (j.get('promotion_discount_paise') or j.get('vendor_discount_paise')):
+            if body.action=='partial_close' and (j.get('promotion_discount_paise') or j.get('vendor_discount_paise') or j.get('community_reward_paise')):
                 fail('PROMOTIONAL_SETTLEMENT_REVIEW','A discounted partial completion needs finance review. Use the dispute/refund route; do not remove an agreed discount or change worker earnings silently.')
             if body.action=='partial_close' and (body.final_paise is None or body.final_paise>j['total_paise'] or body.final_base_paise is None or body.final_base_paise>min(body.final_paise,j['base_price_paise']) or body.final_paise-body.final_base_paise>j['total_paise']-j['base_price_paise']):fail('INVALID_AMOUNT','Final amount must not exceed the customer-approved scope.',422)
             if any(a.get('job_id')==job_id for a in u.all('payments')) or u.get('payouts',job_id):fail('FINANCE_REVIEW_REQUIRED','Reconcile the existing payment before changing the final invoice.')

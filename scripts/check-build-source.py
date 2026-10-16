@@ -7,7 +7,7 @@ REQUIRED = {
     'cloudbuild-rules.yaml', 'firebase.json', 'firebase.security-tests.json', '.firebaserc',
     'firestore.rules', 'backend/Dockerfile', 'backend/.dockerignore',
     'backend/requirements.txt', 'backend/requirements-dev.txt',
-    'backend/main.py', 'backend/cleanup.py', 'backend/captain_rewards.py',
+    'backend/main.py', 'backend/cleanup.py', 'backend/captain_rewards.py', 'backend/captain_policy.py',
     'backend/scrap_experience.py', 'backend/fonts/Poppins-SemiBold.ttf', 'backend/fonts/OFL.txt',
     'scripts/check-release-authorization.py', 'scripts/check-build-source.py',
     'scripts/generate-selective-builds.py', 'scripts/plan-release.py',

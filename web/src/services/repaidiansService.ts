@@ -16,7 +16,7 @@ export const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
 export const trades: {id: Trade; name: string}[] = [
   {id:'cleaning',name:'Cleaning'}, {id:'electrician',name:'Electrical'}, {id:'plumber',name:'Plumbing'},
   {id:'ac',name:'AC'}, {id:'pest',name:'Pest'}, {id:'carpenter',name:'Carpentry'},
-  {id:'civil',name:'Civil'}, {id:'spares',name:'Shop Spares'},
+  {id:'civil',name:'Civil'}, {id:'spares',name:'Shop Spares'}, {id:'recycling',name:'Scrap & recycling'},
 ];
 const UPDATE = 'repaidians:update';
 const IDENTITY_UPDATE = 'repaidians:identity-update';

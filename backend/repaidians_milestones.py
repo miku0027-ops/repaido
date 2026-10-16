@@ -5,10 +5,10 @@ from fastapi import Depends
 from operations import Input,fail
 
 class Reference(Input):
-    source:Literal['service','home','hire','cab','shared','contract','project']
+    source:Literal['service','home','hire','cab','shared','contract','project','scrap','cleanup']
     id:str=Field(pattern=r'^[A-Za-z0-9_-]{1,128}$')
 
-KINDS={'service':'jobs','home':'home_plans','hire':'hires','cab':'mobility_rides','shared':'shared_departures','contract':'contract_tenders','project':'contract_projects'}
+KINDS={'service':'jobs','home':'home_plans','hire':'hires','cab':'mobility_rides','shared':'shared_departures','contract':'contract_tenders','project':'contract_projects','scrap':'scrap_collections','cleanup':'cleanup_reports'}
 CITIES={'Balasore','Bhubaneswar','Cuttack'}
 
 def stored_reference(u,reference,uid):
@@ -43,7 +43,18 @@ def preview(u,reference,uid,strict=True):
     if source=='project':
         people.update(p.get('worker_id') for p in row.get('team',[]) if p.get('status')=='accepted')
     if uid not in people:return unavailable()
-    if state in ('draft','cancelled','declined','rejected','expired','closed','withdrawn','suspended'):return unavailable()
+    if state in ('draft','cancelled','declined','rejected','expired','closed','withdrawn','suspended','disputed','referred'):return unavailable()
+    if source in ('scrap','cleanup'):
+        city=row.get('city','');city=city if city in CITIES else ''
+        if source=='scrap':
+            if state!='completed' or row.get('payment_source')!='customer_confirmed_receipt':return unavailable()
+            points=row.get('customer_points',0) if uid==row['customer_id'] else row.get('collector_points',0)
+            return dict(source=source,title='Scrap given a second life',label='Collection completed',city=city,trade='recycling',points_earned=points)
+        if row.get('category')=='hazardous':return unavailable()
+        labels={'reported':'Cleanup reported · awaiting review','approved':'Cleanup approved','assigned':'Cleanup in progress','verification':'Cleanup awaiting verification','completed':'Cleanup verified'}
+        if state not in labels:return unavailable()
+        points=row.get('points',0) if uid==row['customer_id'] else row.get('collector_points',0)
+        return dict(source=source,title='A cleaner neighbourhood',label=labels[state],city=city,trade='recycling',points_earned=points if state=='completed' else 0)
     title={'service':'Service visit','home':'Home service','hire':'Professional hire','cab':'Self-drive rental' if row.get('mode')=='rental' else 'Cab journey','shared':'Shared ride','contract':'Contract','project':'Contract project'}[source]
     if source=='contract' and row.get('winning_project_id'):
         project=u.get('contract_projects',row['winning_project_id']) or {}

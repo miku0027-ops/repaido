@@ -15,15 +15,15 @@ RULES={
 }
 def key(uid,family):return hashlib.sha256((uid+'|'+family).encode()).hexdigest()
 def paid_before(u,uid):
-    if any(j.get('customer_id')==uid and j.get('state')=='completed' and j.get('payment_status')=='verified' for j in u.all('jobs')):return True
-    rental_ids={r['id'] for r in u.all('rentals') if r.get('customer_id')==uid}
-    if any(p.get('rental_id') in rental_ids and p.get('kind')=='usage' and p.get('status')=='captured' for p in u.all('rental_payments')):return True
-    if any(o.get('customer_id')==uid and o.get('state')=='paid' for o in u.all('retail_orders')):return True
-    if u.tx is not None:return any(s.to_dict().get('user_id')==uid and s.to_dict().get('payment_status')=='paid' for s in u.core.fs_collection('spare_orders').stream(transaction=u.tx))
+    if any(j.get('customer_id')==uid and j.get('state')=='completed' and j.get('payment_status')=='verified' for j in u.find('jobs','customer_id',uid)):return True
+    rental_ids={r['id'] for r in u.find('rentals','customer_id',uid) if r.get('customer_id')==uid}
+    if any(p.get('kind')=='usage' and p.get('status')=='captured' for identifier in rental_ids for p in u.find('rental_payments','rental_id',identifier)):return True
+    if any(o.get('customer_id')==uid and o.get('state')=='paid' for o in u.find('retail_orders','customer_id',uid)):return True
+    if u.tx is not None:return any(s.to_dict().get('user_id')==uid and s.to_dict().get('payment_status')=='paid' for s in u.core.fs_collection('spare_orders').where('user_id','==',uid).stream(transaction=u.tx))
     return bool(u.conn.execute("SELECT 1 FROM spare_orders WHERE user_id=? AND payment_status='paid' LIMIT 1",(uid,)).fetchone())
 def first_eligible(u,uid,scope):
-    if scope=='service':return not any(j.get('customer_id')==uid and j.get('state')!='cancelled' for j in u.all('jobs')) and not any(p.get('customer_id')==uid and p.get('state') not in ('cancelled','rejected') for p in u.all('home_plans')) and not any(h.get('customer_id')==uid and h.get('state') not in ('cancelled','expired','declined') for h in u.all('hires'))
-    return not any(r.get('customer_id')==uid and r.get('state') not in ('cancelled','rejected','expired') for r in u.all('rentals'))
+    if scope=='service':return not any(j.get('customer_id')==uid and j.get('state')!='cancelled' for j in u.find('jobs','customer_id',uid)) and not any(p.get('customer_id')==uid and p.get('state') not in ('cancelled','rejected') for p in u.find('home_plans','customer_id',uid)) and not any(h.get('customer_id')==uid and h.get('state') not in ('cancelled','expired','declined') for h in u.find('hires','customer_id',uid))
+    return not any(r.get('customer_id')==uid and r.get('state') not in ('cancelled','rejected','expired') for r in u.find('rentals','customer_id',uid))
 def wallet(u,uid,now=None):
     now=time.time() if now is None else now;paid=paid_before(u,uid);rows=[]
     for code,rule in RULES.items():
@@ -64,20 +64,28 @@ def reserve(u,uid,code,scope,base,reference,now=None):
     row=u.get('coupons',cid);row.update(status='reserved',code=offer['code'],reference=reference,reserved_at=now,snapshot=snapshot);u.put('coupons',cid,row)
     return snapshot
 
-def attach_job(j,snapshot):
-    j['coupon']=snapshot;j['vendor_discount_paise']=snapshot['discount_paise'];j['total_paise']-=snapshot['discount_paise']
+def attach_job(j,snapshot,already_discounted=False):
+    j['coupon']=snapshot
+    field='community_reward_paise' if snapshot.get('funded_by')=='repaido' else 'vendor_discount_paise'
+    j[field]=snapshot['discount_paise']
+    if not already_discounted:j['total_paise']-=snapshot['discount_paise']
     if j.get('scopes'):j['scopes'][0]['price_paise']=j['total_paise']
 
 class Check(Input):
     code:str=Field(min_length=2,max_length=30)
-    scope:Literal['service','rental','hire','home','refurbished','purchase','listing']
+    scope:Literal['service','visit','shared','cab','rental','hire','home','refurbished','purchase','listing']
 class Choose(Input):
     code:Literal['AGAIN10','RENEW10']
 def install(core):
     r=APIRouter(prefix='/operations/coupons',tags=['Customer coupons']);store=core.operations_store
     @r.get('/wallet')
     def get_wallet(user=Depends(core.current_user)):
-        return store.run(lambda u:{'coupons':wallet(u,user['id']),'server_time':time.time()})
+        def read(u):
+            from captain_rewards import totals,offers
+            now=time.time();uid=user['id'];summary=totals(u.find('cleanup_points','user_id',uid),now)
+            earned=[{**x,'id':key(uid,x['code']),'family':'captain'} for x in offers(u,uid,summary,now) if x['available']]
+            return {'coupons':wallet(u,uid,now)+earned,'server_time':now}
+        return store.run(read)
     @r.post('/check')
     def check(body:Check,user=Depends(core.current_user)):
         return store.run(lambda u:validate(u,user['id'],body.code,body.scope))

@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdtemp(resolve(tmpdir(),'repaido-cleanup-')),api='http://127.0.0.1:8060',origin='http://127.0.0.1:5187';
+const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdtemp(resolve(tmpdir(),'repaido-cleanup-')),api='http://127.0.0.1:8060',origin=process.env.CLEANUP_PREVIEW_ORIGIN||'http://127.0.0.1:5186';
 const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/cleanup_api.py',work+'/test.db','8060'],{stdio:['ignore','pipe','pipe']});
 let log='',browser,page;const errors=[],checks=[],pause=ms=>new Promise(r=>setTimeout(r,ms));for(const s of [server.stdout,server.stderr])s.on('data',chunk=>log+=chunk);
 async function variants(page,selector,name){
@@ -20,10 +20,10 @@ async function variants(page,selector,name){
  await page.setViewportSize({width:390,height:850});await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});await page.screenshot({path:work+'/'+name+'.png',fullPage:true});checks.push(name+' responsive / AAA text contrast');
 }
 try{
- for(let i=0;i<120;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}
+ let ready=false;const deadline=Date.now()+60000;while(Date.now()<deadline){try{if((await fetch(api+'/health',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}assert(ready,'The isolated cleanup API did not become ready: '+log.slice(-1600));
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  const context=await browser.newContext({viewport:{width:390,height:850},reducedMotion:'reduce',permissions:['geolocation'],geolocation:{latitude:21.4934,longitude:86.9135,accuracy:5}});
- await context.route('**/api/**',async route=>{const url=new URL(route.request().url()),headers={...route.request().headers()};if(headers.authorization==='Bearer admin')headers['x-admin-key']='test-operator-key';const response=await route.fetch({url:api+url.pathname+url.search,headers});await route.fulfill({response});});
+ await context.route('**/api/**',async route=>{const url=new URL(route.request().url()),headers={...route.request().headers()};if(headers.authorization==='Bearer admin')headers['x-admin-key']='test-operator-key';try{const response=await route.fetch({url:api+url.pathname+url.search,headers});await route.fulfill({response});}catch{await route.abort().catch(()=>{});}});
  // Map images are fixture-only; coordinates and confirmation use the production picker.
  await context.route('https://*.tile.openstreetmap.org/**',route=>route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jT1kAAAAASUVORK5CYII=','base64')}));
  page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
@@ -46,7 +46,8 @@ try{
  await variants(page,'.captain-club','captain-impact');
  await page.getByRole('button',{name:'Profile photo & leaderboard privacy',exact:true}).click();
  await page.getByRole('textbox',{name:'Leaderboard display name'}).fill('Balasore Captain');
- await page.getByRole('dialog').locator('input[type=file]').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer:image});
+ const portrait=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=160;canvas.height=160;const ctx=canvas.getContext('2d');ctx.fillStyle='#174f3b';ctx.fillRect(0,0,160,160);ctx.fillStyle='#ffffff';ctx.font='80px sans-serif';ctx.fillText('C',48,111);return canvas.toDataURL('image/png').split(',')[1];});
+ await page.getByRole('dialog').locator('input[type=file]').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer:Buffer.from(portrait,'base64')});
  await page.getByRole('checkbox',{name:'Show my name, photo and contribution on my city’s leaderboard.'}).check();
  await page.getByRole('button',{name:'Save profile',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
  await page.getByRole('button',{name:'Local leaders',exact:true}).click();await page.getByText('Balasore Captain · You',{exact:true}).waitFor();
@@ -55,7 +56,7 @@ try{
  await fetch(api+'/fixture/gold',{method:'POST'});await page.reload();await page.getByRole('button',{name:'My rewards',exact:true}).click();await page.getByText('Your impact shines.',{exact:true}).waitFor();
  await variants(page,'.captain-club','captain-gold');
  await page.getByRole('button',{name:'Rewards',exact:true}).click();await page.getByRole('button',{name:'Copy CAPTAINREFURB25',exact:true}).waitFor();
- assert.equal(await page.getByText('Terms being finalised',{exact:true}).count(),4);
+ assert.equal(await page.locator('.captain-offer[data-available=false]').count(),5);
  await variants(page,'.captain-club','captain-offers');
  await page.getByRole('button',{name:'Profile photo & leaderboard privacy',exact:true}).click();
  await variants(page,'.captain-settings','captain-settings');

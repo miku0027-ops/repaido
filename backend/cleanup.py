@@ -138,7 +138,7 @@ def install(core):
                     require(state=='verification' and bool(row.get('after_document_ids')))
                     row.update(state='completed',completed_at=time.time(),review_note=body.note,points=POINTS)
                     from captain_rewards import award
-                    row['points']=award(u,row,uid,time.time())['points']
+                    points=award(u,row,uid,time.time());row['points']=points['points'];row['points_note']=points.get('reason','')
                 elif a=='record_cash':
                     require(state=='completed' and row['payment_state']=='approved' and row['reward_paise']>0)
                     require(len(body.reference.strip())>=8,'Record the actual cash disbursement receipt reference.')

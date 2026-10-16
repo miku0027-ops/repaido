@@ -61,3 +61,33 @@ def test_shared_passenger_reference_is_private_and_rechecked_without_scanning(ap
     assert api.get('/repaidians/feed?kind=post').json()['items'][0]['milestoneCard']['label']=='Booking confirmed'
     api.core.operations_store.run(lambda u:u.put('shared_passengers','passenger-proof',{**u.get('shared_passengers','passenger-proof'),'state':'cancelled'}))
     assert api.get('/repaidians/feed?kind=post').json()['items'][0]['milestoneUnavailable']
+
+
+def test_recycling_updates_are_opt_in_verified_and_hide_private_evidence(api):
+    seed(api,'scrap_collections','scrap-proof',owner_id='alice',state='payment_reported',payment_source='buyer_reported',photo_document_id='SECRET CAMERA',payment_reference='SECRET RECEIPT',customer_points=10,collector_points=10)
+    body=draft('scrap','scrap-proof',trade='recycling')
+    assert api.post('/repaidians/milestones/preview',headers=auth('customer'),json=body['milestone']).status_code==404
+    api.core.operations_store.run(lambda u:u.put('scrap_collections','scrap-proof',{**u.get('scrap_collections','scrap-proof'),'state':'completed','payment_source':'customer_confirmed_receipt'}))
+    assert api.post('/repaidians/publications',headers=auth('bob'),json=body).status_code==404
+    posted=api.post('/repaidians/publications',headers=auth('customer'),json=body)
+    assert posted.status_code==201,posted.text
+    card=posted.json()['item']['milestoneCard']
+    assert card['label']=='Collection completed' and card['points_earned']==10 and card['trade']=='recycling'
+    feed=api.get('/repaidians/feed?kind=post&trade=recycling').json()
+    assert len(feed['items'])==1 and feed['items'][0]['id']==posted.json()['item']['id']
+    assert 'SECRET' not in str(feed) and 'scrap-proof' not in str(feed)
+    assert not api.core.operations_store.run(lambda u:u.all('cleanup_points'))  # Sharing creates no award.
+
+
+def test_cleanup_posts_distinguish_reports_from_verified_work_and_hide_hazards(api):
+    seed(api,'cleanup_reports','cleanup-proof',owner_id='alice',state='reported',category='dry_recyclables',document_ids=['SECRET PHOTO'],points=0)
+    body=draft('cleanup','cleanup-proof',trade='recycling')
+    published=api.post('/repaidians/publications',headers=auth('customer'),json=body)
+    assert published.status_code==201,published.text
+    assert published.json()['item']['milestoneCard']['label']=='Cleanup reported · awaiting review'
+    api.core.operations_store.run(lambda u:u.put('cleanup_reports','cleanup-proof',{**u.get('cleanup_reports','cleanup-proof'),'state':'completed','points':10}))
+    card=api.get('/repaidians/feed?kind=post&trade=recycling').json()['items'][0]['milestoneCard']
+    assert card['label']=='Cleanup verified' and card['points_earned']==10
+    api.core.operations_store.run(lambda u:u.put('cleanup_reports','cleanup-proof',{**u.get('cleanup_reports','cleanup-proof'),'category':'hazardous'}))
+    assert api.post('/repaidians/milestones/preview',headers=auth('customer'),json=body['milestone']).status_code==404
+    assert api.get('/repaidians/feed?kind=post&trade=recycling').json()['items'][0]['milestoneUnavailable']

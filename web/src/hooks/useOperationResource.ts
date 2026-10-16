@@ -11,7 +11,7 @@ export function useOperationResource<T>(path:string,interval=15000){
  const epoch=useRef(0),running=useRef<Promise<void>|null>(null),queued=useRef(false);
  const [state,setState]=useState(()=>{
   const data=operationSnapshot<T>(path);
-  return {uid,path,data,error:'',busy:!!uid&&!data,loaded:!!data};
+  return {uid,path,data,error:'',errorStatus:0,busy:!!uid&&!data,loaded:!!data};
  });
  const refresh=useCallback((force=true,foreground=true):Promise<void>=>{
   if(!uid||auth.currentUser?.uid!==uid)return Promise.resolve();
@@ -19,9 +19,9 @@ export function useOperationResource<T>(path:string,interval=15000){
   const revision=epoch.current;
   if(foreground)setState(prior=>({...prior,busy:true,error:''}));
   const request=operation<T>(path,{}, {background:true,force}).then(data=>{
-   if(revision===epoch.current&&auth.currentUser?.uid===uid&&current.current.path===path)setState({uid,path,data,error:'',busy:false,loaded:true});
+   if(revision===epoch.current&&auth.currentUser?.uid===uid&&current.current.path===path)setState({uid,path,data,error:'',errorStatus:0,busy:false,loaded:true});
   }).catch((error:Error&{status?:number})=>{
-   if(revision===epoch.current&&auth.currentUser?.uid===uid&&current.current.path===path)setState(prior=>({...prior,data:[401,402,403,404].includes(error.status||0)?null:prior.data,error:error.message,busy:false}));
+   if(revision===epoch.current&&auth.currentUser?.uid===uid&&current.current.path===path)setState(prior=>({...prior,data:[401,402,403,404].includes(error.status||0)?null:prior.data,error:error.message,errorStatus:error.status||0,busy:false}));
   }).finally(()=>{if(running.current===request){running.current=null;if(queued.current){queued.current=false;void refresh(false,false);}}});
   running.current=request;return request;
  },[uid,path]);
@@ -29,7 +29,7 @@ export function useOperationResource<T>(path:string,interval=15000){
  useEffect(()=>{
   epoch.current++;running.current=null;queued.current=false;
   const data=uid?operationSnapshot<T>(path):null;
-  setState({uid,path,data,error:'',busy:!!uid&&!data,loaded:!!data});
+  setState({uid,path,data,error:'',errorStatus:0,busy:!!uid&&!data,loaded:!!data});
   void refresh(false,false);
   const update=()=>{if(!document.hidden&&navigator.onLine)void refresh(false,false);};
   const timer=setInterval(update,interval);
@@ -38,5 +38,5 @@ export function useOperationResource<T>(path:string,interval=15000){
   return()=>{epoch.current++;running.current=null;queued.current=false;clearInterval(timer);window.removeEventListener('repaido:operations-updated',changed);window.removeEventListener('focus',update);window.removeEventListener('online',update);document.removeEventListener('visibilitychange',update);};
  },[uid,path,interval,refresh]);
  const same=state.uid===uid&&state.path===path&&auth.currentUser?.uid===uid;
- return {...(same?state:{uid,path,data:null,error:'',busy:!!uid,loaded:false}),uid,refresh};
+ return {...(same?state:{uid,path,data:null,error:'',errorStatus:0,busy:!!uid,loaded:false}),uid,refresh};
 }

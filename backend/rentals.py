@@ -86,11 +86,19 @@ def next_weekly(now):
 def payments_ready():
     return enabled('REPAIDO_PAYMENTS_ENABLED') and configured('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET')
 
+def usage_discount(r, units):
+    coupon=r.get('coupon') or {}
+    discount=(units*r['rate_paise']*10000//(10000+r.get('gst_bps',0)))*coupon.get('bps',0)//10000
+    if coupon.get('cap_paise') is not None:discount=min(discount,coupon['cap_paise'])
+    if coupon.get('funded_by')=='repaido':discount=min(discount,coupon['discount_paise'])
+    return discount
+
+
 def usage(r, now):
     if not r.get('started_at'): return 0, 0
     seconds = max(0,(r.get('returned_at') or now)-r['started_at'])
     units = max(1,math.ceil(seconds/PERIODS[r['period']]))
-    discount=(units*r['rate_paise']*10000//(10000+r.get('gst_bps',0)))*r.get('coupon',{}).get('bps',0)//10000
+    discount=usage_discount(r,units)
     return units, units*r['rate_paise']+r['delivery_fee_paise']-discount
 
 def public_listing(u,p):
@@ -140,10 +148,13 @@ def apply_payment(u,payment):
     elif payment.get('status')=='captured' and payment.get('captured') is True and p['status'] not in ('refunded','partially_refunded'):
         p.update(status='captured',payment_id=payment['id'])
         account='rental_deposits' if p['kind']=='deposit' else 'parts_payable'
-        post(u,'rental-capture-'+p['id'],[{'account':'payment_clearing','debit':p['amount_paise'],'credit':0},{'account':account,'debit':0,'credit':p['amount_paise']}],rental_id=r['id'])
+        subsidy=usage_discount(r,r.get('billed_periods',0)) if p['kind']=='usage' and (r.get('coupon') or {}).get('funded_by')=='repaido' else 0
+        lines=[{'account':'payment_clearing','debit':p['amount_paise'],'credit':0},{'account':account,'debit':0,'credit':p['amount_paise']+subsidy}]
+        if subsidy:lines.append({'account':'community_reward_expense','debit':subsidy,'credit':0})
+        post(u,'rental-capture-'+p['id'],lines,rental_id=r['id'])
         if p['kind']!='deposit':
             oid='rental-'+p['id']
-            u.put('shop_payables',oid,u.get('shop_payables',oid) or dict(id=oid,rental_id=r['id'],payment_kind=p['kind'],job_id='',shop_id=r['shop_id'],amount_paise=p['amount_paise'],status='payment_confirmed',weekly_due_at=next_weekly(time.time())))
+            u.put('shop_payables',oid,u.get('shop_payables',oid) or dict(id=oid,rental_id=r['id'],payment_kind=p['kind'],job_id='',shop_id=r['shop_id'],amount_paise=p['amount_paise']+subsidy,status='payment_confirmed',weekly_due_at=next_weekly(time.time())))
     else:p['last_attempt_status']=payment.get('status','unknown')
     p['checked_at']=time.time();u.put('rental_payments',p['id'],p);u.put('rentals',r['id'],r)
     return p

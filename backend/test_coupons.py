@@ -82,6 +82,7 @@ def test_hire_coupon_excludes_travel_and_gst_and_survives_confirm_retry(api,monk
     r=decide(api,h,'accept',position={**PIN,'accuracy':5,'captured_at':time.time()});assert r.status_code==200,r.text;h=r.json()
     r=decide(api,h,'confirm','customer');assert r.status_code==200,r.text
     jid=r.json()['job_id'];j=api.get('/operations/jobs/'+jid,headers=auth('customer')).json()
-    assert j['total_paise']==h['quote']['total_paise']-h['quote']['base_paise']*2000//10000
+    assert h['quote']['coupon']['discount_paise']==h['quote']['base_paise']*2000//10000
+    assert j['total_paise']==h['quote']['total_paise']
     assert j['hire_gst_paise']==h['quote']['gst_paise'] and j['hire_travel_paise']==h['quote']['travel_paise']
     assert decide(api,h,'confirm','customer').json()['job_id']==jid

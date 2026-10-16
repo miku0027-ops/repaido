@@ -14,7 +14,7 @@ export function operationSnapshot<T>(path:string):T|null {const scope=syncAccoun
 export function invalidateOperationReads(){operationCache.invalidate();window.dispatchEvent(new Event('repaido:operations-updated'));}
 
 export interface Job {
-  coupon?:{code:string;bps:number;discount_paise:number};vendor_discount_paise?:number;
+  coupon?:{code:string;bps:number;discount_paise:number};vendor_discount_paise?:number;community_reward_paise?:number;
   service_id:string;
   home_plan_id?:string;home_brief_rows?:{label:string;value:string}[];home_log_required?:boolean;home_checklist?:string[];home_arrival_log?:{hygiene:boolean;checked:number[];note:string;at:number};home_daily_log?:{hygiene:boolean;checked:number[];note:string;at:number};
   promotion_discount_paise?:number; promotion?:{id:string;title:string;discount_paise:number;terms:string};

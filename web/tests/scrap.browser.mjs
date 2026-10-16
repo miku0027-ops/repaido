@@ -44,7 +44,7 @@ async function layout(page){
 try{
  server=spawn(python,['-c',serverCode],{cwd:backend,env:{...process.env,REPAIDO_STORAGE:'sqlite',REPAIDO_DB:db,REPAIDO_KYC_BUCKET:'fixture-private',SCRAP_FIXTURE_ROOT:temporary,RAZORPAY_KEY_ID:'',RAZORPAY_KEY_SECRET:''},stdio:['ignore','pipe','pipe']});
  for(const stream of [server.stdout,server.stderr])stream.on('data',value=>log+=value.toString());
- for(let count=0;count<100;count++){if(server.exitCode!==null)throw Error(log);try{if((await fetch(apiOrigin+'/health')).ok)break;}catch{}await pause(100);}
+ let ready=false;const deadline=Date.now()+60000;while(Date.now()<deadline){if(server.exitCode!==null)throw Error(log);try{if((await fetch(apiOrigin+'/health',{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}await pause(100);}assert(ready,'The isolated scrap API did not become ready: '+log.slice(-1600));
  const customer=await register('Pickup Customer'),collector=await register('Scrap Collector');
  record('business_partners',collector.user.id,{id:collector.user.id,user_id:collector.user.id,role:'scrap_owner',name:'Fixture collector',city:'Balasore',address:'Fixture collector base 123',location:{lat:21.4934,lng:86.9135},status:'approved',valid_until:Date.now()/1000+365*86400,version:2});
  const fixture={customer:{id:customer.user.id,token:customer.token},collector:{id:collector.user.id,token:collector.token}};
@@ -80,7 +80,8 @@ try{
  const payment=page.getByRole('dialog',{name:'Record customer payment',exact:true});await payment.getByLabel('Payment reference',{exact:true}).fill('cash-fixture-123');await payment.getByLabel('Payment notes',{exact:true}).fill('Cash paid in full at the pickup.');await payment.getByRole('button',{name:'Record payment',exact:true}).click();await payment.waitFor({state:'hidden'});
  await page.getByRole('button',{name:'Back to collections',exact:true}).click();await page.getByRole('button',{name:'Switch to customer',exact:true}).click();await openTask(page);await page.getByRole('button',{name:'I received ₹250.00',exact:true}).click();await page.getByText('Payment receipt confirmed. Your collection is complete.',{exact:true}).waitFor();
  const completed=(await api('/operations/local-business/scrap',customer)).collections[0];assert.equal(completed.state,'completed');assert.equal((await api('/operations/local-business/scrap/'+completed.id+'/tracking',customer)).position,null);
- await page.getByRole('button',{name:'History',exact:true}).click();await openTask(page);
+ assert.equal(completed.customer_points,10);assert.equal(completed.collector_points,10);await page.getByRole('region',{name:'Collection rewards',exact:true}).getByText('+10 verified points',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Back to collections',exact:true}).click();await page.getByRole('button',{name:'History',exact:true}).click();await openTask(page);
  await mkdir(resolve(web,'test-results'),{recursive:true});
  for(const width of [320,476,1280]){await page.setViewportSize({width,height:850});await layout(page);await page.screenshot({path:resolve(web,'test-results/scrap-complete-'+width+'.png')});}
  await page.addScriptTag({path:require.resolve('axe-core')});

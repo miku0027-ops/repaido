@@ -22,8 +22,8 @@ from typing import Annotated
 
 from operations import Input, fail
 
-TRADES = ('cleaning', 'electrician', 'plumber', 'ac', 'pest', 'carpenter', 'civil', 'spares')
-Trade = Literal['cleaning', 'electrician', 'plumber', 'ac', 'pest', 'carpenter', 'civil', 'spares']
+TRADES = ('cleaning', 'electrician', 'plumber', 'ac', 'pest', 'carpenter', 'civil', 'spares', 'recycling')
+Trade = Literal['cleaning', 'electrician', 'plumber', 'ac', 'pest', 'carpenter', 'civil', 'spares', 'recycling']
 Kind = Literal['post', 'reel', 'story', 'tender']
 WorkStatus = Literal['available', 'open_to_work', 'hiring', 'not_looking']
 ProfessionalType = Literal['agent', 'specialist', 'contractor', 'shop_owner', 'member']

@@ -17,16 +17,17 @@ export type BusinessLocation={lat:number;lng:number;address:string;city:string};
 
 // A lost response is checked against the server command receipt before the
 // caller sees success. An unavailable check preserves the original error/key.
-export async function submitWeighingQuote(id:string,body:{command_id:string;[key:string]:unknown}){
+export async function submitWeighingQuote(id:string,body:{command_id:string;[key:string]:unknown},options:{feedback?:boolean}={}){
  const {withActionFeedback}=await import('./actionFeedback');
- return withActionFeedback('/local-business/scrap/'+id+'/evaluation',{method:'POST',body:JSON.stringify(body)},async()=>{
+ const submit=async()=>{
   try{return await business('/scrap/'+id+'/evaluation',body,'POST',{feedback:false});}
   catch(error){
    if((error as {status?:number}).status&&(error as {status:number}).status<500)throw error;
    try{const saved=await business('/scrap/'+id,undefined,'GET',{feedback:false,force:true});if(saved.evaluation_command_id===body.command_id)return saved;}catch{/* Uncertainty must not become success. */}
    throw error;
   }
- });
+ };
+ return options.feedback===false?submit():withActionFeedback('/local-business/scrap/'+id+'/evaluation',{method:'POST',body:JSON.stringify(body)},submit);
 }
 
 export async function submitScrapRequest(body:{photo_document_id:string;[key:string]:unknown}){
