@@ -1,0 +1,198 @@
+{
+  "steps": [
+    {
+      "id": "verify-reviewed-source",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "-c",
+        "import hashlib, json\nfrom pathlib import Path\nroot = Path('/workspace')\nif '${_RELEASE_APPROVED}' != 'true' or '$COMMIT_SHA' != '36bb5d925305ab4046e08d4dae7372058b1c0a41' or '$PROJECT_ID' != 'repaido':\n    raise SystemExit('Exact approved release/project required before any build work.')\nmanifest_path = root / 'release_support/reviewed-source.json'\nraw = manifest_path.read_bytes()\nif hashlib.sha256(raw).hexdigest() != '00aa3ae5108dd029db47a5a7721e0487311cd562a02edaa3bc5c56e8fe5cc267':\n    raise SystemExit('Reviewed source manifest hash mismatch.')\nmanifest = json.loads(raw)\nif manifest['commit'] != '36bb5d925305ab4046e08d4dae7372058b1c0a41' or manifest['deployed_baseline'] != '0bc8da6a22869d30a6cabd91782d3ac15d04570c':\n    raise SystemExit('Reviewed source identity mismatch.')\nfor p in root.rglob('*'):\n    if p.is_symlink():\n        raise SystemExit('Linked files are forbidden in reviewed build source.')\nactual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}\nif actual != set(manifest['files']) | {'release_support/reviewed-source.json'}:\n    raise SystemExit('Uploaded source inventory differs from reviewed snapshot.')\nfor name, expected in manifest['files'].items():\n    if hashlib.sha256((root / name).read_bytes()).hexdigest() != expected:\n        raise SystemExit('Reviewed source digest mismatch: ' + name)\nprint('Exact reviewed source verified:', '36bb5d925305ab4046e08d4dae7372058b1c0a41', 'baseline', '0bc8da6a22869d30a6cabd91782d3ac15d04570c')\n"
+      ]
+    },
+    {
+      "id": "require-explicit-release",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "scripts/check-release-authorization.py",
+        "--approved=${_RELEASE_APPROVED}",
+        "--commit=$COMMIT_SHA"
+      ]
+    },
+    {
+      "id": "check-build-history-access",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "scripts/deploy-work-services.py",
+        "check-build-access",
+        "--project=$PROJECT_ID",
+        "--build=$BUILD_ID",
+        "--build-region=$LOCATION"
+      ]
+    },
+    {
+      "id": "publish-reviewed-indexes",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "release_support/index_gate.py",
+        "--approved=${_RELEASE_APPROVED}",
+        "--commit=$COMMIT_SHA",
+        "--expected-commit=36bb5d925305ab4046e08d4dae7372058b1c0a41",
+        "--baseline=0bc8da6a22869d30a6cabd91782d3ac15d04570c",
+        "--project=$PROJECT_ID",
+        "--database=(default)",
+        "--indexes-sha256=4cbd42ac2021147d5bf4393c117c33e3e4951f7b0379a09cb8b0e0f13ef70641",
+        "--baseline-sha256=2c320c05cde27bcf36e1d3379ca3171754c84d1a466d65094a13d8baa0aae974",
+        "--receipt=/workspace/publish-reviewed-indexes-receipt.json"
+      ],
+      "timeout": "1500s"
+    },
+    {
+      "id": "backend-tests",
+      "name": "python:3.12-slim",
+      "dir": "backend",
+      "entrypoint": "bash",
+      "args": [
+        "-ceu",
+        "# The camera-metadata integration test invokes the browser's JS encoder.\napt-get update\napt-get install --yes --no-install-recommends nodejs\nnode --version\npip install --no-cache-dir -r requirements-dev.txt\nREPAIDO_STORAGE=sqlite python -m pytest -q\n"
+      ]
+    },
+    {
+      "id": "build-api",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "--tag",
+        "${_IMAGE}:$BUILD_ID",
+        "backend"
+      ]
+    },
+    {
+      "id": "push-api",
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "push",
+        "${_IMAGE}:$BUILD_ID"
+      ]
+    },
+    {
+      "id": "verify-indexes-before-deploy-candidate",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "release_support/index_gate.py",
+        "--approved=${_RELEASE_APPROVED}",
+        "--commit=$COMMIT_SHA",
+        "--expected-commit=36bb5d925305ab4046e08d4dae7372058b1c0a41",
+        "--baseline=0bc8da6a22869d30a6cabd91782d3ac15d04570c",
+        "--project=$PROJECT_ID",
+        "--database=(default)",
+        "--indexes-sha256=4cbd42ac2021147d5bf4393c117c33e3e4951f7b0379a09cb8b0e0f13ef70641",
+        "--baseline-sha256=2c320c05cde27bcf36e1d3379ca3171754c84d1a466d65094a13d8baa0aae974",
+        "--receipt=/workspace/verify-indexes-before-deploy-candidate-receipt.json",
+        "--check-only",
+        "--timeout=120"
+      ],
+      "timeout": "180s"
+    },
+    {
+      "id": "deploy-candidate",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "bash",
+      "args": [
+        "-ceu",
+        "# Require the existing service so missing production settings cannot\n# silently create a new service with SQLite on ephemeral storage.\ngcloud run services describe '${_SERVICE}' --project='$PROJECT_ID' --region='${_REGION}' --format='value(metadata.name)'\npython3 - <<'PY'\nimport json, subprocess, time, urllib.request\ntag = 'b-' + '$BUILD_ID'.replace('-', '')\nassert len(tag) + len('${_SERVICE}') <= 46, 'Cloud Run traffic tag exceeds the service limit'\nwith open('/workspace/candidate.json', 'w') as output:\n    subprocess.run(['gcloud', 'run', 'deploy', '${_SERVICE}',\n                    '--project=$PROJECT_ID', '--region=${_REGION}',\n                    '--image=${_IMAGE}:$BUILD_ID',\n                    '--update-env-vars=REPAIDO_BUILD_ID=$BUILD_ID,REPAIDO_STORAGE=firestore',\n                    '--update-secrets=GOOGLE_ROUTES_API_KEY=google-routes-api-key:latest',\n                    '--no-traffic', '--tag=' + tag, '--quiet', '--format=json'],\n                   stdout=output, check=True)\nservice = json.load(open('/workspace/candidate.json'))\ntagged = next(t for t in service['status']['traffic'] if t.get('tag') == tag)\nurl = tagged['url']\ntoken = subprocess.check_output(['gcloud', 'auth', 'print-identity-token', '--audiences=' + service['status']['url']], text=True).strip()\nfor attempt in range(12):\n    try:\n        request = urllib.request.Request(url + '/health', headers={'Authorization': 'Bearer ' + token})\n        with urllib.request.urlopen(request, timeout=20) as response:\n            health = json.load(response)\n            assert health['status'] == 'ok' and health['build_id'] == '$BUILD_ID'\n        routing = urllib.request.Request(url + '/operations/local-business/policy',\n            headers={'X-Serverless-Authorization': 'Bearer ' + token})\n        with urllib.request.urlopen(routing, timeout=20) as response:\n            assert json.load(response)['routing_ready'], 'The API must load its Google Routes secret before promotion'\n        # Use Cloud Run's IAM header so the public community request\n        # remains a guest request, not a Firebase sign-in attempt.\n        community = urllib.request.Request(url + '/repaidians/state',\n            headers={'X-Serverless-Authorization': 'Bearer ' + token})\n        with urllib.request.urlopen(community, timeout=30) as response:\n            state = json.load(response)\n            assert state['storage'] == 'firestore', 'Community storage must be durable Firestore'\n            assert state['mediaReady'], 'Community media needs a durable private bucket'\n            assert state['authenticated'] is False and state['remainingMs'] > 0\n        print('Cloud Run candidate health, Firestore and media configuration passed; production traffic unchanged.')\n        with open('/workspace/candidate.json', 'w') as output:\n            json.dump({'verifiedRevision': tagged['revisionName']}, output)\n        break\n    except Exception:\n        if attempt == 11:\n            raise\n        time.sleep(5)\nPY\n"
+      ]
+    },
+    {
+      "id": "await-release-turn",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "scripts/deploy-work-services.py",
+        "await-release",
+        "--project=$PROJECT_ID",
+        "--build=$BUILD_ID",
+        "--build-region=$LOCATION"
+      ]
+    },
+    {
+      "id": "verify-indexes-before-deploy-work-services",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "release_support/index_gate.py",
+        "--approved=${_RELEASE_APPROVED}",
+        "--commit=$COMMIT_SHA",
+        "--expected-commit=36bb5d925305ab4046e08d4dae7372058b1c0a41",
+        "--baseline=0bc8da6a22869d30a6cabd91782d3ac15d04570c",
+        "--project=$PROJECT_ID",
+        "--database=(default)",
+        "--indexes-sha256=4cbd42ac2021147d5bf4393c117c33e3e4951f7b0379a09cb8b0e0f13ef70641",
+        "--baseline-sha256=2c320c05cde27bcf36e1d3379ca3171754c84d1a466d65094a13d8baa0aae974",
+        "--receipt=/workspace/verify-indexes-before-deploy-work-services-receipt.json",
+        "--check-only",
+        "--timeout=120"
+      ],
+      "timeout": "180s"
+    },
+    {
+      "id": "deploy-work-services",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "scripts/deploy-work-services.py",
+        "deploy",
+        "--project=$PROJECT_ID",
+        "--region=${_REGION}",
+        "--parent=${_SERVICE}",
+        "--image=${_IMAGE}:$BUILD_ID",
+        "--build=$BUILD_ID"
+      ]
+    },
+    {
+      "id": "promote-backend",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "-c",
+        "import json, subprocess\nservice = json.load(open('/workspace/candidate.json'))\nrevision = service['verifiedRevision']\nsubprocess.run(['gcloud', 'run', 'services', 'update-traffic', '${_SERVICE}',\n                '--project=$PROJECT_ID', '--region=${_REGION}',\n                '--to-revisions=' + revision + '=100', '--quiet'], check=True)\n"
+      ]
+    },
+    {
+      "id": "promote-work-services",
+      "name": "gcr.io/google.com/cloudsdktool/cloud-sdk:slim",
+      "entrypoint": "python3",
+      "args": [
+        "scripts/deploy-work-services.py",
+        "promote",
+        "--project=$PROJECT_ID",
+        "--region=${_REGION}"
+      ]
+    },
+    {
+      "id": "verify-selective-release",
+      "name": "python:3.12-slim",
+      "entrypoint": "python3",
+      "args": [
+        "scripts/verify-release.py",
+        "--target=api",
+        "--build=$BUILD_ID",
+        "--commit=$COMMIT_SHA"
+      ]
+    }
+  ],
+  "substitutions": {
+    "_RELEASE_APPROVED": "false",
+    "_REGION": "us-central1",
+    "_SERVICE": "repaido-api",
+    "_IMAGE": "us-central1-docker.pkg.dev/repaido/cloud-run-source-deploy/repaido-api"
+  },
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY"
+  },
+  "timeout": "3600s",
+  "serviceAccount": "projects/repaido/serviceAccounts/firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com"
+}
