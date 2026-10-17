@@ -60,7 +60,11 @@ class TransportBoundaryMiddleware:
                 headers.setdefault('Cache-Control', 'private, no-store')
                 headers['X-Content-Type-Options'] = 'nosniff'
                 headers['X-Frame-Options'] = 'DENY'
-                headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+                # Private tracking endpoints deliberately use the stricter
+                # no-referrer policy. Preserve it while enforcing the normal
+                # default for every other response.
+                if headers.get('Referrer-Policy') != 'no-referrer':
+                    headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
             await send(message)
 
         async def reject(status, code, message, *, retry=False):

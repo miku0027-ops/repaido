@@ -303,12 +303,45 @@ class Browse(Input):
     language:str=Field(default='',max_length=60)
     available_only:bool=False
     allow_buffer:bool=False
+    # The Services overview needs category leaders, not forty rich profiles.
+    # This keeps the existing public endpoint and exact ranking rules while
+    # avoiding profile histories, offers and next-action hydration on first load.
+    summary_only:bool=False
 
 def text(value):
     # Public free text must not become a direct-contact shortcut.
     s=str(value or '')
     s=re.sub(r'(?<!\w)(?:\+?\d[\s().-]*){8,15}(?!\w)','[contact hidden]',s)
     return re.sub(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', '[contact hidden]',s)
+
+def category_records(jobs):
+    completed=[j for j in jobs if j['state']=='completed'];groups=defaultdict(list)
+    for j in completed:groups[j['category']].append(j)
+    # Home jobs retain their explicit service ID; generic category is used for ordinary tasks.
+    for j in completed:
+        if j.get('home_plan_id') and j['service_id'].startswith('home-'):
+            groups['home:'+j['service_id'][5:]].append(j)
+    records=[{'category':c,'completed':len(rows),'review_count':len(rs:=[j['review']['rating'] for j in rows if j.get('review')]),'rating':round(sum(rs)/len(rs),2) if rs else None} for c,rows in groups.items()]
+    records.sort(key=lambda r:(-r['completed'],r['category']))
+    return completed,records
+
+def leader_evidence(u,w,jobs):
+    """Only evidence needed by the same filters and category ranking below.
+
+    Never infer ranks from a bounded historical sample: every eligible worker's
+    completed-work review evidence is still included. Rich display records,
+    offers and per-package recommendations are not needed by the overview.
+    """
+    p=u.get('worker_profiles',w['id']) or {}
+    completed,records=category_records(jobs)
+    ratings=[j['review']['rating'] for j in completed if j.get('review')]
+    return {**{k:w.get(k) for k in ('id','role','categories','experience_years')},
+            'name':text(w.get('name')),'skills':[text(v) for v in (w.get('skills') or [])],
+            'languages':[text(v) for v in (p.get('languages') or [])],'specialties':[text(v) for v in (p.get('specialties') or [])],
+            'home_services':(u.get('home_availability',w['id']) or {}).get('approved_services',[]),
+            'portrait_url':f"/api/operations/professional-media/{p['portrait_id']}" if p.get('portrait_id') else None,
+            'completed_tasks':len(completed),'review_count':len(ratings),'rating':sum(ratings)/len(ratings) if ratings else None,
+            'category_records':records}
 
 def profile(u,w,jobs,offers=None,*,include_membership=True,include_network=True):
     p=public_profile(u,w,jobs=jobs,include_membership=include_membership,include_network=include_network)
@@ -318,14 +351,7 @@ def profile(u,w,jobs,offers=None,*,include_membership=True,include_network=True)
     for r in p['reviews']:
         for key in ('service','text','reply'):
             if r.get(key):r[key]=text(r[key])
-    completed=[j for j in jobs if j['state']=='completed'];groups=defaultdict(list)
-    for j in completed:groups[j['category']].append(j)
-    # Home jobs retain their explicit service ID; generic category is used for ordinary tasks.
-    for j in completed:
-        if j.get('home_plan_id') and j['service_id'].startswith('home-'):
-            groups['home:'+j['service_id'][5:]].append(j)
-    p['category_records']=[{'category':c,'completed':len(rows),'review_count':len(rs:=[j['review']['rating'] for j in rows if j.get('review')]),'rating':round(sum(rs)/len(rs),2) if rs else None} for c,rows in groups.items()]
-    p['category_records'].sort(key=lambda r:(-r['completed'],r['category']))
+    completed,p['category_records']=category_records(jobs)
     p['completed_tasks']=len(completed)
     p['work_history']=[{'service':text(j['service_name']),'category':j['category'],'completed_at':j.get('completed_at'),'rating':j.get('review',{}).get('rating')} for j in sorted(completed,key=lambda j:j.get('completed_at',0),reverse=True)[:12]]
     p['home_services']=(u.get('home_availability',w['id']) or {}).get('approved_services',[])
@@ -414,7 +440,8 @@ def install(core):
             jobs=u.for_workers('jobs',worker_ids,JOB_FIELDS);by_worker=defaultdict(list)
             for j in jobs:by_worker[j.get('worker_id')].append(j)
             by_offer_worker=defaultdict(list)
-            for offer in u.for_workers('professional_offers',worker_ids):by_offer_worker[offer['worker_id']].append(offer)
+            if not body.summary_only:
+                for offer in u.for_workers('professional_offers',worker_ids):by_offer_worker[offer['worker_id']].append(offer)
             busy={j.get('worker_id') for j in jobs if j['state'] in ('en_route','travelling','arrived','in_progress','collecting_parts','parts_pending','parts_approved','completion_pending')}
             rows=[]
             for w in eligible:
@@ -422,10 +449,12 @@ def install(core):
                 origin=w.get('location')
                 fresh=w.get('position') or {};available=bool(w.get('online') and 0<=now-fresh.get('received_at',0)<=300 and fresh.get('accuracy',1000)<=100 and w['id'] not in busy)
                 if body.available_only and not available:continue
-                row=profile(u,w,by_worker[w['id']],by_offer_worker[w['id']],include_membership=False,include_network=False);row['available_now']=available
+                row=leader_evidence(u,w,by_worker[w['id']]) if body.summary_only else profile(u,w,by_worker[w['id']],by_offer_worker[w['id']],include_membership=False,include_network=False)
+                row['available_now']=available
                 if body.strict_nearby:row['distance_km']=round(metres(body.location.model_dump(),origin)/1000,1)
-                row['service_packages']=[{k:s.get(k) for k in ('id','category','name','description','price_paise','duration_minutes','included','excluded')} for s in catalog['services'] if s.get('active',True) and s['category'] in row['categories']]
-                row['profile_recommendation']=profile_recommendation(row,catalog,by_worker[w['id']],body.category,offerings=OFFERINGS)
+                if not body.summary_only:
+                    row['service_packages']=[{k:s.get(k) for k in ('id','category','name','description','price_paise','duration_minutes','included','excluded')} for s in catalog['services'] if s.get('active',True) and s['category'] in row['categories']]
+                    row['profile_recommendation']=profile_recommendation(row,catalog,by_worker[w['id']],body.category,offerings=OFFERINGS)
                 if body.language and body.language.casefold() not in [v.casefold() for v in row['languages']]:continue
                 if body.min_completed>row['completed_tasks'] or (body.min_rating and (row['rating'] or 0)<body.min_rating):continue
                 if body.query and relevance(body.query,' '.join([row['name'],*row['skills'],*row['specialties'],*[categories.get(c,c) for c in row['categories']],*[categories.get('home:'+c,c) for c in row['home_services']]]))<.5:continue
@@ -449,7 +478,7 @@ def install(core):
             # Ranking reads every eligible candidate, but membership enrollment
             # and richer career sections are bounded to the returned page.
             from repaidians_billing import membership_badge
-            visible=selected[:40]
+            visible=[] if body.summary_only else selected[:40]
             visible_ids={row['id'] for row in visible}|{c['leader']['id'] for c in leaders if c['leader']}
             u.prefetch([(kind,wid) for wid in visible_ids for kind in ('rp_members','rp_trials','rp_subscriptions','rp_network_profiles')])
             workers={w['id']:w for w in eligible}

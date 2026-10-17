@@ -148,6 +148,8 @@ def native_position(u,authorization,body=None):
     return {'status':'received'}
 
 def install(core):
+    from public_cab_availability import install as install_public_cab_availability
+    install_public_cab_availability(core)
     store=core.operations_store;r=APIRouter(prefix='/operations/local-business',tags=['Shared journeys and tracking'])
     @r.get('/transport/nearby')
     def nearby(lat:float=Query(ge=-90,le=90),lng:float=Query(ge=-180,le=180)):

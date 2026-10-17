@@ -9,6 +9,7 @@ import {money} from '../services/operations';
 import {ContractError} from './customContractUI';
 import {Modal} from './ui';
 import {SharedRideRequestAlerts} from './SharedRideRequestAlerts';
+import {PublicCabAvailability} from './PublicCabAvailability';
 import './business-suites.css';
 
 type BusinessRole='cab_owner'|'driver'|'scrap_owner';
@@ -102,6 +103,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
   {panel==='payments'&&<><div className="suite-metrics"><Metric label="Completed fares collected" value={money(received)}/><Metric label="Owner transfers confirmed" value={money(records.rows.filter(r=>r.settlement_received_at).reduce((s,r)=>s+(r.settlement?.amount_paise||0),0))}/></div><PanelCard title="Collections & owner transfers" description="Fare collection and transfer to your account are separate. Confirm a transfer only after you receive it."/><BusinessRecords kind="rides" records={records} owner managementRole="cab_owner" initialFilter="history" heading="Booking payment records"/><SharedRideBookings owner managementRole="cab_owner"/></>}
   {panel==='more'&&<div className="suite-menu">{[{id:'payments',label:'Payments',description:'Fare collections and owner transfers',icon:Wallet},{id:'account',label:'Account',description:'Business profile and account settings',icon:UserRound}].map(({id,label,description,icon:Icon})=><button key={id} onClick={()=>setPanel(id)}><Icon size={22} aria-hidden="true"/><span><strong>{label}</strong><small>{description}</small></span><ArrowRight size={18} aria-hidden="true"/></button>)}</div>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
+  <PublicCabAvailability accountKey={source.uid}/>
   {editing&&<VehicleEditor vehicle={editing} location={partner.location} onClose={()=>setEditing(null)} onSaved={()=>{setEditing(null);void onRefresh();}}/>}
  </SuiteFrame>;
 }
@@ -123,6 +125,7 @@ export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;v
   {panel==='shared'&&<><SharedRideBookings owner managementRole="driver" vehicles={vehicles} initialRecordId={recordId}/></>}
   {panel==='vehicles'&&<DriverInvitations/>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
+  <PublicCabAvailability accountKey={source.uid}/>
  </SuiteFrame>;
 }
 

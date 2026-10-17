@@ -202,6 +202,17 @@ try{
   assert.equal(requests.filter(r=>r.path.endsWith('/hiring/leaderboard')).length,0,'The directory must open only after an explicit category/search.');
   assert.equal(await page.locator('[aria-roledescription="carousel"]').count(),1,'The inspiration banner remains separate from professional results.');
   await choose(page,'electrician');
+  const scopeStory=result(page).getByRole('region',{name:'Before you hire',exact:true});
+  const scopeHeading=scopeStory.getByRole('heading');
+  await scopeStory.getByRole('button',{name:'Next service slide',exact:true}).click();
+  assert.equal(await scopeHeading.textContent(),'Testing equipment','Manual service slides convey the next comparison point.');
+  await scopeStory.getByRole('button',{name:'Previous service slide',exact:true}).click();
+  assert.equal(await scopeHeading.textContent(),'Fittings & load');
+  assert.equal(await scopeStory.getByRole('button',{name:'Pause service slideshow',exact:true}).count(),0,'Reduced motion keeps service slides manual.');
+  await result(page).locator('.hire-card-actions').first().getByRole('button',{name:'Book service with '+profiles[0].name,exact:true}).click();
+  assert.equal(await page.getByLabel('Last Hire action').textContent(),'service:fixture-electrical','Quick booking uses the professional’s published package.');
+  await result(page).waitFor({state:'hidden'});
+  await choose(page,'electrician');
   assert.equal(await result(page).locator('.hire-decision-card').count(),4);
   assert.equal(await result(page).getByRole('heading',{name:profiles[4].name}).count(),0);
   await result(page).getByRole('region',{name:'Category leaders'}).getByText(profiles[0].name,{exact:true}).waitFor();
@@ -277,6 +288,25 @@ try{
   assert.equal(failures.length,0,'Hire layout and AAA accessibility findings: '+JSON.stringify(failures.map(({width,text,dark})=>({width,text,dark})))+'. Full selectors are in test-results/hire-discovery-accessibility.json.');
   }
   await privacyRegressions();
+  if(!privacyOnly){
+    const motionPage=await newPage(480);await motionPage.emulateMedia({reducedMotion:'no-preference'});await choose(motionPage,'cleaning');
+    const story=result(motionPage).getByRole('region',{name:'Before you hire',exact:true}),heading=story.getByRole('heading');
+    await story.getByRole('button',{name:'Pause service slideshow',exact:true}).waitFor();
+    await story.getByRole('button',{name:'Start hiring',exact:true}).focus();
+    const first=await heading.textContent();await motionPage.waitForTimeout(6700);
+    assert.equal(await heading.textContent(),first,'Service slides must pause while a user interacts with the panel.');
+    await motionPage.evaluate(()=>document.activeElement.blur());
+    await motionPage.mouse.move(0,0);
+    await motionPage.waitForFunction(({text})=>document.querySelector('.hire-scope-copy h3')?.textContent!==text,{text:first},{timeout:8000});
+    await story.getByRole('button',{name:'Pause service slideshow',exact:true}).click();
+    const paused=await heading.textContent();await motionPage.waitForTimeout(6700);
+    assert.equal(await heading.textContent(),paused,'The explicit pause control must stop automatic changes.');
+    await story.getByRole('button',{name:'Play service slideshow',exact:true}).waitFor();
+    await motionPage.emulateMedia({reducedMotion:'reduce'});
+    await story.getByRole('button',{name:'Play service slideshow',exact:true}).waitFor({state:'hidden'});
+    await motionPage.context().close();
+    console.log('Hire service-story controls, focus pause, explicit pause, reduced motion and direct published-service handoff passed.');
+  }
   assert.deepEqual(errors,[],'Unexpected runtime errors');
   success=true;console.log(privacyOnly?'Hire privacy browser checks passed.':'Hire discovery browser checks passed.');
 }finally{

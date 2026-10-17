@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {dirname,resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),origin=process.env.PUBLIC_CAB_PREVIEW_ORIGIN||'http://127.0.0.1:5196';
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const context=await browser.newContext({viewport:{width:390,height:850},reducedMotion:'reduce'}),page=await context.newPage(),errors=[],writes=[];
+page.on('pageerror',error=>errors.push(error.message));
+await page.addInitScript(()=>{
+ window.__gps={watches:0,clears:0,callback:null};
+ Object.defineProperty(navigator,'geolocation',{value:{watchPosition(callback){window.__gps.watches++;window.__gps.callback=callback;return 7;},clearWatch(){window.__gps.clears++;},getCurrentPosition(callback){window.__gps.callback=callback;}}});
+ window.__fix=(age=0,accuracy=5)=>window.__gps.callback?.({coords:{latitude:21.4934,longitude:86.9135,accuracy},timestamp:Date.now()-age});
+});
+let version=0,enabled=false,token='',delayStart=null,failStop=false,loseStart=false;
+const getter=()=>({vehicles:[{id:'cab',name:'Approved sedan',eligible:true,seats:4,vehicle_kind:'car',reason:'',sharing:{enabled,version,expires_at:Date.now()/1000+1800,last_received_at:0,location_status:enabled?'waiting':'ended'}}],server_time:Date.now()/1000,position_ttl_seconds:75,session_duration_seconds:1800,approximation_metres:450});
+await context.route('**/api/operations/local-business/**',async route=>{
+ const req=route.request(),path=new URL(req.url()).pathname,body=req.method()==='POST'?req.postDataJSON():null;
+ if(body)writes.push({path,body,auth:req.headers().authorization});
+ if(path.endsWith('/transport/public-availability'))return route.fulfill({json:getter()});
+ if(path.endsWith('/public-availability/position'))return route.fulfill({json:{status:'received',server_time:Date.now()/1000,position_expires_at:Math.min(Date.now()/1000,body.captured_at)+75,expires_at:Date.now()/1000+1800,location_status:'live'}});
+ if(body?.enabled){
+  if(body.expected_version!==version)return route.fulfill({status:409,json:{detail:{message:'Availability changed.'}}});
+  enabled=true;version++;token='session-'+version;
+  const result={enabled:true,version,session_token:token,expires_at:Date.now()/1000+1800,server_time:Date.now()/1000,position_ttl_seconds:75,approximation_metres:450};
+  if(loseStart){loseStart=false;return route.fulfill({status:503,json:{detail:{message:'Response lost after saving.'}}});}
+  if(delayStart){const wait=delayStart;delayStart=null;await wait;}
+  return route.fulfill({json:result});
+ }
+ if(failStop)return route.fulfill({status:503,json:{detail:{message:'Try again.'}}});
+ if(body?.session_token&&body.session_token!==token)return route.fulfill({json:{enabled,version,status:'superseded'}});
+ if(body?.expected_version!==undefined&&body.expected_version!==version)return route.fulfill({status:409,json:{detail:{message:'Availability changed.'}}});
+ enabled=false;version++;return route.fulfill({json:{enabled:false,version}});
+});
+const open=async()=>{await page.goto(origin+'/tests/public-cab-availability-preview.html');await page.locator('.public-cab-control>summary').click();await page.getByLabel('Your approved cab').waitFor();};
+const consent=async()=>{await page.getByRole('checkbox',{name:/agree to show/}).check();await page.getByRole('checkbox',{name:/parked safely/}).check();};
+try{
+ await open();assert.equal(await page.evaluate(()=>window.__gps.watches),0);assert.equal(writes.length,0);await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByText('Waiting for a fresh, accurate GPS fix.',{exact:false}).waitFor();assert.equal(await page.evaluate(()=>window.__gps.watches),1);
+ await page.evaluate(()=>window.__fix(31000));assert.equal(writes.filter(row=>row.path.endsWith('/position')).length,0);await page.evaluate(()=>window.__fix(0,250));assert.equal(writes.filter(row=>row.path.endsWith('/position')).length,0);
+ await page.evaluate(()=>window.__fix());await page.getByText('Approximate public pin confirmed.',{exact:false}).waitFor();assert.equal(writes.filter(row=>row.path.endsWith('/position')).length,1);await page.getByRole('button',{name:'Stop public sharing'}).click();await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();assert.equal(enabled,false);assert.equal(await page.evaluate(()=>window.__gps.clears),1);await page.evaluate(()=>window.__fix());assert.equal(writes.filter(row=>row.path.endsWith('/position')).length,1,'queued GPS callback cannot publish after stop');assert.equal(await page.getByRole('checkbox',{name:/agree to show/}).isChecked(),false);
+ // A late Start receipt is observed and its exact session is revoked without creating GPS watchers.
+ let release;delayStart=new Promise(resolve=>release=resolve);await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByRole('button',{name:'Stop public sharing'}).waitFor();await page.waitForFunction(()=>document.querySelector('.public-cab-control').dataset.state==='starting');await page.getByRole('button',{name:'Stop public sharing'}).click();release();await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.__gps.watches),1,'late Start must not create a watch');assert.equal(enabled,false);
+ await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByText('Waiting for a fresh, accurate GPS fix.',{exact:false}).waitFor();await page.evaluate(()=>window.__fix());await page.getByText('Approximate public pin confirmed.',{exact:false}).waitFor();await page.evaluate(()=>{Object.defineProperty(document,'hidden',{value:true,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();await page.evaluate(()=>{Object.defineProperty(document,'hidden',{value:false,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});assert.equal(await page.evaluate(()=>window.__gps.watches),2,'returning visible cannot auto-resume');
+ await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByText('Waiting for a fresh, accurate GPS fix.',{exact:false}).waitFor();failStop=true;await page.getByRole('button',{name:'Stop public sharing'}).click();await page.getByRole('button',{name:'Retry removal'}).waitFor();assert.equal(await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).count(),0);failStop=false;await page.getByRole('button',{name:'Retry removal'}).click();await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();
+ loseStart=true;await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByRole('button',{name:'Retry removal'}).waitFor();assert.equal(enabled,true,'lost receipt remains uncertain');await page.getByRole('button',{name:'Retry removal'}).click();await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();assert.equal(enabled,false,'explicit retry reloads current consent version');
+ enabled=true;version++;token='newer-remote-session';await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.getByText('A previous sharing session may still be active.',{exact:false}).waitFor();await page.getByRole('button',{name:'Stop public sharing'}).click();await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();assert.equal(enabled,false,'new explicit Stop removes newer remote session instead of reusing old token');
+ await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByText('Waiting for a fresh, accurate GPS fix.',{exact:false}).waitFor();const beforeOffline=await page.evaluate(()=>window.__gps.watches),beforePositions=writes.filter(row=>row.path.endsWith('/position')).length;await page.evaluate(()=>{Object.defineProperty(navigator,'onLine',{value:false,configurable:true});window.dispatchEvent(new Event('offline'));window.__fix();});await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();await page.evaluate(()=>{Object.defineProperty(navigator,'onLine',{value:true,configurable:true});window.dispatchEvent(new Event('online'));});assert.equal(await page.evaluate(()=>window.__gps.watches),beforeOffline,'online return cannot resume GPS');assert.equal(writes.filter(row=>row.path.endsWith('/position')).length,beforePositions,'queued native callback cannot publish while offline');
+ await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByText('Waiting for a fresh, accurate GPS fix.',{exact:false}).waitFor();await page.getByRole('button',{name:'Switch account'}).click();await page.getByLabel('Your approved cab').waitFor();assert.equal(await page.evaluate(()=>window.__gps.clears>=4),true);assert.equal(await page.getByRole('checkbox',{name:/agree to show/}).isChecked(),false,'new account does not inherit consent');await page.waitForTimeout(100);assert.equal(enabled,false,'account switch revokes old session');
+ await page.addScriptTag({path:web+'/node_modules/axe-core/axe.min.js'});
+ for(const width of [320,390,480,1440])for(const scale of [100,200])for(const theme of ['light','dark']){
+  await page.setViewportSize({width,height:850});await page.evaluate(({scale,theme})=>{document.documentElement.style.fontSize=scale+'%';document.documentElement.dataset.theme=theme;},{scale,theme});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'overflow '+width+'/'+scale+'/'+theme);
+  const violations=await page.evaluate(async()=>(await window.axe.run('.public-cab-control',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}})).violations.map(row=>({id:row.id,nodes:row.nodes.map(node=>({target:node.target,summary:node.failureSummary}))})));assert.deepEqual(violations,[]);
+ }
+ await page.clock.install({time:new Date()});await consent();await page.getByRole('button',{name:'Share while available'}).click();await page.getByText('Waiting for a fresh, accurate GPS fix.',{exact:false}).waitFor();await page.evaluate(()=>window.__fix(20000));await page.getByText('Approximate public pin confirmed.',{exact:false}).waitFor();await page.clock.fastForward(56000);await page.getByText('GPS update overdue',{exact:true}).waitFor();await page.clock.fastForward(1800000);await page.getByText('Public sharing stopped. GPS is off.',{exact:true}).waitFor();assert.equal(enabled,false,'session expiry revokes without automatic renewal');
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks:['explicit consent','fresh accurate native GPS only','stopped callback isolation','delayed Start cleanup','foreground-only sharing','uncertain removal retry','lost Start receipt recovery','new explicit remote Stop','offline cancellation without auto-resume','account isolation','server-derived pin freshness','30-minute expiry without renewal','16 responsive/theme/text variants and accessibility'],writes:writes.length}));
+}finally{await browser.close();}

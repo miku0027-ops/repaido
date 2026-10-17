@@ -1,7 +1,7 @@
-import {useEffect,useId,useRef,useState} from 'react';
+import {useEffect,useId,useMemo,useRef,useState} from 'react';
 import {ArrowRight,ChevronDown,MapPin,Pause,Play,RefreshCw,ShieldCheck,Star,Trophy,User} from 'lucide-react';
 import {apiAssetUrl} from '../services/api';
-import {cachedHireProfiles,hireProfiles} from '../services/hireProfileCache';
+import {cachedCategoryLeaders,cachedHireProfilesSnapshot,categoryLeaders,hireProfiles} from '../services/hireProfileCache';
 import {categories} from '../data';
 import {Modal} from './ui';
 import {ProfessionalDetails,type Professional} from './Hiring';
@@ -44,24 +44,28 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
   const lastRetry=useRef(0);
   const id=useId();
   const location=initialLocation?.city===city?initialLocation:undefined;
-  const requestKey=JSON.stringify([category,city,location?.lat,location?.lng,role,radiusKm,retry]);
-  const rows=result?.key===requestKey?result.rows:[];
-  const loading=result?.key!==requestKey&&!error;
+  const requestKey=JSON.stringify([category,city,location?.lat,location?.lng,role,radiusKm]);
+  const body=useMemo(()=>({city,category:overview?'':category,role,location:location?{lat:location.lat,lng:location.lng}:null,radius_km:radiusKm}),[requestKey]);
+  // Read the bounded in-memory snapshot during render. A remount or quick
+  // category switch should not flash a loading panel before an effect runs.
+  const warm=useMemo(()=>overview?cachedCategoryLeaders<Leaderboard>(body):cachedHireProfilesSnapshot<Leaderboard>(body),[body]);
+  const current=result?.key===requestKey?result:warm?{key:requestKey,rows:warm.value.professionals,total:warm.value.total,categories:warm.value.categories,updatedAt:warm.updatedAt}:null;
+  const rows=current?.rows||[];
+  const loading=!current&&!error;
   const name=categories.find(c=>c.id===category)?.name||category.replaceAll('-',' ');
   useEffect(()=>{
     if(!category)return;
     let active=true;setError('');setSelected(null);
     const force=retry!==lastRetry.current;
     lastRetry.current=retry;
-    const body={city,category:overview?'':category,role,location:location?{lat:location.lat,lng:location.lng}:null,radius_km:radiusKm};
-    const apply=(data:Leaderboard,updatedAt:number|null)=>setResult({key:requestKey,rows:data.professionals.filter(p=>overview||p.categories.includes(category)),total:data.total,categories:data.categories,updatedAt});
-    const cached=cachedHireProfiles<Leaderboard>(body);
-    if(cached){apply(cached,null);}
+    const apply=(data:Leaderboard,updatedAt:number|null)=>setResult({key:requestKey,rows:data.professionals.filter(p=>overview||p.categories?.includes(category)||(category.startsWith('home:')&&p.home_services?.includes(category.slice(5)))),total:data.total,categories:data.categories,updatedAt});
+    const cached=overview?cachedCategoryLeaders<Leaderboard>(body):cachedHireProfilesSnapshot<Leaderboard>(body);
+    if(cached){apply(cached.value,cached.updatedAt);}
     else setResult(null);
     let sequence=0;
     const load=async(fresh=false)=>{
       const current=++sequence;setRefreshing(true);
-      try{const data=await hireProfiles<Leaderboard>(body,fresh);if(active&&current===sequence){apply(data,Date.now());setError('');}}
+      try{const data=await (overview?categoryLeaders<Leaderboard>(body,fresh):hireProfiles<Leaderboard>(body,fresh));if(active&&current===sequence){const received=overview?cachedCategoryLeaders<Leaderboard>(body):cachedHireProfilesSnapshot<Leaderboard>(body);apply(data,received?.updatedAt??Date.now());setError('');}}
       catch(error){if(active&&current===sequence)setError((error as Error).message);}
       finally{if(active&&current===sequence)setRefreshing(false);}
     };
@@ -70,13 +74,13 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
     const timer=setInterval(refresh,30000);
     window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);window.addEventListener('repaido:operations-updated',refresh);
     return()=>{active=false;sequence++;clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);window.removeEventListener('repaido:operations-updated',refresh);};
-  },[requestKey]);
+  },[requestKey,retry]);
   if(!category)return null;
-  const count=result?.key===requestKey?result.total:0;
+  const count=current?.total||0;
   const refreshButton=<button type="button" className="catalog-leaders-refresh" disabled={refreshing} aria-label="Refresh category leaders" onClick={()=>setRetry(v=>v+1)}><RefreshCw size={16} aria-hidden="true"/></button>;
   if(overview){
-    const allowed=new Set(categoryIds||categories.map(c=>c.id));
-    const leaders=(result?.key===requestKey?result.categories:[]).filter(c=>allowed.has(c.id)&&c.count>0);
+    const allowed=new Set(categoryIds?.length?categoryIds:categories.map(c=>c.id));
+    const leaders=(current?.categories||[]).filter(c=>allowed.has(c.id)&&c.count>0);
     return <section ref={ambient} data-animated={motionVisible&&!motionPaused&&!reducedMotion} className="catalog-professionals catalog-leaders-overview" aria-label="Category leaders" aria-busy={loading}>
       <header className="catalog-leaders-heading"><span className="catalog-professionals-icon" aria-hidden="true"><Trophy size={18}/></span><div className="catalog-professionals-copy"><h2>Category leaders</h2><p>{city} · Verified reviews</p></div><button type="button" className="catalog-leaders-motion" aria-label={motionPaused?'Play leader effects':'Pause leader effects'} onClick={()=>setMotionPaused(v=>!v)}>{motionPaused?<Play size={15}/>:<Pause size={15}/>}</button>{refreshButton}</header>
       {error&&<p className="catalog-leaders-status" role="alert">{leaders.length?'Showing last received results. ':''}Leaders could not refresh. <button className="catalog-professionals-retry" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}
@@ -85,7 +89,7 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
         <span className="repaidian-avatar-frame catalog-repaidian-avatar"><span className="catalog-professional-avatar" aria-hidden="true"><User size={20}/>{c.leader?.portrait_url&&<img src={apiAssetUrl(c.leader.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><RepaidianBadge badge={c.leader?.repaidianBadge} variant="avatar"/></span>
         <span className="catalog-leader-preview-copy"><strong>{c.name}</strong><span>{c.leader?.name||'No ranked leader yet'}</span><small>{c.leader?'Category leader':`${c.count} listed · awaiting reviews`}</small></span><ArrowRight size={14} aria-hidden="true"/>
       </button>)}</nav>}
-      <p className="sr-only">{result?.updatedAt?`Updated ${new Date(result.updatedAt).toLocaleTimeString()}. `:''}Leaderboards refresh every 30 seconds while this page is visible. Rankings use verified completed-work reviews. Unreviewed profiles are not assigned a rank.</p>
+      <p className="sr-only">{current?.updatedAt?`Updated ${new Date(current.updatedAt).toLocaleTimeString()}. `:''}Leaderboards refresh every 30 seconds while this page is visible. Rankings use verified completed-work reviews. Unreviewed profiles are not assigned a rank.</p>
     </section>;
   }
   return <section className="catalog-professionals" aria-label={`${name} professionals`}>

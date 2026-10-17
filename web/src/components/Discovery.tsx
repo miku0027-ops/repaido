@@ -1,4 +1,5 @@
 import ServiceLeaders from './ServiceLeaders';
+import ServiceCatalogueFilters from './ServiceCatalogueFilters';
 import {ServiceTerms} from './ServiceTerms';
 import ServiceStories from './ServiceStories';
 import ServiceImage from './ServiceImage';
@@ -130,6 +131,10 @@ export default function Discovery({
     setLeadersExpanded(false);
   }, [initialCategory, initialQuery]);
 
+  const nearbyAvailable=!!nearbyLocation&&nearbyLocation.city===city;
+  const activeFilters=Number(category!=='all')+Number(sort!=='recommended')+Number(!!maxPrice)+Number(roleFilter!=='all')+Number(nearbyAvailable&&radiusKm!=='6');
+  const resetFilters=()=>{setCategory('all');setSort('recommended');setMaxPrice('');setRoleFilter('all');setRadiusKm('6');setLeadersExpanded(false);};
+
   // Filtered Services
   const visibleServices = useMemo(() => {
     return services
@@ -192,14 +197,20 @@ export default function Discovery({
             )}
           </div>
           <button className="uc-compact-action" aria-label={`Choose service city: ${city}`} title={city} onClick={()=>setCityOpen(true)}><MapPin size={18}/></button>
-          <button className="uc-compact-action" aria-label="Filters and sort" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(true)}><SlidersHorizontal size={18}/></button>
+          <button className="uc-compact-action" aria-label="Filters and sort" aria-description={activeFilters?`${activeFilters} active filters`:undefined} aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(true)}><SlidersHorizontal size={18} aria-hidden="true"/>{activeFilters>0&&<span className="catalogue-filter-count" aria-hidden="true">{activeFilters}</span>}</button>
         </div>
 
 
       </header>
 
       <section id="main-content" aria-label="Service catalogue" className="page-width uc-discovery-main catalog-discovery pb-56">
-        <ServiceStories services={services} selected={category} onSelect={c=>{setCategory(c);setLeadersExpanded(false);}} title="Find your service"/>
+        <ServiceStories compact sort={sort} onSort={setSort} services={services} selected={category} onSelect={c=>{setCategory(c);setLeadersExpanded(false);}} title="Find your service"/>
+        {(maxPrice||roleFilter!=='all'||(nearbyAvailable&&radiusKm!=='6'))&&<div className="catalogue-active-filters" aria-label="Applied service filters">
+          {maxPrice&&<button type="button" aria-label="Remove maximum budget" onClick={()=>setMaxPrice('')}>Up to ₹{Number(maxPrice).toLocaleString('en-IN')}<X size={12} aria-hidden="true"/></button>}
+          {roleFilter!=='all'&&<button type="button" aria-label="Remove professional role filter" onClick={()=>setRoleFilter('all')}>{roleFilter==='specialist'?'Specialists':'Technicians'}<X size={12} aria-hidden="true"/></button>}
+          {nearbyAvailable&&radiusKm!=='6'&&<button type="button" aria-label="Remove distance filter" onClick={()=>setRadiusKm('6')}>Within {radiusKm} km<X size={12} aria-hidden="true"/></button>}
+          <button type="button" className="catalogue-clear-filters" onClick={resetFilters}>Clear all</button>
+        </div>}
         <ServiceLeaders key={`${category}:${city}`} category={category} city={city} initialLocation={nearbyLocation} role={roleFilter} radiusKm={Number(radiusKm)} categoryIds={services.map(s=>s.category)} initiallyExpanded={leadersExpanded} onSelectCategory={c=>{setCategory(c as CategoryId);setLeadersExpanded(true);}}/>
 
         {/* Section Heading & Compact Filter Controls */}
@@ -216,47 +227,7 @@ export default function Discovery({
         </div>
 
 
-        {filtersOpen && (
-          <Modal title="Filters & sort" onClose={()=>setFiltersOpen(false)}><div id="filter-panel" className="uc-expanded-filters"><label>Sort services<select value={sort} onChange={e=>setSort(e.target.value)}><option value="recommended">Recommended</option><option value="price-low">Price: Low to High</option><option value="price-high">Price: High to Low</option><option value="rating">Highest Rated</option><option value="duration">Shortest estimated visit</option></select></label>
-            <div className="filter-group">
-              <label htmlFor="filter-price">Max Budget</label>
-              <select id="filter-price" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}>
-                <option value="">Any Budget</option>
-                <option value="300">Up to ₹300</option>
-                <option value="600">Up to ₹600</option>
-                <option value="1000">Up to ₹1,000</option>
-                <option value="3000">Up to ₹3,000</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label htmlFor="filter-role">Professional role</label>
-              <select id="filter-role" value={roleFilter} onChange={e => setRoleFilter(e.target.value as any)}>
-                <option value="all">All listed professionals</option>
-                <option value="specialist">Specialist</option>
-                <option value="technician">Technician</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label htmlFor="filter-radius">Professional search radius</label>
-              <select id="filter-radius" disabled={!nearbyLocation||nearbyLocation.city!==city} value={radiusKm} onChange={e => setRadiusKm(e.target.value)}>
-                <option value="3">Within 3 km</option>
-                <option value="6">Within 6 km</option>
-              </select>
-              {(!nearbyLocation||nearbyLocation.city!==city)&&<small>Choose your location on the home page to apply a distance filter. Currently browsing the city.</small>}
-            </div>
-
-            {(maxPrice || roleFilter !== 'all' || radiusKm !== '6') && (
-              <button
-                className="clear-filters-btn"
-                onClick={() => { setMaxPrice(''); setRoleFilter('all'); setRadiusKm('6'); }}
-              >
-                Reset Filters
-              </button>
-            )}
-          </div></Modal>
-        )}
+        {filtersOpen&&<ServiceCatalogueFilters value={{category,sort,maxPrice,roleFilter,radiusKm}} services={services} query={query} city={city} nearbyAvailable={nearbyAvailable} onClose={()=>setFiltersOpen(false)} onApply={value=>{setCategory(value.category);setSort(value.sort);setMaxPrice(value.maxPrice);setRoleFilter(value.roleFilter);setRadiusKm(value.radiusKm);setLeadersExpanded(false);setFiltersOpen(false);}}/>}
 
         {/* Services List */}
         <div className="uc-services-grid">

@@ -28,14 +28,14 @@ try{
    const rows=eligible.filter(p=>!b.category||p.categories.includes(b.category));
    const names={cleaning:'Home Cleaning',electrician:'Electrical',plumber:'Plumbing',ac:'AC & Appliances'};
    const categories=Object.entries(names).map(([id,name])=>{const candidates=eligible.filter(p=>p.categories.includes(id));const leader=candidates.find(p=>id==='electrician'?p.id===electricalLeader:p.review_count>0);return {id,name,count:candidates.length,leader:leader?{id:leader.id,name:leader.name,role:leader.role}:null};});
-   return route.fulfill({json:{professionals:rows,total:rows.length,categories}});
+   return route.fulfill({json:{professionals:b.summary_only?[]:rows,total:b.summary_only?0:rows.length,categories}});
   }
   if(url.pathname.startsWith('/api/operations/service-terms/'))return route.fulfill({json:{id:'terms',version:1,text:'Review the scope before confirming.'}});
   if(url.pathname.startsWith('/api/operations/professionals/')){const profile=profiles.find(row=>row.id===decodeURIComponent(url.pathname.split('/').at(-1)));return route.fulfill({status:profile?200:404,json:profile||{detail:'Profile unavailable'}});}
   if(url.pathname.startsWith('/api/'))throw Error('Unexpected API request: '+url.pathname);
   return route.continue();
  });
- const cat=name=>page.getByRole('group',{name:'Service categories',exact:true}).getByRole('button',{name,exact:true}).click();
+ const cat=name=>page.getByRole('combobox',{name:'Service category',exact:true}).selectOption({label:name});
  const settled=async()=>{await page.locator('.catalog-professionals-copy > span').filter({hasText:/reviewed profiles?/}).waitFor();};
  const layout=async()=>{
   const issues=await page.locator('.catalog-discovery').evaluate(root=>{
@@ -45,8 +45,25 @@ try{
    return bad;
   });assert.deepEqual(issues,[]);
  };
+ const compactLayout=async(enlarged=false)=>{
+  const dimensions=await page.locator('.catalogue-dropdown-strip').evaluate(root=>{
+   const rect=root.getBoundingClientRect(),canvas=document.createElement('canvas'),context=canvas.getContext('2d'),controls=Array.from(root.querySelectorAll('select')).map(control=>{const r=control.getBoundingClientRect(),style=getComputedStyle(control);context.font=style.font;return {x:r.x,y:r.y,right:r.right,width:r.width,height:r.height,textWidth:context.measureText(control.selectedOptions[0].textContent).width,textSpace:control.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)};});
+   return {x:rect.x,right:rect.right,height:rect.height,controls,pageWidth:document.documentElement.scrollWidth,viewport:innerWidth};
+  });
+  assert.equal(dimensions.controls.length,2,'Category and sort share a single compact control panel');
+  assert(dimensions.pageWidth<=dimensions.viewport+1,'Compact catalogue controls must not overflow the viewport');
+  assert(dimensions.controls.every(control=>control.height>=43.9&&control.x>=dimensions.x-1&&control.right<=dimensions.right+1),'Dropdowns keep fully contained 44px touch targets');
+  assert(dimensions.controls.every(control=>control.textWidth<=control.textSpace+1),'The selected category and sort labels remain fully visible, including at 200% text');
+  assert(dimensions.height<=(enlarged?240:190),'Catalogue controls replace the tall category carousel');
+  if(!enlarged&&dimensions.viewport>=390)assert(Math.abs(dimensions.controls[0].y-dimensions.controls[1].y)<1,'Category and sort remain on one row on standard phones');
+  assert.equal(await page.locator('.service-controls-compact .service-story,.service-controls-compact .stories-heading').count(),0,'No duplicate photo rail or carousel arrows');
+ };
+ const filterDialog=()=>page.getByRole('dialog',{name:'Filters & sort',exact:true});
+ const openFilters=async()=>{await page.getByRole('button',{name:'Filters and sort',exact:true}).click();await filterDialog().waitFor();};
+ const applyFilters=async(count)=>{await filterDialog().getByRole('button',{name:`Show ${count} ${count===1?'service':'services'}`,exact:true}).click();await filterDialog().waitFor({state:'hidden'});};
+ const names=()=>page.locator('.uc-service-title').allTextContents();
  await mkdir('test-results',{recursive:true});
- for(const width of [320,390,430,524]){
+ for(const width of [320,390,480]){
   await page.setViewportSize({width,height:850});await page.goto(base+'/tests/discovery-preview.html');await page.locator('.uc-service-card').nth(3).waitFor();
   await page.getByRole('navigation',{name:'Category leaderboards',exact:true}).waitFor();
   assert.equal(await page.getByRole('region',{name:'Category leaders',exact:true}).count(),1);
@@ -54,7 +71,7 @@ try{
   assert.equal(await page.locator('.catalog-leader-preview').count(),2);
   assert.match(await page.getByRole('button',{name:'View Electrical leaderboard',exact:true}).textContent(),/First electrical professional/);
   const first=await page.locator('.uc-service-card').first().boundingBox();assert(first.y+Math.min(first.height,44)<page.viewportSize().height,'The first service card must be reachable in the initial phone viewport');
-  await layout();await cat('Electrical');await settled();
+  await layout();await compactLayout();await cat('Electrical');await settled();
   const summary=page.locator('.catalog-professionals-toggle');assert.equal(await summary.getAttribute('aria-expanded'),'false');assert((await summary.boundingBox()).height<100);
   assert.equal(await page.locator('.uc-service-card').count(),1);
   assert.equal(await page.locator('.uc-service-title').textContent(),'Electrical inspection');
@@ -126,10 +143,57 @@ try{
  }
  await page.setViewportSize({width:320,height:850});await page.addStyleTag({content:'html{font-size:32px}'});await layout();
  await page.addStyleTag({content:'html{font-size:16px}'});
- await page.getByRole('button',{name:'Filters and sort',exact:true}).click();await page.getByLabel('Professional role',{exact:true}).selectOption('specialist');await page.keyboard.press('Escape');
- await page.getByText('No matching professionals are listed here yet.',{exact:true}).waitFor();assert.equal(await page.locator('.uc-service-card').count(),4);
- await page.getByRole('button',{name:'Filters and sort',exact:true}).click();await page.getByRole('button',{name:'Reset Filters',exact:true}).click();await page.keyboard.press('Escape');await page.getByRole('navigation',{name:'Category leaderboards'}).waitFor();
+ // Draft edits never change the catalogue until the customer applies them.
+ const filterButton=page.getByRole('button',{name:'Filters and sort',exact:true});
+ await filterButton.focus();await page.keyboard.press('Enter');await filterDialog().waitFor();
+ assert.equal(await filterDialog().getByLabel('Service category',{exact:true}).evaluate(control=>control===document.activeElement),true,'Keyboard opening focuses the first filter');
+ const radius=filterDialog().getByLabel('Professional search radius',{exact:true});assert.equal(await radius.isDisabled(),true);assert.match(await radius.getAttribute('aria-describedby'),/location-note/);
+ await filterDialog().getByText('Set a location on Explore to filter professionals by distance.',{exact:false}).waitFor();
+ await filterDialog().getByLabel('Service category',{exact:true}).selectOption('cleaning');await filterDialog().getByLabel('Max Budget',{exact:true}).selectOption('300');await filterDialog().getByLabel('Professional role',{exact:true}).selectOption('specialist');
+ await filterDialog().getByRole('button',{name:'Show 0 services',exact:true}).waitFor();assert.equal(await page.locator('.uc-service-card').count(),4,'Preview counts do not mutate applied services');
+ await page.keyboard.press('Escape');assert.equal(await filterButton.evaluate(button=>button===document.activeElement),true,'Escape restores focus to the filter launcher');
+ assert.equal(await page.getByRole('combobox',{name:'Service category',exact:true}).inputValue(),'all');assert.equal(await page.locator('.catalogue-active-filters button').count(),0);
+ await openFilters();assert.equal(await filterDialog().getByLabel('Professional role',{exact:true}).inputValue(),'all','Closing discards draft role changes');assert.equal(await filterDialog().getByLabel('Max Budget',{exact:true}).inputValue(),'');
+ await filterDialog().getByLabel('Sort services',{exact:true}).selectOption('price-low');await filterDialog().getByLabel('Max Budget',{exact:true}).selectOption('300');await applyFilters(2);
+ assert.deepEqual(await names(),['Tap repair','Electrical inspection'],'Budget applies to service prices with the selected ordering');
+ assert.equal(await page.getByRole('combobox',{name:'Sort catalogue services',exact:true}).inputValue(),'price-low','Sheet and compact sort stay in sync');
+ await page.getByRole('button',{name:'Remove maximum budget',exact:true}).click();assert.equal(await page.locator('.uc-service-card').count(),4);assert.equal(await page.locator('.catalogue-active-filters').count(),0);
+ await page.getByRole('combobox',{name:'Sort catalogue services',exact:true}).selectOption('price-high');assert.deepEqual(await names(),['Home cleaning','Air conditioner inspection','Electrical inspection','Tap repair']);
+ await page.getByRole('combobox',{name:'Sort catalogue services',exact:true}).selectOption('duration');assert.deepEqual(await names(),['Tap repair','Electrical inspection','Air conditioner inspection','Home cleaning']);
+ const search=page.getByRole('searchbox',{name:'Search services, repairs, specialists or technicians',exact:true});
+ await search.fill('inspection');await openFilters();await filterDialog().getByRole('button',{name:'Show 3 services',exact:true}).waitFor();await filterDialog().getByRole('button',{name:'Reset Filters',exact:true}).click();await applyFilters(3);
+ assert.equal(await search.inputValue(),'inspection','Reset filters preserves the current search text');assert.equal(await page.locator('.uc-service-card').count(),3);await search.fill('');
+ await page.getByRole('combobox',{name:'Sort catalogue services',exact:true}).selectOption('duration');
+ await openFilters();assert.equal(await filterDialog().getByLabel('Sort services',{exact:true}).inputValue(),'duration');
+ await filterDialog().getByLabel('Service category',{exact:true}).selectOption('electrician');await filterDialog().getByLabel('Max Budget',{exact:true}).selectOption('300');await filterDialog().getByLabel('Sort services',{exact:true}).selectOption('price-low');await applyFilters(1);assert.deepEqual(await names(),['Electrical inspection']);
+ await openFilters();await filterDialog().getByRole('button',{name:'Reset Filters',exact:true}).click();assert.equal(await page.locator('.uc-service-card').count(),1,'Reset changes only the draft until applied');assert.equal(await filterDialog().getByLabel('Service category',{exact:true}).inputValue(),'all');await applyFilters(4);await page.getByRole('navigation',{name:'Category leaderboards'}).waitFor();
+ await openFilters();await filterDialog().getByLabel('Professional role',{exact:true}).selectOption('specialist');await applyFilters(4);
+ await page.getByText('No matching professionals are listed here yet.',{exact:true}).waitFor();assert.equal(await page.locator('.uc-service-card').count(),4,'Professional filters never hide catalogue services');
+ await page.getByRole('button',{name:'Remove professional role filter',exact:true}).click();await page.getByRole('navigation',{name:'Category leaderboards'}).waitFor();
+ for(const width of [320,390,480]){
+  await page.setViewportSize({width,height:850});
+  for(const enlarged of [false,true]){
+   await page.addStyleTag({content:`html{font-size:${enlarged?32:16}px}`});await compactLayout(enlarged);await openFilters();
+   const geometry=await filterDialog().evaluate(dialog=>{const r=dialog.getBoundingClientRect(),footer=dialog.querySelector('.catalogue-filter-footer').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,scroll:dialog.scrollWidth,width:dialog.clientWidth,viewport:innerWidth,viewportHeight:innerHeight,footerBottom:footer.bottom,footerTop:footer.top};});
+   assert(geometry.left>=-1&&geometry.right<=geometry.viewport+1&&geometry.top>=-1&&geometry.bottom<=geometry.viewportHeight+1,'Filter sheet fits the mobile viewport');assert(geometry.scroll<=geometry.width+1,'Filter sheet does not scroll horizontally');assert(geometry.footerBottom<=geometry.bottom+1&&geometry.footerTop>=geometry.top,'Apply actions stay visible while the form scrolls');
+   for(const theme of ['light','dark']){
+    await page.evaluate(value=>document.documentElement.setAttribute('data-theme',value),theme);
+    const result=await page.evaluate(async()=>window.axe.run(document.querySelector('.service-catalogue-filter-sheet'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']}}));
+    assert.deepEqual(result.violations.map(violation=>({id:violation.id,targets:violation.nodes.map(node=>node.target)})),[],`${theme} filter accessibility at ${width}px ${enlarged?'200%':'100%'} text`);
+   }
+   await page.evaluate(()=>document.documentElement.removeAttribute('data-theme'));await page.keyboard.press('Escape');
+   for(const theme of ['light','dark']){
+    await page.evaluate(value=>document.documentElement.setAttribute('data-theme',value),theme);
+    const result=await page.evaluate(async()=>window.axe.run(document.querySelector('.service-controls-compact'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']}}));
+    assert.deepEqual(result.violations.map(violation=>({id:violation.id,targets:violation.nodes.map(node=>node.target)})),[],`${theme} compact controls accessibility at ${width}px ${enlarged?'200%':'100%'} text`);
+   }
+   await page.evaluate(()=>document.documentElement.removeAttribute('data-theme'));
+  }
+ }
+ await page.addStyleTag({content:'html{font-size:16px}'});await page.setViewportSize({width:390,height:850});
+ await openFilters();await page.screenshot({path:'test-results/catalogue-filters-phone.png'});await page.keyboard.press('Escape');
+ assert(requests.filter(request=>request.category==='').every(request=>request.summary_only===true),'Leader overview requests compact public summaries');
  await page.getByRole('button',{name:'Choose service city: Balasore',exact:true}).click();await page.getByRole('combobox',{name:'Choose service city',exact:true}).selectOption('Bhadrak');await page.getByRole('button',{name:'Use this city',exact:true}).click();await page.getByText('No matching professionals are listed here yet.',{exact:true}).waitFor();
  assert.equal(await page.locator('.catalog-leader-preview').count(),0,'Changing city must never display the previous city’s leaders');
- assert.deepEqual(errors,[]);console.log('Default live leader overview, category navigation, polling/focus refresh, retained results on failure, race cancellation, error recovery, empty results, 200% text, reduced motion and AAA contrast passed');
+ assert.deepEqual(errors,[]);console.log('Compact dropdowns, atomic filters, preview counts, sorting, removable filters, keyboard focus, summary-only leaders, polling/races/recovery, 200% text, reduced motion and light/dark AAA accessibility passed');
 }finally{await browser.close();}

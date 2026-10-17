@@ -1,0 +1,62 @@
+/* Category discovery and professional decisions share one compact visual rhythm. */
+.hire-recent-visual{padding:12px;margin-bottom:16px;background:linear-gradient(135deg,var(--ui-subtle),var(--ui-surface));box-shadow:0 6px 20px #14275408}
+.hire-recent-visual .hire-recent-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hire-recent-header>div:first-child{display:flex;align-items:center;gap:8px;min-width:0}
+.hire-recent-icon{display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:10px;background:var(--ui-surface);color:var(--ui-link);border:1px solid var(--ui-line)}
+.hire-recent-header small{display:block;font-size:.5625rem;letter-spacing:.12em;line-height:1.4;color:var(--ui-muted);font-weight:600}
+.hire-recent-visual .hire-recent-header h2{margin:2px 0 0;font-size:.875rem;line-height:1.35;color:var(--ui-ink)}
+.hire-recent-visual .hire-recent-navigation{display:flex;gap:2px;flex:none}
+.hire-recent-visual .hire-recent-navigation button{display:grid;place-items:center;width:44px;min-width:44px;min-height:44px;padding:0;border:1px solid var(--ui-line);border-radius:12px;color:var(--ui-link);background:var(--ui-surface)}
+.hire-recent-visual .hire-recent-navigation button:disabled{opacity:.4}
+.hire-recent-visual>p{font-size:.6875rem;margin:8px 0;color:var(--ui-muted)}
+.hire-recent-visual .hire-recent-photo-rail{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scroll-padding:2px;padding:2px 1px 8px;scrollbar-width:thin;flex-wrap:nowrap}
+.hire-recent-visual .hire-recent-photo-rail button{display:grid;grid-template-columns:46px minmax(0,1fr) 16px;gap:9px;align-items:center;flex:0 0 min(248px,88%);max-width:none;min-height:72px;scroll-snap-align:start;border:1px solid var(--ui-line);background:var(--ui-surface);padding:7px;border-radius:13px;text-align:left;box-shadow:0 2px 6px #13284a06;color:var(--ui-ink)}
+.hire-recent-photo{width:46px;height:54px;border-radius:9px;background-size:cover;background-position:center}
+.hire-recent-photo-rail strong{font-size:.75rem;line-height:1.4;overflow-wrap:anywhere}
+.hire-recent-photo-rail>button>svg{color:var(--ui-link)}
+.hire-compact-results .hire-scope-story{padding:0;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-surface);overflow:hidden;box-shadow:0 5px 18px #1529550a}
+.hire-scope-scene{position:relative;isolation:isolate;overflow:hidden;min-width:0;background:#11294a;color:white}
+.hire-scope-photo{position:absolute;inset:0;z-index:-2}
+.hire-scope-photo img{height:100%;width:100%;object-fit:cover;object-position:76% 50%}
+.hire-scope-scene:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#0c203ff5 0%,#0c203fed 35%,#0c203f8c 68%,#0c203f20);z-index:-1;pointer-events:none}
+.hire-scope-story .hire-scope-copy{padding:16px 14px 4px;min-width:0;max-width:78%}
+.hire-scope-story .hire-scope-copy small{font-size:.5625rem;letter-spacing:.13em;line-height:1.4;color:#efdcb6;font-weight:700}
+.hire-scope-story .hire-scope-copy h3{color:#fff;font-size:1rem;line-height:1.3;margin:6px 0}
+.hire-scope-story .hire-scope-copy p{font-size:.75rem;line-height:1.5;color:#f0f5ff;margin:0 0 10px}
+.hire-compact-results .hire-scope-copy>button{display:inline-flex;align-items:center;gap:8px;min-height:44px;max-width:100%;border:1px solid #ffffff8c;border-radius:10px;padding:8px 11px;font-size:.75rem;font-weight:600;background:#fff;color:#122c4d;box-shadow:0 3px 8px #06162a1c}
+.hire-compact-results .hire-scope-copy>button:disabled{opacity:.65}
+.hire-scope-story .hire-scope-controls{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 8px 5px 14px}
+.hire-scope-controls>span{font-size:.625rem;letter-spacing:.05em;color:#e7eefc;white-space:nowrap}
+.hire-scope-controls>div{display:flex;align-items:center;gap:2px}
+.hire-compact-results .hire-scope-controls button{display:grid;place-items:center;width:44px;min-width:44px;min-height:44px;padding:0;background:#0c203fd9;color:#fff;border:1px solid #ffffff59;border-radius:11px}
+.hire-scope-story .hire-scope-checklist{display:flex;gap:5px 10px;flex-wrap:wrap;padding:10px 12px 4px;color:var(--ui-ink)}
+.hire-scope-checklist>span{display:inline-flex;align-items:center;gap:4px;max-width:100%;font-size:.6875rem;line-height:1.4;overflow-wrap:anywhere}
+.hire-scope-checklist svg{flex:none;color:var(--ui-link)}
+.hire-compact-results .hire-scope-story .hire-scope-price-note{font-size:.6875rem;color:var(--ui-muted);padding:2px 12px 10px;margin:0;line-height:1.5}
+.hire-scope-offers{margin:0 12px 8px;color:var(--ui-ink)}
+.hire-scope-offers>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;font-size:.75rem;color:var(--ui-link);font-weight:600;cursor:pointer;list-style:none}
+.hire-scope-offers>summary::-webkit-details-marker{display:none}
+.hire-scope-offers[open]>summary>svg{transform:rotate(90deg)}
+.hire-compact-results .hire-decision-card{position:relative;border-color:var(--ui-line);box-shadow:0 5px 16px #1023440b,0 1px 2px #10234408;transform-style:preserve-3d}
+.hire-compact-results .hire-card-main{padding:12px;gap:10px;align-items:flex-start;min-height:0;background:linear-gradient(125deg,var(--ui-surface),var(--ui-subtle));border-top:2px solid transparent}
+.hire-compact-results .hire-card-main>.hire-repaidian-avatar{margin-top:5px}
+.hire-compact-results .hire-card-main h3{font-size:.875rem;line-height:1.4;margin:4px 0;color:var(--ui-ink);overflow-wrap:anywhere}
+.hire-compact-results .hire-card-main .repaidian-professional-name{gap:4px 8px;align-items:center}
+.hire-compact-results .hire-card-main .repaidian-badge{font-size:.625rem}
+.hire-compact-results .hire-card-main p{font-size:.75rem;line-height:1.5;margin:4px 0}
+.hire-compact-results .hire-card-main .hire-role{font-size:.625rem;background:var(--ui-success-badge);color:var(--ui-success);border:1px solid color-mix(in srgb,var(--ui-success) 20%,transparent);padding:3px 6px}
+.hire-compact-results .hire-card-main .hire-suggestion-label{font-size:.6875rem;color:var(--ui-link);margin:3px 0}
+.hire-compact-results .hire-card-main .hire-card-evidence{font-size:.6875rem;color:var(--ui-muted);gap:4px}
+.hire-compact-results .hire-expand-indicator{display:grid;place-items:center;width:24px;height:24px;flex:none;margin-top:4px;border:1px solid var(--ui-line);border-radius:8px;background:var(--ui-surface)}
+.hire-compact-results .hire-card-actions{padding:6px 10px;gap:6px;background:var(--ui-surface)}
+.hire-compact-results .hire-card-actions .hire-check{font-size:.6875rem;min-height:44px!important}
+.hire-card-next-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;min-width:0;margin-left:auto}
+.hire-compact-results .hire-card-next-actions button{min-height:44px!important;padding:8px 10px;font-size:.6875rem;line-height:1.4;border:1px solid var(--ui-primary);max-width:100%}
+.hire-compact-results .hire-card-next-actions .hire-view-profile{background:var(--ui-surface);color:var(--ui-link);border-color:var(--ui-line)}
+.hire-compact-results .hire-card-next-actions .hire-book-service{background:var(--ui-primary);color:#fff;box-shadow:0 3px 8px #132c5b19}
+.hire-compact-results .hire-card-next-actions svg{flex:none}
+@media(min-width:600px){.hire-scope-story .hire-scope-copy{max-width:64%}.hire-scope-story .hire-scope-controls{padding-bottom:8px}.hire-recent-visual .hire-recent-photo-rail button{flex-basis:260px}}
+@media(max-width:360px){.hire-recent-visual .hire-recent-header{flex-wrap:wrap}.hire-recent-visual .hire-recent-navigation{margin-left:auto}.hire-scope-story .hire-scope-copy{max-width:90%}.hire-compact-results .hire-card-main{gap:8px;padding:10px}.hire-compact-results .hire-card-main>.hire-repaidian-avatar{width:44px!important;height:44px!important;flex-basis:44px!important}.hire-compact-results .hire-expand-indicator{width:20px;height:20px}.hire-card-next-actions{justify-content:flex-start}.hire-compact-results .hire-card-actions{align-items:flex-start}}
+@media(prefers-reduced-motion:no-preference){.hire-scope-photo{animation:hire-scope-image-in 440ms ease-out}.hire-compact-results .hire-decision-card,.hire-recent-photo-rail>button{transition:transform 180ms ease,box-shadow 180ms ease,border-color 180ms ease}.hire-compact-results .hire-expand-indicator{transition:transform 180ms ease}.hire-compact-results .hire-decision-card:active{transform:translateY(1px)}@keyframes hire-scope-image-in{from{opacity:.5;transform:scale(1.025)}to{opacity:1;transform:scale(1)}}}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){.hire-compact-results .hire-decision-card:hover{transform:perspective(1000px) translateY(-2px) rotateX(.4deg);border-color:var(--ui-control);box-shadow:0 12px 26px #10234416,0 2px 4px #10234408}.hire-recent-photo-rail>button:hover{transform:translateY(-2px);box-shadow:0 7px 14px #14275412}}
+html.reduce-motion .hire-scope-photo,html.reduce-motion .hire-decision-card,html.reduce-motion .hire-recent-photo-rail>button,[data-reduced-motion=true] :is(.hire-scope-photo,.hire-decision-card,.hire-recent-photo-rail>button){animation:none!important;transition:none!important;transform:none!important}

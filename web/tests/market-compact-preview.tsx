@@ -17,7 +17,7 @@ import '../src/components/compact-market.css';
 await auth.authStateReady();
 (auth as any).currentUser={uid:'isolated-market-customer',phoneNumber:'+919876543210',getIdToken:async()=>'isolated-market-customer',getIdTokenResult:async()=>({claims:{}})};
 localStorage.setItem('repaido.token','isolated-market-customer');
-const area={lat:21.4934,lng:86.9135,city:'Balasore',address:'Station Road, Balasore',confirmed:true};
+const area=new URLSearchParams(location.search).has('noPickup')?{city:'Balasore',confirmed:false}:{lat:21.4934,lng:86.9135,city:'Balasore',address:'Station Road, Balasore',confirmed:true};
 function Preview(){
  const [destination,setDestination]=useState<MarketDestination>('spares');
  return <div className="repaido-customer-shell" style={{minHeight:'100vh',paddingBottom:88}}>

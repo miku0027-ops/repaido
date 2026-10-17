@@ -1,0 +1,90 @@
+/* The catalogue sheet keeps editing separate from applying a search. */
+.service-catalogue-filter-sheet.modal {
+  width:min(540px,calc(100% - 24px));max-width:540px;max-height:calc(100dvh - 32px);
+  padding:0!important;overflow:hidden;border:1px solid var(--ui-line);border-radius:22px;
+  color:var(--ui-ink);background:var(--ui-surface);
+  box-shadow:0 24px 80px rgb(11 29 66 / .22),0 2px 8px rgb(11 29 66 / .08);
+}
+.service-catalogue-filter-sheet.modal[open] {display:flex;flex-direction:column;}
+.service-catalogue-filter-sheet::backdrop {background:rgb(12 25 49 / .35);backdrop-filter:blur(5px);}
+.service-catalogue-filter-sheet.modal>.app-modal-heading {
+  flex:0 0 auto;align-items:center;gap:12px;margin:0;padding:14px 16px 12px;
+  border-bottom:1px solid var(--ui-line);
+}
+.service-catalogue-filter-sheet.modal>.app-modal-heading h2 {margin:0;padding:0;font-size:1.0625rem;line-height:1.4;letter-spacing:-.025em;}
+.service-catalogue-filter-sheet.modal>.app-modal-heading button {
+  display:grid;place-items:center;min-height:44px;min-width:44px;width:44px;height:44px;
+  padding:10px;border:1px solid var(--ui-line);border-radius:12px;
+  color:var(--ui-ink);background:var(--ui-subtle);box-shadow:none;
+}
+.catalogue-filter-form {display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+.catalogue-filter-body {overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:14px 16px 16px;}
+.catalogue-filter-summary {display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;margin-bottom:16px;}
+.catalogue-filter-summary>div {display:flex;align-items:baseline;gap:7px;min-width:0;flex-wrap:wrap;}
+.catalogue-filter-summary strong {font-size:1.5rem;line-height:1.2;letter-spacing:-.04em;font-variant-numeric:tabular-nums;}
+.catalogue-filter-summary>div>span,.catalogue-filter-city {font-size:.75rem;line-height:1.5;color:var(--ui-muted);}
+.catalogue-filter-city {display:flex;align-items:center;gap:4px;min-width:0;max-width:48%;overflow-wrap:anywhere;}
+.catalogue-filter-city>svg {flex-shrink:0;color:var(--ui-link);}
+.catalogue-filter-query {margin:-6px 0 14px;font-size:.75rem;line-height:1.5;color:var(--ui-muted);overflow-wrap:anywhere;}
+.catalogue-filter-section {min-width:0;padding:0;margin:0;border:0;}
+.catalogue-filter-section+.catalogue-filter-section {margin-top:16px;padding-top:14px;border-top:1px solid var(--ui-line);}
+.catalogue-filter-section legend {
+  display:flex;align-items:center;gap:7px;width:100%;padding:0;margin-bottom:10px;
+  color:var(--ui-ink);font-size:.8125rem;line-height:1.5;font-weight:600;
+}
+.catalogue-filter-section legend>svg {color:var(--ui-link);flex-shrink:0;}
+.catalogue-filter-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:12px;}
+.catalogue-filter-field {display:flex;flex-direction:column;gap:6px;justify-content:flex-end;min-width:0;}
+.catalogue-filter-field>label {margin:0;color:var(--ui-muted);font-size:.75rem;line-height:1.5;font-weight:500;}
+.catalogue-filter-wide {grid-column:1/-1;}
+.catalogue-filter-fields select {
+  width:100%;max-width:100%;min-width:0;min-height:44px;margin:0;padding:10px 8px;
+  border:1px solid var(--ui-control);border-radius:10px;color:var(--ui-ink);
+  background:var(--ui-surface);box-shadow:0 1px 2px rgb(15 32 60 / .035);
+  transition:border-color 160ms ease,box-shadow 160ms ease;
+}
+.catalogue-filter-fields select:disabled {opacity:1;color:var(--ui-muted);background:var(--ui-subtle);border-style:dashed;cursor:not-allowed;}
+.catalogue-filter-note {margin:-3px 0 12px;color:var(--ui-muted);font-size:.75rem;line-height:1.55;}
+.catalogue-filter-location-note {display:flex;align-items:flex-start;gap:6px;margin:10px 0 0;padding:9px 10px;border-radius:9px;background:var(--ui-subtle);color:var(--ui-muted);font-size:.75rem;line-height:1.55;}
+.catalogue-filter-location-note>svg {flex-shrink:0;margin-top:3px;}
+.catalogue-filter-footer {
+  flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.45fr);gap:10px;
+  padding:12px 16px max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--ui-line);
+  background:var(--ui-surface);box-shadow:0 -4px 16px rgb(15 32 60 / .035);
+}
+.catalogue-filter-footer button {
+  display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:44px;
+  padding:10px 8px;border:1px solid var(--ui-line);border-radius:11px;
+  font-size:.8125rem;line-height:1.5;font-weight:500;transition:background-color 160ms ease,box-shadow 160ms ease;
+}
+.catalogue-filter-footer button>svg {flex-shrink:0;}
+.catalogue-filter-footer .catalogue-filter-reset {background:var(--ui-surface);color:var(--ui-muted);}
+.catalogue-filter-footer .catalogue-filter-apply {background:var(--ui-primary);border-color:var(--ui-primary);color:#fff;box-shadow:0 3px 9px rgb(23 40 92 / .18);}
+@media(hover:hover) {
+  .catalogue-filter-fields select:not(:disabled):hover {border-color:var(--ui-link);}
+  .catalogue-filter-footer .catalogue-filter-reset:hover {background:var(--ui-subtle);}
+  .catalogue-filter-footer .catalogue-filter-apply:hover {background:var(--ui-primary-hover);}
+}
+@media(max-width:360px) {
+  .service-catalogue-filter-sheet.modal>.app-modal-heading {padding-inline:12px;}
+  .catalogue-filter-body {padding:12px;}
+  .catalogue-filter-fields {grid-template-columns:minmax(0,1fr);gap:10px;}
+  .catalogue-filter-summary {align-items:flex-start;gap:8px;}
+  .catalogue-filter-footer {padding-inline:12px;gap:8px;}
+  .catalogue-filter-reset>svg {display:none;}
+}
+@media(max-height:600px) and (min-width:600px) {
+  .service-catalogue-filter-sheet.modal {max-height:calc(100dvh - 16px);}
+  .service-catalogue-filter-sheet.modal>.app-modal-heading {padding-block:8px;}
+}
+[data-theme=dark] .service-catalogue-filter-sheet::backdrop {background:rgb(3 10 24 / .6);}
+[data-theme=dark] .catalogue-filter-fields select {color-scheme:dark;}
+[data-theme=dark] .catalogue-filter-footer .catalogue-filter-apply {background:#d9e6ff;border-color:#d9e6ff;color:#142950;}
+@media(prefers-reduced-motion:reduce) {
+  .service-catalogue-filter-sheet :is(select,button) {transition:none;}
+}
+html.reduce-motion .service-catalogue-filter-sheet :is(select,button) {transition:none;}
+/* Native controls keep readable type while the surrounding labels stay compact. */
+@layer repaido-brand {
+  .service-catalogue-filter-sheet .catalogue-filter-fields select {font-size:.875rem!important;}
+}
