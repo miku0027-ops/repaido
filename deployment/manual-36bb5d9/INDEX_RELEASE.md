@@ -1,55 +1,31 @@
-# QA release: additive indexes and API build
+# Pinned index and API deployment
 
-Reviewed release: `36bb5d925305ab4046e08d4dae7372058b1c0a41`.
-Recorded previous API baseline: `0bc8da6a22869d30a6cabd91782d3ac15d04570c`; revalidate that actual deployed provenance before submission. The current parent release attempt reports authenticated GCP HTTP 401. These prepared artifacts make no cloud request and do not resolve that authentication blocker.
+Application source: `36bb5d925305ab4046e08d4dae7372058b1c0a41`. Previous API source: `0bc8da6a22869d30a6cabd91782d3ac15d04570c`. The helper branch contains deployment support; it does not change the selected application source.
 
-Use these **new** artifacts together:
+The portable prepare.py reads a clean checkout of the exact application commit and creates a 940-file archive. verify_payload.py checks every unpacked file, manifest and configuration hash. Gzip bytes may vary across Python/zlib versions; the complete unpacked SHA-256 inventory must match.
 
-| Artifact | SHA-256 |
+| Prepared artifact | Reference SHA-256 |
 | --- | --- |
-| `repaido-36bb5d925305-index-gated-source.tar.gz` (83,214,849 bytes) | `58507ecb369cf5ca212ceafbd32b1c0babaf730ae4ce068d9c8e39668336e656` |
-| `cloudbuild-api-index-gated.json` | `70ad32c6e1ff991c7914afb1956a5ecea3dd9868497d5e6f8bcd3cb26f1512a7` |
-| `reviewed-source.json` | `6bed7418d5d1fc6376b91bbe937492642612536f67237713fdec9a8b3601dc56` |
+| Source archive, 83,215,427 bytes | `3018b9485a30c9ea4f12c7adf3f32e4f763e162cd32e022034c9e329dce5bc73` |
+| cloudbuild-api-index-gated.json | `08e1122a02b186082588c5a78e5ce39c6e3e822127936a7ed2dfd08804ce7c5a` |
+| reviewed-source.json | `3c9e1ecfcd6daa3fd5c7acb2f60169c25790b743700170ed65062052707e77d5` |
 
-The archive contains exactly 940 selected files: committed customer/API source plus the reviewed index publisher, baseline index document and pinned manifest. The source archive from `repaido-release-a9c2788` is superseded and omits the QA fixes. Do not use it or its staged website. Do not submit the ordinary checkout with the new JSON configuration: it lacks the support files and will fail the source guard.
+All eleven original API build steps are preserved. Additional gates check exact source/project/approval before executing repository code, publish the three reviewed additive indexes before tests, and check all seven desired indexes READY immediately before main/work deployments. The saved approval default remains false. Firestore Rules and Firebase Hosting are unchanged.
 
-## Review result
+The index publisher permits only these three additions to the four existing baseline definitions, all with COLLECTION scope:
 
-The new `index_gate.py` and `test_index_gate.py` are byte-for-byte copies of the reviewed prior publisher/tests. Their 24 offline tests passed. The builder was changed only to require `--release FULL_SHA`, permit an explicit full-SHA `--baseline`, name the archive by the new SHA, and write reproducible gzip metadata. It continues to require the exact clean checkout, an ancestor baseline, unchanged Rules source, current generated pipelines and the repository source-inventory check.
+- ops_market_chat_inbox: user_id ascending, updated_at descending, __name__ descending.
+- ops_market_chat_inbox: user_id ascending, side ascending, updated_at descending, __name__ descending.
+- ops_saved_alert_checks: active ascending, next_check_at ascending, __name__ ascending.
 
-Independent validation verified every archive hash/member and all **11 original API build steps unchanged**, with four additions: exact source guard; additive index publication before backend tests; fresh check-only index reads immediately before main candidate deployment and work-service deployment. All 10 source-guard cases passed, including exact acceptance and rejection of changed/missing/extra/symlinked files, manifest tampering, wrong commit/project and false approval. See `offline-release-validation.json`.
+Missing baseline indexes, foreign project/database resources, malformed metadata and NEEDS_REPAIR states stop the release. Unrelated valid indexes are preserved. Duplicate creates require fresh exact-definition readiness. No deletion, Rules publication, database creation, IAM grants or application document writes occur in the publisher. Index creation polls up to 1,200 seconds; the full API build timeout is 3,600 seconds.
 
-The publisher compares pinned baseline/target definitions and permits **only the three additive indexes**. It requires all seven target definitions READY, refuses to recreate missing baseline definitions, preserves unrelated indexes, refuses destructive repair and validates duplicate-create races with fresh reads. It never deletes indexes, publishes Rules, grants IAM, creates a database or changes application records. Publication can wait up to 1,200 seconds; its step timeout is 1,500 seconds and the full build timeout is 3,600 seconds. Check-only gates fail if indexes are absent or not READY. They do not trust a previous receipt.
+Two production API behaviors are covered by regression tests: nonzero pageSize causes HTTP 400, so listing uses the server default; collection-scoped list responses include other collection groups, so the transport filters valid same-project/database records by group. Project/database validation remains strict. All 27 publisher tests pass, including the reproduced failures, and all ten source-guard acceptance/tampering cases pass. A standalone migration created only the three approved definitions and verified all seven READY.
 
-These offline results establish helper behavior and packaged source integrity. They do not establish live IAM, indexes, API provenance, source-bucket access, or successful application deployment. The prepared inventory is the actual archive inventory, not a claim that the unavailable `gcloud meta list-files-for-upload` command ran. No gcloud filtering is involved when submitting this already reviewed archive.
+Use the signed-in Cloud Shell account through deploy.py. It checks no active global/regional builds, live API/website provenance, and records existing Cloud Run traffic and Scheduler state before uploading one exact source generation and submitting one approved build. Keep submission.json and rollback-metadata. A submission timeout can conceal an accepted build; do not remove the marker or run a fresh extracted copy to force another attempt. Check build history first.
 
-## Safe submission sequence
+A failed deployment after work-service changes can leave traffic partially promoted or Scheduler paused. Restore the saved compatible traffic and scheduling state if necessary; keep the harmless additive indexes. The original API pipeline does not provide automatic rollback. No real notification dispatch should be manually triggered just for a smoke test.
 
-1. Restore usable GCP authentication through the existing secure credential binding; perform fresh read-only Cloud Build/Run calls. Do not replace injected credentials, print values, start interactive login or assume variable presence means access.
-2. Revalidate actual API baseline, project `repaido`, region `us-central1`, and no active build in `global` or `us-central1`. Save full main/work/worker traffic mappings and Scheduler state for rollback, plus any already enabled optional community service. Confirm no concurrent release. The build's original history guard is retained, but manual builds are not automatically serialized.
-3. Recompute the artifact digests above. Upload this exact source archive to the existing approved Cloud Build source bucket, then capture its exact object generation. Do not create a new bucket or broaden permissions to work around a denial.
-4. Copy `cloudbuild-api-index-gated.json` into the build request. Add `source.storageSource` with the verified bucket, exact object name and generation. Set the request substitutions `COMMIT_SHA=36bb5d925305ab4046e08d4dae7372058b1c0a41` and `_RELEASE_APPROVED=true` for this one explicitly requested build. Preserve all other config fields. The saved configuration deliberately retains `_RELEASE_APPROVED: false`.
-5. Submit that request **once** to Cloud Build in `us-central1`, using its pinned existing service account. The short-lived submitter credential stays out of the source/config. The index gate obtains its own short-lived credential inside Cloud Build via `gcloud auth print-access-token`; the build identity needs Firestore index list/create permissions, normally `roles/datastore.indexAdmin`. Do not add `firestore.googleapis.com` to the local secret's domain scope merely for this build-side publisher.
-6. Record the build ID, status and three index receipts from Cloud Logging. A failed index gate prevents API deployment. If indexes exceed the timeout, inspect existing index state before any resubmission; do not blindly launch another full build. Continue through the preserved tests, shared image, no-traffic candidates, Firestore/media checks, promotions and API identity verification.
-7. Only after that successful API build, publish the **new QA** cPanel archive for the same source SHA using backup/staging/asset-first/entry-last publication and run `verify-cpanel-release.py` with the actual successful build ID. Verify normal scheduled worker dispatch succeeds; worker health alone does not execute the indexed saved-alert query. Do not trigger an extra real notification run merely as a smoke test.
+Publish the cPanel website only after a successful matching API build: verify backup and staging, install content-addressed assets first with full public-byte SHA-256 checks, then publish index.html and build-info.json last. Run scripts/verify-cpanel-release.py with the real Build ID, browser checks, and confirm a normal scheduled worker attempt. A worker health response alone does not execute saved-alert queries.
 
-The existing pipeline has no automatic rollback. If a later step fails, restore saved compatible traffic and Scheduler state, checking whether deployment paused the schedule or partially promoted services. Keep the harmless additive indexes during rollback. Do not publish the new frontend against the old API solely because cPanel credentials work.
-
-## Local reproduction
-
-All commands below are offline and write only under this external release folder:
-
-```sh
-cd /workspace/releases/repaido-release-20261017
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v test_index_gate
-PYTHONDONTWRITEBYTECODE=1 python3 prepare_index_release.py \
-  --release 36bb5d925305ab4046e08d4dae7372058b1c0a41 \
-  --baseline 0bc8da6a22869d30a6cabd91782d3ac15d04570c
-PYTHONDONTWRITEBYTECODE=1 python3 validate_prepared_release.py
-```
-
-Preparation needs installed PyYAML. Cloud Build source/index guards use the standard library and existing Cloud SDK image. Regenerating replaces the generated artifacts only; confirm digests before reusing any uploaded object. Source/config publication and repository push remain unperformed by this helper work.
-
-October 17 publisher correction: the production Firestore Admin API rejects nonzero pageSize with HTTP 400 (only 0 is supported). Index listing now omits pageSize and retains encoded page tokens. A regression reproduces the server rejection; all 25 gate tests pass. The application source remains commit 36bb5d925305ab4046e08d4dae7372058b1c0a41. Older helper/config/source digests are superseded by the table above.
-
-Production metadata compatibility: the API also returns indexes from other collection groups. The transport now filters well-formed resources by collection group and continues rejecting any foreign project/database or malformed resource. All 27 gate tests pass. Latest preparation digests supersede earlier values: source 3018b9485a30c9ea4f12c7adf3f32e4f763e162cd32e022034c9e329dce5bc73, config 08e1122a02b186082588c5a78e5ce39c6e3e822127936a7ed2dfd08804ce7c5a, manifest 3c9e1ecfcd6daa3fd5c7acb2f60169c25790b743700170ed65062052707e77d5.
+Deployment credentials belong only in secure environment settings. The local helper uses the existing gcloud sign-in and holds a short-lived token only in memory. The build identity acquires its own short-lived credential for Firestore. Do not put tokens into source, configuration files, logs or chat.
