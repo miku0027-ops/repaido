@@ -159,7 +159,21 @@ class FirestoreAPI:
             batch = result.get('indexes', [])
             if not isinstance(batch, list) or any(not isinstance(row, dict) for row in batch):
                 raise GateError('Firestore index listing is malformed.')
-            rows.extend(batch)
+            # Some Firestore deployments return project-wide index metadata
+            # even when a specific collection group was requested. Restrict
+            # results locally, while rejecting foreign project/database data.
+            namespace = f'projects/{self.project}/databases/{self.database}/collectionGroups/'
+            for row in batch:
+                name = row.get('name', '')
+                if not isinstance(name, str) or not name.startswith(namespace):
+                    raise GateError('Firestore index belongs to another project/database.')
+                parts = name[len(namespace):].split('/')
+                if len(parts) != 3 or not parts[0] or parts[1] != 'indexes' or not parts[2]:
+                    raise GateError('Firestore returned an invalid index resource name.')
+                if row.get('collectionGroup', parts[0]) != parts[0]:
+                    raise GateError('Firestore index group metadata differs from its resource.')
+                if parts[0] == collection:
+                    rows.append(row)
             token = result.get('nextPageToken', '')
             if not token:
                 return rows

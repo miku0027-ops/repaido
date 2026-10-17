@@ -430,6 +430,20 @@ class FirestoreHTTPTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(len(observed), 2)
 
+    def test_project_wide_index_response_is_filtered_to_requested_group(self):
+        other = remote_index(BASELINE, index_id='other-group')
+        target = remote_index(DELTA, index_id='requested-group')
+        api = self.make_api(lambda request, **kwargs: FakeResponse({'indexes': [other, target]}))
+        self.assertEqual(api.list_indexes(DELTA['collectionGroup']), [target])
+
+    def test_foreign_project_or_database_in_http_list_is_rejected(self):
+        for original, replacement in [('projects/repaido/', 'projects/foreign/'), ('databases/(default)/', 'databases/foreign/')]:
+            row = remote_index()
+            row['name'] = row['name'].replace(original, replacement)
+            api = self.make_api(lambda request, **kwargs: FakeResponse({'indexes': [row]}))
+            with self.assertRaises(index_gate.GateError):
+                api.list_indexes(DELTA['collectionGroup'])
+
     def test_malformed_list_envelope_is_rejected(self):
         for body in ({"indexes": {}}, {"indexes": "not-an-array"}, [remote_index()]):
             with self.subTest(body=body):
