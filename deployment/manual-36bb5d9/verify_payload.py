@@ -5,8 +5,8 @@ from pathlib import Path
 import tarfile
 
 COMMIT = '36bb5d925305ab4046e08d4dae7372058b1c0a41'
-MANIFEST_HASH = '00aa3ae5108dd029db47a5a7721e0487311cd562a02edaa3bc5c56e8fe5cc267'
-CONFIG_HASH = '9184cb52efa34afa4d6a6427b363f327b59432d250fedcfbc2ca27a517cefeff'
+MANIFEST_HASH = '6bed7418d5d1fc6376b91bbe937492642612536f67237713fdec9a8b3601dc56'
+CONFIG_HASH = '70ad32c6e1ff991c7914afb1956a5ecea3dd9868497d5e6f8bcd3cb26f1512a7'
 ARCHIVE = 'repaido-36bb5d925305-index-gated-source.tar.gz'
 
 def digest(data):

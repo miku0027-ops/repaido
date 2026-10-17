@@ -7,9 +7,9 @@ Use these **new** artifacts together:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `repaido-36bb5d925305-index-gated-source.tar.gz` (83,214,784 bytes) | `5ede61a84da9c3abd01cc4d004986a60e97ed2bdfc22aa7ac9f4696b5b3977da` |
-| `cloudbuild-api-index-gated.json` | `9184cb52efa34afa4d6a6427b363f327b59432d250fedcfbc2ca27a517cefeff` |
-| `reviewed-source.json` | `00aa3ae5108dd029db47a5a7721e0487311cd562a02edaa3bc5c56e8fe5cc267` |
+| `repaido-36bb5d925305-index-gated-source.tar.gz` (83,214,849 bytes) | `58507ecb369cf5ca212ceafbd32b1c0babaf730ae4ce068d9c8e39668336e656` |
+| `cloudbuild-api-index-gated.json` | `70ad32c6e1ff991c7914afb1956a5ecea3dd9868497d5e6f8bcd3cb26f1512a7` |
+| `reviewed-source.json` | `6bed7418d5d1fc6376b91bbe937492642612536f67237713fdec9a8b3601dc56` |
 
 The archive contains exactly 940 selected files: committed customer/API source plus the reviewed index publisher, baseline index document and pinned manifest. The source archive from `repaido-release-a9c2788` is superseded and omits the QA fixes. Do not use it or its staged website. Do not submit the ordinary checkout with the new JSON configuration: it lacks the support files and will fail the source guard.
 
@@ -49,3 +49,5 @@ PYTHONDONTWRITEBYTECODE=1 python3 validate_prepared_release.py
 ```
 
 Preparation needs installed PyYAML. Cloud Build source/index guards use the standard library and existing Cloud SDK image. Regenerating replaces the generated artifacts only; confirm digests before reusing any uploaded object. Source/config publication and repository push remain unperformed by this helper work.
+
+October 17 publisher correction: the production Firestore Admin API rejects nonzero pageSize with HTTP 400 (only 0 is supported). Index listing now omits pageSize and retains encoded page tokens. A regression reproduces the server rejection; all 25 gate tests pass. The application source remains commit 36bb5d925305ab4046e08d4dae7372058b1c0a41. Older helper/config/source digests are superseded by the table above.

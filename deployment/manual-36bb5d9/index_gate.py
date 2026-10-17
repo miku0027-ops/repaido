@@ -153,7 +153,8 @@ class FirestoreAPI:
         rows, seen = [], set()
         token = ''
         for _ in range(100):
-            query = '?pageSize=100' + ('&pageToken=' + urllib.parse.quote(token, safe='') if token else '')
+            # Firestore Admin currently accepts only the default page size (0).
+            query = ('?pageToken=' + urllib.parse.quote(token, safe='')) if token else ''
             result = self.request('GET', path + query)
             batch = result.get('indexes', [])
             if not isinstance(batch, list) or any(not isinstance(row, dict) for row in batch):

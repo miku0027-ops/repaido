@@ -221,7 +221,7 @@
     "firestore.indexes.json": "4cbd42ac2021147d5bf4393c117c33e3e4951f7b0379a09cb8b0e0f13ef70641",
     "firestore.rules": "77ea2f4cf8c67074cd23784e5653857b9d160d9213201f4c1ea79a4251c20b6b",
     "release_support/baseline-firestore.indexes.json": "2c320c05cde27bcf36e1d3379ca3171754c84d1a466d65094a13d8baa0aae974",
-    "release_support/index_gate.py": "0ed512c07943e1b1b3a4a393bf726b6f44b0a5e4f0831125fc2818bb65a57664",
+    "release_support/index_gate.py": "e091fa07b1648839a8829e80bdf920c85e78f3536b3bf6bc31116da4d6041dc3",
     "scripts/android_smoke.py": "0c93f226dd72d37eb82719df98f4a0554326ac504d615a968d30e06e5613e027",
     "scripts/bootstrap-work-deployment.sh": "7a24e86c7463f796d3e2b52c51268ed5baf3bf18a6afcc024dfc797e7a4111c9",
     "scripts/check-build-source.py": "d527f46dc9e61f1d81d13814203c70ac72b049c6452513187933e2e3f2d35e1f",
