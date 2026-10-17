@@ -56,6 +56,8 @@ try{
     await new Promise(resolve=>setTimeout(resolve,200));
   }
   const alice=await register('Alice Electrician'),bob=await register('Bob Carpenter');
+  fixture('workers',alice.user.id,{id:alice.user.id,name:alice.user.name,status:'approved',role:'technician',city:'Balasore',categories:['electrician'],skills:['Wiring','Inspection'],experience_years:8});
+  fixture('workers',bob.user.id,{id:bob.user.id,name:bob.user.name,status:'approved',role:'specialist',contractor_verified:true,city:'Balasore',categories:['carpenter'],skills:['Furniture repairs']});
   for(const [account,trade] of [[alice,'electrician'],[bob,'carpenter']]){
     await api('/repaidians/state',account);
     await api('/repaidians/profile',account,'PATCH',{trade,name:account.user.name,bio:'Work shared through the isolated community.',workStatus:account===alice?'not_looking':'open_to_work',skills:account===alice?['Wiring','Inspection']:['Furniture repairs'],city:'Balasore'});
@@ -64,8 +66,6 @@ try{
   await api('/repaidians/work/behavior',alice,'POST',{eventId:randomUUID(),trade:'electrician',type:'search',query:'electrical work'});
   const asset=await api('/repaidians/media',bob,'POST',await readFile(resolve(web,'public/images/cleaning.jpg')),201,{'Content-Type':'image/jpeg'});
   const publication=await api('/repaidians/publications',bob,'POST',{kind:'post',trade:'carpenter',visibility:'public',caption:'A completed repair shared through the real isolated API.',media:[{url:asset.url,kind:asset.kind,alt:'A repair photo preserved at its original aspect ratio'}],clientId:randomUUID()},201);
-  fixture('workers',alice.user.id,{id:alice.user.id,name:alice.user.name,status:'approved',role:'technician',city:'Balasore',categories:['electrician'],skills:['Wiring','Inspection'],experience_years:8});
-  fixture('workers',bob.user.id,{id:bob.user.id,name:bob.user.name,status:'approved',role:'specialist',contractor_verified:true,city:'Balasore',categories:['carpenter'],skills:['Furniture repairs']});
   const now=Date.now()/1000;
   let project=await api('/operations/contractor/projects',bob,'POST',{request_id:randomUUID(),title:'Actual electrical team opening',scope:'Inspect and repair electrical circuits with documented safety checks.',site:'PRIVATE exact worksite',starts_at:now+7200,ends_at:now+86400,budget_paise:1000000});
   project=await api('/operations/contractor/projects/'+project.id+'/hiring',bob,'PUT',{expected_version:project.version,status:'open',city:'Balasore',area:'Town centre',sector:'Electrical',summary:'Electrical maintenance and circuit inspection with safe equipment.',skills:['Wiring','Inspection'],worker_role:'any',openings:1,minimum_experience:1,daily_rate_paise:95000,hours_per_day:8,deadline:now+3600,terms:'Eight hours daily with documented attendance and safety equipment.'});
@@ -80,10 +80,10 @@ try{
   await context.route('**/api/**',async route=>{const url=new URL(route.request().url());const response=await route.fetch({url:apiOrigin+url.pathname+url.search});await route.fulfill({response});});
   const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
   await page.goto(origin+'/tests/repaidians-preview.html');await shell(page).locator('.rp-post').first().waitFor();
-  assert.deepEqual(await shell(page).getByRole('tablist',{name:'Feed source'}).getByRole('tab').allTextContents(),['For you','My jobs','Apply Status','Saved']);
+  assert.deepEqual(await shell(page).getByRole('tablist',{name:'Feed source'}).getByRole('tab').allTextContents(),['For you','Saved']);
   assert.equal(await shell(page).locator('main .rp-work-entry').count(),0,'Work tools do not displace the feed.');
   assert.equal(await shell(page).getByRole('button',{name:'Your activity',exact:true}).count(),0);
-  await page.waitForFunction(()=>document.querySelectorAll('.rp-genres button')[1]?.textContent==='Electrical');
+  await page.waitForFunction(()=>document.querySelectorAll('.rp-genres button[aria-pressed]')[1]?.textContent==='Electrical');
   await shell(page).getByRole('button',{name:'Like post',exact:true}).click();await shell(page).getByRole('button',{name:'Unlike post',exact:true}).waitFor();
   await shell(page).getByRole('button',{name:'Your interests',exact:true}).click();await shell(page).locator('.rp-post').first().waitFor();
   const liked=await api('/repaidians/feed?kind=post&mode=liked',alice);assert.deepEqual(liked.items.map(item=>item.id),[publication.item.id]);
@@ -97,8 +97,10 @@ try{
     assert.ok(Math.abs(bounds.left-bounds.right)<2,JSON.stringify({width,theme,text,bounds}));assert.ok(bounds.contained);assert.equal(bounds.fit,'contain');assert.equal(bounds.overflow,false);
   }
   await page.setViewportSize({width:390,height:850});await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});await audit(page);
-  await shell(page).getByRole('tab',{name:'My jobs',exact:true}).click();await shell(page).getByRole('region',{name:'My jobs',exact:true}).waitFor();
-  await shell(page).getByRole('tab',{name:'Apply Status',exact:true}).click();await shell(page).getByRole('region',{name:'Apply Status',exact:true}).waitFor();
+  await nav(page,'Work & market');await shell(page).getByRole('button',{name:/^Matching jobs/}).click();await shell(page).getByRole('region',{name:'My jobs',exact:true}).waitFor();
+  const workNavigation=shell(page).getByRole('navigation',{name:'Work and market sections',exact:true});
+  await workNavigation.getByRole('button',{name:'My work',exact:true}).click();
+  await workNavigation.getByRole('group',{name:'My work',exact:true}).getByRole('button',{name:'Applications',exact:true}).click();await shell(page).getByRole('region',{name:'Apply Status',exact:true}).waitFor();
   await profile(page);assert.equal(await shell(page).locator('.rp-profile .rp-account-settings').count(),0,'Settings are in the drawer.');
   assert.equal(await shell(page).getByText('Professional details shared by this member.',{exact:true}).count(),0);
   await shell(page).locator('.rp-portfolio-tabs').getByRole('button',{name:'Photos',exact:true}).waitFor();
@@ -118,13 +120,12 @@ try{
   let drawer=await settings(page);await drawer.getByLabel('Allow messages from',{exact:true}).selectOption('following');await drawer.getByRole('button',{name:'Save settings',exact:true}).click();await drawer.getByText('Privacy and notification settings saved.',{exact:true}).waitFor();assert.equal((await api('/repaidians/settings',alice)).settings.messagePrivacy,'following');
   await drawer.getByRole('checkbox',{name:/Personalized work discovery/}).uncheck();await drawer.getByText('Personalized work discovery updated.',{exact:true}).waitFor();await audit(page,'.rp-options-drawer');
   await page.keyboard.press('Escape');assert.equal(await drawer.count(),0);assert.equal(await shell(page).getByRole('button',{name:'Open profile tools and settings',exact:true}).evaluate(button=>button===document.activeElement),true);
-  await nav(page,'Home');await shell(page).getByRole('tab',{name:'For you',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.rp-genres button')[1]?.textContent==='Cleaning');
+  await nav(page,'Home');await shell(page).getByRole('tab',{name:'For you',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.rp-genres button[aria-pressed]')[1]?.textContent==='Cleaning');
   application=await api('/operations/contractor/hiring/applications/'+application.id+'/view',bob,'POST',{expected_version:application.version,action:'profile_viewed',request_id:randomUUID()});
   await shell(page).getByRole('button',{name:'Notifications',exact:true}).click();
   await shell(page).locator('.rp-notification-row').filter({hasText:'Your profile was viewed'}).click();
   await shell(page).getByRole('region',{name:'Apply Status',exact:true}).waitFor();
   const timeline=page.getByRole('dialog',{name:'Application timeline',exact:true});
-  if(!await timeline.count())await shell(page).getByRole('button',{name:'View timeline',exact:true}).click();
   await timeline.waitFor();await timeline.getByText('Profile viewed',{exact:true}).waitFor();await timeline.getByRole('button',{name:'Close dialog',exact:true}).click();
   application=await api('/operations/contractor/hiring/applications/'+application.id+'/decision',bob,'POST',{expected_version:application.version,project_version:project.version,action:'offer',daily_rate_paise:123400,terms:'Eight hours daily, weekly payment and agreed safety equipment.'});
   project=(await api('/operations/contractor/workspace',alice)).projects.find(row=>row.id===project.id);

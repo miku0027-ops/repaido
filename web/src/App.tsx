@@ -659,6 +659,7 @@ export default function App() {
       script.onload = () => {
         const gateway = new (window as any).Razorpay({
           key: order.key_id,
+          order_id: order.razorpay_order_id,
           amount: order.amount_paise,
           currency: order.currency,
           name: 'Repaido',

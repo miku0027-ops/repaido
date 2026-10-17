@@ -802,7 +802,7 @@
 
 .rt-live-badge {
   font-weight:700;
-  color: #059669;
+  color: #065f46;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-size: 0.68rem;
@@ -815,7 +815,7 @@
 
 .rt-job-id {
   font-weight: 600;
-  color: #64748b;
+  color: #334155;
   font-family:var(--ui-font);
   font-size: 0.68rem;
 }
@@ -875,7 +875,7 @@
 
 .rt-map-chip-text small {
   font-size: 0.7rem;
-  color: #0284c7;
+  color: #075985;
   font-weight: 700;
   background: #f0f9ff;
   padding: 1px 5px;
@@ -1008,7 +1008,7 @@
 .rt-step-label {
   font-size: 0.65rem;
   font-weight:600;
-  color: #64748b;
+  color: #334155;
   text-transform: capitalize;
   white-space: nowrap;
 }
@@ -1019,7 +1019,7 @@
   color: #ffffff;
 }
 .rt-step-item.is-done .rt-step-label {
-  color: #059669;
+  color: #065f46;
   font-weight:700;
 }
 
@@ -1030,7 +1030,7 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 .rt-step-item.is-current .rt-step-label {
-  color: #1d4ed8;
+  color: #1e40af;
   font-weight:700;
 }
 
@@ -1066,7 +1066,7 @@
 .rt-hero-eyebrow {
   font-size: 0.66rem;
   font-weight:700;
-  color: #1d4ed8;
+  color: #1e40af;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   display: block;

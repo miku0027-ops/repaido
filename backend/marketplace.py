@@ -208,7 +208,12 @@ def install(core):
  @r.post('/market/{lid}/close')
  def close(lid:str,user=Depends(core.current_user)):
   def save(u):
-   x=owned(u,lid,user);x['status']='closed';u.put('market_listings',lid,x);audit(u,'MarketplaceListingClosed',user['id'],listing_id=lid);return {'status':'closed'}
+   x=owned(u,lid,user)
+   claim=u.get('market_handover_claims',lid)
+   if claim:
+    handover=u.get('market_transactions',claim['chat_id'])
+    if not handover or handover['state']!='completed':fail('HANDOVER_IN_PROGRESS','Complete the confirmed handover before closing this listing. Contact support if there is a handover concern.',409)
+   x['status']='closed';u.put('market_listings',lid,x);audit(u,'MarketplaceListingClosed',user['id'],listing_id=lid);return {'status':'closed'}
   return store.run(save)
  @r.get('/market/{lid}/contact')
  def contact(lid:str,user=Depends(core.current_user)):

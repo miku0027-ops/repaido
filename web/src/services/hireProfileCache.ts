@@ -37,6 +37,9 @@ export async function hireProfiles<T>(body:Record<string,unknown>,force=false):P
     const response=await apiFetch('/api/operations/hiring/leaderboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)},{background:true});
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.detail?.message||'Profiles could not load. Please retry.');
+    // Do not retain a malformed success response: warm readers apply cached
+    // profiles synchronously and cannot recover from an invalid collection.
+    if(!data||!Array.isArray(data.professionals)||data.professionals.some((profile:unknown)=>!profile||typeof profile!=='object'||typeof (profile as {id?:unknown}).id!=='string'||typeof (profile as {name?:unknown}).name!=='string')||(data.categories!==undefined&&!Array.isArray(data.categories)))throw new Error('Profiles could not be confirmed. Please retry.');
     recent.delete(id);recent.set(id,{at:Date.now(),value:data});
     while(recent.size>MAX_ENTRIES)recent.delete(recent.keys().next().value!);
     return data as T;

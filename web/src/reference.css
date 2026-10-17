@@ -3505,7 +3505,7 @@
   max-width: 600px;
   margin: 0 auto;
   min-height: 100dvh;
-  background: #ffffff;
+  background: var(--ui-subtle, #ffffff);
   position: relative;
   padding-bottom: 90px;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
@@ -5006,8 +5006,7 @@
    ========================================================= */
 .worker-portal-container,
 .shop-admin-container,
-.company-admin-container,
-.spare-parts-shop-container {
+.company-admin-container {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   color-scheme: light !important;

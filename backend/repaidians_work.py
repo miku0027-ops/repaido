@@ -682,7 +682,18 @@ def deliver_contract_updates(u, uid, now=None):
     quota = u.get('rp_work_daily', key) or {'day': day, 'contracts': []}
     if len(quota['contracts']) >= 3:
         return 0
-    watches = active_query(u, lane('rp_work_watches', uid), 32)
+    checkpoint = u.get('rp_work_contract_cursors', uid) or {}
+    positions = checkpoint.get('sources', {})
+    next_positions = {}
+
+    def source_page(source, limit):
+        # Unchanged or inaccessible contracts can remain indexed. Cycle each
+        # bounded source so old references cannot hide later eligible contracts.
+        rows = active_query(u, source, limit, positions.get(source, ''))
+        next_positions[source] = rows[-1]['sortKey'] if len(rows) == limit else ''
+        return rows
+
+    watches = source_page(lane('rp_work_watches', uid), 32)
     refs = {entry['id']: entry for entry in watches if entry.get('active')}
     # Contract-update consent permits profile-relevant opportunities. Search
     # history contributes only with the independent personalization consent.
@@ -690,11 +701,11 @@ def deliver_contract_updates(u, uid, now=None):
     for entry in ranked_interests[:2]:
         if entry['weight'] <= 0:
             continue
-        for ref in active_query(u, channel('contracts', entry['trade']), 8):
+        for ref in source_page(channel('contracts', entry['trade']), 8):
             if ref.get('active'):
                 refs.setdefault(ref['id'], ref)
     for word in list(keyword_weights(u, uid))[:2]:
-        for ref in active_query(u, channel('contracts', 'all', '', word), 8):
+        for ref in source_page(channel('contracts', 'all', '', word), 8):
             refs.setdefault(ref['id'], ref)
     candidates = []
     for watch in refs.values():
@@ -728,6 +739,7 @@ def deliver_contract_updates(u, uid, now=None):
             u.put(lane('rp_work_contract_seen', uid), card['id'], {'signature': signature, 'day': day})
     if delivered:
         u.put('rp_work_daily', key, quota)
+    u.put('rp_work_contract_cursors', uid, {'sources': next_positions})
     return delivered
 
 

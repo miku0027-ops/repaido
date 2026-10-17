@@ -324,7 +324,7 @@ def test_maximum_basket_supplier_email_fanout_stays_below_transaction_cap(api,mo
     main.operations_store.run(seed)
     monkeypatch.setattr(retail_checkout,'payments_ready',lambda:True)
     def provider(path,body=None,payout=False,key=None):
-        if path=='orders':return dict(id='order_many',amount=size,currency='INR')
+        if path=='orders':return {**body,'id':'order_many'}
         if path=='payments/pay_many':return dict(id='pay_many',order_id='order_many',amount=size,currency='INR',status='captured',captured=True)
         raise AssertionError(path)
     monkeypatch.setattr(retail_checkout,'razorpay',provider)

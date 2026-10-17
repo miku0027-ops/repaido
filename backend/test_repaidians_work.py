@@ -190,6 +190,34 @@ def test_contract_push_rechecks_optout_block_and_withdrawal(work_api):
     assert not main.operations_store.run(lambda u: work.delivery_allowed(u, delivery))
 
 
+@pytest.mark.parametrize('watched,window', [(False, 8), (True, 32)])
+def test_contract_updates_cycle_past_unchanged_source_pages(work_api, watched, window, monkeypatch):
+    profile(trade='plumber' if watched else 'electrician', skills=[])
+    assert work_api.patch('/repaidians/work/preferences', headers=auth('customer'),
+                          json={'contractUpdates': True}).status_code == 200
+    for index in range(window + 1):
+        tid = f'contract-page-{index:03d}'
+        tender = seed_tender(tid)
+        if watched:
+            assert work_api.put('/repaidians/work/contracts/' + tid + '/watch',
+                                headers=auth('customer'), json={'active': True}).status_code == 200
+        if index < window:
+            # Already-seen contracts outside the reminder window remain active.
+            tender.update(deadline=time.time() + 14 * 86400, starts_at=time.time() + 15 * 86400,
+                          ends_at=time.time() + 30 * 86400)
+            signature = work.digest(json.dumps([tender.get(key) for key in ('status', 'deadline', 'starts_at', 'ends_at', 'version')]))
+            def remember(u):
+                u.put('contract_tenders', tid, tender)
+                u.put(repaidians.lane('rp_work_contract_seen', 'customer'), tid, {'signature': signature})
+            main.operations_store.run(remember)
+    monkeypatch.setattr(operations.Unit, 'all', lambda *args: (_ for _ in ()).throw(AssertionError('Hot collection scan')))
+    assert main.operations_store.run(lambda u: work.deliver_contract_updates(u, 'customer')) == 0
+    assert main.operations_store.run(lambda u: work.deliver_contract_updates(u, 'customer')) == 1
+    notes = main.operations_store.run(lambda u: repaidians.query(u, repaidians.lane('rp_notifications', 'customer'), 50))
+    assert [note['contractId'] for note in notes if note['type'] == 'contract_update'] == [f'contract-page-{window:03d}']
+    assert main.operations_store.run(lambda u: work.deliver_contract_updates(u, 'customer')) == 0
+
+
 def test_accepted_placements_only_and_independent_salary_consent(work_api):
     profile('worker2'); seed_job()
     def seat(u, status='pending'):

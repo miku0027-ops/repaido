@@ -60,6 +60,8 @@ html { font-size: 100%; scroll-padding-block: 7rem var(--ui-nav-clearance); }
 html.large-text { font-size: 125%; }
 body { font-family: var(--ui-font); font-size: var(--ui-text-body); line-height: 1.5; }
 button, input, textarea, select { font-family: inherit; }
+.app-empty-state { grid-column:1 / -1; background:var(--ui-subtle); color:var(--ui-ink); border-color:var(--ui-line); }
+.app-empty-state h2 { color:inherit; }
 p, li, dd, dt, label, legend, input, textarea, select { font-size: var(--ui-text-body); }
 h1, h2, h3, h4 { text-wrap: balance; overflow-wrap: break-word; }
 p, label, li, button, summary { overflow-wrap: anywhere; }
@@ -1275,11 +1277,11 @@ html,body,#root,.repaido-customer-shell .android-app-container {overflow-x:clip;
 .discovery-card-bottom label {white-space:nowrap;}
 .search-discovery .discovery-close {flex:0 0 44px;min-width:44px;height:44px;padding:8px;background:var(--ui-surface);color:var(--ui-ink);border:1px solid var(--ui-control);}
 .search-discovery .discovery-compare-bar {bottom:0;border-radius:12px;padding:8px;}
-.android-bottom-nav {background:var(--customer-nav-blue);border:0;border-radius:16px 16px 0 0;gap:4px;flex-wrap:nowrap;padding:6px 8px max(8px,env(safe-area-inset-bottom));box-shadow:none;}
-.android-bottom-nav .android-nav-item {flex:1 1 0;min-width:0;max-width:none;min-height:52px;padding:6px 2px;gap:4px;color:#fff;background:transparent;border-radius:10px;}
+.android-bottom-nav {background:var(--customer-nav-blue);border:0;border-radius:16px 16px 0 0;gap:4px;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding:6px 8px max(8px,env(safe-area-inset-bottom));box-shadow:none;}
+.android-bottom-nav .android-nav-item {flex:1 0 max-content;min-width:min-content;max-width:none;min-height:52px;padding:6px 2px;gap:4px;color:#fff;background:transparent;border-radius:10px;}
 .android-bottom-nav .android-nav-item.active {color:#fff;background:#344577;}
 .android-bottom-nav .android-nav-item svg {display:block;flex:0 0 20px;width:20px;height:20px;stroke-width:2;}
-.android-bottom-nav .android-nav-item span {font-size:.75rem;line-height:1.3;white-space:normal;}
+.android-bottom-nav .android-nav-item span {font-size:.75rem;line-height:1.3;white-space:nowrap;overflow-wrap:normal;}
 .android-bottom-nav .android-nav-item:focus-visible {outline:2px solid white;outline-offset:-2px;}
 
 /* Compact operational controls; disclosures retain policy and financial detail. */
@@ -1306,7 +1308,7 @@ html,body,#root,.repaido-customer-shell .android-app-container {overflow-x:clip;
 @media(min-width:840px) {.portal-shell .portal-body main {padding:24px 32px;}.portal-shell .ops-card {border-radius:16px;}}
 @media(prefers-reduced-motion:reduce) {.customer-search-field {transition:none;}}
 html.large-text .android-bottom-nav .android-nav-item {min-height:60px;}
-html.large-text .android-bottom-nav .android-nav-item span {overflow-wrap:anywhere;}
+html.large-text .android-bottom-nav .android-nav-item span {overflow-wrap:normal;}
 html.large-text .repaido-header-top-row {flex-wrap:wrap;row-gap:8px;}
 html.large-text .repaido-header-actions {flex:none;margin-left:auto;}
 html.large-text .repaido-header-signin-btn {white-space:nowrap;}

@@ -38,7 +38,8 @@ try{
  assert(requests.some(row=>row.path.endsWith('/discovery/events')&&JSON.parse(row.body).query==='AC'));
  checks.push('real recorded activity updates the Home panel through the production hydration hook');
  const query=page.getByRole('searchbox',{name:'Describe the work'});await query.fill('AC not cooling');
- const chips=await page.getByRole('group',{name:'Repair ideas'}).innerText();await pause(1100);
+ await page.getByText('Try a quick search',{exact:true}).click();
+ const chips=await page.getByRole('group',{name:'Repair ideas'}).innerText();assert(chips.trim().length>0,'expanded repair ideas have labels');await pause(1100);
  const plumbingReceipt=page.waitForResponse(response=>response.url().endsWith('/discovery/events')&&response.request().postData()?.includes('plumber'));
  await page.getByRole('button',{name:'Record plumbing category',exact:true}).click();assert.equal((await (await plumbingReceipt).json()).recorded,true);await pause(300);
  assert.equal(await page.getByRole('group',{name:'Repair ideas'}).innerText(),chips);
@@ -72,10 +73,14 @@ try{
  await page.route('**/api/operations/discovery/events',async route=>{const response=await route.fetch({url:api+'/operations/discovery/events'});recordedEvent(await response.json());await heldEvent;await route.fulfill({response});});
  await page.getByRole('button',{name:'Record electrical category',exact:true}).click();assert.equal((await eventRecorded).recorded,true);
  await page.getByRole('button',{name:'Turn off & clear interests',exact:true}).click();await page.getByRole('button',{name:'Enable personalised suggestions',exact:true}).waitFor();releaseEvent();await pause(300);
- assert.equal(await page.getByRole('heading',{name:'Make your next move.',exact:true}).count(),1);
+ assert.equal(await page.getByRole('heading',{name:'Where to next?',exact:true}).count(),1);
+ assert.equal(await page.getByRole('button',{name:'Rides',exact:true}).getAttribute('aria-pressed'),'true');
+ assert.equal(await page.getByRole('button',{name:'Enable personalised suggestions',exact:true}).count(),1);
  await page.unroute('**/api/operations/discovery/events');
  await page.getByRole('button',{name:'Switch test account',exact:true}).click();await page.getByRole('button',{name:'Repairs',exact:true}).click();assert.equal(await query.inputValue(),'');
  checks.push('opt-out discards a late behavior receipt, and account switching clears private drafts');
+ // Dismiss feedback from the explicit opt-out before checking for unsolicited idle feedback.
+ for(const dismiss of await page.getByRole('button',{name:'Dismiss notification',exact:true}).all())await dismiss.click();
  const auto=requests.length;await pause(700);assert(requests.slice(auto).every(row=>row.method==='GET'));
  const activeFeedback=await page.locator('.app-feedback-card').allTextContents();assert(activeFeedback.every(text=>!text.includes('Changes saved')));
  await page.screenshot({path:work+'/repair-motion.png',fullPage:true});

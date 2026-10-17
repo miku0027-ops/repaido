@@ -1,5 +1,8 @@
 packages:
   - '.'
+overrides:
+  '@grpc/grpc-js@1.9.16': 1.13.6
+  'source-map-js@1.2.1': 1.2.2
 allowBuilds:
   '@firebase/util': set this to true or false
   esbuild: true

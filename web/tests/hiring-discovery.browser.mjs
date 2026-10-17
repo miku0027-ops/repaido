@@ -80,6 +80,7 @@ async function fixtureRoutes(context){
       if(barrier){state.availabilityBarrier=null;barrier.capture();await barrier.wait;}
       await route.fulfill({json:{professionals:filtered(body)}});barrier?.finish();return;
     }
+    if(path.startsWith('/api/operations/professionals/')){const profile=profiles.find(row=>row.id===decodeURIComponent(path.split('/').at(-1)));return route.fulfill({status:profile?200:404,json:profile||{detail:'Profile unavailable'}});}
     if(path==='/api/operations/discovery/events')return route.fulfill({json:{recorded:false}});
     if(path==='/api/operations/discovery/preferences')return route.fulfill({json:{enabled:true}});
     return route.fulfill({status:404,json:{detail:'Unexpected Hire browser API request: '+path}});
@@ -169,12 +170,12 @@ async function privacyRegressions(){
 
   state.dayHireReady=true;await closeResult(page);await choose(page,'electrician');
   await result(page).locator('.hire-card-actions').first().getByRole('button',{name:'View profile',exact:false}).click();
-  await profile.getByRole('button',{name:'Request day hire',exact:true}).click();
+  await profile.getByRole('button',{name:'Hire electrician for a day',exact:true}).click();
   const location=page.getByRole('dialog',{name:'Where do you need help?',exact:true});await location.waitFor();
   await page.evaluate(()=>window.__hireFixtureAuth(''));await profile.waitFor({state:'hidden'});await location.waitFor({state:'hidden'});
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-third-account'));
   await result(page).locator('.hire-card-actions').first().getByRole('button',{name:'View profile',exact:false}).click();
-  await profile.getByRole('button',{name:'Request day hire',exact:true}).click();
+  await profile.getByRole('button',{name:'Hire electrician for a day',exact:true}).click();
   await location.getByLabel('Latitude',{exact:true}).fill('21.50');
   const availability=holdResponse('availabilityBarrier',()=>true);
   await location.getByRole('button',{name:'Confirm this location',exact:true}).click();await availability.reached;
@@ -185,7 +186,7 @@ async function privacyRegressions(){
 
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-third-account'));
   await result(page).locator('.hire-card-actions').first().getByRole('button',{name:'View profile',exact:false}).click();
-  await profile.getByRole('button',{name:'Request day hire',exact:true}).click();await booking.waitFor();
+  await profile.getByRole('button',{name:'Hire electrician for a day',exact:true}).click();await booking.waitFor();
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-third-account'));await page.waitForTimeout(50);assert.equal(await booking.count(),1,'Same-account token refresh must preserve the booking sheet.');
   await page.evaluate(()=>window.__hireFixtureAuth('fixture-fourth-account'));await booking.waitFor({state:'hidden'});
   assert.equal(requests.filter(r=>r.path==='/api/operations/hiring/requests').length,0,'Privacy checks must not send a real day-hire request.');
@@ -239,7 +240,7 @@ try{
   await closeResult(page);await choose(page,'cleaning');assert.equal(await result(page).locator('.hire-decision-card').count(),1);await closeResult(page);
   assert.equal(await categoryNav(page).getByRole('button').count(),15);
   await choose(page,'home:maid');assert.equal(await result(page).locator('.hire-decision-card').count(),1);await result(page).getByRole('button',{name:'View profile',exact:false}).click();
-  const profile=page.getByRole('dialog',{name:profiles[4].name,exact:true});await profile.waitFor();await profile.getByRole('button',{name:'Request Maid & daily home help scope'}).click();assert.equal(await page.getByLabel('Last Hire action').textContent(),'home:maid:fixture-worker-4');
+  const profile=page.getByRole('dialog',{name:profiles[4].name,exact:true});await profile.waitFor();await profile.getByRole('button',{name:'Hire maid',exact:true}).click();assert.equal(await page.getByLabel('Last Hire action').textContent(),'home:maid:fixture-worker-4');
   console.log('Hire category selection, 3-way comparison, budget scope, native handoff, cached errors and stale race passed.');
   await page.context().close();
 

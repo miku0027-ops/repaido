@@ -6,7 +6,7 @@ RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
     export NODE_USE_ENV_PROXY=1; \
     corepack enable && corepack prepare pnpm@11.19.0 --activate
-COPY engineering/web/package.json engineering/web/pnpm-lock.yaml ./
+COPY engineering/web/package.json engineering/web/pnpm-lock.yaml engineering/web/pnpm-workspace.yaml ./
 RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
     export NODE_USE_ENV_PROXY=1; \

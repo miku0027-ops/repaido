@@ -61,6 +61,36 @@ def test_retry_concurrent_accept_and_privacy(api):
     assert api.post('/operations/home/plans/'+p['id']+'/decision',headers=auth('customer'),json={'expected_version':1,'action':'cancel','reason':'Changed plans'}).status_code==409
     assert 'location' in view(api)[0]
 
+@pytest.mark.parametrize('stage', ['requested', 'offered', 'customer_accepted', 'worker_accepted'])
+def test_pause_cannot_bypass_mutual_plan_acceptance(api, stage):
+    setup_worker(api)
+    p,_=request(api)
+    if stage != 'requested':
+        p=quote(api,p)
+    if stage in ('customer_accepted', 'worker_accepted'):
+        p=decision(api,p,'accept','customer' if stage=='customer_accepted' else 'worker')
+    response=api.post('/operations/home/plans/'+p['id']+'/decision',headers=auth('customer'),
+        json=dict(expected_version=p['version'],action='pause',reason='Away for a short trip'))
+    assert response.status_code==409,response.text
+    stored=main.operations_store.run(lambda u:u.get('home_plans',p['id']))
+    assert stored['state']==p['state'] and stored['version']==p['version']
+    assert main.home_plans_tick()['visits_created']==0
+
+
+@pytest.mark.parametrize('quoted', [False, True])
+def test_resume_rejects_legacy_paused_plan_without_both_acceptances(api, quoted):
+    setup_worker(api)
+    p,_=request(api)
+    if quoted:
+        p=quote(api,p)
+    main.operations_store.run(lambda u:u.put('home_plans',p['id'],{**u.get('home_plans',p['id']),'state':'paused'}))
+    response=api.post('/operations/home/plans/'+p['id']+'/decision',headers=auth('customer'),
+        json=dict(expected_version=p['version'],action='resume'))
+    assert response.status_code==409,response.text
+    stored=main.operations_store.run(lambda u:u.get('home_plans',p['id']))
+    assert stored['state']=='paused' and stored['version']==p['version']
+
+
 def test_candidate_radius_training_overlap_and_quote_lock(api):
     setup_worker(api);p,_=request(api)
     def move(u):
@@ -84,6 +114,27 @@ def test_day_changes_need_other_party_preserve_price_and_pause(api):
     p=decision(api,p,'pause',reason='Away for a short trip');assert p['state']=='paused'
     p=decision(api,p,'resume');assert p['state']=='active'
     p=decision(api,p,'cancel',reason='No longer need future visits');assert p['state']=='cancelled'
+
+@pytest.mark.parametrize('expired', [False, True])
+def test_day_change_rechecks_future_time_and_same_day_working_hours(api,monkeypatch,expired):
+    p=active(api,start_date=(home_plans.iso_today()+timedelta(days=2)).isoformat())
+    visit=p['visits'][1] if expired else p['visits'][0]
+    new_date=p['visits'][0]['date']
+    new_time='12:00' if expired else '23:30'
+    url='/operations/home/plans/'+p['id']
+    response=api.post(url+'/changes',headers=auth('worker'),json=dict(expected_version=p['version'],
+        visit_id=visit['id'],new_date=new_date,new_time=new_time,reason='Please review this alternative schedule'))
+    assert response.status_code==200,response.text
+    p=response.json();change=p['changes'][-1]
+    if expired:
+        monkeypatch.setattr(home_plans.time,'time',lambda:home_plans.epoch(new_date,new_time)+3600)
+    response=api.post(url+'/changes/'+change['id'],headers=auth('customer'),
+        json=dict(expected_version=p['version'],accept=True))
+    assert response.status_code==409,response.text
+    stored=main.operations_store.run(lambda u:u.get('home_plans',p['id']))
+    assert stored['version']==p['version'] and stored['changes'][-1]['status']=='pending'
+    assert next(v for v in stored['visits'] if v['id']==visit['id'])['starts_epoch']==visit['starts_epoch']
+
 
 def test_complete_visit_monthly_capture_and_no_duplicate_charge(api,monkeypatch):
     p=active(api);v=p['visits'][0];clock=[v['starts_epoch']-3600]

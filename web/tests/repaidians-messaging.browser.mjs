@@ -84,7 +84,7 @@ async function headerLayout(page){
       return {centers:[rect(title).center,...[...header.querySelectorAll('.rp-header-actions button')].map(button=>rect(button).center)],boxes:[rect(range),...[...header.querySelectorAll('.rp-header-actions button')].map(rect)],overflow:header.scrollWidth>header.clientWidth+1};
     });
     assert.equal(boxes.overflow,false);assert.ok(Math.max(...boxes.centers)-Math.min(...boxes.centers)<=2);
-    for(let index=1;index<boxes.boxes.length;index++)assert.ok(boxes.boxes[index-1].right<=boxes.boxes[index].left+.5,'Header controls do not overlap.');
+    for(let index=1;index<boxes.boxes.length;index++)assert.ok(boxes.boxes[index-1].right<=boxes.boxes[index].left+.5,'Header controls do not overlap: '+JSON.stringify({width,theme,text,boxes}));
     assert.equal((await shell(page).getByRole('button',{name:'Create publication',exact:true}).textContent()).trim(),'');
     assert.equal(await shell(page).locator('.rp-bottom-nav > button').count(),5);
   }

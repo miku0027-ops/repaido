@@ -12,7 +12,7 @@ import time
 import uuid
 import urllib.request
 from typing import Literal
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import Field
 from operations import Input, Position, fail, event, metres, at_site
@@ -81,6 +81,9 @@ class TrackingPing(Position):
 
 def apply_payment(u, payment):
     """Only called with an authenticated provider GET, never browser/webhook claims."""
+    from retail_checkout import apply_provider_payment as apply_retail_payment
+    retail = apply_retail_payment(u, payment)
+    if retail is not None: return retail
     from shop_access import apply_provider_payment as apply_shop_access_payment
     shop_access = apply_shop_access_payment(u, payment)
     if shop_access is not None: return shop_access
@@ -585,14 +588,14 @@ def install(core):
         async for chunk in request.stream():
             data.extend(chunk)
             if len(data)>256*1024: fail('PAYLOAD_TOO_LARGE','Webhook too large.',413)
-        if not hmac.compare_digest(hmac.new(secret.encode(),bytes(data),hashlib.sha256).hexdigest(),x_razorpay_signature): fail('INVALID_SIGNATURE','Invalid signature.',401)
+        if not re.fullmatch(r'[a-f0-9]{64}',x_razorpay_signature) or not hmac.compare_digest(hmac.new(secret.encode(),bytes(data),hashlib.sha256).hexdigest(),x_razorpay_signature): fail('INVALID_SIGNATURE','Invalid signature.',401)
         try:
             payload=json.loads(data);kind='payment' if channel=='payments' else 'payout'
             entity=payload['payload'].get(kind,{}).get('entity',{})
             if not entity and kind=='payment': entity=payload['payload'].get('refund',{}).get('entity',{});entity={'id':entity.get('payment_id')}
             ref=entity.get('id','')
             if not re.fullmatch('pay_[A-Za-z0-9]+' if kind=='payment' else 'pout_[A-Za-z0-9]+',ref): return {'status':'ignored'}
-        except (ValueError,KeyError,TypeError): fail('INVALID_EVENT','Malformed webhook.',400)
+        except (ValueError,KeyError,TypeError,AttributeError): fail('INVALID_EVENT','Malformed webhook.',400)
         eid=digest(channel+bytes(data).hex())
         def enqueue(u):
             if not u.get('webhooks',eid): u.put('webhooks',eid,dict(id=eid,kind=kind,reference=ref,status='pending',created_at=time.time()))
@@ -880,7 +883,18 @@ def install(core):
             if not h:continue
             try:
                 if h['kind']=='payment':
-                    p=razorpay('payments/'+h['reference']);store.run(lambda u:apply_payment(u,p))
+                    p=razorpay('payments/'+h['reference'])
+                    if p.get('id')!=h['reference']:fail('PAYMENT_MISMATCH','Provider payment identity changed.',409)
+                    try:store.run(lambda u:apply_payment(u,p))
+                    except HTTPException as exc:
+                        # A capture webhook can beat the order-create response.
+                        # Fetch its exact provider order outside the transaction;
+                        # receipt + notes bind it to one saved retail checkout.
+                        if exc.status_code!=404 or not isinstance(exc.detail,dict) or exc.detail.get('code')!='ORDER_NOT_FOUND' or not re.fullmatch(r'order_[A-Za-z0-9]+',str(p.get('order_id',''))):raise
+                        order=razorpay('orders/'+p['order_id'])
+                        from retail_checkout import apply_provider_payment
+                        result=store.run(lambda u:apply_provider_payment(u,p,provider_order=order))
+                        if result is None:raise exc
                 else:reconcile_payout(razorpay('payouts/'+h['reference'],payout=True))
                 finish('webhooks',h['id'],True)
             except Exception:errors+=1;finish('webhooks',h['id'],False)

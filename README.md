@@ -1,6 +1,6 @@
 # Repaido — home services
 
-A native Kotlin / Jetpack Compose Android app with a FastAPI + SQLite backend, plus a separate React / Tailwind web design system for service discovery and checkout. The Android app uses native screens, not a WebView.
+A FastAPI backend and React / Tailwind web application for service discovery and checkout. The current Android customer and agent launchers use WebViews; native Kotlin / Jetpack Compose screens also remain in the source tree. See [current Android development and signing instructions](android/README.md).
 
 ## Included
 

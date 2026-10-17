@@ -125,3 +125,36 @@ def test_unaccepted_foreign_offer_and_blocked_meeting_rejected(api):
     assert api.post(f'{BASE}/{cid}/transaction/meeting',headers=auth('stranger'),json={**payload,'offer_message_id':mid}).status_code==404
     api.post(f'{BASE}/{cid}/block',headers=auth('worker'),json={'blocked':True})
     assert api.post(f'{BASE}/{cid}/transaction/meeting',headers=auth('worker2'),json={**payload,'offer_message_id':mid}).status_code==409
+
+
+def test_expiry_sweep_does_not_block_an_agreed_handover(api, monkeypatch):
+    import marketplace
+    cid, mid, item = accepted(api)
+    row, _ = meeting(api, cid, mid)
+    row, _ = action(api, cid, row, 'agree')
+    advance(monkeypatch)
+    def expire_access(u):
+        u.put('market_access_trials', 'worker', dict(id='worker', starts_at=time.time()-91*86400))
+        u.put('market_listings', item['id'], {**u.get('market_listings', item['id']), 'fee_status': 'free_trial'})
+    main.operations_store.run(expire_access)
+    main.operations_store.run(marketplace.expire_trials)
+    assert main.operations_store.run(lambda u:u.get('market_listings', item['id']))['status'] == 'expired'
+    row, _ = action(api, cid, row, 'confirm_completion', uid='worker2')
+    row, _ = action(api, cid, row, 'confirm_completion')
+    assert row['state'] == 'completed'
+    assert main.operations_store.run(lambda u:u.get('market_listings', item['id']))['status'] == 'closed'
+
+
+def test_owner_cannot_close_an_item_during_confirmed_swap_handover(api, monkeypatch):
+    cid, mid, item = accepted(api, listing(mode='exchange'))
+    row, _ = meeting(api, cid, mid)
+    row, _ = action(api, cid, row, 'agree')
+    advance(monkeypatch)
+    row, _ = action(api, cid, row, 'confirm_completion')
+    for lid, uid in ((item['id'], 'worker'), (row['offer']['exchange_listing']['id'], 'worker2')):
+        response = api.post('/operations/market/'+lid+'/close', headers=auth(uid))
+        assert response.status_code == 409, response.text
+        assert response.json()['detail']['code'] == 'HANDOVER_IN_PROGRESS'
+    row, _ = action(api, cid, row, 'confirm_completion', uid='worker2')
+    assert row['state'] == 'completed'
+    assert api.post('/operations/market/'+item['id']+'/close', headers=auth('worker')).status_code == 200

@@ -21,7 +21,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            // Release artifacts stay unsigned until a production signer is configured.
         }
     }
 }

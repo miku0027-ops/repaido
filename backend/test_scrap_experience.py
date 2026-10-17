@@ -100,6 +100,32 @@ def test_server_stamp_binding_duplicate_request_and_private_photo(api,media):
     reused={**body,'request_id':str(uuid.uuid4())}
     assert api.post(BASE+'/scrap',headers=auth('customer'),json=reused).status_code==409
 
+
+def test_requested_collector_can_open_sanitized_detail_before_acceptance(api,media):
+    register(api,'worker2','scrap_owner')
+    row,_=collection(api);path=BASE+'/scrap/'+row['id']
+    response=api.get(path,headers=auth('worker'))
+    assert response.status_code==200,response.text
+    assert response.json()['state']=='requested'
+    listed=api.get(BASE+'/scrap',headers=auth('worker')).json()['collections'][0]
+    assert response.json()==listed
+    assert not {'phone','address','location','photo_document_id','camera_receipt','candidate_owner_ids','events','photo_url','payment_reference','payment_source','agreed_paise','evaluation'} & response.json().keys()
+    assert api.get(path+'/pickup-photo',headers=auth('worker')).status_code==404
+    assert api.get(path+'/tracking',headers=auth('worker')).status_code==404
+    assert api.get(path,headers=auth('stranger')).status_code==404
+    register(api,'shop','scrap_owner')
+    assert api.get(path,headers=auth('shop')).status_code==404
+    def approval(status):
+        def save(u):
+            profile=local_business.partner_profile(u,'worker','scrap_owner');profile['status']=status;u.put('business_partners',profile['id'],profile)
+        main.operations_store.run(save)
+    approval('pending')
+    assert api.get(path,headers=auth('worker')).status_code==403
+    approval('approved')
+    act(api,row,'accept','worker2','scrap')
+    assert api.get(path,headers=auth('worker')).status_code==404
+    assert api.get(path,headers=auth('worker2')).status_code==200
+
 @pytest.mark.parametrize('changes',[{'lat':PIN['lat']+1},{'accuracy':100,'lng':PIN['lng']+.01},{'captured_at':0}])
 def test_camera_rejects_remote_or_stale_capture(api,media,changes):
     session=capture(api,str(uuid.uuid4()));response,_,_=upload(api,session,**changes)

@@ -5,6 +5,7 @@
 .rp-shell .rp-header-actions .rp-top-create:hover:not(:disabled){background:var(--ui-primary-hover);color:var(--ui-surface);}
 .rp-top-create>svg{flex:none;}
 @media(max-width:600px){.rp-shell .rp-header .rp-wordmark h1{font-size:clamp(24px,6vw,30px);}}
+@media(max-width:380px){.rp-shell .rp-header{padding-inline:4px;}}
 .rp-bottom-nav{grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;}
 .rp-shell .rp-bottom-nav>button{min-width:0!important;min-height:56px!important;justify-content:center;padding:8px 2px;}
 .rp-bottom-nav>button>svg{flex:none;}

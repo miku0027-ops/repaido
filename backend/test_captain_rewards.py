@@ -110,7 +110,7 @@ def test_refurb_reward_only_appliances_and_repaido_funds_seller(api,monkeypatch)
     assert q['discount_paise']==2500 and q['eligible_base_paise']==10000 and q['total_paise']==21100
     monkeypatch.setattr(retail_checkout,'payments_ready',lambda:True)
     def gateway(path,body=None):
-        if path=='orders':return dict(id='order_captain',amount=21100,currency='INR')
+        if path=='orders':return {**body,'id':'order_captain'}
         return dict(id='pay_captain',order_id='order_captain',amount=21100,currency='INR',status='captured',captured=True)
     monkeypatch.setattr(retail_checkout,'razorpay',gateway)
     body={**basket,'expected_total_paise':21100,'recipient_name':'Fixture Buyer','recipient_phone':'9876543210','delivery_address':'Fixture address near park','request_id':'captain-checkout-fixture'}

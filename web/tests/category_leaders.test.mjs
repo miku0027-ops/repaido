@@ -1,76 +1,52 @@
-import test from 'node:test';
+import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
+import {readFile} from 'node:fs/promises';
+import ts from 'typescript';
 
-const leadersTsxPath = path.resolve('src/components/ServiceLeaders.tsx');
-const leadersCssPath = path.resolve('src/components/service-leaders.css');
+// Exercise the live directory cache used by Category Leaders, Hiring and Home.
+// Layout, profile navigation and verified-review labels are covered by discovery.browser.mjs.
+const source=await readFile(new URL('../src/services/hireProfileCache.ts',import.meta.url),'utf8');
+let generation=0;
+async function directory(fetcher){
+ const slot='__leaderCacheTest'+(++generation);globalThis[slot]=fetcher;
+ const code=ts.transpileModule(source.replace("import {apiFetch} from './api';",`const apiFetch=globalThis.${slot};`),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+ const module=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+ delete globalThis[slot];return module;
+}
+const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
+const listed={professionals:[{id:'approved-worker',name:'Server supplied profile',categories:['cleaning']}],total:1,categories:[{id:'cleaning',name:'Cleaning',count:1,leader:null}]};
 
-test('Category Leaders: Basanti Behera verified record and specifications', () => {
-  const tsxContent = fs.readFileSync(leadersTsxPath, 'utf8');
-
-  // Verify Basanti Behera is present in Cleaning category
-  assert.match(tsxContent, /name:\s*['"]Basanti Behera['"]/);
-  assert.match(tsxContent, /category:\s*['"]cleaning['"]/);
-
-  // 15 years experience
-  assert.match(tsxContent, /experience_years:\s*15/);
-
-  // Highest demand tier
-  assert.match(tsxContent, /demand_tier:\s*['"]highest_demand['"]/);
-  assert.match(tsxContent, /demand_badge:\s*['"]🔥 Highest Demand['"]/);
-
-  // Rating above 4.7 (4.92)
-  assert.match(tsxContent, /rating:\s*4\.92/);
-
-  // Profile image is configured and rendered
-  assert.match(tsxContent, /profileImage:\s*['"]\/images\/specialists\/basanti_behera\.jpg['"]/);
-  assert.match(tsxContent, /className=['"]card-avatar-img['"]/);
-
-  // Scrolling customer testimonials present
-  assert.match(tsxContent, /Kuruda,\s*Balasore/);
-  assert.match(tsxContent, /3BHK Villa Full Deep Cleaning/);
+test('category leaders use server profiles and share equivalent public directory reads',async()=>{
+ const requests=[];let finish;
+ const api=await directory(async(...args)=>{requests.push(args);return new Promise(resolve=>finish=resolve);});
+ const first=api.hireProfiles({city:'Balasore',category:'cleaning'});
+ const equivalent=api.hireProfiles({category:'cleaning',city:'Balasore',role:'all',location:null,radius_km:20});
+ assert.equal(requests.length,1);assert.equal(requests[0][0],'/api/operations/hiring/leaderboard');
+ assert.deepEqual(JSON.parse(requests[0][1].body),{city:'Balasore',category:'cleaning'});
+ finish(response(listed));assert.deepEqual(await first,listed);assert.deepEqual(await equivalent,listed);
+ assert.deepEqual(api.cachedHireProfiles({city:'Balasore',category:'cleaning'}),listed);
+ assert.equal(api.cachedHireProfiles({city:'Other city',category:'cleaning'}),null);
+ assert.equal(api.cachedHireProfiles({city:'Balasore',category:'electrician'}),null);
 });
 
-test('Category Leaders: Dual simultaneous categories and authentic agent profiles', () => {
-  const tsxContent = fs.readFileSync(leadersTsxPath, 'utf8');
-
-  // Tushar Ranjan Das in electrician category with original photo
-  assert.match(tsxContent, /name:\s*['"]Tushar Ranjan Das['"]/);
-  assert.match(tsxContent, /category:\s*['"]electrician['"]/);
-  assert.match(tsxContent, /rating:\s*4\.94/);
-  assert.match(tsxContent, /experience_years:\s*8/);
-  assert.match(tsxContent, /profileImage:\s*['"]\/images\/specialists\/tushar_das\.jpg['"]/);
-
-  // Paramesh Prasad Mohapatra in pest category with original photo
-  assert.match(tsxContent, /name:\s*['"]Paramesh Prasad Mohapatra['"]/);
-  assert.match(tsxContent, /category:\s*['"]pest['"]/);
-  assert.match(tsxContent, /profileImage:\s*['"]\/images\/specialists\/paramesh_mohapatra\.jpg['"]/);
-
-  // Ensure mock profile IDs are completely removed
-  assert.doesNotMatch(tsxContent, /w-elec-spec-1/);
-  assert.doesNotMatch(tsxContent, /w-ac-spec-1/);
-  assert.doesNotMatch(tsxContent, /w-plumb-spec-1/);
-
-  // Default simultaneous categories contains at least 2: cleaning and electrician
-  assert.match(tsxContent, /\['cleaning',\s*'electrician'\]/);
-
-  // Randomize / shuffle functionality
-  assert.match(tsxContent, /handleRandomize/);
+test('failed leader refresh retains real prior records and the next retry recovers',async()=>{
+ let calls=0;const api=await directory(async()=>++calls===2?response({detail:{message:'Directory temporarily unavailable'}},503):response({...listed,total:calls}));
+ const query={city:'Balasore',category:'cleaning'};await api.hireProfiles(query);
+ await assert.rejects(api.hireProfiles(query,true),/Directory temporarily unavailable/);
+ assert.deepEqual(api.cachedHireProfiles(query),listed);
+ assert.equal((await api.hireProfiles(query,true)).total,3);
 });
 
-test('Category Leaders: Compact Android-native layout and small button specifications', () => {
-  const cssContent = fs.readFileSync(leadersCssPath, 'utf8');
+test('malformed successful directory responses are rejected and never poison the cache',async()=>{
+ for(const malformed of [{},null,{professionals:null},{professionals:[null]},{professionals:[],categories:{}}]){
+  let calls=0;const api=await directory(async()=>response(++calls===1?malformed:listed));const query={city:'Balasore',category:'cleaning'};
+  await assert.rejects(api.hireProfiles(query),/could not be confirmed/);assert.equal(api.cachedHireProfiles(query),null);
+  assert.deepEqual(await api.hireProfiles(query),listed);assert.equal(calls,2);
+ }
+});
 
-  // Small buttons with 28px height
-  assert.match(cssContent, /\.btn-small-profile\s*{[^}]*height:\s*28px/);
-  assert.match(cssContent, /\.btn-small-hire\s*{[^}]*height:\s*28px/);
-  assert.match(cssContent, /\.leader-randomize-btn\s*{[^}]*height:\s*28px/);
-  assert.match(cssContent, /\.leader-pill-btn\s*{[^}]*height:\s*28px/);
-
-  // Mobile-first single column showcase without horizontal overflow
-  assert.match(cssContent, /\.leader-showcase-grid\s*{[^}]*flex-direction:\s*column/);
-
-  // Auto-scrolling single line ticker
-  assert.match(cssContent, /\.card-ticker-strip/);
+test('professional details are encoded and reject a mismatched public identity',async()=>{
+ const calls=[];const api=await directory(async(...args)=>{calls.push(args);return response({id:'someone-else'});});
+ await assert.rejects(api.publicProfessionalDetails('worker/id',new AbortController().signal,'home:maid'),/could not be confirmed/);
+ assert.equal(calls[0][0],'/api/operations/professionals/worker%2Fid?category=home%3Amaid');
 });

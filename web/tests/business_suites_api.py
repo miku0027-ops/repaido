@@ -7,7 +7,7 @@ import main,local_business,mobility_journeys,uvicorn
 from fastapi import Header,HTTPException
 from fastapi.testclient import TestClient
 from test_operations import onboard,PIN,auth
-from test_local_business import vehicle,doc,approve,quote,request,act,register
+from test_local_business import vehicle,doc,approve,quote,request,act,register,pickup_photo
 from test_business_profiles import apply
 BASE='/operations/local-business'
 def actor(authorization:str=Header(default='')):
@@ -33,6 +33,7 @@ with TestClient(main.app) as api:
     rental_quote=quote(api,owner_vehicle,mode='rental',starts_at=time.time()+2*86400,ends_at=time.time()+3*86400)
     rental,_=request(api,[rental_quote],license_document_id=doc('customer'));rental=act(api,rental,'accept','worker')
     scrap_body=dict(material='metal',description='Fixture clean household steel scrap',estimated_kg=10,location=PIN,address='Fixture collection address 123',city='Balasore',starts_at=time.time()+7200,phone='9876543210',request_id=str(uuid.uuid4()))
+    scrap_body['photo_document_id']=pickup_photo('customer',scrap_body['request_id'])
     scrap=api.post(BASE+'/scrap',headers=auth('customer'),json=scrap_body);assert scrap.status_code==201,scrap.text
     def seed(u):
         w=u.get('workers','worker');w['contractor_verified']=True;u.put('workers','worker',w)

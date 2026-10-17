@@ -1,14 +1,14 @@
-.market-transaction{border-bottom:1px solid var(--border,#d9e0e8);padding:8px 14px;font-size:12px;color:var(--text-main,#1b2938);flex-shrink:0}
+.market-transaction{border-bottom:1px solid var(--chat-line,#d9e0e8);padding:8px 14px;font-size:12px;color:var(--chat-ink,#1b2938);flex-shrink:0}
 .market-transaction>summary{cursor:pointer;font-weight:650;display:flex;gap:8px;justify-content:space-between;align-items:center;min-height:30px}
-.market-transaction>summary span{font-weight:400;font-size:11px;color:var(--text-muted,#526273)}
+.market-transaction>summary span{font-weight:400;font-size:11px;color:var(--chat-muted,#526273)}
 .market-transaction-body{max-height:min(48vh,420px);overflow:auto;padding:6px 0 10px;overscroll-behavior:contain}
 .market-transaction p{margin:7px 0;overflow-wrap:anywhere}
 .market-transaction form,.market-transaction label{display:grid;gap:5px}
 .market-transaction form{gap:10px}
-.market-transaction input,.market-transaction select,.market-transaction textarea{min-width:0;width:100%;font:inherit;padding:9px;border:1px solid var(--border,#ccd4dd);border-radius:8px;color:inherit;background:var(--bg-card,#fff)}
-.market-transaction button{font:inherit;padding:8px 12px;margin:5px 6px 0 0;border:1px solid var(--border,#ccd4dd);border-radius:8px;color:inherit;background:var(--bg-card,#fff);cursor:pointer}
+.market-transaction input,.market-transaction select,.market-transaction textarea{min-width:0;width:100%;font:inherit;padding:9px;border:1px solid var(--chat-line,#ccd4dd);border-radius:8px;color:inherit;background:var(--chat-paper,#fff)}
+.market-transaction button{font:inherit;padding:8px 12px;margin:5px 6px 0 0;border:1px solid var(--chat-line,#ccd4dd);border-radius:8px;color:inherit;background:var(--chat-paper,#fff);cursor:pointer}
 .market-transaction button:disabled{opacity:.55;cursor:default}
 .market-transaction .market-transaction-check{display:flex;align-items:flex-start;gap:8px;margin-top:10px}
 .market-transaction-check input{width:18px;flex:0 0 18px;margin-top:2px}
 .market-transaction details{margin-top:8px}
-.market-transaction [role=alert]{color:var(--danger,#b42318)}
+.market-transaction [role=alert]{color:var(--chat-error,#b42318)}

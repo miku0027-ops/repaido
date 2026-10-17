@@ -133,7 +133,15 @@ def install(core):
 
     @router.get('/{identifier}')
     def collection(identifier: str, user=Depends(core.current_user)):
-        return store.run(lambda u: view(accessible(u, identifier, user['id']), user['id']))
+        def read(u):
+            row=u.get('scrap_collections',identifier);uid=user['id']
+            if row and row['state']=='requested' and uid in row.get('candidate_owner_ids',[]):
+                # The request list opens this detail before acceptance. Keep its
+                # candidate projection sanitized; photo/GPS routes remain private.
+                current(u,uid,('scrap_owner',))
+                return view(row,uid)
+            return view(accessible(u,identifier,uid),uid)
+        return store.run(read)
 
     @router.get('/{identifier}/pickup-photo')
     def pickup_photo(identifier: str, user=Depends(core.current_user)):

@@ -39,7 +39,7 @@ try{
   await page.getByRole('tab',{name:/Refurbished/}).click();await page.getByRole('heading',{name:'Prime refurbished phone',exact:true}).waitFor();
   assert.equal(await page.locator('.spare-compact-card').count(),2);assert.equal(await page.locator('.spare-compact-card h3').first().textContent(),'Prime refurbished phone');
   assert.equal(await page.locator('.shop-prime-badge').count(),1);await layout();
-  await page.getByRole('button',{name:'View details for Refurbished tested phone',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.waitFor();
+  await page.getByRole('button',{name:'View details for Refurbished tested phone',exact:true}).click({position:{x:18,y:24}});const dialog=page.getByRole('dialog');await dialog.waitFor();
   await dialog.getByText('Charging port replaced',{exact:true}).waitFor();await dialog.getByText('86% (shop measured)',{exact:true}).waitFor();
   assert.equal(await dialog.getByText(/40-Point|Repaido Certified|No Questions Asked/).count(),0);await layout();await page.keyboard.press('Escape');
   if(width===390)await page.evaluate(()=>scrollTo(0,0));

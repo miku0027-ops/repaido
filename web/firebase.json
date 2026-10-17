@@ -8,6 +8,48 @@
     ],
     "rewrites": [
       {
+        "source": "/api/repaidians/work",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/work/**",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/companies",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/companies/**",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/placements",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/api/repaidians/placements/**",
+        "run": {
+          "serviceId": "repaido-work-api",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "/api/**",
         "run": {
           "serviceId": "repaido-api",

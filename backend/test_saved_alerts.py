@@ -184,6 +184,20 @@ def test_follow_catalogue_changes_and_revoked_shop_access(api):
     assert alerts.process_updates(main,now=stamp+2*alerts.INTERVAL)['delivered']==0
 
 
+def test_follow_catalogue_repeated_restock_is_a_new_update(api):
+    seed();save(api,kind='shop',reference='s1');change_prefs(api,following=True)
+    stamp=time.time()+1
+    assert alerts.process_updates(main,now=stamp)['delivered']==0
+    # Identical stock levels in separate cycles are distinct observed updates.
+    for turn,stock in enumerate((2,0,2),start=1):
+        update('inventory','wire',stock=stock)
+        now=stamp+turn*alerts.INTERVAL
+        assert alerts.process_updates(main,now=now)['delivered']==1
+        assert alerts.process_updates(main,now=now)['delivered']==0
+    assert len(notes())==3
+    assert len({note['id'] for note in notes()})==3
+
+
 def test_marketplace_saves_use_live_owner_access_without_starting_viewer_trial(api):
     from test_marketplace import draft
     row,_=draft(api,trial=True,mode='second_hand')

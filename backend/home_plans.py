@@ -370,10 +370,11 @@ def install(core):
             elif a in ('pause','cancel','resume'):
                 if not owner:fail('OWNER_REQUIRED','Only the booking customer can pause, resume or cancel. Workers can propose day changes.',403)
                 if a=='resume':
-                    if p['state']!='paused' or not candidate(u,p,u.get('workers',p['worker_id'])):fail('RESUME_REVIEW','Availability must be reconfirmed before resuming.')
+                    if p['state']!='paused' or not p.get('customer_accepted_at') or not p.get('worker_accepted_at') or not candidate(u,p,u.get('workers',p.get('worker_id',''))):fail('RESUME_REVIEW','Both parties must accept the plan and availability must be reconfirmed before resuming.')
                     p['state']='active'
                 else:
                     if p['state'] in CLOSED:fail('CLOSED','This plan is already closed.')
+                    if a=='pause' and p['state']!='active':fail('NOT_ACTIVE','Only an active, accepted plan can be paused.')
                     if len(body.reason.strip())<5:fail('REASON_REQUIRED','Add a short reason.',422)
                     for v in p['visits']:
                         j=u.get('jobs',v.get('job_id',''))
@@ -411,8 +412,15 @@ def install(core):
             if j and j['state'] not in PRESTART or v['starts_epoch']<=time.time():fail('VISIT_STARTED','The visit has already begun or passed. Contact support.')
             if body.accept:
                 if c['new_date']:
-                    proposed=epoch(c['new_date'],c['new_time']);w=u.get('workers',p['worker_id']);a=u.get('home_availability',w['id']) or {}
-                    if not w or w['status']!='approved' or p['service_id'] not in a.get('approved_services',[]) or c['new_date'] in a.get('off_dates',[]) or day(c['new_date']).weekday() not in a.get('weekdays',[]) or c['new_time']<a.get('start_time','24:00') or datetime.fromtimestamp(proposed+p['minutes']*60,IST).strftime('%H:%M')>a.get('end_time','00:00') or conflict(u,w['id'],proposed,p['minutes'],pid,j['id'] if j else None) or any(o['id']!=v['id'] and o['status']=='scheduled' and intervals_overlap(proposed,p['minutes'],o['starts_epoch'],p['minutes']) for o in p['visits']):fail('SLOT_CONFLICT','Choose an alternative within the worker’s available hours without another visit.')
+                    proposed=epoch(c['new_date'],c['new_time']);w=u.get('workers',p['worker_id']);a=u.get('home_availability',p['worker_id']) or {}
+                    proposed_end=datetime.fromtimestamp(proposed+p['minutes']*60,IST)
+                    if (proposed<=time.time() or proposed_end.date()!=day(c['new_date'])
+                        or not w or w['status']!='approved' or p['service_id'] not in a.get('approved_services',[])
+                        or c['new_date'] in a.get('off_dates',[]) or day(c['new_date']).weekday() not in a.get('weekdays',[])
+                        or c['new_time']<a.get('start_time','24:00') or proposed_end.strftime('%H:%M')>a.get('end_time','00:00')
+                        or conflict(u,w['id'],proposed,p['minutes'],pid,j['id'] if j else None)
+                        or any(o['id']!=v['id'] and o['status']=='scheduled' and intervals_overlap(proposed,p['minutes'],o['starts_epoch'],p['minutes']) for o in p['visits'])):
+                        fail('SLOT_CONFLICT','Choose a future alternative within the same day’s available hours without another visit.')
                     v.update(date=c['new_date'],time=c['new_time'],starts_epoch=proposed)
                     if j:
                         j.update(starts_at=datetime.fromtimestamp(proposed,IST).isoformat(),starts_epoch=proposed,reminder_at=max(time.time(),proposed-86400),version=j['version']+1)

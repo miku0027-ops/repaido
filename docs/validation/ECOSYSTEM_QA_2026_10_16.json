@@ -1,0 +1,1180 @@
+{
+  "generated_at": "2026-10-16T18:21:59.057566+00:00",
+  "base_commit": "a9c27885b8874917b36bdc0f251b71e744e2c19d",
+  "scope": "Local working-tree QA; changes remain uncommitted and undeployed.",
+  "status": "local_qa_complete_with_documented_live_validation_limits",
+  "backend": {
+    "collected": 1498,
+    "passed": 1473,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 25,
+    "skip_reason": "25 emulator-only parameter cases; all executed in separate local emulator run.",
+    "seconds": 106.381
+  },
+  "booking_firestore": {
+    "passed": 51,
+    "failed": 0,
+    "skipped": 0,
+    "actual_emulator_cases": 25,
+    "double_and_wrapper_cases": 26,
+    "overlaps_backend": true
+  },
+  "web_unit": {
+    "passed": 328,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "generated_at": "2026-10-16T18:20:33.724466+00:00",
+    "complete": true,
+    "suite_count": 53,
+    "counts": {
+      "passed": 53,
+      "failed": 0,
+      "blocked": 0,
+      "skipped": 0,
+      "unrun": 0
+    },
+    "scope": "Latest conclusive result for every repository web/tests/*.browser.mjs suite, with outstanding failures and affected navigation regressions rerun after fixes.",
+    "caveats": [
+      "These 53 passes were collected throughout this QA session; this is not a claim that all 53 ran against one final source snapshot. Final targeted reruns cover the newly changed navigation, contracts, community header, tracking contrast, and content performance behavior.",
+      "Browser integration uses local disposable APIs or explicitly recorded component route fixtures. Authentication/phone/provider fixtures are isolated; this does not verify live payment, email, push or production infrastructure.",
+      "Prior failed logs and the read-only inventory remain for diagnosis; the final manifest supersedes their result status.",
+      "No deployment or production writes were performed."
+    ],
+    "suites": [
+      {
+        "suite": "action-feedback",
+        "source": "/workspace/repaido/web/tests/action-feedback.browser.mjs",
+        "source_sha256": "e4298d857613b2e9381859396cf8e3748a93a287dc41c24b1035d0d895ba661e",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/action-feedback-evidence/report.json",
+        "completed_at": "2026-10-16T16:57:56.052697+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "d85b4c2a268b381246c190de35927f1b8649d29ceeac225b3d02a9b8f9375ce9"
+      },
+      {
+        "suite": "activity-navigation",
+        "source": "/workspace/repaido/web/tests/activity-navigation.browser.mjs",
+        "source_sha256": "a8ab2c9947f89b43239e6d3f9d0a410ee9668122b108048aef0c246a6af82b56",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/activity-navigation.log",
+        "completed_at": "2026-10-16T16:52:13.130096+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "0ebfd6f5382bce6658eb22e20ce8778ac7e391ed757f48c9e1915093d5d0f246"
+      },
+      {
+        "suite": "b2b",
+        "source": "/workspace/repaido/web/tests/b2b.browser.mjs",
+        "source_sha256": "fd9e880fd77364c76a1f7aad082b2ca3e175b49a7e01c2ef8297179111ada766",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/b2b.log",
+        "completed_at": "2026-10-16T16:53:51.345674+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "cd2331d59418cfda3ac194f67cd1a81ea312b97f4b142713da613ed2cb7f98b9"
+      },
+      {
+        "suite": "bookings-cache",
+        "source": "/workspace/repaido/web/tests/bookings-cache.browser.mjs",
+        "source_sha256": "81baa09e344beec028642d323fe5cfdc5302e3d58f74fd30ae3a33be0ae7912a",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/bookings-cache.log",
+        "completed_at": "2026-10-16T16:50:45.408062+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "f60543895e3fa5ca9fd01cda735bf89fe159b9a13b600eb46842b2a3db6c6f4f"
+      },
+      {
+        "suite": "brand-screens",
+        "source": "/workspace/repaido/web/tests/brand-screens.browser.mjs",
+        "source_sha256": "39b6c236ed764b48b3ce6c9a0e3d9f3fa8a03df4d5effdaae7b4398f7bd58c83",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/brand-screens-verified.log",
+        "completed_at": "2026-10-16T18:05:15.756896+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "real isolated API + fixture auth/providers",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/brand-screens-verified.json",
+        "evidence_sha256": "28288bbcb9421d0ba218af19d59b5d0209084cbcdbe1207527acaad02243c71b"
+      },
+      {
+        "suite": "brand-system",
+        "source": "/workspace/repaido/web/tests/brand-system.browser.mjs",
+        "source_sha256": "c4f60c5be5892017f86834672b7ef97355593eedee9ee6b86daff01ca8820d69",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/brand-system.log",
+        "completed_at": "2026-10-16T16:54:00.172081+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "local browser component",
+        "evidence_sha256": "6f4434b2e6e9ecd2251286c07ccea68d23acecb3d58862ea922bdc5ef816b903"
+      },
+      {
+        "suite": "business-accounts",
+        "source": "/workspace/repaido/web/tests/business-accounts.browser.mjs",
+        "source_sha256": "cd3da6816584ee88bb86a0c67f8807e3961d531b025f5c1db7e13785135e7961",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/business-accounts.log",
+        "completed_at": "2026-10-16T16:50:26.450243+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "0bd59259edcdf4de2454b7a6a1ddab345413442cee96c75b9bb58dc1870152f4"
+      },
+      {
+        "suite": "business-registration",
+        "source": "/workspace/repaido/web/tests/business-registration.browser.mjs",
+        "source_sha256": "11d631d393e5c4712136020c86e15bb4ec9f95642457d3f3bed7da088a402aa2",
+        "status": "passed",
+        "exit_code": null,
+        "evidence": "/workspace/qa-20261016/ui-suites/business-registration-final.log",
+        "completed_at": "2026-10-16T17:10:48.816922+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "76b0e79bb0c43e3dd68dc73e8532ea004e55e919f4216672ddeb49fae01887ed"
+      },
+      {
+        "suite": "business-suites",
+        "source": "/workspace/repaido/web/tests/business-suites.browser.mjs",
+        "source_sha256": "75504c1c0cae861b8d5ba5802e17ce7f5e3ffe40776c7baad572c03c0977429d",
+        "status": "passed",
+        "exit_code": null,
+        "evidence": "/workspace/qa-20261016/ui-suites/business-suites-final.log",
+        "completed_at": "2026-10-16T17:12:20.558846+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "765541c1d13264dcb3665c282ca49fdc7a623e2be995b9b2abf12e922b90a5fc"
+      },
+      {
+        "suite": "cleanup",
+        "source": "/workspace/repaido/web/tests/cleanup.browser.mjs",
+        "source_sha256": "ef7cb7d19076d189c56e075e0fdd46a56761695622392e4ba3331aaec2ff9bc7",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/cleanup.log",
+        "completed_at": "2026-10-16T16:55:06.889466+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "160b9152cea5521791a07bd75975c434025820f27fe9bcef1b84d84f5f7501a8"
+      },
+      {
+        "suite": "company-admin",
+        "source": "/workspace/repaido/web/tests/company-admin.browser.mjs",
+        "source_sha256": "f2c6f145d0910fd0c379d9df6ac26a7204c3463b15772868786faa5eb44cd0d9",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-company-admin.log",
+        "completed_at": "2026-10-16T16:50:12.050084+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "4c9d6dfd9daea8b35a382d1c0636c2ce0e13492d8053a87731851a1cce9cd847"
+      },
+      {
+        "suite": "content-performance",
+        "source": "/workspace/repaido/web/tests/content-performance.browser.mjs",
+        "source_sha256": "fceece5454ca9fa27310996731940a7e9f095fe4349a4ab4e398e1efed70555a",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/content-performance-verified.log",
+        "completed_at": "2026-10-16T18:03:11.731207+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "real isolated API + fixture auth/providers",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/content-performance-verified.json",
+        "evidence_sha256": "e21a24f72a576478fcee94322b188e807667c0867e9c2ccb05bd45081c527734"
+      },
+      {
+        "suite": "contracts",
+        "source": "/workspace/repaido/web/tests/contracts.browser.mjs",
+        "source_sha256": "1b092cc19fdecc9108ddfd0e7128420f3dece7dc0382737b525980261594ee0b",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/contracts-verified.log",
+        "completed_at": "2026-10-16T18:07:29.224277+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "real isolated API + fixture auth/providers",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/contracts-verified.json",
+        "evidence_sha256": "c60af595e1621b9aa116a0696d9ae5494f2d19c032ae5687625658e372cce0b9"
+      },
+      {
+        "suite": "custom-contract-discovery",
+        "source": "/workspace/repaido/web/tests/custom-contract-discovery.browser.mjs",
+        "source_sha256": "8368adaf4e6db537e5fb24f7b3c7bc4dff57ab0936f5f204e222903ec49e0110",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/work-ui/custom-contract-discovery.log",
+        "completed_at": "2026-10-16T17:00:22.968045+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "ce2137ceafce0c0267c06e43315bbc497bb853caedddbe5deb39ce783a39967a"
+      },
+      {
+        "suite": "custom-contract-live",
+        "source": "/workspace/repaido/web/tests/custom-contract-live.browser.mjs",
+        "source_sha256": "809380518dd5223a43b22aa424f4b08c9b70df479a5afc0657a209af5baea380",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/work-ui/custom-contract-live.log",
+        "completed_at": "2026-10-16T17:02:28.534532+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "f762ce12bb0690fa69748debe57815b46359fbb995f1bfe15b5b14fc71526354"
+      },
+      {
+        "suite": "customer-experience",
+        "source": "/workspace/repaido/web/tests/customer-experience.browser.mjs",
+        "source_sha256": "50ec7127316197f187ceedaed14a2d0893d545c9e00b150b81d8417586907a7f",
+        "status": "passed",
+        "exit_code": null,
+        "evidence": "/workspace/qa-20261016/ui-suites/customer-experience-final.log",
+        "completed_at": "2026-10-16T17:12:40.867270+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "8b95e50ada71a05b89b3ebd72fad84ebb4a0e0941ed1035517187c945cbf8777"
+      },
+      {
+        "suite": "customer-management",
+        "source": "/workspace/repaido/web/tests/customer-management.browser.mjs",
+        "source_sha256": "2e2b7e80a765edff18cf5be07c5ae3f8e56c9c3c4665004dde9646a094a23a6b",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/customer-management-rerun.log",
+        "completed_at": "2026-10-16T17:05:10.173853+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "4d3b38bf3b3dc4efcc970237c77750bb55bc344f22182edc7afbb5913007c2be"
+      },
+      {
+        "suite": "customer-updates",
+        "source": "/workspace/repaido/web/tests/customer-updates.browser.mjs",
+        "source_sha256": "c2037899b727255905b93d8b5dabbf09a2384a6672d884950c962ae1d1ec4a11",
+        "status": "passed",
+        "exit_code": null,
+        "evidence": "/workspace/qa-20261016/ui-suites/customer-updates-final.log",
+        "completed_at": "2026-10-16T17:09:18.707034+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "a775a41306c38bb0d7669d53abf665f02bcb3160c6138dfd3591f28be67ee69d"
+      },
+      {
+        "suite": "discovery",
+        "source": "/workspace/repaido/web/tests/discovery.browser.mjs",
+        "source_sha256": "9d5ce0e179cead97ae4f36ef8ae133d8feaeb30d3b18931d1256a85a71dceb05",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/discovery-final.log",
+        "completed_at": "2026-10-16T17:08:09.065587+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "a246a9234b544f0d03079dbf81484b1156edff1adea687220cfc3d0fa8113b6e"
+      },
+      {
+        "suite": "ecosystem-lifecycles",
+        "source": "/workspace/repaido/web/tests/ecosystem-lifecycles.browser.mjs",
+        "source_sha256": "32870dccad0a194d667b97f69bc94d63dfc285aec55fca9aa5a51998c0ba9a7c",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/ecosystem-lifecycles.log",
+        "completed_at": "2026-10-16T16:52:36.102347+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "a99dd304a64dd46e2f9a67ca3e8fbaea4132cf3ad47c1dee8ba928947bfd4002"
+      },
+      {
+        "suite": "elastic-home",
+        "source": "/workspace/repaido/web/tests/elastic-home.browser.mjs",
+        "source_sha256": "4f1d29289e543077ce9fffc46ab2f617a0b5b6cb8fe3fedeb1ab8f57ea572d85",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/elastic-home.log",
+        "completed_at": "2026-10-16T16:56:04.396922+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "89cf3dc396c3d70890d8ceb95789c663a8d8555b61636d47ae95d064e191f64d"
+      },
+      {
+        "suite": "hiring-discovery",
+        "source": "/workspace/repaido/web/tests/hiring-discovery.browser.mjs",
+        "source_sha256": "2c19faf9f8d3dc6975aea653a2534928e1a78b0564d9ed36a43ac34d98c61654",
+        "status": "passed",
+        "exit_code": null,
+        "evidence": "/workspace/qa-20261016/ui-suites/hiring-discovery-final.log",
+        "completed_at": "2026-10-16T17:08:57.338590+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "cd63528cbf779ccb87aaaab57b1548fda478be8235e2d2b451109c4032eb7be0"
+      },
+      {
+        "suite": "home-boutique-motion",
+        "source": "/workspace/repaido/web/tests/home-boutique-motion.browser.mjs",
+        "source_sha256": "7c7ada43a3f427dc462d13f6e8bf8306404aa6e0b4f7a8a1ef6c4e26318c573d",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/home-boutique-motion.log",
+        "completed_at": "2026-10-16T16:55:29.384176+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "local browser component",
+        "evidence_sha256": "e21d8fbf3f8f5aee5108de0829bca8a33e43c6f7cccf3ea8415c04497822b6a7"
+      },
+      {
+        "suite": "home-boutique",
+        "source": "/workspace/repaido/web/tests/home-boutique.browser.mjs",
+        "source_sha256": "47a487da659e9e045bd198a05245f71924edfda443fa2e11f76514014b866383",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/home-boutique.log",
+        "completed_at": "2026-10-16T16:55:37.090086+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "3e66b7ae3a083ddda13e3d8aeb74f913a40718702b0ae1c8d828c0c0402e2a27"
+      },
+      {
+        "suite": "home-discovery",
+        "source": "/workspace/repaido/web/tests/home-discovery.browser.mjs",
+        "source_sha256": "251491110a50d2fef2797cefd65e03cdf8993938295a50a9a9b3aef239e90804",
+        "status": "passed",
+        "exit_code": null,
+        "evidence": "/workspace/qa-20261016/ui-suites/home-discovery-final.log",
+        "completed_at": "2026-10-16T17:10:09.072089+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "cecdc1955725a220a3e2c4bc72a283e3ac9a92ad1bc47d4c673398c21d2845eb"
+      },
+      {
+        "suite": "home-quick-actions",
+        "source": "/workspace/repaido/web/tests/home-quick-actions.browser.mjs",
+        "source_sha256": "5a9d91e4217a95e718c1e685b19fe7b4c4910bb3329af6e47b86b072f973f538",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/home-quick-actions.log",
+        "completed_at": "2026-10-16T16:55:55.226471+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "87ecb4990caff5d3184e6c90c733d295b029eb9dc4171f267085432f2327f76e"
+      },
+      {
+        "suite": "homes",
+        "source": "/workspace/repaido/web/tests/homes.browser.mjs",
+        "source_sha256": "0382792787c19a1a661c66c3c406f9c4ed0e1079c4c68e431ed218551e1ddf1e",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-homes.log",
+        "completed_at": "2026-10-16T16:49:47.416198+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "6c61031bb3a789a3a248003ececfbba301ac6a17f1e5cae4d59ca20c59c0aa43"
+      },
+      {
+        "suite": "hydration-design",
+        "source": "/workspace/repaido/web/tests/hydration-design.browser.mjs",
+        "source_sha256": "440db968d72736e0cf27c27000d45546cbbfbadddbbb1269ab8aa14be3301864",
+        "status": "passed",
+        "exit_code": null,
+        "evidence": "/workspace/qa-20261016/ui-suites/hydration-design-final.log",
+        "completed_at": "2026-10-16T17:10:58.877132+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "a144873de054c7ec016407a7ad64de6cfdb75645d07a66412fc1459a595ac682"
+      },
+      {
+        "suite": "interaction-motion",
+        "source": "/workspace/repaido/web/tests/interaction-motion.browser.mjs",
+        "source_sha256": "4adec3f948328cf20abdc0dbe3eec0719c7d714351cc348e225ebfb7b1c906cc",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-motion.log",
+        "completed_at": "2026-10-16T16:49:45.413798+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "local browser component",
+        "evidence_sha256": "ee8ae3e9000cedef7d5b05a593e9679878fb0766d54e529e7d9222d20a1faf79"
+      },
+      {
+        "suite": "journeys",
+        "source": "/workspace/repaido/web/tests/journeys.browser.mjs",
+        "source_sha256": "025ec8f988f7683d5f6d17fb76c29af4f7cdd1107fd9da99bb3afe66f1b86bf3",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/journeys-final.log",
+        "completed_at": "2026-10-16T17:05:46.595659+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "bd20b155c62b14faac7e1a5d95e58f6e87462c439d2c094780f059754a334445"
+      },
+      {
+        "suite": "live-storefront",
+        "source": "/workspace/repaido/web/tests/live-storefront.browser.mjs",
+        "source_sha256": "d7c9793e5795fc979de53bfaf42bff332fef3d5537608628764e5d3ddfb6fc0b",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/live-storefront-final.log",
+        "completed_at": "2026-10-16T17:00:48.172518+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "5a1aba078c09e3ca432396e08ac7bd69f02e625c114fab0161a3c50fbee2eef1"
+      },
+      {
+        "suite": "market-compact",
+        "source": "/workspace/repaido/web/tests/market-compact.browser.mjs",
+        "source_sha256": "5ea6e265bf70caed6526c7dd860a56d5d14da5867758c06c10e4d40e635ba29f",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/market-compact-verified.log",
+        "completed_at": "2026-10-16T18:06:13.122096+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "component with route fixtures",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/market-compact-verified.json",
+        "evidence_sha256": "697edbaa42d4ceb4f54c197addf98948fb56ac466cff371d8684cb3be16ae742"
+      },
+      {
+        "suite": "market-discovery",
+        "source": "/workspace/repaido/web/tests/market-discovery.browser.mjs",
+        "source_sha256": "0b7d108b3de9c4330bb71db32fa350c8d0dff359a5f9fac6edb800b24b450e41",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/market-discovery.log",
+        "completed_at": "2026-10-16T16:51:51.765429+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "9c1e5d90ba79ccd2af8bc523a82f197a1730578f49a5a2820f668007346c98a3"
+      },
+      {
+        "suite": "market-listing-layout",
+        "source": "/workspace/repaido/web/tests/market-listing-layout.browser.mjs",
+        "source_sha256": "561a055fe7947880820b5403959c97b3bc4088d329932037c472ae53fb6ee1e8",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/market-listing-layout-final.log",
+        "completed_at": "2026-10-16T17:01:50.561759+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "5cc3756589b6f7c61d1c5c3057692490d3c2db8efa58ee10553e2f21f725aadd"
+      },
+      {
+        "suite": "market-messaging",
+        "source": "/workspace/repaido/web/tests/market-messaging.browser.mjs",
+        "source_sha256": "16509418ea974cd83fbee426d72b32d27c12c23c2bf23f3ed0ac24e66e19eb97",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/market-messaging-final.log",
+        "completed_at": "2026-10-16T17:00:41.796404+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "0d7b7a531dc54a4c6aeed4b4b3c981d10c1d67880758c83ed815b7ad7d365f02"
+      },
+      {
+        "suite": "market",
+        "source": "/workspace/repaido/web/tests/market.browser.mjs",
+        "source_sha256": "9439f39ace321eb374c6c01e0f6a30e9c181af44db3897c502fc670b2f129369",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/market-final.log",
+        "completed_at": "2026-10-16T17:02:01.733987+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "b16e689446b4d730fb6df6377b5d1f9d31917e3c8392589e4c812adbd4e7fdd0"
+      },
+      {
+        "suite": "modern-discovery",
+        "source": "/workspace/repaido/web/tests/modern-discovery.browser.mjs",
+        "source_sha256": "d2844f5ae34a18b99a7f175f6e1ce67139c61ff3f3741e6a373a638f11032090",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/modern-discovery.log",
+        "completed_at": "2026-10-16T17:00:06.343710+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "e94d4066fddb5a71317e6f3126edda0635b743511d5854e20e6a73cbcaddc967"
+      },
+      {
+        "suite": "navigation-work-market",
+        "source": "/workspace/repaido/web/tests/navigation-work-market.browser.mjs",
+        "source_sha256": "78fdad3e536535b44d255cf13c1da67d7127189450ffdd3300cc11a325c248bd",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/navigation-work-market-verified.log",
+        "completed_at": "2026-10-16T18:01:48.416563+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "real isolated API + fixture auth/providers",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/navigation-work-market-verified.json",
+        "evidence_sha256": "300f3f716929253c9f25db0acabd70311266fd7ccb80fbae3cd3ef1fb03279c3"
+      },
+      {
+        "suite": "outcomes-compatibility",
+        "source": "/workspace/repaido/web/tests/outcomes-compatibility.browser.mjs",
+        "source_sha256": "4d53fb25c3cdc75b892737898a1c22bcabce542e7000a209b98e65f79cc1fddd",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/outcomes-compatibility.log",
+        "completed_at": "2026-10-16T16:58:44.314008+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "870db734b6d092c712cf6dbc555e53173a3b4929ae197f116d22ce3d50c291e5"
+      },
+      {
+        "suite": "professional-home",
+        "source": "/workspace/repaido/web/tests/professional-home.browser.mjs",
+        "source_sha256": "7178895f849749d3ef6fd0fc3701debcb00645806698bf3fac6cf6ea1b26451f",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/professional-home.log",
+        "completed_at": "2026-10-16T16:51:08.936542+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "f431530779c7332a701410122c6316838fc3279747096d3cd33361dd9786335b"
+      },
+      {
+        "suite": "refinement",
+        "source": "/workspace/repaido/web/tests/refinement.browser.mjs",
+        "source_sha256": "36f55cdc13df0768d6f7b51657fc00936bbe977623e038961c573ab46473c267",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/refinement-tracking-final.log",
+        "completed_at": "2026-10-16T18:19:56.778887+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "real isolated API + fixture auth/providers",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/refinement-verified.json",
+        "evidence_sha256": "18f18a935157b67dde4f5a01a95172adede49097034743b951b0cce59a8e00b0"
+      },
+      {
+        "suite": "repaidians-messaging",
+        "source": "/workspace/repaido/web/tests/repaidians-messaging.browser.mjs",
+        "source_sha256": "b0d447a07566e3bb62ba1fd568a95f606825761c2ad1f802e2b70ccaad74bec5",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/repaidians-messaging-verified.log",
+        "completed_at": "2026-10-16T18:01:22.972031+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "real isolated API + fixture auth/providers",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/repaidians-messaging-verified.json",
+        "evidence_sha256": "00965ceb1b32feb38842b9c55507ba4444b4433dccbb0b8e72c523821c5010f3"
+      },
+      {
+        "suite": "repaidians-push",
+        "source": "/workspace/repaido/web/tests/repaidians-push.browser.mjs",
+        "source_sha256": "405ed0cfc0e155c23ac3ed07f4a9e703ae6d900b73b30ee986d56a3653f2c270",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/repaidians-push-rerun.log",
+        "completed_at": "2026-10-16T17:03:15.386857+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "00a1dabc4f57b0c4e34a266d1a37dc20d2be99cda6d171a0193b0fb9e3bab4c8"
+      },
+      {
+        "suite": "repaidians",
+        "source": "/workspace/repaido/web/tests/repaidians.browser.mjs",
+        "source_sha256": "cec1f7308996dbc601c262f6ec8c348c2e468c12ab3cb3621bff2aae4813a6ff",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/work-ui/repaidians.log",
+        "completed_at": "2026-10-16T17:13:02.295717+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "b0ec54d3339c74cf67e33436607b955c57485bdb2d10a22b0f45d1012a82acfa"
+      },
+      {
+        "suite": "retail-resolutions",
+        "source": "/workspace/repaido/web/tests/retail-resolutions.browser.mjs",
+        "source_sha256": "ce37011503042eef5076a734d8bc18cfd549a72cc15995ff114be899326acf71",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/retail-resolutions.log",
+        "completed_at": "2026-10-16T17:01:14.777031+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "955df443ed0c0a4256a604e5e4810f3f515577e1401935497ed45815564ec574"
+      },
+      {
+        "suite": "saved-alerts",
+        "source": "/workspace/repaido/web/tests/saved-alerts.browser.mjs",
+        "source_sha256": "6ae463607fdf58c844163166612e90563ff8bcf3c8d0cbd38823dd51f18f2638",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/saved-alerts.log",
+        "completed_at": "2026-10-16T17:01:07.096874+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "e5408c90a655a4c627d13c7755c8d03e2872994182dfe6464d5aa66c6a012bb2"
+      },
+      {
+        "suite": "scrap-ecosystem",
+        "source": "/workspace/repaido/web/tests/scrap-ecosystem.browser.mjs",
+        "source_sha256": "2272fb26c7f6886399b584f5bde092fcb5b96513233da8dd7204099b089c1b2b",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/scrap-ecosystem.log",
+        "completed_at": "2026-10-16T17:01:48.101709+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "68bd2cec58a47de03ec09e529ad19c28253d460d3bccb0d51f707e43268ad24a"
+      },
+      {
+        "suite": "scrap",
+        "source": "/workspace/repaido/web/tests/scrap.browser.mjs",
+        "source_sha256": "9a2b6dc64109323f9b353302a9678909f42b78b21143bb4795755bcc48c7d450",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/scrap.log",
+        "completed_at": "2026-10-16T17:01:28.221307+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "627b3e4c05a961e38bd6409de5bd2e2843f6a6cf6189c070ac5d94c216fccf32"
+      },
+      {
+        "suite": "shared-ride-mobile",
+        "source": "/workspace/repaido/web/tests/shared-ride-mobile.browser.mjs",
+        "source_sha256": "7f2d6054a2baa496e9e83128fea207d2ea837034b5ae21f19f4438635ff60768",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/shared-ride-mobile.log",
+        "completed_at": "2026-10-16T17:02:27.742515+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "a8eb325fb6b7ab17b0fea88945ce1a73ae81a3bae6f75804d0ab4bf1ca36dc2a"
+      },
+      {
+        "suite": "shop-tools",
+        "source": "/workspace/repaido/web/tests/shop-tools.browser.mjs",
+        "source_sha256": "8ab67b4b08fe432d9eaf070cd98498d6b7340a49d8b9a023dbafff61c0e6ce97",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/shop-tools.log",
+        "completed_at": "2026-10-16T17:01:36.793550+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "b9e6fb94914b2ea49f1ccd519afc3b355d1031b6686991c6428cee5d08832e3d"
+      },
+      {
+        "suite": "social-navigation",
+        "source": "/workspace/repaido/web/tests/social-navigation.browser.mjs",
+        "source_sha256": "617d2553eac1ef469b64dd855ae4574dbf2dd486b4a2ef97c0f10a7700f3dd93",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/social-navigation-verified.log",
+        "completed_at": "2026-10-16T18:03:02.981155+00:00",
+        "completion_basis": "verified_process_exit_and_explicit_final_success",
+        "integration": "real isolated API + fixture auth/providers",
+        "result_metadata": "/workspace/qa-20261016/ui-suites/social-navigation-verified.json",
+        "evidence_sha256": "0cebfd0b42ea2430f70546c4d4629d8d737e72cb51779fca7d54f7bb0bf722ed"
+      },
+      {
+        "suite": "support-evidence",
+        "source": "/workspace/repaido/web/tests/support-evidence.browser.mjs",
+        "source_sha256": "9b25e1091df36efb32f64d00590ab1c43516f2497fc8d7d4ed5542be9f3b9418",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/support-evidence.log",
+        "completed_at": "2026-10-16T16:50:26.095662+00:00",
+        "completion_basis": "recorded_execution_exit",
+        "integration": "component with route fixtures",
+        "evidence_sha256": "ec855a59acca66abb49359f2bf51f0739b4fa323bc3fb1fd963da54ffd70902d"
+      },
+      {
+        "suite": "transport-discovery",
+        "source": "/workspace/repaido/web/tests/transport-discovery.browser.mjs",
+        "source_sha256": "a4b5a6cffc6993f685c881da05c78d752babc54d33020e51436f46ff1ae89468",
+        "status": "passed",
+        "exit_code": 0,
+        "evidence": "/workspace/qa-20261016/ui-suites/transport-discovery.log",
+        "completed_at": "2026-10-16T17:03:32.563854+00:00",
+        "completion_basis": "explicit_final_success_report",
+        "integration": "real isolated API + fixture auth/providers",
+        "evidence_sha256": "d3f0ff010c9e0347acf67b8e3337d5e69a00d0d9fb1de95ed8e1db8d3d1170e8"
+      }
+    ],
+    "tracking_followup": {
+      "status": "passed",
+      "scenario_groups": 18,
+      "geometry_variants": 12,
+      "full_suite_log": "/workspace/qa-20261016/ui-suites/refinement-tracking-final.log",
+      "geometry_report": "/tmp/repaido-refinement-Tp7GGI/tracking-geometry.json",
+      "focused_log": "/workspace/qa-20261016/tracking-focused-geometry.log",
+      "visual_review": "root confirmed normal and 320px/200% light/dark visual checks",
+      "source_sha256": {
+        "/workspace/repaido/web/src/components/LiveTrackingView.tsx": "1f6655949286b97f55754e3046ff6b20c42b1c96722b7f07638eedcec1ca80f2",
+        "/workspace/repaido/web/src/components/tracking-refinement.css": "046527077a28f19de7569caa8ffc7580df00a09db9577fe57f33b910b7e64381"
+      }
+    }
+  },
+  "firestore_client_rules": {
+    "passed_assertions": 96,
+    "provider": "local demo emulator",
+    "evidence": "infra.md"
+  },
+  "engineering": {
+    "python_passed": 30,
+    "frontend_passed": 7,
+    "desktop_mobile_browser_passed": true
+  },
+  "terraform": {
+    "mock_provider_tests_passed": 5,
+    "production_apply": false
+  },
+  "builds": {
+    "cpanel": {
+      "files": 100,
+      "total_bytes": 87433892,
+      "html_asset_references_checked": 6,
+      "explicit_api_origins_present": [
+        "https://repaido-api-133610574058.us-central1.run.app",
+        "https://repaido-work-api-133610574058.us-central1.run.app"
+      ],
+      "source_maps_and_environment_files_absent": true,
+      "deployed": false
+    },
+    "backend_smoke": {
+      "image": "repaido-api:qa-final-20261016",
+      "image_id": "sha256:263bda3e8c876cc1566e53601a33b25d0440dd81484082900800c0191d8439aa",
+      "network": "none",
+      "services": [
+        {
+          "uid": 1000,
+          "proxy_ca_absent": true,
+          "pip_cert_not_persisted": true,
+          "provider_credentials_absent": true,
+          "probes": [
+            {
+              "method": "GET",
+              "path": "/api/health",
+              "status": 200,
+              "health": {
+                "status": "ok",
+                "service": "repaido-api",
+                "build_id": "local"
+              }
+            },
+            {
+              "method": "GET",
+              "path": "/catalog",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/auth/me",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "path": "/bookings",
+              "status": 401
+            }
+          ],
+          "legacy_bookings_sha256": "74f6260adc3d050b4ae97faa9ed87c07665c277297e15d1b5a7999f7f9441d3d",
+          "role": "main",
+          "packaged_source_count": 85,
+          "all_packaged_sources_match_working_tree": true
+        },
+        {
+          "uid": 1000,
+          "proxy_ca_absent": true,
+          "pip_cert_not_persisted": true,
+          "provider_credentials_absent": true,
+          "probes": [
+            {
+              "method": "GET",
+              "path": "/api/repaidians/work/health",
+              "status": 200,
+              "health": {
+                "status": "ok",
+                "service": "repaido-work-api",
+                "storage": "sqlite",
+                "build_id": "local"
+              }
+            },
+            {
+              "method": "GET",
+              "path": "/repaidians/work/jobs",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "path": "/repaidians/companies",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "path": "/auth/me",
+              "status": 404
+            }
+          ],
+          "legacy_bookings_sha256": "74f6260adc3d050b4ae97faa9ed87c07665c277297e15d1b5a7999f7f9441d3d",
+          "role": "work",
+          "packaged_source_count": 85,
+          "all_packaged_sources_match_working_tree": true
+        },
+        {
+          "uid": 1000,
+          "proxy_ca_absent": true,
+          "pip_cert_not_persisted": true,
+          "provider_credentials_absent": true,
+          "probes": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "status": 200,
+              "health": {
+                "status": "ok",
+                "service": "repaido-work-worker",
+                "storage": "sqlite",
+                "build_id": "local",
+                "transactional_email_ready": false,
+                "push_enabled": false,
+                "scheduler_configured": true
+              }
+            },
+            {
+              "method": "POST",
+              "path": "/internal/work/dispatch",
+              "status": 401
+            }
+          ],
+          "legacy_bookings_sha256": "74f6260adc3d050b4ae97faa9ed87c07665c277297e15d1b5a7999f7f9441d3d",
+          "role": "worker",
+          "packaged_source_count": 85,
+          "all_packaged_sources_match_working_tree": true
+        }
+      ]
+    },
+    "engineering_smoke": {
+      "image": "repaido-engineering:qa-final-20261016",
+      "image_id": "sha256:455d37fb07495b3db8fb5999d0c15a0c59c0ae194e925eb70880f1b459344f01",
+      "network": "none",
+      "services": [
+        {
+          "uid": 1000,
+          "proxy_ca_absent": true,
+          "pip_cert_not_persisted": true,
+          "provider_credentials_absent": true,
+          "probes": [
+            {
+              "method": "GET",
+              "path": "/health",
+              "status": 200,
+              "health": {
+                "status": "ok",
+                "service": "repaido-engineering",
+                "source_revision": "unknown",
+                "build_id": "local",
+                "release_checks": null
+              },
+              "private_no_store": true,
+              "frame_denied": true
+            },
+            {
+              "method": "GET",
+              "path": "/",
+              "status": 200,
+              "private_no_store": true,
+              "frame_denied": true
+            },
+            {
+              "method": "GET",
+              "path": "/engineering-api/blueprint",
+              "status": 401,
+              "private_no_store": true,
+              "frame_denied": true
+            },
+            {
+              "method": "GET",
+              "path": "/engineering-api/source?path=backend/main.py",
+              "status": 401,
+              "private_no_store": true,
+              "frame_denied": true
+            },
+            {
+              "method": "GET",
+              "path": "/engineering-api/snapshot",
+              "status": 401,
+              "private_no_store": true,
+              "frame_denied": true
+            },
+            {
+              "method": "GET",
+              "path": "/engineering-api/stream",
+              "status": 401,
+              "private_no_store": true,
+              "frame_denied": true
+            }
+          ],
+          "role": "engineering",
+          "embedded_source_count": 581,
+          "all_embedded_sources_match_working_tree": true
+        }
+      ]
+    },
+    "source_checks": {
+      "backend_packaged_python_modules": 85,
+      "missing_static_local_imports": [],
+      "legacy_bookings_packaged": true,
+      "modeled_source_files": 937,
+      "inventory_kind": "Git-ignore interpretation of .gcloudignore; actual gcloud CLI unavailable",
+      "forbidden_path_sentinels_excluded": true
+    }
+  },
+  "node_advisories": {
+    "web": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0
+    },
+    "engineering": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0
+    }
+  },
+  "anonymous_api_probe": {
+    "scope": "Every mounted main-API method/path with no credentials and empty mutation payload, in temporary local SQLite. Not a successful authenticated journey test. No production requests.",
+    "routes_checked": 631,
+    "statuses": {
+      "200": 32,
+      "422": 37,
+      "401": 433,
+      "403": 99,
+      "503": 2,
+      "404": 28
+    },
+    "server_errors": [
+      {
+        "method": "POST",
+        "path": "/operations/internal/tick",
+        "status": 503
+      },
+      {
+        "method": "POST",
+        "path": "/repaidians/webhooks/razorpay",
+        "status": 503
+      }
+    ]
+  },
+  "limits": [
+    "Captured legacy booking without available capacity requires manual reconciliation/refund; no new automatic reconciliation worker.",
+    "Live provider capture/refund/payout, OTP, real customer sign-in and delivery were not exercised.",
+    "Production GCP authenticated reads returned401; IAM, indices and API source provenance remain unverified.",
+    "Android SDK compilation/lint/device validation blocked by unavailable SDK components; release-signing configuration only verified.",
+    "Python vulnerability advisory scan unavailable; dependency compatibility passed.",
+    "Actual gcloud upload inventory unavailable; offline model only.",
+    "Local cache behavior is not a production latency or capacity SLA.",
+    "Browser results are latest conclusive session results with affected suites rerun, not all53 against an identical snapshot."
+  ],
+  "environment_setup": {
+    "install_script_and_start_skill_draft_saved": true,
+    "requires_publication": true,
+    "credential_bindings_changed": false
+  },
+  "changed_source_sha256": {
+    "README.md": "d17f5b876bed0322ae9bd4275d62d2dd2d28b2d9300640b08b55d545a44c875e",
+    "android/README.md": "f007c6f1b6e55298e647ecedf36f3d8dbab034cf516caada16b8d8151f38bc20",
+    "android/agent/build.gradle.kts": "08d78286b3313c87f0e3b80355c236204fa33a6bba7bdfc0082c551d85961883",
+    "android/app/build.gradle.kts": "5a8024a5a0d67bbf9e3b27afbc449de5a98e6c5da42b28df24874bd775b37e6c",
+    "android/preview/build.gradle.kts": "beaed6a55aaec6f8312daa490b83c4f5745cf33fd9399f462ef77c4f9f5fb34a",
+    "android/tests/test_release_signing.py": "375e579bf7bd4eb75e15ba276cace920b064f5f8273291c0ca9d72b8670732c7",
+    "backend/Dockerfile": "e432b78fe3bc1a647e56ac97ce64b87565c3c6c953d339fe39cae6c72112e7fe",
+    "backend/evidence.py": "01e6a5c80786771d689cc6a2fc14f8b7d8e3d55391702f43ef4291f2e0b9198b",
+    "backend/home_plans.py": "a820a9021b104421888778243f3be9447f5a62f3d47d0e59f14e60d3185ccc2b",
+    "backend/integrations.py": "533e8645dcd3672aabf52b5ffc3fe41ddea5332cc5a9cbe30cc7f904aec185cf",
+    "backend/legacy_bookings.py": "74f6260adc3d050b4ae97faa9ed87c07665c277297e15d1b5a7999f7f9441d3d",
+    "backend/main.py": "297e18c337469f8c3f14be47085b3383a161dc4070f40876ede6611603e1dd06",
+    "backend/market_transactions.py": "3b7e0ecd3256fac0f8927d89f186e7a5aee87aa359f9e2051820dce70144ccb9",
+    "backend/marketplace.py": "c2b1cc13bb3f5c2b0f7a89840a43b583c9cc3ff749ceeb7bf37cc25f1c063320",
+    "backend/repaidians_work.py": "87bc6ba8cab6a369030a5dec2ad482475e2280d3f26945c15ee600aa03bf4750",
+    "backend/retail_checkout.py": "01ac5ca1a0b49fd24d4a850b4be04806ce1f890b5e7b4525362aaf186ff81985",
+    "backend/retail_resolution.py": "8a50a8a7add0e8a3e687b566f46a68eccc9b61f5708d915546215443e3babdbe",
+    "backend/saved_alerts.py": "c44cca57edc6b41be9abeecee5357514a1409ca8d619358f7ec308d6f8122a79",
+    "backend/scrap_experience.py": "47bf1772c3843b7b8f1c0c355a02668cfd51a2b4112c5e4b33b676071c85da43",
+    "backend/test_captain_rewards.py": "c29ba298e8b629435f7411f3e0c6052221521f8182aa06ef4e1c8fd98130a3b6",
+    "backend/test_container_packaging.py": "12af8dbf965e70551695087440add9ac4fd867bac1c8ee0f8ef32cec526da027",
+    "backend/test_home_plans.py": "00e47edf9439d536a2d368f4c735c3c18f96b748f77b18d206904e12c39c90d4",
+    "backend/test_legacy_bookings.py": "2bd6c11bafd5ea4fae81475a94e145b4c2a390d5b516c0d0443c81537978f169",
+    "backend/test_legacy_payment_security.py": "32914b338a1f703df3694341f97c1f2cfcd0f52407753cc4d4b41474d92cd041",
+    "backend/test_market_transactions.py": "278cb5746087add3f365791a366d88037d979b2bce4fea74d87e382a765129e2",
+    "backend/test_repaidians_work.py": "175a89555cae6a16bd0ac4b6f9712a0943ebd123ecf8e6d95abafb232aa193e3",
+    "backend/test_retail_checkout.py": "155add4ae162ac5f299d83080a6f3f2c79ff7b708c81bccdfaa198cd64a9457d",
+    "backend/test_retail_webhooks.py": "b558644eed3ca85c0aa32ae6df85884fbb2188784cc87f185fbb0f04a3cd6f98",
+    "backend/test_saved_alerts.py": "cde7f7701f44616175c7563aae3e480465add8384aebf904f397871a63ae29a0",
+    "backend/test_scrap_experience.py": "9af4c8d965ce0844a2ddee62a762a028c88d0c8a5b6e0db386098cebf8f204ad",
+    "backend/test_security_evidence.py": "4f9a61ea44cda392c7bc5ef06ba2287d420bb35adf64aceabc6453cdf788ef5b",
+    "backend/test_security_inputs.py": "806beb72c465a9f6157c58846c891e15eaec808577951e331277dfd77453fefb",
+    "backend/test_transactional_event_hooks.py": "85229220b143963756a964b6f2cfd1e1e6b711021488c4be9c6827b9a2c92d15",
+    "backend/test_work_deployment.py": "7fcc1afef5b2bad82a3e5daaf71326df60a97d527d0f013862caf9d6a5703466",
+    "engineering/Dockerfile": "908355fd96c23239c467a318df3dcc4dbae939435410965cd7055b105c1704be",
+    "engineering/web/pnpm-lock.yaml": "af04505c243e65d42099da2b75014fb115237cd30b0300ea39039e91cd09c74c",
+    "engineering/web/pnpm-workspace.yaml": "1711029c07f57356e84faa2c6659ff9fed1bce6013b979ff214d778c81e5bec0",
+    "scripts/test-firestore-security.mjs": "5e3c065c48dfbb5294b993f9c9e9f3abe8b82676cf8f4418ff11f101b3f7a6d0",
+    "web/firebase.json": "9b1c48b65b844d593804a8094fa691e5e21e2a5356a0532651d1cca6e252e774",
+    "web/package.json": "a4d8488f74659c414ebe5d7a53614560c278f8c1e25c7f2bbb5abf86bbeda4b5",
+    "web/pnpm-lock.yaml": "7d25a9439eab4f8e8c7c4655a6ef75f390b8e20781853ce21f444f0fd8a73c43",
+    "web/pnpm-workspace.yaml": "628a19e33a3e9bfce60d16c0e9e9fae46d97deb275f032da852ac480a5727a6e",
+    "web/src/App.tsx": "b2cfc0c798195454a67db061be02882e739a17fadbbf39172e6ce1212008f2f6",
+    "web/src/components/LiveTrackingView.tsx": "1f6655949286b97f55754e3046ff6b20c42b1c96722b7f07638eedcec1ca80f2",
+    "web/src/components/compact-spares-discovery.css": "39c6bf643d65ccb88a1f2db73cc5e4037f8a58c2ce94e085733bf5eb03e10cb8",
+    "web/src/components/contract-work.css": "868cdf551fd0de87625c25eed4e9667176317f9c7365d772f63a4d1316bd3948",
+    "web/src/components/home-boutique.css": "85c16c97dbd99b8358b3ce957ba6d762c84019a22e8ae37f04719d448beb2869",
+    "web/src/components/market-transaction.css": "0916100f5144373a8886dd1de1e1907e8c1ecf1e1ca4a6e5717166058d1d464e",
+    "web/src/components/market-workspace.css": "bfcd31e8e4b7a58fcaf902bd76217dbf61efaa3f70c5f6e6260785a842941ffe",
+    "web/src/components/operations.css": "445d91ef5cce5746337881f5cbf610b984f1287730b9f7a718e743e99a1a645b",
+    "web/src/components/repaidians/social-navigation.css": "186aba2b75643697a4781c3644f72ec2b90974d4140c5730df172f152900992e",
+    "web/src/components/tracking-refinement.css": "046527077a28f19de7569caa8ffc7580df00a09db9577fe57f33b910b7e64381",
+    "web/src/components/ui.tsx": "e57e4947e0b98ad6b7a48cba0386131c1fee60fbc8f78fcd0ccee1896e3b8c6b",
+    "web/src/design-system.css": "17bb8e5327f3ecdaf3b650c636a32b6d229e7ab0235279cc7c5a9308aefe4b54",
+    "web/src/reference.css": "b0300896312fdb86e31613a720b0009b31c0485df436890c9090778f7a5860f1",
+    "web/src/services/hireProfileCache.ts": "728225839f7c9168546383f3f081a5bf20bf7745d23e4dfb6818c55e0f246dc3",
+    "web/tests/action-feedback.browser.mjs": "e4298d857613b2e9381859396cf8e3748a93a287dc41c24b1035d0d895ba661e",
+    "web/tests/booking-gateway.test.mjs": "cbf1c43fc59fad0cbdc8689b379516f7a8e13620a4c29362b654d3194cb08c0f",
+    "web/tests/brand-screens.browser.mjs": "39b6c236ed764b48b3ce6c9a0e3d9f3fa8a03df4d5effdaae7b4398f7bd58c83",
+    "web/tests/business-registration.browser.mjs": "11d631d393e5c4712136020c86e15bb4ec9f95642457d3f3bed7da088a402aa2",
+    "web/tests/business-suites.browser.mjs": "75504c1c0cae861b8d5ba5802e17ce7f5e3ffe40776c7baad572c03c0977429d",
+    "web/tests/business_suites_api.py": "ffd304bbebe3360c5ffdefee1ddeec096e7aae8d01184abcd34d47468bd94345",
+    "web/tests/category_leaders.test.mjs": "a1cf5a1caba851588c760d7e46c6a8b691379d05eff2afc335d31af490327c47",
+    "web/tests/content-performance.browser.mjs": "fceece5454ca9fa27310996731940a7e9f095fe4349a4ab4e398e1efed70555a",
+    "web/tests/contracts-preview.tsx": "680af57d3bcd79d4f94f961068f493202a7d6d5e70ecf69bd307fa5a6e4fa83d",
+    "web/tests/contracts.browser.mjs": "1b092cc19fdecc9108ddfd0e7128420f3dece7dc0382737b525980261594ee0b",
+    "web/tests/customer-experience.browser.mjs": "50ec7127316197f187ceedaed14a2d0893d545c9e00b150b81d8417586907a7f",
+    "web/tests/customer-updates-preview.tsx": "671a510cc6634f1fbfb5b77f9c69fb04131b146b63c622e4ccdd4f6e4f3332fa",
+    "web/tests/discovery.browser.mjs": "9d5ce0e179cead97ae4f36ef8ae133d8feaeb30d3b18931d1256a85a71dceb05",
+    "web/tests/feedback-preview.tsx": "9c8dd487baff2de177a2025519da5cbae6c917bc8ad453376c87550c12437001",
+    "web/tests/hiring-discovery.browser.mjs": "2c19faf9f8d3dc6975aea653a2534928e1a78b0564d9ed36a43ac34d98c61654",
+    "web/tests/home-discovery.browser.mjs": "251491110a50d2fef2797cefd65e03cdf8993938295a50a9a9b3aef239e90804",
+    "web/tests/hydration-design.browser.mjs": "440db968d72736e0cf27c27000d45546cbbfbadddbbb1269ab8aa14be3301864",
+    "web/tests/loading-messages.test.mjs": "f70d0c55bb7acd71b7d41eb30dd20852b6c41a91b2e5f4339af1b47a61cd472b",
+    "web/tests/market-compact.browser.mjs": "5ea6e265bf70caed6526c7dd860a56d5d14da5867758c06c10e4d40e635ba29f",
+    "web/tests/market-listing-layout.browser.mjs": "561a055fe7947880820b5403959c97b3bc4088d329932037c472ae53fb6ee1e8",
+    "web/tests/market.browser.mjs": "9439f39ace321eb374c6c01e0f6a30e9c181af44db3897c502fc670b2f129369",
+    "web/tests/marketplace_rails_consistency.test.mjs": "f4cd943fa04045ca693d39f4de12dd2a09fa3442172a608125696354251d6735",
+    "web/tests/operation-loading.test.mjs": "e80247af8166829d0b3a6c0f0384ac05577a83611c9bf6632aea30db93dafc60",
+    "web/tests/refinement.browser.mjs": "36f55cdc13df0768d6f7b51657fc00936bbe977623e038961c573ab46473c267",
+    "web/tests/repaidians-messaging.browser.mjs": "b0d447a07566e3bb62ba1fd568a95f606825761c2ad1f802e2b70ccaad74bec5",
+    "web/tests/repaidians-push.browser.mjs": "405ed0cfc0e155c23ac3ed07f4a9e703ae6d900b73b30ee986d56a3653f2c270",
+    "web/tests/social-navigation.browser.mjs": "617d2553eac1ef469b64dd855ae4574dbf2dd486b4a2ef97c0f10a7700f3dd93"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/qa-20261016/backend-final.xml",
+      "sha256": "bd14dce0de0d87467474fd319ecf4ffe2846339b1ff2618f20a482706ff796b3"
+    },
+    {
+      "path": "/workspace/qa-20261016/backend-final.log",
+      "sha256": "8f70b66407d1559f5ab5f39a8ecb93b6e882953cb3a1abb16c36fc8d5adab670"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-web-tests.log",
+      "sha256": "f2a8a218507bc329d429f1e5a434668e780724b5819acffe9f8d2cb6a37e123e"
+    },
+    {
+      "path": "/workspace/qa-20261016/legacy-booking-final-emulator.log",
+      "sha256": "459824764aa2ca66856d54f5174efaea8f8e46b7fa9b80b471b0bb4004c122df"
+    },
+    {
+      "path": "/workspace/qa-20261016/legacy-payment-bookings.md",
+      "sha256": "0359afe703ba5bc336babe1a00ebf0d8b69cea2e61593ea73f7bbd6f97685c6e"
+    },
+    {
+      "path": "/workspace/qa-20261016/security.md",
+      "sha256": "2a641691bb89fa5d296c87f95ef6f7b8f04c5157b4c674018ef65ee8568b6266"
+    },
+    {
+      "path": "/workspace/qa-20261016/money.md",
+      "sha256": "3b008d1d1c52bb7d1b607919939fb49752b0c5b77db4c240b402eb1b19755c3a"
+    },
+    {
+      "path": "/workspace/qa-20261016/market.md",
+      "sha256": "bd3d55d6a2723eaf05915218d87b96399b3bd264da917bedffc4a1ce26f7f539"
+    },
+    {
+      "path": "/workspace/qa-20261016/work.md",
+      "sha256": "fd9b9df52227eaa334316e10ec4e7f01827e562c2adb1552f63ce414ba0c9cea"
+    },
+    {
+      "path": "/workspace/qa-20261016/infra.md",
+      "sha256": "944af1b3923b446b05de4691a00c4329b6e7f0ee97709d4f118d3ae945b91f9b"
+    },
+    {
+      "path": "/workspace/qa-20261016/ui.md",
+      "sha256": "7e65e309e7c1adcfb4623d91ef0d7c9ced2806a95e47b4681af2801e3997dc2a"
+    },
+    {
+      "path": "/workspace/qa-20261016/ui-final-manifest.json",
+      "sha256": "2d2ed8ff29dad50ebee4daf63077d4b95c67b462d584ea23ab40c7d846974c59"
+    },
+    {
+      "path": "/workspace/qa-20261016/api-inventory.json",
+      "sha256": "dae4992a1b7ef133088b8e65b57689148ad4596dab8b8880c75d1353b8501a36"
+    },
+    {
+      "path": "/workspace/qa-20261016/anonymous-api-probe.json",
+      "sha256": "097b6dc66e2d2300024e09731a8ab286630927cbc2e8f804fc8b745baeddd50b"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-builds.md",
+      "sha256": "658dd70ac64b9da4928d8e2049fbbc718b0b153b69523c48259e6588f84c78e4"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-web-cpanel-build.log",
+      "sha256": "039ba3f26636e2f107e01784253d916577abfabeca0835453d09e7108c885d6f"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-web-cpanel-artifacts.json",
+      "sha256": "627cbc12c4fefab840215354dc29d5d64a5326f2670b0fa493998363adc10c53"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-backend-container-smoke.json",
+      "sha256": "4ea96d1ad8099896506a81d3a320d56c25919ffce040bce654fa465002ad2240"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-engineering-container-smoke.json",
+      "sha256": "cd501bf5e693bf1a22fe89f8a66621b65bcb4e2617778c09ad27babdfe37b2df"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-backend-source-sha256.json",
+      "sha256": "740509da07a81d9107249aa34e9ce850d40df76bf962a3f35a4e34e3dbab1797"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-engineering-embedded-source-sha256.json",
+      "sha256": "045f856cfc88e7cf8c03973c441ba473f4609f50e8979b771d2bd6c01cd5db78"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-web-cpanel-artifact-sha256.json",
+      "sha256": "b2f94519cb16573b576e1a4f9a763de26528172003927806c80c827001b4a5e5"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-source-checks.json",
+      "sha256": "25baf4d41fc75d32da8866baf724c1a8d89192a16020c79fd9b364c15f062b0c"
+    },
+    {
+      "path": "/workspace/qa-20261016/final-artifact-freshness.json",
+      "sha256": "08ff20477f954a31ef2c99ae8ed0beb85e1f0c727f21788d7b9c5c8f65211eff"
+    },
+    {
+      "path": "/workspace/qa-20261016/web-pnpm-audit.json",
+      "sha256": "3b0a26d6050a5e7ea463ea15b6d1fb5cf983c87eb98622c07e43999c6750a4dd"
+    },
+    {
+      "path": "/workspace/qa-20261016/engineering-pnpm-audit.json",
+      "sha256": "402c2ca601d94129b432d739c8eb71d143424ff80418423d8e7d8a8975d41aa8"
+    },
+    {
+      "path": "/workspace/qa-20261016/python-dependency-check.log",
+      "sha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09"
+    },
+    {
+      "path": "/workspace/qa-20261016/python-advisories.json",
+      "sha256": "448e70bb3227cc2c133dc1466d586a899a2ecc0990aec1af5877ff732006d732"
+    },
+    {
+      "path": "/workspace/qa-20261016/infra-live-smoke.json",
+      "sha256": "30bbe775ecdb18bb337ce27e48ab62a8023b5b0e8f091ea09dc8951749e5fae8"
+    }
+  ],
+  "production_mutations": false
+}

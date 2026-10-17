@@ -10,7 +10,7 @@ import 'leaflet/dist/leaflet.css';
 import {
   Phone, MapPin, Navigation, Clock3, ShieldCheck, ChevronDown, ChevronUp,
   FileText, ArrowLeft, RefreshCw, AlertTriangle, Check, CheckCircle2,
-  Store, User, Sparkles, ExternalLink, Star, Receipt, X
+  Store, User, Sparkles, ExternalLink, Star, Receipt, X, Maximize2, Minimize2
 } from 'lucide-react';
 import { operation, money, jobCommand, currentPosition, type Job } from '../services/operations';
 import { taskProgress } from '../services/taskStages.mjs';
@@ -271,9 +271,7 @@ export function LiveTrackingView({
         <div className="rt-header-center">
           <span className="rt-service-title">{job.service_name}</span>
           <div className="rt-status-subline">
-            <span className="rt-pulse-dot" />
-            <span className="rt-live-badge">Live Tracking</span>
-            <span className="rt-dot-separator">·</span>
+            <span className="rt-live-status"><span className="rt-pulse-dot" aria-hidden="true" /><span className="rt-live-badge">Live Tracking</span></span>
             <span className="rt-job-id">#{job.id.slice(0, 8)}</span>
           </div>
         </div>
@@ -289,33 +287,38 @@ export function LiveTrackingView({
         </button>
       </header>
 
-      {/* Map Viewport Area */}
-      <div className="rt-map-area">
-        <div ref={mapContainer} className="rt-leaflet-container" role="region" aria-label="Live agent map"/><button className="rt-fullscreen-button" onClick={()=>setFullscreen(v=>!v)} aria-label={fullscreen?'Exit fullscreen map':'Open fullscreen map'}>{fullscreen?'Close map':'Full screen'}</button>{!livePosition&&<p className="rt-location-status" role="status">{tracking?.status==='stale'?'Agent GPS is out of date':'Waiting for agent GPS'}</p>}
-
-        {/* Floating Live Activity Chip Overlay */}
+      <div className="rt-map-toolbar">
         <div className="rt-map-chip">
-          <span className="rt-map-chip-icon">{currentStage.icon}</span>
+          <span className="rt-map-chip-icon" aria-hidden="true">{currentStage.icon}</span>
           <div className="rt-map-chip-text">
             <strong>{currentStage.label}</strong>
             <small>{distanceKm!==null?`${distanceKm.toFixed(2)} km straight-line`:currentStage.eta}</small>
           </div>
         </div>
+        <div className="rt-map-actions">
+          <button type="button" className="rt-fullscreen-button" onClick={()=>setFullscreen(v=>!v)} aria-label={fullscreen?'Exit fullscreen map':'Open fullscreen map'} title={fullscreen?'Exit fullscreen map':'Open fullscreen map'}>
+            {fullscreen?<Minimize2 size={20} aria-hidden="true"/>:<Maximize2 size={20} aria-hidden="true"/>}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (mapInstance.current && job.location) {
+                mapInstance.current.setView([job.location.lat, job.location.lng], 15);
+              }
+            }}
+            className="rt-recenter-btn"
+            title="Center on my location"
+            aria-label="Center map"
+          >
+            <Navigation size={20} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
 
-        {/* Map Re-Center Button */}
-        <button
-          type="button"
-          onClick={() => {
-            if (mapInstance.current && job.location) {
-              mapInstance.current.setView([job.location.lat, job.location.lng], 15);
-            }
-          }}
-          className="rt-recenter-btn"
-          title="Center on my location"
-          aria-label="Center map"
-        >
-          <Navigation size={15} />
-        </button>
+      {/* Map Viewport Area */}
+      <div className="rt-map-area">
+        <div ref={mapContainer} className="rt-leaflet-container" role="region" aria-label="Live agent map"/>
+        {!livePosition&&<p className="rt-location-status" role="status">{tracking?.status==='stale'?'Agent GPS is out of date':'Waiting for agent GPS'}</p>}
       </div>
 
       {/* Underneath Body Content: High-Density Branded Elements */}
@@ -323,6 +326,7 @@ export function LiveTrackingView({
         {/* 5-Step Segmented Milestone Tracker */}
         <div
           className="rt-milestone-bar"
+          tabIndex={0}
           role="progressbar"
           aria-label="Visit Progress"
           aria-valuenow={progress.completed}

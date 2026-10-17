@@ -213,9 +213,15 @@ def _page(u, check, saved, now):
         else:
             changed = (seen and seen['fingerprint'] != fingerprint) or (not seen and check['seeded'])
             reason = 'catalogue_update'
+        sequence = (seen or {}).get('sequence', 0)
         if changed:
-            delivered += notify(u, check, saved, row['id'], reason, fingerprint, now)
-        u.put('saved_alert_seen', key, {'id': key, 'fingerprint': fingerprint})
+            sequence += 1
+            # A later restock can return to the exact same catalogue snapshot.
+            # Keep each observed transition distinct, while the transaction's
+            # cursor and receipt still make worker retries idempotent.
+            event_fingerprint = digest(fingerprint, sequence) if kind == 'shop' else fingerprint
+            delivered += notify(u, check, saved, row['id'], reason, event_fingerprint, now)
+        u.put('saved_alert_seen', key, {'id': key, 'fingerprint': fingerprint, 'sequence': sequence})
     check['after'] = rows[-1]['id'] if len(rows) == PAGE else ''
     if not check['after']:
         check['seeded'] = True

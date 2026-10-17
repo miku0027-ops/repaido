@@ -191,6 +191,7 @@ def init_db():
         ])
         for column, definition in (
             ('payment_order_id', 'TEXT'), ('payment_id', 'TEXT'),
+            ('payment_status', "TEXT NOT NULL DEFAULT 'unpaid'"),
             ('cancellation_reason', 'TEXT'), ('reschedule_reason', 'TEXT'),
             ('tracking_status', "TEXT NOT NULL DEFAULT 'requested'"),
             ('updated_at', 'INTEGER')
@@ -394,8 +395,11 @@ def register(body: Registration, request: Request):
 def login(body: Credentials, request: Request):
     rate_limit(request)
     with db() as c: user = c.execute('SELECT * FROM users WHERE email=?', (valid_email(body.email),)).fetchone()
-    stored = user['password'] if user else hash_password('constant-placeholder')
-    if not hmac.compare_digest(hash_password(body.password, stored.split(':')[0]), stored) or not user:
+    # Firebase-only accounts have a sentinel, not an scrypt hash. Treat them
+    # like unknown accounts and never parse unvalidated stored data as a salt.
+    local_password = bool(user and re.fullmatch(r'[0-9a-f]{32}:[0-9a-f]{128}', user['password']))
+    stored = user['password'] if local_password else hash_password('constant-placeholder')
+    if not hmac.compare_digest(hash_password(body.password, stored.split(':')[0]), stored) or not local_password:
         raise HTTPException(401, 'Email or password is incorrect.')
     return issue_session(user)
 
@@ -417,7 +421,7 @@ def establish_authenticated_session(body: AccountSession, user=Depends(current_u
 
 @app.post('/auth/logout', status_code=204)
 def logout(authorization: str = Header(default=''), user=Depends(current_user)):
-    with db() as c: c.execute('DELETE FROM sessions WHERE token_hash=?', (hashlib.sha256(authorization[7:].encode()).hexdigest(),))
+    with db() as c: c.execute('DELETE FROM sessions WHERE token_hash=?', (hashlib.sha256(authorization[7:].strip().encode()).hexdigest(),))
 
 @app.get('/catalog')
 def catalog(include_ratings: bool = True):
@@ -548,36 +552,70 @@ def create_booking_payment_order(body: BookingPaymentOrderInput, user=Depends(cu
     return {'payment_order_id': payment_id, 'razorpay_order_id': order['id'], 'key_id': key_id, 'amount_paise': amount, 'currency': 'INR'}
 
 class PaymentVerificationInput(BaseModel):
-    payment_order_id: str
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
+    payment_order_id: str = Field(min_length=1, max_length=100, pattern=r'^[A-Za-z0-9_-]+$')
+    razorpay_order_id: str = Field(max_length=100, pattern=r'^order_[A-Za-z0-9]+$')
+    razorpay_payment_id: str = Field(max_length=100, pattern=r'^pay_[A-Za-z0-9]+$')
+    razorpay_signature: str = Field(max_length=128)
 
-def verify_payment(c, body: PaymentVerificationInput, user_id: str, purpose: str):
+
+def checkout_payment_record(payment, body, user_id, purpose):
+    payment = dict(payment) if payment else {}
+    if (payment.get('user_id') != user_id or payment.get('purpose') != purpose
+            or payment.get('razorpay_order_id') != body.razorpay_order_id):
+        raise HTTPException(404, 'Payment order not found.')
+    if (payment.get('status') not in ('created', 'paid')
+            or payment.get('razorpay_payment_id') not in (None, body.razorpay_payment_id)):
+        raise HTTPException(409, 'This payment requires reconciliation before it can be confirmed.')
+    return payment
+
+
+def checkout_payment_capture(payment, body):
+    """A checkout signature binds IDs; only a provider GET proves capture."""
     secret = os.getenv('RAZORPAY_KEY_SECRET', '')
     if not secret: raise HTTPException(503, 'Razorpay is not configured yet.')
     expected = hmac.new(secret.encode(), f'{body.razorpay_order_id}|{body.razorpay_payment_id}'.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, body.razorpay_signature): raise HTTPException(400, 'Invalid Razorpay payment signature.')
+    if not re.fullmatch(r'[a-f0-9]{64}', body.razorpay_signature) or not hmac.compare_digest(expected, body.razorpay_signature):
+        raise HTTPException(400, 'Invalid Razorpay payment signature.')
+    from integrations import razorpay
+    captured = razorpay('payments/' + body.razorpay_payment_id)
+    if (not isinstance(captured, dict) or captured.get('id') != body.razorpay_payment_id
+            or captured.get('order_id') != payment['razorpay_order_id']
+            or type(captured.get('amount')) is not int or captured['amount'] != payment['amount_paise']
+            or captured.get('currency') != 'INR' or payment.get('currency', 'INR') != 'INR'
+            or captured.get('status') != 'captured' or captured.get('captured') is not True
+            or type(captured.get('amount_refunded', 0)) is not int or captured.get('amount_refunded', 0) != 0):
+        raise HTTPException(409, 'A captured, unrefunded payment matching this exact order is required.')
+    return captured
+
+def verify_payment(c, body: PaymentVerificationInput, user_id: str, purpose: str):
     payment = c.execute('SELECT * FROM payment_orders WHERE id=? AND user_id=? AND purpose=?', (body.payment_order_id, user_id, purpose)).fetchone()
-    if not payment or payment['razorpay_order_id'] != body.razorpay_order_id: raise HTTPException(404, 'Payment order not found.')
-    if payment['status'] == 'paid': return payment
-    c.execute('UPDATE payment_orders SET status=?,razorpay_payment_id=?,razorpay_signature=?,paid_at=? WHERE id=?', ('paid', body.razorpay_payment_id, body.razorpay_signature, int(time.time()), payment['id']))
-    return c.execute('SELECT * FROM payment_orders WHERE id=?', (payment['id'],)).fetchone()
+    payment = checkout_payment_record(payment, body, user_id, purpose)
+    checkout_payment_capture(payment, body)
+    c.execute('BEGIN IMMEDIATE')
+    current = checkout_payment_record(c.execute('SELECT * FROM payment_orders WHERE id=?', (body.payment_order_id,)).fetchone(), body, user_id, purpose)
+    if any(current.get(field) != payment.get(field) for field in ('amount_paise', 'currency', 'metadata')):
+        raise HTTPException(409, 'This payment changed and requires reconciliation.')
+    return current
+
+
+def save_checkout_payment(c, body):
+    # The caller holds BEGIN IMMEDIATE and commits fulfillment in this transaction.
+    c.execute('UPDATE payment_orders SET status=?,razorpay_payment_id=?,razorpay_signature=?,paid_at=? WHERE id=?', ('paid', body.razorpay_payment_id, body.razorpay_signature, int(time.time()), body.payment_order_id))
 
 @app.post('/checkout/booking/verify', status_code=201)
 def verify_booking_payment(body: PaymentVerificationInput, user=Depends(current_user)):
     if USE_FIRESTORE:
-        secret = os.getenv('RAZORPAY_KEY_SECRET', '')
-        if not secret: raise HTTPException(503, 'Razorpay is not configured yet.')
-        expected = hmac.new(secret.encode(), f'{body.razorpay_order_id}|{body.razorpay_payment_id}'.encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, body.razorpay_signature): raise HTTPException(400, 'Invalid Razorpay payment signature.')
         payment_ref = fs_doc('payment_orders', body.payment_order_id)
         payment_snap = payment_ref.get()
-        if not payment_snap.exists or payment_snap.to_dict().get('user_id') != user['id']: raise HTTPException(404, 'Payment order not found.')
-        payment = payment_snap.to_dict()
+        payment = checkout_payment_record(payment_snap.to_dict() if payment_snap.exists else None, body, user['id'], 'booking')
+        checkout_payment_capture(payment, body)
         metadata = payment['metadata']
-        existing = list(fs_collection('bookings').where('user_id', '==', user['id']).where('idempotency_key', '==', metadata['idempotency_key']).limit(1).stream())
-        if existing: return firestore_booking_output(existing[0].id)
+        try:
+            start = datetime.fromisoformat(metadata['starts_at'])
+            if start.tzinfo is None: raise ValueError()
+            canonical_start = start.astimezone(IST).isoformat()
+        except (ValueError, TypeError):
+            raise HTTPException(409, 'This appointment requires reconciliation. Choose an available future time.')
         booking_id = str(uuid.uuid4())
         service = firestore_service_by_id(metadata['service_id'])
         worker_docs = fs_collection('technicians').where('city', '==', metadata['city']).where('category', '==', service['category']).where('availability_confirmed', '==', True).stream()
@@ -585,20 +623,38 @@ def verify_booking_payment(body: PaymentVerificationInput, user=Depends(current_
         workers.sort(key=lambda item: (not item.get('verified_specialist', False), not item.get('role') == 'specialist', -(item.get('rating', 0) or 0)))
         worker = workers[0] if workers else None
         now = fs_now()
-        payment_ref.update({'status': 'paid', 'razorpay_payment_id': body.razorpay_payment_id, 'razorpay_signature': body.razorpay_signature, 'paid_at': now})
-        fs_doc('bookings', booking_id).set({'id': booking_id, 'user_id': user['id'], **metadata, 'status': 'requested', 'price_paise': payment['amount_paise'], 'payment_status': 'paid', 'payment_order_id': body.payment_order_id, 'payment_id': body.razorpay_payment_id, 'professional_name': worker.get('name') if worker else None, 'tracking_status': 'requested', 'created_at': now, 'updated_at': now})
+        updates = {'status': 'paid', 'razorpay_payment_id': body.razorpay_payment_id, 'razorpay_signature': body.razorpay_signature, 'paid_at': now}
+        booking = {'id': booking_id, 'user_id': user['id'], **metadata, 'starts_at': canonical_start, 'status': 'requested', 'price_paise': payment['amount_paise'], 'payment_status': 'paid', 'payment_order_id': body.payment_order_id, 'payment_id': body.razorpay_payment_id, 'professional_name': worker.get('name') if worker else None, 'tracking_status': 'requested', 'created_at': now, 'updated_at': now}
+        from legacy_bookings import complete_paid_booking
+        booking_id = complete_paid_booking(sys.modules[__name__], body.payment_order_id, payment, booking, updates)
         return firestore_booking_output(booking_id)
     with db() as c:
         payment = verify_payment(c, body, user['id'], 'booking')
         metadata = json.loads(payment['metadata'])
-        booking = c.execute('SELECT id FROM bookings WHERE user_id=? AND idempotency_key=?', (user['id'], metadata['idempotency_key'])).fetchone()
-        if booking: return booking_output(c, booking['id'])
-        start = datetime.fromisoformat(metadata['starts_at'])
-        canonical_start = start.astimezone(IST).isoformat()
+        booking = c.execute('SELECT id,payment_order_id,payment_id,payment_status FROM bookings WHERE user_id=? AND idempotency_key=?', (user['id'], metadata['idempotency_key'])).fetchone()
+        if booking:
+            if (payment['status'] != 'paid' or booking['payment_status'] != 'paid'
+                    or booking['payment_order_id'] != payment['id'] or booking['payment_id'] != body.razorpay_payment_id):
+                raise HTTPException(409, 'This booking request already belongs to another payment.')
+            return booking_output(c, booking['id'])
+        if payment['status'] == 'paid':
+            raise HTTPException(409, 'This payment requires reconciliation before it can be confirmed.')
+        try:
+            start = datetime.fromisoformat(metadata['starts_at'])
+            if start.tzinfo is None: raise ValueError()
+            canonical_start = start.astimezone(IST).isoformat()
+        except (ValueError, TypeError):
+            raise HTTPException(409, 'This appointment requires reconciliation. Choose an available future time.')
+        if canonical_start not in {d.isoformat() for d in candidates()}:
+            raise HTTPException(409, 'This appointment requires reconciliation. Choose an available future time.')
+        used = c.execute("SELECT count(*) FROM bookings WHERE service_id=? AND city=? AND starts_at=? AND status!='cancelled'", (metadata['service_id'], metadata['city'], canonical_start)).fetchone()[0]
+        if used >= 3:
+            raise HTTPException(409, 'This time just filled up. Choose another slot.')
         service = service_by_id(c, metadata['service_id'])
         worker = c.execute("SELECT * FROM technicians WHERE category=? AND city=? AND availability_confirmed=1 ORDER BY verified_specialist DESC, CASE WHEN lower(role)='specialist' THEN 1 ELSE 0 END DESC, rating DESC LIMIT 1", (service['category'], metadata['city'])).fetchone()
         booking_id = str(uuid.uuid4())
-        c.execute('INSERT INTO bookings (id,user_id,service_id,city,address,phone,notes,starts_at,status,price_paise,created_at,idempotency_key,professional_name,payment_status,payment_order_id,payment_id,tracking_status,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (booking_id,user['id'],metadata['service_id'],metadata['city'],metadata['address'],metadata['phone'],metadata['notes'],canonical_start,'requested',payment['amount_paise'],int(time.time()),metadata['idempotency_key'],worker['name'] if worker else None,'paid',payment['id'],payment['razorpay_payment_id'],'requested',int(time.time())))
+        save_checkout_payment(c, body)
+        c.execute('INSERT INTO bookings (id,user_id,service_id,city,address,phone,notes,starts_at,status,price_paise,created_at,idempotency_key,professional_name,payment_status,payment_order_id,payment_id,tracking_status,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (booking_id,user['id'],metadata['service_id'],metadata['city'],metadata['address'],metadata['phone'],metadata['notes'],canonical_start,'requested',payment['amount_paise'],int(time.time()),metadata['idempotency_key'],worker['name'] if worker else None,'paid',payment['id'],body.razorpay_payment_id,'requested',int(time.time())))
         return booking_output(c, booking_id)
 
 @app.post('/bookings', status_code=201)
@@ -610,6 +666,9 @@ def create_booking(body: BookingInput, user=Depends(current_user)):
         if start.tzinfo is None: raise ValueError()
         canonical_start = start.astimezone(IST).isoformat()
     except ValueError: raise HTTPException(422, 'Choose a valid appointment time.')
+    if USE_FIRESTORE:
+        import legacy_bookings
+        return legacy_bookings.create(sys.modules[__name__], body, user, canonical_start)
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         existing = c.execute('SELECT id,service_id,city,address,phone,notes,starts_at FROM bookings WHERE user_id=? AND idempotency_key=?', (user['id'], body.idempotency_key)).fetchone()
@@ -703,14 +762,8 @@ class BookingCancellationInput(BaseModel):
 @app.post('/bookings/{booking_id}/cancel')
 def cancel(booking_id: str, body: BookingCancellationInput | None = None, user=Depends(current_user)):
     if USE_FIRESTORE:
-        ref = fs_doc('bookings', booking_id)
-        snap = ref.get()
-        if not snap.exists or snap.to_dict().get('user_id') != user['id']: raise HTTPException(404, 'Booking not found.')
-        data = snap.to_dict()
-        if data.get('status') not in ('requested', 'confirmed'): raise HTTPException(409, 'This booking can no longer be cancelled.')
-        reason = body.reason.strip() if body else 'Customer requested cancellation'
-        ref.update({'status': 'cancelled', 'cancellation_reason': reason, 'tracking_status': 'cancelled', 'updated_at': fs_now()})
-        return firestore_booking_output(booking_id)
+        import legacy_bookings
+        return legacy_bookings.cancel(sys.modules[__name__], booking_id, body, user)
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         b = c.execute('SELECT * FROM bookings WHERE id=? AND user_id=?', (booking_id,user['id'])).fetchone()
@@ -742,15 +795,8 @@ def reschedule(booking_id: str, body: BookingRescheduleInput, user=Depends(curre
     except ValueError: raise HTTPException(422, 'Choose a valid appointment time.')
     if canonical_start not in {d.isoformat() for d in candidates()}: raise HTTPException(409, 'Choose an available future time.')
     if USE_FIRESTORE:
-        ref = fs_doc('bookings', booking_id)
-        snap = ref.get()
-        if not snap.exists or snap.to_dict().get('user_id') != user['id']: raise HTTPException(404, 'Booking not found.')
-        data = snap.to_dict()
-        if data.get('status') not in ('requested', 'confirmed'): raise HTTPException(409, 'This booking cannot be rescheduled now.')
-        used = sum(1 for item in fs_collection('bookings').where('service_id', '==', data['service_id']).where('city', '==', data['city']).where('starts_at', '==', canonical_start).stream() if item.to_dict().get('status') != 'cancelled' and item.id != booking_id)
-        if used >= 3: raise HTTPException(409, 'This time just filled up. Choose another slot.')
-        ref.update({'starts_at': canonical_start, 'reschedule_reason': body.reason.strip(), 'tracking_status': 'requested', 'updated_at': fs_now()})
-        return firestore_booking_output(booking_id)
+        import legacy_bookings
+        return legacy_bookings.reschedule(sys.modules[__name__], booking_id, body, user, canonical_start)
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         booking = c.execute("SELECT * FROM bookings WHERE id=? AND user_id=?", (booking_id, user['id'])).fetchone()
@@ -777,7 +823,7 @@ def booking_tracking(booking_id: str, user=Depends(current_user)):
 
 def operator(x_admin_key: str = Header(default=''), authorization: str = Header(default='')):
     expected = os.getenv('REPAIDO_ADMIN_KEY', '')
-    if expected and x_admin_key and hmac.compare_digest(x_admin_key, expected):
+    if expected and x_admin_key and hmac.compare_digest(x_admin_key.encode(), expected.encode()):
         return {'id': 'server-operator'}
     if fb_auth_module and authorization.startswith('Bearer '):
         try:
@@ -917,27 +963,7 @@ class SpecialistPaymentOrder(BaseModel):
 
 @app.post('/specialist-payments/order')
 def create_specialist_payment_order(body: SpecialistPaymentOrder):
-    """Create a Razorpay order; credentials are supplied only through server environment variables."""
-    key_id = os.getenv('RAZORPAY_KEY_ID', '')
-    key_secret = os.getenv('RAZORPAY_KEY_SECRET', '')
-    if not key_id or not key_secret:
-        raise HTTPException(503, 'Razorpay is not configured yet. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.')
-    amount = 999900 if body.plan == 'yearly' else 149900
-    payload = json.dumps({'amount': amount, 'currency': 'INR', 'receipt': f'repaido_{secrets.token_hex(8)}', 'notes': {'plan': body.plan}}).encode()
-    auth = base64.b64encode(f'{key_id}:{key_secret}'.encode()).decode()
-    request = urllib.request.Request('https://api.razorpay.com/v1/orders', data=payload, headers={'Authorization': f'Basic {auth}', 'Content-Type': 'application/json'})
-    try:
-        with urllib.request.urlopen(request, timeout=10) as response:
-            order = json.loads(response.read().decode())
-    except Exception as exc:
-        raise HTTPException(502, f'Razorpay order creation failed: {exc}')
-    payment_id = str(uuid.uuid4())
-    if USE_FIRESTORE:
-        fs_doc('specialist_payments', payment_id).set({'id': payment_id, 'application_id': body.application_id, 'plan': body.plan, 'amount_paise': amount, 'razorpay_order_id': order['id'], 'status': 'created', 'created_at': fs_now()})
-        return {'order_id': order['id'], 'payment_record_id': payment_id, 'key_id': key_id, 'amount_paise': amount, 'currency': 'INR'}
-    with db() as c:
-        c.execute('INSERT INTO specialist_payments (id,application_id,plan,amount_paise,razorpay_order_id,status,created_at) VALUES (?,?,?,?,?,?,?)', (payment_id, body.application_id, body.plan, amount, order['id'], 'created', int(time.time())))
-    return {'order_id': order['id'], 'payment_record_id': payment_id, 'key_id': key_id, 'amount_paise': amount, 'currency': 'INR'}
+    raise HTTPException(409, 'Use phone-verified worker onboarding at /operations/worker/onboarding. Legacy specialist payments are unavailable; no payment or application status was changed.')
 
 class SpecialistPaymentVerification(BaseModel):
     order_id: str
@@ -947,17 +973,7 @@ class SpecialistPaymentVerification(BaseModel):
 
 @app.post('/specialist-payments/verify')
 def verify_specialist_payment(body: SpecialistPaymentVerification):
-    secret = os.getenv('RAZORPAY_KEY_SECRET', '')
-    if not secret: raise HTTPException(503, 'Razorpay is not configured yet.')
-    expected = hmac.new(secret.encode(), f'{body.order_id}|{body.payment_id}'.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, body.signature): raise HTTPException(400, 'Invalid Razorpay payment signature.')
-    with db() as c:
-        payment = c.execute('SELECT * FROM specialist_payments WHERE razorpay_order_id=?', (body.order_id,)).fetchone()
-        if not payment: raise HTTPException(404, 'Payment order not found.')
-        c.execute('UPDATE specialist_payments SET razorpay_payment_id=?, razorpay_signature=?, status=? WHERE razorpay_order_id=?', (body.payment_id, body.signature, 'paid', body.order_id))
-        if body.application_id:
-            c.execute('UPDATE partner_applications SET specialist_plan=?, razorpay_payment_id=? WHERE id=?', (payment['plan'], body.payment_id, body.application_id))
-    return {'status': 'paid', 'payment_id': body.payment_id, 'verified_specialist': True}
+    raise HTTPException(409, 'Use phone-verified worker onboarding at /operations/worker/onboarding. Legacy specialist payments are unavailable; no payment or application status was changed.')
 
 class SpareOrderLine(BaseModel):
     product_id: str = Field(min_length=1, max_length=100)
@@ -1004,32 +1020,48 @@ def create_spare_payment_order(body: SparePaymentOrderInput, user=Depends(curren
 @app.post('/checkout/spare/verify', status_code=201)
 def verify_spare_payment(body: PaymentVerificationInput, user=Depends(current_user)):
     if USE_FIRESTORE:
-        secret = os.getenv('RAZORPAY_KEY_SECRET', '')
-        if not secret: raise HTTPException(503, 'Razorpay is not configured yet.')
-        expected = hmac.new(secret.encode(), f'{body.razorpay_order_id}|{body.razorpay_payment_id}'.encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, body.razorpay_signature): raise HTTPException(400, 'Invalid Razorpay payment signature.')
         payment_ref = fs_doc('payment_orders', body.payment_order_id)
         payment_snap = payment_ref.get()
-        if not payment_snap.exists or payment_snap.to_dict().get('user_id') != user['id']: raise HTTPException(404, 'Payment order not found.')
-        payment = payment_snap.to_dict()
-        existing = list(fs_collection('spare_orders').where('payment_order_id', '==', payment['id']).limit(1).stream())
-        if existing: return {'order_id': existing[0].id, 'status': 'paid', 'tracking_status': existing[0].to_dict().get('tracking_status')}
+        payment = checkout_payment_record(payment_snap.to_dict() if payment_snap.exists else None, body, user['id'], 'spare_order')
+        checkout_payment_capture(payment, body)
         metadata = payment['metadata']
         order_id = f'RP-SPARE-{secrets.token_hex(5).upper()}'
         now = fs_now()
-        payment_ref.update({'status': 'paid', 'razorpay_payment_id': body.razorpay_payment_id, 'razorpay_signature': body.razorpay_signature, 'paid_at': now})
-        order_ref = fs_doc('spare_orders', order_id)
-        order_ref.set({'id': order_id, 'user_id': user['id'], 'status': 'confirmed', 'payment_status': 'paid', 'payment_order_id': payment['id'], 'total_paise': payment['amount_paise'], 'recipient_name': metadata['recipient_name'], 'recipient_phone': metadata['recipient_phone'], 'delivery_address': metadata['delivery_address'], 'tracking_status': 'order_received', 'created_at': now, 'updated_at': now})
-        for item in metadata['items']:
-            order_ref.collection('items').document(item['product_id']).set(item)
-        return {'order_id': order_id, 'status': 'paid', 'tracking_status': 'order_received'}
+        @firestore.transactional
+        def complete(tx):
+            current_snap = payment_ref.get(transaction=tx)
+            current = checkout_payment_record(current_snap.to_dict() if current_snap.exists else None, body, user['id'], 'spare_order')
+            if any(current.get(field) != payment.get(field) for field in ('amount_paise', 'currency', 'metadata')):
+                raise HTTPException(409, 'This payment changed and requires reconciliation.')
+            existing = list(fs_collection('spare_orders').where('payment_order_id', '==', payment['id']).limit(1).stream(transaction=tx))
+            if existing:
+                if (existing[0].to_dict().get('user_id') != user['id']
+                        or existing[0].to_dict().get('payment_status') != 'paid' or current['status'] != 'paid'):
+                    raise HTTPException(409, 'This order requires reconciliation before it can be confirmed.')
+                return {'order_id': existing[0].id, 'status': 'paid', 'tracking_status': existing[0].to_dict().get('tracking_status')}
+            if current['status'] == 'paid':
+                raise HTTPException(409, 'This order requires reconciliation before it can be confirmed.')
+            order_ref = fs_doc('spare_orders', order_id)
+            tx.set(order_ref, {'id': order_id, 'user_id': user['id'], 'status': 'confirmed', 'payment_status': 'paid', 'payment_order_id': payment['id'], 'total_paise': payment['amount_paise'], 'recipient_name': metadata['recipient_name'], 'recipient_phone': metadata['recipient_phone'], 'delivery_address': metadata['delivery_address'], 'tracking_status': 'order_received', 'created_at': now, 'updated_at': now})
+            for item in metadata['items']:
+                tx.set(order_ref.collection('items').document(item['product_id']), item)
+            tx.update(payment_ref, {'status': 'paid', 'razorpay_payment_id': body.razorpay_payment_id, 'razorpay_signature': body.razorpay_signature, 'paid_at': now})
+            return {'order_id': order_id, 'status': 'paid', 'tracking_status': 'order_received'}
+        from legacy_bookings import run_transaction
+        return run_transaction(sys.modules[__name__], complete)
     with db() as c:
         payment = verify_payment(c, body, user['id'], 'spare_order')
-        existing = c.execute('SELECT id FROM spare_orders WHERE payment_order_id=?', (payment['id'],)).fetchone()
-        if existing: return {'order_id': existing['id'], 'status': 'paid'}
+        existing = c.execute('SELECT id,user_id,payment_status,tracking_status FROM spare_orders WHERE payment_order_id=?', (payment['id'],)).fetchone()
+        if existing:
+            if existing['user_id'] != user['id'] or existing['payment_status'] != 'paid' or payment['status'] != 'paid':
+                raise HTTPException(409, 'This order requires reconciliation before it can be confirmed.')
+            return {'order_id': existing['id'], 'status': 'paid', 'tracking_status': existing['tracking_status']}
+        if payment['status'] == 'paid':
+            raise HTTPException(409, 'This order requires reconciliation before it can be confirmed.')
         metadata = json.loads(payment['metadata'])
         order_id = f'RP-SPARE-{secrets.token_hex(5).upper()}'
         now = int(time.time())
+        save_checkout_payment(c, body)
         c.execute('INSERT INTO spare_orders (id,user_id,status,payment_status,payment_order_id,total_paise,recipient_name,recipient_phone,delivery_address,tracking_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', (order_id,user['id'],'confirmed','paid',payment['id'],payment['amount_paise'],metadata['recipient_name'],metadata['recipient_phone'],metadata['delivery_address'],'order_received',now,now))
         for item in metadata['items']:
             c.execute('INSERT INTO spare_order_items (order_id,product_id,product_name,quantity,unit_price_paise) VALUES (?,?,?,?,?)', (order_id,item['product_id'],item['product_name'],item['quantity'],item['unit_price_paise']))

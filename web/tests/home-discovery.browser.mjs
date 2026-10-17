@@ -10,6 +10,8 @@ const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdte
 const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/home_discovery_api.py',work+'/test.db','8067'],{stdio:['ignore','pipe','pipe']});
 let log='',browser,page;for(const stream of [server.stdout,server.stderr])stream.on('data',d=>log+=d);
 const errors=[],writes=[],checks=[],pause=ms=>new Promise(r=>setTimeout(r,ms));
+// Theme colors transition independently; audit the settled appearance in each variant.
+const settleAppearance=page=>page.evaluate(async()=>{await new Promise(requestAnimationFrame);await Promise.all(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})));});
 try{
  for(let i=0;i<120;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
@@ -19,7 +21,7 @@ try{
  await page.goto(origin+'/tests/home-discovery-preview.html');await page.locator('.service-offer-tile').first().waitFor();assert.equal(await page.locator('.service-offer-tile').count(),3);
  await page.addScriptTag({path:web+'/node_modules/axe-core/axe.min.js'});
  for(const width of [320,390,487,1440])for(const theme of ['light','dark'])for(const scale of [100,200]){
-  await page.setViewportSize({width,height:850});await page.evaluate(({theme,scale})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=scale+'%';},{theme,scale});
+  await page.setViewportSize({width,height:850});await page.evaluate(({theme,scale})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=scale+'%';},{theme,scale});await settleAppearance(page);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,`overflow ${width} ${theme} ${scale}`);
   const failures=await page.evaluate(async()=>{const result=await axe.run('.android-explore-screen',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}});return result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}));});
   assert.deepEqual(failures,[],`${width} ${theme} ${scale}`);
@@ -57,7 +59,7 @@ try{
  await page.getByRole('button',{name:'Pause service cards',exact:true}).click();
  await page.locator('.repaido-services-grid-hydrated').waitFor();await page.addScriptTag({path:web+'/node_modules/axe-core/axe.min.js'});
  for(const width of [320,487])for(const theme of ['light','dark']){
-  await page.setViewportSize({width,height:850});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  await page.setViewportSize({width,height:850});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await settleAppearance(page);
   const problems=await page.evaluate(async()=>{const result=await axe.run('.repaido-services-grid-container',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}});return result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}));});assert.deepEqual(problems,[]);
  }
  await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('button',{name:'Play service cards',exact:true}).click();assert.equal(await page.locator('.repaido-service-motion-card').first().evaluate(e=>e.classList.contains('is-shining')),false);

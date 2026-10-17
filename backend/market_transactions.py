@@ -73,7 +73,10 @@ def add_routes(router, core):
         values = []
         for lid, owner in ids:
             listing = u.get('market_listings', lid)
-            if not listing or listing['owner_id'] != owner or listing['status'] != 'published' or require_active and not active(listing):
+            # Expiry hides public listings, but must not strand an already
+            # agreed handover when the scheduler materializes that expiry.
+            allowed_states = ('published',) if require_active else ('published', 'expired')
+            if not listing or listing['owner_id'] != owner or listing['status'] not in allowed_states or require_active and not active(listing):
                 fail('LISTING_UNAVAILABLE', 'An item in this agreement is no longer available. Contact support if a handover already took place.', 409)
             claim = u.get('market_handover_claims', lid)
             if claim and claim['chat_id'] != chat['id']:

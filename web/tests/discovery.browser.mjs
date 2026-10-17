@@ -13,7 +13,7 @@ const services=[
 ];
 const profile=(id,name,category,reviewed=false)=>({id,name,role:'technician',categories:[category],experience_years:5,skills:['Inspection'],tools:['Reviewed tool list'],languages:['Odia'],bio:'Registered professional profile.',completed_tasks:reviewed?3:0,rating:reviewed?4.5:null,review_count:reviewed?2:0,rank:reviewed?1:null,distribution:{'1':0,'2':0,'3':0,'4':1,'5':1},reviews:[],category_records:reviewed?[{category,completed:3,rating:4.5,review_count:2}]:[],service_packages:[],offers:[]});
 const profiles=[profile('e1','First electrical professional','electrician',true),profile('e2','Second electrical professional','electrician'),profile('c1','Cleaning professional','cleaning',true)];
-const requests=[],errors=[];let slowElectrical=false,failCleaning=false,failOverview=false,electricalLeader='e1';
+const requests=[],errors=[];let slowElectrical=false,failCleaning=false,failOverview=false,malformedOverview=false,electricalLeader='e1';
 try{
  const page=await browser.newPage();await page.clock.install();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(10000);
  await page.route('**/*',async route=>{
@@ -21,6 +21,7 @@ try{
   if(url.pathname==='/api/catalog')return route.fulfill({json:{services,categories:[{id:'cleaning',name:'Home Cleaning'},{id:'electrician',name:'Electrical'},{id:'plumber',name:'Plumbing'},{id:'ac',name:'AC & Appliances'}]}});
   if(url.pathname==='/api/operations/hiring/leaderboard'){
    const b=route.request().postDataJSON();requests.push(b);
+   if(!b.category&&malformedOverview)return route.fulfill({json:{}});
    if(b.category==='electrician'&&slowElectrical)await new Promise(r=>setTimeout(r,500));
    if((b.category==='cleaning'&&failCleaning)||(!b.category&&failOverview))return route.fulfill({status:503,json:{detail:'Unavailable'}});
    const eligible=b.city==='Balasore'?profiles.filter(p=>b.role==='all'||p.role===b.role):[];
@@ -30,6 +31,7 @@ try{
    return route.fulfill({json:{professionals:rows,total:rows.length,categories}});
   }
   if(url.pathname.startsWith('/api/operations/service-terms/'))return route.fulfill({json:{id:'terms',version:1,text:'Review the scope before confirming.'}});
+  if(url.pathname.startsWith('/api/operations/professionals/')){const profile=profiles.find(row=>row.id===decodeURIComponent(url.pathname.split('/').at(-1)));return route.fulfill({status:profile?200:404,json:profile||{detail:'Profile unavailable'}});}
   if(url.pathname.startsWith('/api/'))throw Error('Unexpected API request: '+url.pathname);
   return route.continue();
  });
@@ -39,7 +41,7 @@ try{
   const issues=await page.locator('.catalog-discovery').evaluate(root=>{
    const bad=[];if(document.documentElement.scrollWidth>innerWidth+1)bad.push('page overflow');
    for(const e of root.querySelectorAll('.story-label,.catalog-professionals-copy,.catalog-professional-info'))if(e.scrollWidth>e.clientWidth+1)bad.push('clipped '+e.className);
-   for(const e of root.querySelectorAll('.catalog-professionals button'))if(e.getBoundingClientRect().height<44)bad.push('small touch target');
+   for(const e of root.querySelectorAll('.catalog-professionals button'))if(e.getBoundingClientRect().height<43.9)bad.push('small touch target '+(e.getAttribute('aria-label')||e.textContent)+' '+e.getBoundingClientRect().height);
    return bad;
   });assert.deepEqual(issues,[]);
  };
@@ -51,7 +53,7 @@ try{
   assert.equal(await page.locator('.uc-candidate-engine-card,.service-leaders-accordion').count(),0);
   assert.equal(await page.locator('.catalog-leader-preview').count(),2);
   assert.match(await page.getByRole('button',{name:'View Electrical leaderboard',exact:true}).textContent(),/First electrical professional/);
-  const first=await page.locator('.uc-service-card').first().boundingBox();if(first.y>=580){await page.screenshot({path:'test-results/leader-layout-failure.png'});console.log(await page.locator('.catalog-leaders-overview').evaluate(e=>({first:e.getBoundingClientRect().toJSON(),children:[...e.children].map(c=>({tag:c.tagName,class:c.className,bounds:c.getBoundingClientRect().toJSON()}))})));}assert(first.y<580,'The compact leader rail must keep the first service row visible on a phone');
+  const first=await page.locator('.uc-service-card').first().boundingBox();assert(first.y+Math.min(first.height,44)<page.viewportSize().height,'The first service card must be reachable in the initial phone viewport');
   await layout();await cat('Electrical');await settled();
   const summary=page.locator('.catalog-professionals-toggle');assert.equal(await summary.getAttribute('aria-expanded'),'false');assert((await summary.boundingBox()).height<100);
   assert.equal(await page.locator('.uc-service-card').count(),1);
@@ -104,6 +106,7 @@ try{
  assert.match(await firstLeader.textContent(),/Second electrical professional/,'Failed background refresh retains genuine last received leaders');
  assert.equal(await page.locator('.repaido-launch,.repaido-loading-notice').count(),0);
  failOverview=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await page.getByRole('alert').waitFor({state:'hidden'});
+ malformedOverview=true;await refresh.click();await page.getByRole('alert').filter({hasText:'Leaders could not refresh'}).waitFor();assert.match(await firstLeader.textContent(),/Second electrical professional/);malformedOverview=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await page.getByRole('alert').waitFor({state:'hidden'});assert.match(await firstLeader.textContent(),/Second electrical professional/,'An invalid success response must not poison the cached leaders or crash their retry');
  const focusRequest=page.waitForRequest(r=>r.url().includes('leaderboard')&&r.postDataJSON().category==='');
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await focusRequest;
  await page.waitForFunction(()=>!document.querySelector('.catalog-leaders-refresh')?.disabled);

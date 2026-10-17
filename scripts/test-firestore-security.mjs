@@ -23,13 +23,19 @@ async function call(method, path, identity, values, status) {
 }
 const alice=token('alice'),bob=token('bob'),admin=token('admin',{admin:true}),roleAdmin=token('role-admin',{role:'admin'});
 const emailOnly=token('email-only',{email:'firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com',email_verified:true});
+const stringAdmin=token('string-admin',{admin:'true'}), numericAdmin=token('numeric-admin',{admin:1});
 await call('PATCH','services/service','owner',{name:'Local service'},200);
 await call('PATCH','users/alice','owner',{name:'Alice',email:'alice@example.invalid'},200);
 await call('PATCH','support_tickets/alice-ticket','owner',{user_id:'alice',userId:'alice',message:'Private issue',status:'open'},200);
 await call('PATCH','ops_workers/worker','owner',{name:'Private worker'},200);
+await call('PATCH','technicians/alice','owner',{name:'Private technician',phone:'Private phone',status:'active'},200);
+await call('PATCH','bookings/assigned','owner',{user_id:'alice',technician_id:'bob',status:'confirmed'},200);
+await call('PATCH','bookings/unassigned','owner',{user_id:'alice',status:'requested'},200);
 await call('GET','services/service',null,null,200);
 await call('PATCH','services/service',alice,{name:'Cannot change prices'},403);
 await call('PATCH','services/service',emailOnly,{name:'Email is not admin proof'},403);
+await call('PATCH','services/service',stringAdmin,{name:'String is not boolean admin proof'},403);
+await call('PATCH','services/service',numericAdmin,{name:'Number is not boolean admin proof'},403);
 await call('PATCH','services/service',admin,{name:'Authorized admin'},200);
 await call('PATCH','services/service',roleAdmin,{name:'Authorized role admin'},200);
 await call('GET','users/alice',alice,null,200);
@@ -52,4 +58,23 @@ for (const [label,identity] of [['guest',null],['owner',alice],['stranger',bob],
 await call('GET','ops_workers/worker',alice,null,403);
 await call('GET','ops_workers/worker',admin,null,403);
 await call('PATCH','ops_workers/worker',alice,{status:'approved'},403);
+for (const [identity,status] of [[null,403],[alice,200],[bob,403],[admin,200],[emailOnly,403]]) {
+  await call('GET','technicians/alice',identity,null,status);
+}
+for (const [identity,status] of [[null,403],[alice,200],[bob,200],[admin,200],[emailOnly,403]]) {
+  await call('GET','bookings/assigned',identity,null,status);
+}
+for (const [identity,status] of [[null,403],[alice,200],[bob,403],[admin,200]]) {
+  await call('GET','bookings/unassigned',identity,null,status);
+}
+for (const identity of [null,alice,bob,admin]) {
+  for (const path of ['bookings/assigned','technicians/alice','partner_applications/application','ops_account_contacts/alice']) {
+    await call('PATCH',path,identity,{status:'approved',user_id:'bob'},403);
+    await call('DELETE',path,identity,null,403);
+  }
+  await call('GET','ops_account_contacts/alice',identity,null,403);
+  await call('GET','users/alice/private/nested',identity,null,403);
+}
+await call('PATCH','users/alice',bob,{name:'Cannot take another account'},403);
+await call('DELETE','users/alice',alice,null,403);
 console.log(JSON.stringify({status:'passed',checks,project,endpoint:'local Firestore emulator'}));

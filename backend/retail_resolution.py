@@ -332,7 +332,8 @@ def install(core):
         return (payment.get('id')==order.get('payment_id') and payment.get('order_id')==order.get('order_id')
                 and type(payment.get('amount')) is int and payment['amount']==order['total_paise'] and payment.get('currency')=='INR'
                 and payment.get('status') in ('captured','refunded') and payment.get('captured') is True
-                and type(payment.get('amount_refunded')) is int and 0<=payment['amount_refunded']<=payment['amount'])
+                and type(payment.get('amount_refunded')) is int
+                and order.get('provider_amount_refunded',0)<=payment['amount_refunded']<=payment['amount'])
 
     def reconcile(intent,result):
         if (result.get('payment_id')!=intent['payment_id'] or type(result.get('amount')) is not int
@@ -406,6 +407,7 @@ def install(core):
             if previous:return previous,False
             if current.get('refund_intent_id')!=row['refund_intent_id'] or current['state']!='refund_approved':fail('APPROVAL_CHANGED','Refresh the changed refund decision.',409)
             if order.get('refund_pending'):fail('REFUND_PENDING','Reconcile the order’s existing refund before another refund.',409)
+            if not payment_matches(payment,order):fail('PAYMENT_MISMATCH','A newer provider refund needs reconciliation before this refund can be sent.',409)
             if order.get('amount_refunded',0)!=payment['amount_refunded']:fail('EXTERNAL_REFUND_REVIEW','A provider refund outside this record requires financial reconciliation first.',409)
             amount=current['refund_amount_paise']
             if amount>order['total_paise']-payment['amount_refunded']:fail('REFUND_EXCEEDS_PAYMENT','The refund exceeds the captured balance.',409)

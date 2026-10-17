@@ -7,9 +7,13 @@ from pathlib import Path
 def test_backend_container_packages_its_local_import_dependencies():
     root=Path(__file__).parent
     packaged=set()
-    for line in (root/'Dockerfile').read_text().splitlines():
+    # Docker instructions may span physical lines. Only COPY describes the
+    # source inventory; RUN shell syntax is not a shlex-parsed file list.
+    instructions=(root/'Dockerfile').read_text().replace('\\\n',' ')
+    for line in instructions.splitlines():
+        if not line.lstrip().upper().startswith('COPY '):continue
         tokens=shlex.split(line)
-        if tokens and tokens[0]=='COPY':
+        if tokens and tokens[0].upper()=='COPY':
             packaged.update(name for name in tokens[1:-1] if name.endswith('.py'))
     assert 'main.py' in packaged
     missing=[]

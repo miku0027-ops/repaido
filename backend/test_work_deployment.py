@@ -11,6 +11,28 @@ deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
 
 
+@pytest.mark.parametrize('config_path', ['firebase.json', 'web/firebase.json'])
+@pytest.mark.parametrize(('path', 'service'), [
+    ('/api/repaidians/work', 'repaido-work-api'),
+    ('/api/repaidians/work/jobs', 'repaido-work-api'),
+    ('/api/repaidians/companies', 'repaido-work-api'),
+    ('/api/repaidians/companies/example/jobs', 'repaido-work-api'),
+    ('/api/repaidians/placements', 'repaido-work-api'),
+    ('/api/repaidians/placements/example', 'repaido-work-api'),
+    ('/api/repaidians/workshop', 'repaido-api'),
+    ('/api/repaidians/companies-other', 'repaido-api'),
+    ('/api/repaidians/placements-other', 'repaido-api'),
+    ('/api/repaidians/state', 'repaido-api'),
+    ('/api/health', 'repaido-api'),
+])
+def test_all_hosting_entrypoints_dispatch_work_routes_before_main_api(config_path, path, service):
+    root = Path(__file__).resolve().parents[1]
+    rewrites = json.loads((root / config_path).read_text())['hosting']['rewrites']
+    target = next(row for row in rewrites if row['source'] == path or
+                  row['source'].endswith('/**') and path.startswith(row['source'][:-2]))
+    assert target['run'] == {'serviceId': service, 'region': 'us-central1'}
+
+
 @pytest.mark.parametrize('existing_job', [False, True])
 @pytest.mark.parametrize('community_enabled', [False, True])
 def test_scheduler_create_and_repeat_deploy_use_supported_header_flags(tmp_path, monkeypatch, existing_job, community_enabled):

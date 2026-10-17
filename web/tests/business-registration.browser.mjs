@@ -8,8 +8,10 @@ import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdtemp(resolve(tmpdir(),'repaido-registration-'));
-const api='http://127.0.0.1:8054',origin='http://127.0.0.1:5187',checks=[],writes=[],errors=[];
-const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/business_suites_api.py',work+'/test.db','8054'],{cwd:resolve(web,'../backend'),stdio:['ignore','pipe','pipe']});
+const apiPort=Number(process.env.BUSINESS_REGISTRATION_API_PORT||8054);
+assert(Number.isInteger(apiPort)&&apiPort>0&&apiPort<=65535,'BUSINESS_REGISTRATION_API_PORT must be a valid TCP port');
+const api='http://127.0.0.1:'+apiPort,origin='http://127.0.0.1:5187',checks=[],writes=[],errors=[];
+const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/business_suites_api.py',work+'/test.db',String(apiPort)],{cwd:resolve(web,'../backend'),stdio:['ignore','pipe','pipe']});
 let log='',browser;for(const stream of [server.stdout,server.stderr])stream.on('data',data=>log+=data);
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function profile(uid,role){const response=await fetch(api+'/operations/local-business/partner?role='+role,{headers:{Authorization:'Bearer '+uid}});assert(response.ok);return (await response.json()).partner;}
@@ -27,6 +29,7 @@ try{
   await page.getByLabel('Legal / business name').fill('  Fixture '+title+' business  ');
   await page.getByRole('button',{name:/Business base & address/}).click();
   let map=page.getByRole('dialog',{name:'Your business base'});
+  await context.setGeolocation({latitude:21.4934,longitude:86.9135,accuracy:10});
   await map.getByRole('button',{name:'Use my current location',exact:true}).click();
   await map.getByText('GPS accuracy:',{exact:false}).waitFor();
   await map.getByRole('button',{name:'Confirm this location',exact:true}).click();
@@ -72,9 +75,9 @@ try{
   checks.push(role+': GPS, missing/short/whitespace validation, focus and accessibility, retained address, no premature uploads, successful reviewed submission');
  }
  // Coordinate-only consumers retain their existing optional address behavior.
- await page.goto(origin+'/tests/business-suites-preview.html?mode=mobility&uid=customer');await page.getByRole('button',{name:/Cab with driver Your/}).click();
+ await page.goto(origin+'/tests/business-suites-preview.html?mode=mobility&uid=customer');await page.getByRole('button',{name:'Find a cab',exact:true}).click();
  const local=ms=>new Date(Date.now()+ms).toISOString().slice(0,16);
  await page.getByLabel('Pickup date & time').fill(local(86400000));await page.getByLabel('Expected trip end').fill(local(90000000));await page.getByRole('button',{name:'Continue',exact:true}).click();
- await page.getByRole('button',{name:/Pickup Choose on the map/}).click();const optional=page.locator('dialog[open]');await optional.getByLabel('I have checked that this pin marks my service entrance.').check();await optional.getByRole('button',{name:'Confirm this location',exact:true}).click();assert.equal(await optional.count(),0);checks.push('existing coordinate-only location selection remains available');
+ await page.getByRole('button',{name:/^Pickup /}).click();const optional=page.getByRole('dialog',{name:'Choose pickup area',exact:true});await optional.getByLabel('I have checked that this pin marks my service entrance.').check();await optional.getByRole('button',{name:'Confirm this location',exact:true}).click();await optional.waitFor({state:'detached'});assert.equal(await optional.count(),0);checks.push('existing coordinate-only location selection remains available');
  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks,work}));
 }catch(error){console.error(error);console.error(log.slice(-1200));process.exitCode=1;}finally{await writeFile(work+'/report.json',JSON.stringify({checks,errors,writes},null,2));await browser?.close();server.kill('SIGTERM');console.log('Evidence: '+work);}
