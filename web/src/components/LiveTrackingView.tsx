@@ -10,8 +10,10 @@ import 'leaflet/dist/leaflet.css';
 import {
   Phone, MapPin, Navigation, Clock3, ShieldCheck, ChevronDown, ChevronUp,
   FileText, ArrowLeft, RefreshCw, AlertTriangle, Check, CheckCircle2,
-  Store, User, Sparkles, ExternalLink, Star, Receipt, X, Maximize2, Minimize2
-} from 'lucide-react';
+  Store, User, Sparkles, ExternalLink, Star, Receipt, X, Maximize2, Minimize2,
+  Search, TwoWheeler, Handyman, FactCheck, TaskAlt, XCircle, Inventory2, type MaterialIcon
+} from '../icons';
+import {homeSvg,twoWheelerSvg} from '../icons/map-icons';
 import { operation, money, jobCommand, currentPosition, type Job } from '../services/operations';
 import { taskProgress } from '../services/taskStages.mjs';
 import { PaymentPanel } from './PaymentPanel';
@@ -23,71 +25,71 @@ type Tracking = {
   server_time: number;
 };
 
-const STAGE_CONFIG: Record<string, { label: string; sub: string; icon: string; eta: string }> = {
+const STAGE_CONFIG: Record<string, { label: string; sub: string; icon: MaterialIcon; eta: string }> = {
   searching: {
     label: 'Finding nearby specialist',
     sub: 'Matching with the highest-rated verified technician in your area…',
-    icon: '🔍',
+    icon: Search,
     eta: 'Searching…'
   },
   offered: {
     label: 'Specialist reviewing request',
     sub: 'Assignment offered to nearby professional. Confirmation in 2 mins.',
-    icon: '⏳',
+    icon: Clock3,
     eta: 'Confirming…'
   },
   accepted: {
     label: 'Specialist confirmed your visit',
     sub: 'Technician has accepted your booking and is preparing equipment.',
-    icon: '✅',
+    icon: CheckCircle2,
     eta: 'Preparing departure'
   },
   en_route: {
     label: 'On the way to your address',
     sub: 'Technician is navigating live to your doorstep.',
-    icon: '🛵',
+    icon: TwoWheeler,
     eta: 'Arriving soon'
   },
   collecting_parts: {
     label: 'Procuring approved parts at shop',
     sub: 'Specialist is at partner store collecting genuine replacement parts.',
-    icon: '🏬',
+    icon: Store,
     eta: 'Procuring parts'
   },
   arrived: {
     label: 'Specialist has arrived at doorstep',
     sub: 'Your professional is at the door. Please grant access.',
-    icon: '📍',
+    icon: MapPin,
     eta: 'Arrived at site'
   },
   in_progress: {
     label: 'Service work in progress',
     sub: 'Repairs and safety diagnostics are currently being performed.',
-    icon: '⚡',
+    icon: Handyman,
     eta: 'Service ongoing'
   },
   completion_pending: {
     label: 'Service complete · Verification',
     sub: 'Technician has completed repairs. Please review the finished work.',
-    icon: '📋',
+    icon: FactCheck,
     eta: 'Review & Sign-off'
   },
   completed: {
     label: 'Service completed successfully',
     sub: 'Work completion confirmed. Check payment and receipt status below.',
-    icon: '🎉',
+    icon: TaskAlt,
     eta: 'Completed'
   },
   cancelled: {
     label: 'Booking cancelled',
     sub: 'This booking has been cancelled according to policy.',
-    icon: '❌',
+    icon: XCircle,
     eta: 'Cancelled'
   },
   disputed: {
     label: 'Support review in progress',
     sub: 'Work is paused pending support and settlement review.',
-    icon: '⚠️',
+    icon: AlertTriangle,
     eta: 'Under review'
   }
 };
@@ -212,7 +214,7 @@ export function LiveTrackingView({
     const map=L.map(mapContainer.current,{zoomControl:true,attributionControl:true,scrollWheelZoom:true,touchZoom:true,dragging:true}).setView([job.location.lat,job.location.lng],14);
     mapInstance.current=map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}).addTo(map);
-    L.marker([job.location.lat,job.location.lng],{icon:L.divIcon({className:'clean-map-pin',html:'<span class="rt-home-marker">⌂</span>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip('Service address');
+    L.marker([job.location.lat,job.location.lng],{title:'Service address',icon:L.divIcon({className:'clean-map-pin',html:`<span class="rt-home-marker">${homeSvg}</span>`,iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip('Service address');
     const interaction=()=>{moved.current=true;};
     const container=map.getContainer();container.addEventListener('pointerdown',interaction);container.addEventListener('wheel',interaction,{passive:true});container.addEventListener('keydown',interaction);
     const observer=new ResizeObserver(()=>map.invalidateSize({pan:false}));observer.observe(container);
@@ -224,7 +226,7 @@ export function LiveTrackingView({
     const point:L.LatLngTuple=[livePosition.lat,livePosition.lng];
     if(!agentMarker.current){
       const name=document.createElement('span');name.textContent=job.worker_name||'Your professional';
-      agentMarker.current=L.marker(point,{keyboard:true,title:job.worker_name||'Professional profile',icon:L.divIcon({className:'clean-map-pin',html:'<span class="rt-agent-marker">🛵</span>',iconSize:[38,38],iconAnchor:[19,19]})}).addTo(map).bindTooltip(name,{permanent:true,direction:'bottom',offset:[0,14],className:'map-tooltip-clean'}).on('click',()=>setProfileOpen(true));
+      agentMarker.current=L.marker(point,{keyboard:true,title:job.worker_name||'Professional profile',icon:L.divIcon({className:'clean-map-pin',html:`<span class="rt-agent-marker">${twoWheelerSvg}</span>`,iconSize:[38,38],iconAnchor:[19,19]})}).addTo(map).bindTooltip(name,{permanent:true,direction:'bottom',offset:[0,14],className:'map-tooltip-clean'}).on('click',()=>setProfileOpen(true));
     }else agentMarker.current.setLatLng(point);
     if(job.location){const points:L.LatLngTuple[]=[point,[job.location.lat,job.location.lng]];if(routeLine.current)routeLine.current.setLatLngs(points);else routeLine.current=L.polyline(points,{color:'#244685',weight:2,dashArray:'4,8'}).addTo(map);if(!fitted.current&&!moved.current){map.fitBounds(points,{padding:[45,45],maxZoom:16});fitted.current=true;}}
   },[livePosition?.lat,livePosition?.lng,!!livePosition,job.worker_name,job.id]);
@@ -233,10 +235,11 @@ export function LiveTrackingView({
   const currentStage = STAGE_CONFIG[job.state] || {
     label: job.state.replaceAll('_', ' '),
     sub: 'Your service visit is active.',
-    icon: '⚡',
+    icon: Handyman,
     eta: 'In progress'
   };
 
+  const StageIcon = currentStage.icon;
   const progress = taskProgress(job);
   const pastMilestones = PAST_MILESTONES_MAP[job.state] || ['Booking confirmed'];
 
@@ -283,13 +286,13 @@ export function LiveTrackingView({
           aria-label="Refresh status"
           title="Refresh status"
         >
-          <RefreshCw size={15} />
+          <RefreshCw size={16} />
         </button>
       </header>
 
       <div className="rt-map-toolbar">
         <div className="rt-map-chip">
-          <span className="rt-map-chip-icon" aria-hidden="true">{currentStage.icon}</span>
+          <span className="rt-map-chip-icon" aria-hidden="true"><StageIcon size={24} aria-hidden="true"/></span>
           <div className="rt-map-chip-text">
             <strong>{currentStage.label}</strong>
             <small>{distanceKm!==null?`${distanceKm.toFixed(2)} km straight-line`:currentStage.eta}</small>
@@ -343,7 +346,7 @@ export function LiveTrackingView({
               >
                 <div className="rt-step-indicator">
                   {isDone ? (
-                    <Check size={10} strokeWidth={3} />
+                    <Check size={12} strokeWidth={3} />
                   ) : (
                     <span className="rt-step-num">{idx + 1}</span>
                   )}
@@ -357,14 +360,14 @@ export function LiveTrackingView({
         {/* Current Step Status Banner */}
         <div className={`rt-hero-card${job.state==='en_route'?' rt-in-transit':''}`}>
           <div className="rt-hero-icon-wrap">
-            <span>{currentStage.icon}</span>
+            <span><StageIcon size={24} aria-hidden="true"/></span>
           </div>
           <div className="rt-hero-copy">
             <span className="rt-hero-eyebrow">
               STEP {Math.min(progress.completed + 1, 5)} OF 5 · {progress.status.toUpperCase()}
             </span>
             <h3>{currentStage.label}</h3>
-            {job.state==='en_route'?<><div className="rt-bike-road" aria-hidden="true"><span style={{animationPlayState:motionPaused?'paused':'running'}}>🛵</span><i>⌂</i></div><button onClick={()=>setMotionPaused(value=>!value)}>{motionPaused?'Play journey motion':'Pause journey motion'}</button><p>{distanceKm===null?'Waiting for live GPS':`${distanceKm.toFixed(2)} km from ${customerPosition?'your current location':'the service address'} · straight-line`}</p><small>{livePosition?`Updated ${Math.round(trackingAge)}s ago · GPS ±${Math.round(livePosition.accuracy)}m`:null}</small><button onClick={()=>void locateCustomer()}>Use my current location</button>{locationMessage&&<small role="status">{locationMessage}</small>}</>:<p>{currentStage.sub}</p>}
+            {job.state==='en_route'?<><div className="rt-bike-road" aria-hidden="true"><span style={{animationPlayState:motionPaused?'paused':'running'}}><TwoWheeler size={28} aria-hidden="true"/></span><i><Handyman size={20} aria-hidden="true"/></i></div><button onClick={()=>setMotionPaused(value=>!value)}>{motionPaused?'Play journey motion':'Pause journey motion'}</button><p>{distanceKm===null?'Waiting for live GPS':`${distanceKm.toFixed(2)} km from ${customerPosition?'your current location':'the service address'} · straight-line`}</p><small>{livePosition?`Updated ${Math.round(trackingAge)}s ago · GPS ±${Math.round(livePosition.accuracy)}m`:null}</small><button onClick={()=>void locateCustomer()}>Use my current location</button>{locationMessage&&<small role="status">{locationMessage}</small>}</>:<p>{currentStage.sub}</p>}
           </div>
         </div>
 
@@ -414,7 +417,7 @@ export function LiveTrackingView({
         {/* Action Error Banner */}
         {actionError && (
           <div role="alert" className="ops-error rt-error-banner">
-            <AlertTriangle size={15} />
+            <AlertTriangle size={16} />
             <span>{actionError}</span>
           </div>
         )}
@@ -423,7 +426,7 @@ export function LiveTrackingView({
         {job.proposal && ['pending', 'awaiting_payment'].includes(job.proposal.status) && (
           <section className="rt-parts-card" aria-label="Proposed Replacement Parts">
             <div className="rt-card-header">
-              <Store size={17} color="#15803d" />
+              <Inventory2 size={20} color="#15803d" />
               <div>
                 <h4>Specialist Proposed Replacement Parts</h4>
                 <p>Genuine parts requested from verified partner shop.</p>
@@ -538,18 +541,18 @@ export function LiveTrackingView({
         {job.state === 'completed' && (
           <section className="rt-review-card" aria-label="Customer Review">
             <div className="rt-card-header">
-              <Sparkles size={17} color="#d97706" />
+              <Star size={20} color="#d97706" />
               <h4>Rate & Review Specialist</h4>
             </div>
 
             {job.review ? (
               <div className="rt-review-display">
                 <div className="rt-stars-row">
-                  {'★'.repeat(job.review.rating)}{'☆'.repeat(5 - job.review.rating)}
+                  {[1,2,3,4,5].map(value=><Star key={value} size={20} filled={value<=job.review!.rating} aria-hidden="true"/>)}
                   <span className="rt-stars-score">{job.review.rating} / 5</span>
                 </div>
                 {job.review.text && <p className="rt-review-text">{job.review.text}</p>}
-                <span className="rt-review-verified">✓ Verified Customer Review recorded</span>
+                <span className="rt-review-verified"><CheckCircle2 size={16} aria-hidden="true"/> Verified Customer Review recorded</span>
               </div>
             ) : job.allowed_actions.includes('review') ? (
               <div className="rt-review-form">
@@ -564,8 +567,9 @@ export function LiveTrackingView({
                       onClick={() => setSelectedRating(star)}
                       className={`rt-star-btn ${selectedRating >= star ? 'is-active' : ''}`}
                       aria-label={`${star} star${star > 1 ? 's' : ''}`}
+                      aria-pressed={selectedRating >= star}
                     >
-                      ★
+                      <Star size={28} filled={selectedRating >= star} aria-hidden="true"/>
                     </button>
                   ))}
                 </div>
@@ -590,21 +594,21 @@ export function LiveTrackingView({
           </section>
         )}
 
-        {job.worker_name&&<details className="rt-professional-panel"><summary className="rt-pro-card">{professional?<ProfessionalAvatar p={professional}/>:<span className="rt-pro-avatar"><User size={18}/></span>}<span className="rt-pro-details"><strong>{job.worker_name}</strong><small>{professional?.rating!=null?`${professional.rating.toFixed(1)} ★ · ${professional.review_count} reviews`:'Reviews available in profile'}</small></span><ChevronDown size={15}/></summary><div className="rt-professional-content">{professional?<><ProfileHighlights p={professional}/><div className="rt-quality-scores">{Object.entries(professional.performance?.scores||{}).map(([key,value])=><div key={key}><span>{key.replaceAll('_',' ')}</span><strong>{value.score===null?'Not rated':`${value.score}%`}</strong><progress max={100} value={value.score||0} aria-label={`${key}: ${value.score===null?'not rated':value.score+'%'}`}/><small>{value.samples} {value.source==='arrival_records'?'arrival records':'specific ratings'}</small></div>)}</div><button onClick={()=>setProfileOpen(true)}>Full profile & work history</button></>:<p>{profileError||'Loading profile…'}{profileError&&<button onClick={()=>setProfileAttempt(v=>v+1)}>Retry</button>}</p>}</div></details>}
+        {job.worker_name&&<details className="rt-professional-panel"><summary className="rt-pro-card">{professional?<ProfessionalAvatar p={professional}/>:<span className="rt-pro-avatar"><User size={18}/></span>}<span className="rt-pro-details"><strong>{job.worker_name}</strong><small>{professional?.rating!=null?`${professional.rating.toFixed(1)} ★ · ${professional.review_count} reviews`:'Reviews available in profile'}</small></span><ChevronDown size={16}/></summary><div className="rt-professional-content">{professional?<><ProfileHighlights p={professional}/><div className="rt-quality-scores">{Object.entries(professional.performance?.scores||{}).map(([key,value])=><div key={key}><span>{key.replaceAll('_',' ')}</span><strong>{value.score===null?'Not rated':`${value.score}%`}</strong><progress max={100} value={value.score||0} aria-label={`${key}: ${value.score===null?'not rated':value.score+'%'}`}/><small>{value.samples} {value.source==='arrival_records'?'arrival records':'specific ratings'}</small></div>)}</div><button onClick={()=>setProfileOpen(true)}>Full profile & work history</button></>:<p>{profileError||'Loading profile…'}{profileError&&<button onClick={()=>setProfileAttempt(v=>v+1)}>Retry</button>}</p>}</div></details>}
         {profileOpen&&<Modal title={job.worker_name||'Professional profile'} className="hire-professional-page" onClose={()=>setProfileOpen(false)}><div className="hire-profile-scroll">{professional?<ProfessionalDetails p={professional} category={job.category} renderActions={p=><ProfessionalQuickActions p={p} category={job.category} onNavigate={()=>setProfileOpen(false)}/>}/>:<p>{profileError||'Loading profile…'}</p>}</div></Modal>}
 
         {/* Address & Booking Metadata Strip */}
         <div className="rt-meta-strip">
           <div className="rt-meta-item">
-            <MapPin size={13} color="#475569" />
+            <MapPin size={14} color="#475569" />
             <span className="truncate">{job.address || job.city}</span>
           </div>
           <div className="rt-meta-item">
-            <Clock3 size={13} color="#475569" />
+            <Clock3 size={14} color="#475569" />
             <span>{new Date(job.starts_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
           <div className="rt-meta-item">
-            <Receipt size={13} color="#475569" />
+            <Receipt size={14} color="#475569" />
             <span>{money(job.total_paise)}</span>
           </div>
         </div>
@@ -621,14 +625,14 @@ export function LiveTrackingView({
               <CheckCircle2 size={14} color="#059669" />
               <span>{pastMilestones.length} Verified Milestones Completed</span>
             </div>
-            {showPastMilestones ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            {showPastMilestones ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
 
           {showPastMilestones && (
             <div className="rt-milestones-list">
               {pastMilestones.map((m, i) => (
                 <div key={i} className="rt-milestone-entry">
-                  <span className="rt-entry-check">✓</span>
+                  <span className="rt-entry-check"><Check size={14} aria-hidden="true"/></span>
                   <span>{m}</span>
                 </div>
               ))}
@@ -692,7 +696,7 @@ export function LiveTrackingView({
                 onClick={() => setShowBillSheet(false)}
                 aria-label="Close bill drawer"
               >
-                ✕
+                <X size={20} aria-hidden="true"/>
               </button>
             </div>
             <div className="rt-drawer-body">

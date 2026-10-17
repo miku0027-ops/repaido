@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Car,ChevronDown,LocateFixed,MapPin,ShieldCheck,Square} from 'lucide-react';
+import {ChevronDown,LocateFixed,MapPin,Square,DirectionsCar,HealthAndSafety} from '../icons';
 import {auth} from '../firebase';
 import {apiFetch} from '../services/api';
 import './public-cab-availability.css';
@@ -155,9 +155,9 @@ export function PublicCabAvailability({accountKey}:{accountKey:string}){
  const fresh=phase==='live'&&!!session.current?.pinExpires&&now<session.current.pinExpires;
  const status=fresh?'Sharing approximate location':phase==='live'?'GPS update overdue':phase==='starting'?'Starting…':phase==='waiting'?'Waiting for GPS':phase==='stopping'?'Removing…':phase==='uncertain'?'Removal unconfirmed':selected?.sharing.enabled?'Review previous session':'Off until you choose';
  return <details className="public-cab-control" open={open} onToggle={event=>setOpen(event.currentTarget.open)} data-state={fresh?'live':phase}>
-  <summary><span className="public-cab-control-emblem" aria-hidden="true"><Car size={19}/></span><span><strong>Appear on the cab map</strong><small>{status}</small></span><ChevronDown size={17} aria-hidden="true"/></summary>
+  <summary><span className="public-cab-control-emblem" aria-hidden="true"><DirectionsCar size={20}/></span><span><strong>Appear on the cab map</strong><small>{status}</small></span><ChevronDown size={18} aria-hidden="true"/></summary>
   <div className="public-cab-control-body">
-   <p className="public-cab-privacy"><ShieldCheck size={17} aria-hidden="true"/><span>Public discovery uses an approximate {data?.approximation_metres||450} m area pin. Private journey tracking stays separate.</span></p>
+   <p className="public-cab-privacy"><HealthAndSafety size={18} aria-hidden="true"/><span>Public discovery uses an approximate {data?.approximation_metres||450} m area pin. Private journey tracking stays separate.</span></p>
    {loading?<p role="status">Checking approved vehicle assignments…</p>:loadError?<div className="public-cab-notice" role="status"><p>{loadError}</p><button type="button" onClick={()=>{setLoading(true);void refreshRef.current();}}>Retry vehicle check</button></div>:<>
     {data?.vehicles.length?<label className="public-cab-vehicle">Your approved cab<select value={vehicleId} disabled={active||phase==='uncertain'} onChange={event=>{setVehicleId(event.target.value);setConsent(false);setParked(false);setMessage('');setPhase('idle');}}>{data.vehicles.map(vehicle=><option key={vehicle.id} value={vehicle.id}>{vehicle.name}{vehicle.eligible?'':' · unavailable'}</option>)}</select></label>:<p>Availability sharing needs an approved cab and its current approved driver. Review your vehicle assignment first.</p>}
     {selected&&!selected.eligible&&<p className="public-cab-notice">{selected.reason||'This cab is not currently eligible for public availability.'}</p>}
@@ -172,7 +172,7 @@ export function PublicCabAvailability({accountKey}:{accountKey:string}){
      {(active||phase==='uncertain'||selected?.sharing.enabled)&&<button type="button" disabled={phase==='stopping'} onClick={()=>void stopExisting()}><Square size={14} aria-hidden="true"/>{phase==='uncertain'?'Retry removal':'Stop public sharing'}</button>}
     </div>
    </>}
-   <small className="public-cab-footnote"><MapPin size={13} aria-hidden="true"/>Only while this app is visible and connected. Pins expire after 75 seconds; consent ends after 30 minutes. Sharing does not guarantee a booking.</small>
+   <small className="public-cab-footnote"><MapPin size={14} aria-hidden="true"/>Only while this app is visible and connected. Pins expire after 75 seconds; consent ends after 30 minutes. Sharing does not guarantee a booking.</small>
   </div>
  </details>;
 }

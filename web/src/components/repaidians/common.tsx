@@ -1,5 +1,5 @@
 import {useEffect,useId,useRef,useState,type RefObject} from 'react';
-import {BadgeCheck,User,ImageOff,Camera,Check} from 'lucide-react';
+import {BadgeCheck,User,ImageOff,Camera,Check} from '../../icons';
 import type {CommunityMedia,CommunityMember} from '../../types/repaidians';
 import {communityMediaScope,loadMedia,mediaFreshUntil,subscribeCommunityMedia,trades} from '../../services/repaidiansService';
 import {RepaidianBadge} from '../RepaidianBadge';
@@ -19,7 +19,7 @@ export function Avatar({member,size='normal'}:{member:CommunityMember;size?:'nor
 }
 export function Author({member,onOpen}:{member:CommunityMember;onOpen:()=>void}) {
   const reviewedId=useId(),detail=(member.handle?'@'+member.handle+' · ':'')+tradeName(member.trade);
-  return <button className="rp-author" onClick={onOpen} aria-label={'View '+member.name+' profile'} aria-describedby={member.reviewed?reviewedId:undefined}><Avatar member={member}/><span className="rp-author-details"><strong><span className="rp-author-name" title={member.name}>{member.name}</span>{member.reviewed&&<BadgeCheck size={15} aria-hidden="true"/>}</strong><small title={detail}>{detail}</small>{member.reviewed&&<span id={reviewedId} className="sr-only">Reviewed Repaido professional</span>}</span></button>;
+  return <button className="rp-author" onClick={onOpen} aria-label={'View '+member.name+' profile'} aria-describedby={member.reviewed?reviewedId:undefined}><Avatar member={member}/><span className="rp-author-details"><strong><span className="rp-author-name" title={member.name}>{member.name}</span>{member.reviewed&&<BadgeCheck size={16} aria-hidden="true"/>}</strong><small title={detail}>{detail}</small>{member.reviewed&&<span id={reviewedId} className="sr-only">Reviewed Repaido professional</span>}</span></button>;
 }
 export function Media({asset,active=false,muted=true,controls=false,paused=false,loop=false,onEnded,className=''}:{asset:CommunityMedia;active?:boolean;muted?:boolean;controls?:boolean;paused?:boolean;loop?:boolean;onEnded?:()=>void;className?:string}) {
   const container=useRef<HTMLDivElement>(null),visible=useVisibleAsset(container,asset.kind==='video'?'0px':'160px',asset.kind==='video'?.15:0);
@@ -30,10 +30,10 @@ export function Media({asset,active=false,muted=true,controls=false,paused=false
     const control=()=>{element.muted=muted;if(active&&!paused&&!document.hidden)void element.play().catch(()=>{});else element.pause();};
     control();document.addEventListener('visibilitychange',control);return()=>document.removeEventListener('visibilitychange',control);
   },[active,paused,muted,url]);
-  return <div ref={container} className="rp-media-wrap">{failed?<div className="rp-media-missing" role="status"><ImageOff size={28}/><span>This media could not be loaded.</span></div>:!url?<div className="rp-media-missing" role="status">Opening media…</div>:asset.kind==='image'?<img className={'rp-media '+className} src={url} alt={asset.alt} loading="lazy" decoding="async" onError={()=>setFailed(true)}/>:<video ref={video} className={'rp-media '+className} src={url} controls={controls} muted={muted} loop={loop} playsInline preload="metadata" aria-label={asset.alt} onEnded={onEnded} onError={()=>setFailed(true)}/>}</div>;
+  return <div ref={container} className="rp-media-wrap">{failed?<div className="rp-media-missing" role="status"><ImageOff size={24}/><span>This media could not be loaded.</span></div>:!url?<div className="rp-media-missing" role="status">Opening media…</div>:asset.kind==='image'?<img className={'rp-media '+className} src={url} alt={asset.alt} loading="lazy" decoding="async" onError={()=>setFailed(true)}/>:<video ref={video} className={'rp-media '+className} src={url} controls={controls} muted={muted} loop={loop} playsInline preload="metadata" aria-label={asset.alt} onEnded={onEnded} onError={()=>setFailed(true)}/>}</div>;
 }
 export function EmptyState({title,children,onCreate}:{title:string;children:React.ReactNode;onCreate?:()=>void}) {
-  return <div className="rp-empty"><span className="rp-empty-icon"><Camera size={30}/></span><h2>{title}</h2><p>{children}</p>{onCreate&&<button className="rp-primary" onClick={onCreate}>Share your work</button>}</div>;
+  return <div className="rp-empty"><span className="rp-empty-icon"><Camera size={24}/></span><h2>{title}</h2><p>{children}</p>{onCreate&&<button className="rp-primary" onClick={onCreate}>Share your work</button>}</div>;
 }
 export function LocalLabel({sample}:{sample:boolean}) {return sample?<span className="rp-local-label">Sample content</span>:null;}
 

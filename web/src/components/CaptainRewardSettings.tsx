@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {ShieldCheck} from 'lucide-react';
+import {ShieldCheck} from '../icons';
 import {useOperationResource} from '../hooks/useOperationResource';
 import {business,businessAmount} from '../services/localBusiness';
 import {money} from '../services/operations';
@@ -10,7 +10,7 @@ const rupees=(value:number)=>(value/100).toFixed(2);
 const draftOf=(data:Policy)=>({expected_version:data.version,budget:rupees(data.monthly_budget_paise),funding:data.funding_reference,offers:Object.fromEntries(Object.entries(data.offers).map(([code,item])=>[code,{enabled:item.enabled,gold:rupees(item.gold_cap_paise),maximum:rupees(item.max_cap_paise)}]))});
 export function CaptainRewardSettings(){
  const [open,setOpen]=useState(false);
- return <details className="captain-policy" onToggle={event=>setOpen(event.currentTarget.open)}><summary><ShieldCheck size={17} aria-hidden="true"/>Captain levels, coupon limits & funding</summary>{open&&<PolicyEditor/>}</details>;
+ return <details className="captain-policy" onToggle={event=>setOpen(event.currentTarget.open)}><summary><ShieldCheck size={18} aria-hidden="true"/>Captain levels, coupon limits & funding</summary>{open&&<PolicyEditor/>}</details>;
 }
 function PolicyEditor(){
  const resource=useOperationResource<Policy>('/local-business/captain/admin/policy',300000);

@@ -1,5 +1,5 @@
 import {useId, type ReactNode} from 'react';
-import {AlertCircle, CheckCircle2, Info} from 'lucide-react';
+import {AlertCircle, CheckCircle2, Info} from '../icons';
 import './business-ui.css';
 
 /** Shared customer and partner workspace primitives; all colours follow app preferences. */

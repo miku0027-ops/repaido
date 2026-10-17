@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {ArrowLeft,ArrowRight,CalendarDays,CheckCircle2,Clock3,RefreshCw} from 'lucide-react';
+import {ArrowLeft,ArrowRight,CalendarDays,CheckCircle2,Clock3,RefreshCw} from '../icons';
 import {apiAssetUrl,apiFetch} from '../services/api';
 import './public-contract-progress.css';
 

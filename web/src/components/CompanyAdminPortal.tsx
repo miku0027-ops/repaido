@@ -1,47 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import {
-  ShieldAlert,
-  Lock,
-  DollarSign,
-  CheckCircle2,
-  XCircle,
-  Settings,
-  Store,
-  FileText,
-  Activity,
-  Layers,
-  MapPin,
-  Clock,
-  ArrowRight,
-  TrendingUp,
-  Award,
-  Users,
-  Briefcase,
-  AlertCircle,
-  Search,
-  Filter,
-  ArrowUpDown,
-  Bell,
-  Check,
-  X,
-  ExternalLink,
-  ChevronRight,
-  Phone,
-  Mail,
-  Calendar,
-  CreditCard,
-  Building2,
-  Wrench,
-  Compass,
-  Map as MapIcon,
-  ShieldCheck,
-  Eye,
-  RefreshCw,
-  LogOut,
-  Menu
-} from 'lucide-react';
+import {ShieldAlert,Lock,CheckCircle2,XCircle,Settings,Store,FileText,Activity,MapPin,Users,Briefcase,Search,Filter,Bell,Check,X,Phone,Map as MapIcon,ShieldCheck,Eye,RefreshCw,Dashboard,PersonSearch,FactCheck,Payments,ReceiptLong,IndianRupee,UserRound,ShieldOff} from '../icons';
+import workerMapSymbol from '../icons/material-symbols-rounded/engineering.svg?raw';
+import shopMapSymbol from '../icons/material-symbols-rounded/storefront.svg?raw';
+import locationMapSymbol from '../icons/material-symbols-rounded/location_on.svg?raw';
+
+// Leaflet labels use the same locally bundled Google vectors as React controls.
+const mapGlyph = (svg: string) => svg.replace('<svg ', '<svg aria-hidden="true" focusable="false" fill="currentColor" style="width:16px;height:16px;vertical-align:middle;fill:currentColor;stroke:none" ');
+
 import type { ProductChangeRequest, SpareShop, BookingRecord } from '../types';
 import {
   getAllBaseFares,
@@ -158,7 +125,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
       setNotificationToast({
         id: pendingApp.id,
         type: 'agent',
-        title: `🚨 Agent Join Request: ${pendingApp.name}`,
+        title: `Agent Join Request: ${pendingApp.name}`,
         subtitle: `${pendingApp.role} (${pendingApp.tradeCategory}) • Balasore • Tap to Review`,
         data: pendingApp
       });
@@ -307,7 +274,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
             html: `
               <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;">
                 <div style="background: ${isPending ? '#D97706' : '#059669'}; color: white; padding: 3px 6px; border-radius: 6px; font-weight: bold; font-size: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap; border: 1.5px solid white;">
-                  👷 ${app.name.split(' ')[0]} ${isSpecialist ? '★' : ''}
+                  ${mapGlyph(workerMapSymbol)} ${app.name.split(' ')[0]} ${isSpecialist ? 'Specialist' : ''}
                 </div>
                 <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid ${isPending ? '#D97706' : '#059669'};"></div>
               </div>
@@ -340,7 +307,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
             html: `
               <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;">
                 <div style="background: #2563EB; color: white; padding: 3px 6px; border-radius: 6px; font-weight: bold; font-size: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap; border: 1.5px solid white;">
-                  🏬 ${shop.shopName}
+                  ${mapGlyph(shopMapSymbol)} ${shop.shopName}
                 </div>
                 <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #2563EB;"></div>
               </div>
@@ -375,7 +342,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
             html: `
               <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;">
                 <div style="background: #DC2626; color: white; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-size: 9px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap; border: 1px solid white;">
-                  📍 ${booking.serviceName.slice(0, 14)}...
+                  ${mapGlyph(locationMapSymbol)} ${booking.serviceName.slice(0, 14)}...
                 </div>
                 <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #DC2626;"></div>
               </div>
@@ -582,13 +549,13 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
 
   // Sidebar navigation links definition
   const navItems = [
-    { id: 'overview', label: 'Executive Business Overview', icon: TrendingUp },
-    { id: 'agent_requests', label: 'Agent Join Requests', icon: Users, badge: pendingApps.length },
+    { id: 'overview', label: 'Executive Business Overview', icon: Dashboard },
+    { id: 'agent_requests', label: 'Agent Join Requests', icon: PersonSearch, badge: pendingApps.length },
     { id: 'shop_kyc', label: 'Partner Shops & KYC', icon: Store, badge: pendingShops.length },
-    { id: 'product_moderation', label: 'Catalog Moderation', icon: FileText, badge: pendingRequests.length },
-    { id: 'base_fares', label: 'Base Fare & Pricing Config', icon: DollarSign },
+    { id: 'product_moderation', label: 'Catalog Moderation', icon: FactCheck, badge: pendingRequests.length },
+    { id: 'base_fares', label: 'Base Fare & Pricing Config', icon: Payments },
     { id: 'demographic_map', label: 'Demographic GIS Map', icon: MapIcon },
-    { id: 'audit_ledger', label: 'Central Activity Ledger', icon: ShieldCheck, badge: ledgerEntries.length },
+    { id: 'audit_ledger', label: 'Central Activity Ledger', icon: ReceiptLong, badge: ledgerEntries.length },
     { id: 'dispatch_engine', label: 'Discovery Engine & SLAs', icon: Activity }
   ];
 
@@ -660,7 +627,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && item.badge > 0 && (
@@ -799,7 +766,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                 onClick={() => setNotificationToast(null)}
                 className="text-amber-700 hover:text-amber-900 p-1"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -810,7 +777,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
           <div className="bg-white border-b border-slate-200 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 text-xs">
             <div className="flex items-center gap-2 flex-1 min-w-[220px]">
               <div className="relative flex-1">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Search by name, contact, SKU, or locality..."
@@ -870,7 +837,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
                   <div className="text-slate-500 text-sm font-semibold flex items-center justify-between">
                     <span>Labor Commission (3%)</span>
-                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                    <IndianRupee className="w-4 h-4 text-emerald-600" />
                   </div>
                   <div className="text-2xl font-black text-emerald-700 font-mono">
                     ₹{platformLaborCut.toLocaleString()}
@@ -987,7 +954,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
 
               {filteredPartnerApps.length === 0 ? (
                 <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 shadow-xs">
-                  <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <Users className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                   <p>No agent applications match your filter criteria.</p>
                 </div>
               ) : (
@@ -1002,7 +969,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                           <span className={`px-2 py-0.5 rounded text-sm font-bold uppercase font-mono border ${
                             app.role === 'Specialist' ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200'
                           }`}>
-                            {app.role === 'Specialist' ? '★ Master Specialist' : 'Technician'}
+                            {app.role === 'Specialist' ? 'Master Specialist' : 'Technician'}
                           </span>
                           <span className="font-bold text-slate-900 text-sm">{app.name}</span>
                           <span className="text-sm text-slate-400 font-mono">({app.id})</span>
@@ -1025,7 +992,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                         </div>
 
                         <div className="text-sm text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                          <MapPin className="w-4 h-4 text-red-500 flex-shrink-0" />
                           <span className="truncate">{app.homeAddress}</span>
                           {app.lat && app.lng && (
                             <span className="font-mono text-slate-600 text-sm flex-shrink-0">
@@ -1042,7 +1009,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                           onClick={() => setSelectedEntityModal({ type: 'agent', data: app })}
                           className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200 transition-all cursor-pointer"
                         >
-                          <Eye className="w-3.5 h-3.5" />
+                          <Eye className="w-4 h-4" />
                           <span>Inspect Dossier</span>
                         </button>
 
@@ -1053,7 +1020,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                               onClick={() => handleApproveAgent(app.id)}
                               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
                             >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <CheckCircle2 className="w-4 h-4" />
                               <span>Accept</span>
                             </button>
                             <button
@@ -1064,7 +1031,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                               }}
                               className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
                             >
-                              <XCircle className="w-3.5 h-3.5" />
+                              <XCircle className="w-4 h-4" />
                               <span>Reject</span>
                             </button>
                           </>
@@ -1165,7 +1132,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
 
               {filteredProductRequests.length === 0 ? (
                 <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 shadow-xs">
-                  <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <FileText className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                   <p>No product requests match your criteria.</p>
                 </div>
               ) : (
@@ -1205,7 +1172,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                               onClick={() => handleModerateRequest(req.id, 'approved')}
                               className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer"
                             >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <CheckCircle2 className="w-4 h-4" />
                               <span>Approve & Publish</span>
                             </button>
                             <button
@@ -1213,7 +1180,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                               onClick={() => handleModerateRequest(req.id, 'rejected')}
                               className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
                             >
-                              <XCircle className="w-3.5 h-3.5" />
+                              <XCircle className="w-4 h-4" />
                               <span>Reject</span>
                             </button>
                           </>
@@ -1291,7 +1258,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                     onClick={handleSaveBaseFare}
                     className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-xs shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
-                    <DollarSign className="w-3.5 h-3.5" />
+                    <IndianRupee className="w-4 h-4" />
                     <span>Save Base Fare</span>
                   </button>
                 </div>
@@ -1574,7 +1541,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
             <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
-                  {selectedEntityModal.type === 'agent' ? <Users className="w-4 h-4" /> : <Store className="w-4 h-4" />}
+                  {selectedEntityModal.type === 'agent' ? <UserRound className="w-4 h-4" /> : <Store className="w-4 h-4" />}
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
@@ -1661,7 +1628,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                       Declared Tools: {selectedEntityModal.data.toolsList || 'Standard diagnostic kit & safety gear'}
                     </div>
                     <div className="text-sm text-emerald-700 font-semibold mt-1">
-                      ✓ {selectedEntityModal.data.toolPhotosCount || 3} Tool Kit Photos Uploaded & Auto-Scanned
+                      <Check size={16} aria-hidden="true"/> {selectedEntityModal.data.toolPhotosCount || 3} Tool Kit Photos Uploaded & Auto-Scanned
                     </div>
                   </div>
 
@@ -1682,7 +1649,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                   {/* Base Address & Coordinates */}
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
                     <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-red-500" />
+                      <MapPin className="w-4 h-4 text-red-500" />
                       <span>Service Base & Map Pin</span>
                     </div>
                     <div className="text-sm text-slate-700">{selectedEntityModal.data.homeAddress}</div>
@@ -1801,7 +1768,7 @@ export const CompanyAdminPortal: React.FC<CompanyAdminPortalProps> = ({ onBackTo
                     onClick={() => handleToggleShopStatus(selectedEntityModal.data.id, selectedEntityModal.data.status)}
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    <Check className="w-4 h-4" />
+                    {selectedEntityModal.data.status === 'active' ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
                     <span>{selectedEntityModal.data.status === 'active' ? 'Revoke Status' : 'Verify & Activate Shop'}</span>
                   </button>
                 )}

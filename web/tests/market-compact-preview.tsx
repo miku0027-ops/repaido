@@ -1,7 +1,7 @@
 // Isolated browser fixture. This entry is not imported by the application bundle.
 import {createRoot} from 'react-dom/client';
 import {useState} from 'react';
-import {Bell,BriefcaseBusiness,CalendarDays,Grid2X2,ShoppingCart,Store,UserRound,Wrench} from 'lucide-react';
+import {Bell,BriefcaseBusiness,CalendarDays,Grid2X2,ShoppingCart,Store,UserRound,Wrench} from '../src/icons';
 import {MarketWorkspace,type MarketDestination} from '../src/components/MarketWorkspace';
 import {SparePartsShop} from '../src/components/SparePartsShop';
 import {B2BMarketplace} from '../src/components/B2BMarketplace';

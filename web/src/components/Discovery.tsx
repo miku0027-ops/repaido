@@ -4,7 +4,7 @@ import {ServiceTerms} from './ServiceTerms';
 import ServiceStories from './ServiceStories';
 import ServiceImage from './ServiceImage';
 import { useEffect, useMemo, useState } from 'react';
-import {ArrowRight,Check,ChevronDown,Clock3,MapPin,Minus,Plus,Search,ShieldCheck,SlidersHorizontal,Star,Trash2,X} from 'lucide-react';
+import {ArrowRight,Check,ChevronDown,Clock3,MapPin,Minus,Plus,Search,FactCheck,Tune,Star,Trash2,X} from '../icons';
 import { categories, cities, formatDuration, formatMoney } from '../data';
 import type { CartItem, CategoryId, Service } from '../types';
 import { Empty, Modal } from './ui';
@@ -17,7 +17,7 @@ export function QuantityControl({item, onChange}:{item:CartItem; onChange:(id:st
         aria-label={`Remove one ${item.service.name}`}
         onClick={() => onChange(item.service.id, -1)}
       >
-        <Minus size={15} />
+        <Minus size={16} />
       </button>
       <span className="stepper-count" aria-live="polite">{item.quantity}</span>
       <button
@@ -26,7 +26,7 @@ export function QuantityControl({item, onChange}:{item:CartItem; onChange:(id:st
         aria-label={`Add one ${item.service.name}`}
         onClick={() => onChange(item.service.id, 1)}
       >
-        <Plus size={15} />
+        <Plus size={16} />
       </button>
     </div>
   );
@@ -51,10 +51,10 @@ export function ServiceCard({
     <div className="compact-service-main">
       <span className="compact-service-category">{categoryName}</span>
       <h2 id={`service-title-${service.id}`} className="uc-service-title">{service.name}</h2>
-      <div className="compact-service-meta"><span><Clock3 size={13} aria-hidden="true"/>{formatDuration(service.duration)}</span>{service.rating!==undefined&&!!service.reviewCount?<span><Star size={13} aria-hidden="true"/>{service.rating.toFixed(1)} ({service.reviewCount})</span>:<span>New · no reviews</span>}</div>
+      <div className="compact-service-meta"><span><Clock3 size={14} aria-hidden="true"/>{formatDuration(service.duration)}</span>{service.rating!==undefined&&!!service.reviewCount?<span><Star size={14} aria-hidden="true"/>{service.rating.toFixed(1)} ({service.reviewCount})</span>:<span>New · no reviews</span>}</div>
       <strong className="compact-service-price">{formatMoney(service.price)}</strong>
     </div>
-    <div className="compact-service-actions"><button className="compact-details" onClick={onDetails} aria-label={`View details for ${service.name}`}>View details <ArrowRight size={14} aria-hidden="true"/></button>{item?<QuantityControl item={item} onChange={onChange}/>:<button className="compact-choose" onClick={onAdd} aria-label={`Choose ${service.name} for ${formatMoney(service.price)}`}>Choose <Plus size={15} aria-hidden="true"/></button>}</div>
+    <div className="compact-service-actions"><button className="compact-details" onClick={onDetails} aria-label={`View details for ${service.name}`}>View details <ArrowRight size={14} aria-hidden="true"/></button>{item?<QuantityControl item={item} onChange={onChange}/>:<button className="compact-choose" onClick={onAdd} aria-label={`Choose ${service.name} for ${formatMoney(service.price)}`}>Choose <Plus size={16} aria-hidden="true"/></button>}</div>
   </article>;
 }
 
@@ -79,7 +79,7 @@ export function BookingDrawer({items, subtotal, onProceed, onOpen}:{items:CartIt
         </button>
         <button className="drawer-checkout-btn" onClick={onProceed}>
           <span>Select Date & Slot</span>
-          <ArrowRight size={17} />
+          <ArrowRight size={18} />
         </button>
       </div>
     </aside>
@@ -177,7 +177,7 @@ export default function Discovery({
       <header className="uc-header-sticky">
         <div className="page-width uc-nav-row">
           <div className="uc-search-container">
-            <Search size={18} className="search-icon" aria-hidden="true" />
+            <Search size={20} className="search-icon" aria-hidden="true" />
             <input
               type="search"
               aria-label="Search services, repairs, specialists or technicians"
@@ -196,8 +196,8 @@ export default function Discovery({
               </button>
             )}
           </div>
-          <button className="uc-compact-action" aria-label={`Choose service city: ${city}`} title={city} onClick={()=>setCityOpen(true)}><MapPin size={18}/></button>
-          <button className="uc-compact-action" aria-label="Filters and sort" aria-description={activeFilters?`${activeFilters} active filters`:undefined} aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(true)}><SlidersHorizontal size={18} aria-hidden="true"/>{activeFilters>0&&<span className="catalogue-filter-count" aria-hidden="true">{activeFilters}</span>}</button>
+          <button className="uc-compact-action" aria-label={`Choose service city: ${city}`} title={city} onClick={()=>setCityOpen(true)}><MapPin size={20}/></button>
+          <button className="uc-compact-action" aria-label="Filters and sort" aria-description={activeFilters?`${activeFilters} active filters`:undefined} aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(true)}><Tune size={20} aria-hidden="true"/>{activeFilters>0&&<span className="catalogue-filter-count" aria-hidden="true">{activeFilters}</span>}</button>
         </div>
 
 
@@ -206,9 +206,9 @@ export default function Discovery({
       <section id="main-content" aria-label="Service catalogue" className="page-width uc-discovery-main catalog-discovery pb-56">
         <ServiceStories compact sort={sort} onSort={setSort} services={services} selected={category} onSelect={c=>{setCategory(c);setLeadersExpanded(false);}} title="Find your service"/>
         {(maxPrice||roleFilter!=='all'||(nearbyAvailable&&radiusKm!=='6'))&&<div className="catalogue-active-filters" aria-label="Applied service filters">
-          {maxPrice&&<button type="button" aria-label="Remove maximum budget" onClick={()=>setMaxPrice('')}>Up to ₹{Number(maxPrice).toLocaleString('en-IN')}<X size={12} aria-hidden="true"/></button>}
-          {roleFilter!=='all'&&<button type="button" aria-label="Remove professional role filter" onClick={()=>setRoleFilter('all')}>{roleFilter==='specialist'?'Specialists':'Technicians'}<X size={12} aria-hidden="true"/></button>}
-          {nearbyAvailable&&radiusKm!=='6'&&<button type="button" aria-label="Remove distance filter" onClick={()=>setRadiusKm('6')}>Within {radiusKm} km<X size={12} aria-hidden="true"/></button>}
+          {maxPrice&&<button type="button" aria-label="Remove maximum budget" onClick={()=>setMaxPrice('')}>Up to ₹{Number(maxPrice).toLocaleString('en-IN')}<X size={14} aria-hidden="true"/></button>}
+          {roleFilter!=='all'&&<button type="button" aria-label="Remove professional role filter" onClick={()=>setRoleFilter('all')}>{roleFilter==='specialist'?'Specialists':'Technicians'}<X size={14} aria-hidden="true"/></button>}
+          {nearbyAvailable&&radiusKm!=='6'&&<button type="button" aria-label="Remove distance filter" onClick={()=>setRadiusKm('6')}>Within {radiusKm} km<X size={14} aria-hidden="true"/></button>}
           <button type="button" className="catalogue-clear-filters" onClick={resetFilters}>Clear all</button>
         </div>}
         <ServiceLeaders key={`${category}:${city}`} category={category} city={city} initialLocation={nearbyLocation} role={roleFilter} radiusKm={Number(radiusKm)} categoryIds={services.map(s=>s.category)} initiallyExpanded={leadersExpanded} onSelectCategory={c=>{setCategory(c as CategoryId);setLeadersExpanded(true);}}/>
@@ -275,7 +275,7 @@ export default function Discovery({
                   )}
                 </div>
                 <div className="duration-pill">
-                  <Clock3 size={13} /> {formatDuration(detail.duration)}
+                  <Clock3 size={14} /> {formatDuration(detail.duration)}
                 </div>
               </div>
             </div>
@@ -283,7 +283,7 @@ export default function Discovery({
             <p className="uc-modal-description">{detail.description}</p>
 
             <div className="uc-guarantee-pill">
-              <ShieldCheck size={18} className="text-emerald" />
+              <FactCheck size={20} className="text-emerald" />
               <div>
                 <strong>Review before you book</strong>
                 <p>Parts and additional work need your approval. Review the scope and final bill.</p>

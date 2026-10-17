@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Send} from 'lucide-react';
+import {Send} from '../../icons';
 import {Modal} from '../ui';
 import {comment,commentsPage,messagesPage,sendMessage} from '../../services/repaidiansService';
 import type {CommunityComment,CommunityMember,CommunityMessage} from '../../types/repaidians';

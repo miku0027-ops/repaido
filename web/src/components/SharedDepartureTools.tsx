@@ -1,5 +1,5 @@
 import {useEffect,useState,type FormEvent} from 'react';
-import {Navigation,Clock3} from 'lucide-react';
+import {Navigation,Clock3} from '../icons';
 import {useOperationResource} from '../hooks/useOperationResource';
 import {business} from '../services/localBusiness';
 import {currentPosition} from '../services/operations';

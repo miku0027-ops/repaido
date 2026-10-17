@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Check,Crown,Gift,ShieldCheck} from 'lucide-react';
+import {Check,Crown,Gift,ShieldCheck} from '../../icons';
 import {Modal} from '../ui';
 import {loadCheckout} from '../PaymentPanel';
 import {PRO_PRICE_RUPEES,subscriptionOrder,subscriptionStatus} from '../../services/repaidiansService';
@@ -37,17 +37,17 @@ export function SubscriptionModal({reason,onClose,onActivated}:{account?:string;
     });
   });
   return <Modal title="Repaidians membership" className="rp-dialog rp-upgrade" onClose={onClose}>
-    <span className="rp-kicker">{activeTrial?<Gift size={17}/>:<Crown size={17}/>} {activeTrial?'Your craft, without limits':'More space for your craft'}</span>
+    <span className="rp-kicker">{activeTrial?<Gift size={20}/>:<Crown size={20}/>} {activeTrial?'Your craft, without limits':'More space for your craft'}</span>
     <h3>{activeTrial?'Every feature. 60 days free.':trialEnded?'Keep your community growing.':'Your work deserves an audience.'}</h3><p>{activeTrial?'Your free trial includes unlimited browsing and every social feature. No purchase is needed during your trial.':trialEnded?'Your free trial has ended. Continue with Repaidians Pro to browse, publish, bid and message.':reason}</p>
     <div className="rp-trial-terms"><Gift size={20}/><p><strong>60 days free from first joining Repaidians.</strong><span>₹{PRO_PRICE_RUPEES}/month after your trial, with manual payment and renewal. No automatic charge.</span></p></div>
     {activeTrial?<><div className="rp-membership-badge"><Gift size={16}/>Free trial · {trialDays} {trialDays===1?'day':'days'} remaining</div><p className="rp-fine">Your trial ends <time dateTime={new Date(data!.subscription!.endsAt).toISOString()}>{expiry(data!.subscription!.endsAt)}</time>.</p></>:<div className="rp-price"><strong>₹{PRO_PRICE_RUPEES}</strong><span>/ month</span></div>}
-    <ul className="rp-benefits">{['Unlimited community browsing','Photo posts, reels and 24-hour stories','Tender bids and contact details','Private messages and story replies'].map(text=><li key={text}><Check size={18}/>{text}</li>)}</ul>
+    <ul className="rp-benefits">{['Unlimited community browsing','Photo posts, reels and 24-hour stories','Tender bids and contact details','Private messages and story replies'].map(text=><li key={text}><Check size={20}/>{text}</li>)}</ul>
     {!activeTrial&&<p className="rp-notice"><ShieldCheck size={20}/><span>Secure Razorpay checkout, including UPI. One calendar month from activation, with manual renewal and no automatic debit.</span></p>}
     {error&&<p className="rp-error" role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
     {!data&&!error&&<p role="status">Checking your membership…</p>}
     {activeTrial&&<button className="rp-primary" onClick={onClose}>Keep exploring · free trial</button>}
     {paid&&<p role="status">Paid Pro is active until <time dateTime={new Date(data!.subscription!.endsAt).toISOString()}>{expiry(data!.subscription!.endsAt)}</time>.</p>}
-    {data&&!activeTrial&&!paid&&<><label className="rp-consent"><input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}/>I agree to pay ₹199 for one calendar month of Repaidians Pro.</label><button className="rp-primary" disabled={busy||!agreed||!data.paymentsReady} onClick={()=>void pay()}><Crown size={18}/>{busy?'Checking payment…':'Pay ₹199 for one month'}</button>{!data.paymentsReady&&<p className="rp-fine" role="status">Paid checkout is awaiting activation. No purchase can be made yet.</p>}</>}
+    {data&&!activeTrial&&!paid&&<><label className="rp-consent"><input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}/>I agree to pay ₹199 for one calendar month of Repaidians Pro.</label><button className="rp-primary" disabled={busy||!agreed||!data.paymentsReady} onClick={()=>void pay()}><Crown size={20}/>{busy?'Checking payment…':'Pay ₹199 for one month'}</button>{!data.paymentsReady&&<p className="rp-fine" role="status">Paid checkout is awaiting activation. No purchase can be made yet.</p>}</>}
     {data&&!activeTrial&&<button className="rp-secondary" disabled={busy} onClick={()=>void run(async()=>acknowledgePayment(await refresh(true)))}>Check payment status</button>}
   </Modal>;
 }

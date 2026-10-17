@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {BadgeCheck,RotateCcw} from 'lucide-react';
+import {BadgeCheck,RotateCcw} from '../icons';
 import {operation,money} from '../services/operations';
 import {loadCheckout} from './PaymentPanel';
 import type {Refurbishment,ShopPrimeStatus} from '../types';
@@ -8,7 +8,7 @@ import './shop-prime.css';
 export function PrimeBadge({prime}:{prime?:ShopPrimeStatus}) {
   const [now,setNow]=useState(Date.now()/1000);
   useEffect(()=>{if(!prime?.active)return;const timer=setInterval(()=>setNow(Date.now()/1000),30000);return()=>clearInterval(timer);},[prime?.active]);
-  return prime?.active&&prime.ends_at&&prime.ends_at>now?<span className="shop-prime-badge"><BadgeCheck size={15} aria-hidden="true"/>Repaido Verified <span>Prime · paid</span></span>:null;
+  return prime?.active&&prime.ends_at&&prime.ends_at>now?<span className="shop-prime-badge"><BadgeCheck size={16} aria-hidden="true"/>Repaido Verified <span>Prime · paid</span></span>:null;
 }
 export function RefurbishmentDetails({details:r,legacy}:{details?:Refurbishment|null;legacy?:string}) {
   if(!r)return <section className="refurb-detail-block"><h3>Refurbishment details</h3><p>{legacy||'The shop has not supplied structured inspection details yet.'}</p><p>Ask the shop to confirm condition, tests, warranty and returns before buying.</p></section>;

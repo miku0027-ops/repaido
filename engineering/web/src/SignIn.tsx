@@ -7,7 +7,7 @@ import {
   signInWithPopup,
   type ConfirmationResult,
 } from "firebase/auth";
-import { ArrowRight, LockKeyhole, Network } from "lucide-react";
+import {ArrowRight,LockKeyhole,Network} from '../../../web/src/icons';
 
 export default function SignIn() {
   const [phone, setPhone] = useState("+91");
@@ -36,7 +36,7 @@ export default function SignIn() {
         <div className="wordmark">
           repaido<span>ENGINEERING</span>
         </div>
-        <Network size={64} />
+        <Network size={24} />
         <h1>
           One system.
           <br />
@@ -50,7 +50,7 @@ export default function SignIn() {
         </div>
       </section>
       <section className="signin-form">
-        <LockKeyhole size={26} />
+        <LockKeyhole size={24} />
         <h2>Your engineering workspace</h2>
         <p>Use your Repaido account. Engineering access is required.</p>
         <button
@@ -60,7 +60,7 @@ export default function SignIn() {
             attempt(() => signInWithPopup(getAuth(), new GoogleAuthProvider()))
           }
         >
-          Continue with Google <ArrowRight size={17} />
+          Continue with Google <ArrowRight size={20} />
         </button>
         <div className="divider">or use your phone</div>
         <form

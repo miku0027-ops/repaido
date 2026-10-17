@@ -5,7 +5,7 @@ import { auth } from '../firebase';
 import { operation, type Job } from '../services/operations';
 import { nativeAvailable, nativeCall } from '../services/native';
 import { Modal } from './ui';
-import { Camera, CheckCircle2, AlertTriangle, Eye, RefreshCw, Sparkles } from 'lucide-react';
+import { Camera, CheckCircle2, AlertTriangle, Eye, RefreshCw, Sparkles } from '../icons';
 
 type Proof = {
   id: string;
@@ -167,7 +167,7 @@ export function VisitEvidence({
           disabled={busy}
           style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          <RefreshCw size={13} className={busy ? 'animate-spin' : ''} /> Refresh
+          <RefreshCw size={14} className={busy ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
 

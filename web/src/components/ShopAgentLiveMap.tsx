@@ -18,9 +18,12 @@ import {
   Sparkles,
   ChevronRight,
   ExternalLink,
-  Store
-} from 'lucide-react';
+  Store, TwoWheeler, Handyman
+} from '../icons';
+import {storefrontSvg,twoWheelerSvg,handymanSvg,homeSvg,phoneSvg} from '../icons/map-icons';
 import type { SpareShop, TaskSpareItem } from '../types';
+
+const compactPhoneSvg = phoneSvg.replace('width="24"','width="16"').replace('height="24"','height="16"').replace('data-icon-size="24"','data-icon-size="16"').replace('--icon-size:24px','--icon-size:16px');
 
 export interface SpecialistAgent {
   id: string;
@@ -308,7 +311,7 @@ export const ShopAgentLiveMap: React.FC<ShopAgentLiveMapProps> = ({
       className: 'shop-map-pin-container',
       html: `
         <div class="shop-map-pin-store">
-          🏬
+          ${storefrontSvg}
         </div>
       `,
       iconSize: [36, 36],
@@ -344,7 +347,7 @@ export const ShopAgentLiveMap: React.FC<ShopAgentLiveMapProps> = ({
           <div class="shop-map-agent-marker">
             <div class="shop-map-agent-pulse ${isAtCounter ? 'at-shop' : isDelivering ? 'delivering' : 'urgent'}"></div>
             <div class="shop-map-agent-body ${isAtCounter ? 'at-shop' : isDelivering ? 'delivering' : 'urgent'}">
-              ${isAtCounter ? '🏬' : agent.vehicleType === 'scooter' ? '🛵' : '🔧'}
+              ${isAtCounter ? storefrontSvg : agent.vehicleType === 'scooter' ? twoWheelerSvg : handymanSvg}
             </div>
           </div>
         `,
@@ -382,7 +385,7 @@ export const ShopAgentLiveMap: React.FC<ShopAgentLiveMapProps> = ({
           </div>
           <div style="display:flex;gap:6px;">
             <a href="tel:${agent.phone}" style="flex:1;background:#003BB5;color:#ffffff;text-align:center;padding:6px 8px;border-radius:8px;font-weight:700;text-decoration:none;font-size:11px;display:inline-block;">
-              📞 Call Tech
+              ${compactPhoneSvg} Call Tech
             </a>
           </div>
         </div>
@@ -400,7 +403,7 @@ export const ShopAgentLiveMap: React.FC<ShopAgentLiveMapProps> = ({
         className: 'shop-cust-pin',
         html: `
           <div class="shop-map-customer-pin">
-            🏠
+            ${homeSvg}
           </div>
         `,
         iconSize: [32, 32],
@@ -591,7 +594,7 @@ export const ShopAgentLiveMap: React.FC<ShopAgentLiveMapProps> = ({
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                       isAtCounter ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
                     }`}>
-                      {ag.vehicleType === 'scooter' ? '🛵' : '🔧'}
+                      {ag.vehicleType === 'scooter' ? <TwoWheeler size={24} aria-hidden="true"/> : <Handyman size={24} aria-hidden="true"/>}
                     </div>
                     <div>
                       <div className="font-extrabold text-slate-900 flex items-center gap-1">

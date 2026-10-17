@@ -1,4 +1,4 @@
-import {Home,ClipboardList,CalendarDays,Wallet,User} from 'lucide-react';
+import {Home,ClipboardList,CalendarDays,Wallet,User} from '../icons';
 import {useEffect,useRef} from 'react';
 import './agent-workspace.css';
 

@@ -1,5 +1,5 @@
 import {useEffect,useId,useMemo,useRef,useState} from 'react';
-import {ArrowRight,ChevronDown,MapPin,Pause,Play,RefreshCw,ShieldCheck,Star,Trophy,User} from 'lucide-react';
+import {ArrowRight,ChevronDown,MapPin,Pause,Play,RefreshCw,VerifiedUser,Star,Trophy,User} from '../icons';
 import {apiAssetUrl} from '../services/api';
 import {cachedCategoryLeaders,cachedHireProfilesSnapshot,categoryLeaders,hireProfiles} from '../services/hireProfileCache';
 import {categories} from '../data';
@@ -77,12 +77,12 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
   },[requestKey,retry]);
   if(!category)return null;
   const count=current?.total||0;
-  const refreshButton=<button type="button" className="catalog-leaders-refresh" disabled={refreshing} aria-label="Refresh category leaders" onClick={()=>setRetry(v=>v+1)}><RefreshCw size={16} aria-hidden="true"/></button>;
+  const refreshButton=<button type="button" className="catalog-leaders-refresh" disabled={refreshing} aria-label="Refresh category leaders" onClick={()=>setRetry(v=>v+1)}><RefreshCw size={20} aria-hidden="true"/></button>;
   if(overview){
     const allowed=new Set(categoryIds?.length?categoryIds:categories.map(c=>c.id));
     const leaders=(current?.categories||[]).filter(c=>allowed.has(c.id)&&c.count>0);
     return <section ref={ambient} data-animated={motionVisible&&!motionPaused&&!reducedMotion} className="catalog-professionals catalog-leaders-overview" aria-label="Category leaders" aria-busy={loading}>
-      <header className="catalog-leaders-heading"><span className="catalog-professionals-icon" aria-hidden="true"><Trophy size={18}/></span><div className="catalog-professionals-copy"><h2>Category leaders</h2><p>{city} · Verified reviews</p></div><button type="button" className="catalog-leaders-motion" aria-label={motionPaused?'Play leader effects':'Pause leader effects'} onClick={()=>setMotionPaused(v=>!v)}>{motionPaused?<Play size={15}/>:<Pause size={15}/>}</button>{refreshButton}</header>
+      <header className="catalog-leaders-heading"><span className="catalog-professionals-icon" aria-hidden="true"><Trophy size={20}/></span><div className="catalog-professionals-copy"><h2>Category leaders</h2><p>{city} · Verified reviews</p></div><button type="button" className="catalog-leaders-motion" aria-label={motionPaused?'Play leader effects':'Pause leader effects'} onClick={()=>setMotionPaused(v=>!v)}>{motionPaused?<Play size={20}/>:<Pause size={20}/>}</button>{refreshButton}</header>
       {error&&<p className="catalog-leaders-status" role="alert">{leaders.length?'Showing last received results. ':''}Leaders could not refresh. <button className="catalog-professionals-retry" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}
       {loading?<p className="catalog-leaders-status" role="status">Checking category leaders…</p>:!error&&!leaders.length?<p className="catalog-leaders-status">No matching professionals are listed here yet.</p>:null}
       {!!leaders.length&&<nav className="catalog-leaders-rail" aria-label="Category leaderboards">{leaders.map(c=><button type="button" className="catalog-leader-preview" key={c.id} onClick={()=>onSelectCategory?.(c.id)} aria-label={`View ${c.name} leaderboard`}>
@@ -95,13 +95,13 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
   return <section className="catalog-professionals" aria-label={`${name} professionals`}>
     <div className="catalog-professionals-heading">
     <button type="button" className="catalog-professionals-toggle" aria-expanded={open} aria-controls={id} onClick={()=>setOpen(v=>!v)}>
-      <span className="catalog-professionals-icon" aria-hidden="true"><ShieldCheck size={18}/></span>
+      <span className="catalog-professionals-icon" aria-hidden="true"><Trophy size={20}/></span>
       <span className="catalog-professionals-copy"><strong>{name} leaderboard</strong><span>{loading?'Checking listed profiles…':error?'Profiles temporarily unavailable':`${count} ${count===1?'reviewed profile':'reviewed profiles'} · ${location?`up to ${radiusKm} km`:city}`}</span></span>
       <ChevronDown size={18} className="catalog-professionals-chevron" aria-hidden="true"/>
     </button>
     {refreshButton}</div>
     {open&&<div id={id} className="catalog-professionals-panel" aria-busy={loading}>
-      <p className="catalog-professionals-note"><MapPin size={13} aria-hidden="true"/>{location?'Within your selected radius and each professional’s service range.':'City listings. Choose your location to check service coverage.'} Availability is confirmed when requesting.</p>
+      <p className="catalog-professionals-note"><MapPin size={14} aria-hidden="true"/>{location?'Within your selected radius and each professional’s service range.':'City listings. Choose your location to check service coverage.'} Availability is confirmed when requesting.</p>
       {loading&&<p role="status">Loading {name.toLowerCase()} profiles…</p>}
       {error&&<div role="alert"><p>{error}</p><button className="catalog-professionals-retry" onClick={()=>setRetry(v=>v+1)}>Retry</button></div>}
       {!loading&&!error&&!rows.length&&<p className="catalog-professionals-empty">No matching professionals are listed here yet. You can still review the services below.</p>}
@@ -112,8 +112,8 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
         return <article className="catalog-professional" key={p.id}>
           <span className="repaidian-avatar-frame catalog-repaidian-avatar"><span className="catalog-professional-avatar" aria-hidden="true"><User size={24}/>{p.portrait_url&&<img src={apiAssetUrl(p.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><RepaidianBadge badge={p.repaidianBadge} variant="avatar"/></span>
           <div className="catalog-professional-info"><div className="repaidian-professional-name"><h3>{p.name}</h3><RepaidianBadge badge={p.repaidianBadge}/></div><p>{p.role==='specialist'?'Specialist':'Technician'}{p.experience_years!=null?` · ${p.experience_years} years’ experience`:''}</p>
-            <div className="catalog-professional-badges"><span><ShieldCheck size={12} aria-hidden="true"/>Team-reviewed</span>{!!p.rank&&reviewCount>0&&<span>Category rank #{p.rank}</span>}</div>
-            <p className="catalog-professional-record">{reviewCount>0&&rating!=null?<><Star size={12} aria-hidden="true"/>{rating.toFixed(1)} · {reviewCount} category reviews</>:'No category reviews yet'}{record?.completed?` · ${record.completed} completed`:''}</p>
+            <div className="catalog-professional-badges"><span><VerifiedUser size={14} aria-hidden="true"/>Team-reviewed</span>{!!p.rank&&reviewCount>0&&<span>Category rank #{p.rank}</span>}</div>
+            <p className="catalog-professional-record">{reviewCount>0&&rating!=null?<><Star size={14} aria-hidden="true"/>{rating.toFixed(1)} · {reviewCount} category reviews</>:'No category reviews yet'}{record?.completed?` · ${record.completed} completed`:''}</p>
           </div>
           <button className="catalog-professional-open" onClick={()=>setSelected(p)} aria-label={`View ${p.name}’s profile`}>Profile<ArrowRight size={14} aria-hidden="true"/></button>
         </article>;

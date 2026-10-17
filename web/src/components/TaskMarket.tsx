@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Package,Search} from 'lucide-react';
+import {Package,Search} from '../icons';
 import {Modal} from './ui';
 import {RentalMarket,RentalManager} from './Rentals';
 import {operation,money} from '../services/operations';

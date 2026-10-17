@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import {MapPin,Navigation,Share2,ShieldCheck,Maximize,Minimize} from 'lucide-react';
+import {MapPin,Navigation,Share2,ShieldCheck,Maximize,Minimize} from '../icons';
 import {auth} from '../firebase';
 import {business,businessPublic} from '../services/localBusiness';
 import {currentPosition} from '../services/operations';

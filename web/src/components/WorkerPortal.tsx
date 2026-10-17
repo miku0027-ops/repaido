@@ -26,7 +26,7 @@ import {
   X,
   Settings,
   ImagePlus
-} from 'lucide-react';
+} from '../icons';
 import type { BookingRecord, WorkerProfile, SparePartProduct, SpareShop, WorkerGig, WorkerPricingModel, CategoryId } from '../types';
 import {
   getSavedBookings,

@@ -17,7 +17,7 @@ import {
   Navigation,
   Lock,
   Sparkles
-} from 'lucide-react';
+} from '../icons';
 import type { TaskSpareItem } from '../types';
 
 export interface ShopOrderAccordionItem {

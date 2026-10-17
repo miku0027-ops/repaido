@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {CalendarDays,Grid2X2,ShoppingBag,BriefcaseBusiness,Wrench} from 'lucide-react';
+import {CalendarDays,Grid2X2,ShoppingBag,BriefcaseBusiness,Wrench} from '../src/icons';
 import {SupportCenter,SupportDialog,SupportQuickButton} from '../src/components/SupportWorkspace';
 import '../src/styles.css';
 import '../src/reference.css';

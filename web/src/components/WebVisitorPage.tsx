@@ -17,7 +17,7 @@ import {
   MapPin,
   Sparkles,
   Award
-} from 'lucide-react';
+} from '../icons';
 import { categories, seededServices, formatMoney } from '../data';
 import RepaidoBrand from './RepaidoBrand';
 
@@ -41,7 +41,7 @@ export default function WebVisitorPage({
             <strong>Repaido Web Portal</strong> · Hosted on Firebase Blaze Plan with Hostinger / GoDaddy Custom Domain
           </span>
           <span className="hidden sm:flex items-center gap-3">
-            <span className="flex items-center gap-1 font-semibold text-emerald"><Database size={13} /> Shared SQLite & FastAPI Database</span>
+            <span className="flex items-center gap-1 font-semibold text-emerald"><Database size={14} /> Shared SQLite & FastAPI Database</span>
             <span>·</span>
             <span>Pay after service</span>
           </span>
@@ -71,7 +71,7 @@ export default function WebVisitorPage({
         <div className="page-width visitor-hero-grid">
           <div className="visitor-hero-copy">
             <div className="visitor-badge-pill">
-              <Sparkles size={13} className="text-accent" />
+              <Sparkles size={14} className="text-accent" />
               <span>OFFICIAL WEB PORTAL & MOBILE PLATFORM</span>
             </div>
             <h1 className="visitor-hero-title">
@@ -86,7 +86,7 @@ export default function WebVisitorPage({
               <button className="visitor-primary-cta" onClick={onLaunchApp}>
                 <Smartphone size={18} />
                 <span>Launch Mobile App Experience</span>
-                <ArrowRight size={17} />
+                <ArrowRight size={18} />
               </button>
 
               <button
@@ -216,9 +216,9 @@ export default function WebVisitorPage({
               <h3>Shared Core Database</h3>
               <p>All bookings, technician assignments, status progressions, and catalog items sync directly to the central Repaido database.</p>
               <ul className="arch-list">
-                <li><CheckCircle2 size={13} className="text-emerald" /> Unified user accounts & bookings</li>
-                <li><CheckCircle2 size={13} className="text-emerald" /> Real-time slot availability</li>
-                <li><CheckCircle2 size={13} className="text-emerald" /> Server-side idempotent security</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> Unified user accounts & bookings</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> Real-time slot availability</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> Server-side idempotent security</li>
               </ul>
             </div>
 
@@ -229,9 +229,9 @@ export default function WebVisitorPage({
               <h3>Firebase Hosting on Blaze Plan</h3>
               <p>Deployable directly to project <code>repaido</code>. Ready for custom domain configuration on Hostinger or GoDaddy.</p>
               <ul className="arch-list">
-                <li><CheckCircle2 size={13} className="text-emerald" /> Global CDN edge distribution</li>
-                <li><CheckCircle2 size={13} className="text-emerald" /> Automatic SSL certificate on custom domain</li>
-                <li><CheckCircle2 size={13} className="text-emerald" /> Seamless single-page routing (SPA)</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> Global CDN edge distribution</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> Automatic SSL certificate on custom domain</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> Seamless single-page routing (SPA)</li>
               </ul>
             </div>
 
@@ -242,9 +242,9 @@ export default function WebVisitorPage({
               <h3>1:1 Native Android Parity</h3>
               <p>The web layout mimics the native Kotlin / Jetpack Compose Android app down to typography, paddings, and bottom sheets.</p>
               <ul className="arch-list">
-                <li><CheckCircle2 size={13} className="text-emerald" /> 4-step progressive booking flow</li>
-                <li><CheckCircle2 size={13} className="text-emerald" /> Mobile-first responsive touch UI</li>
-                <li><CheckCircle2 size={13} className="text-emerald" /> WCAG AAA high-contrast accessibility</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> 4-step progressive booking flow</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> Mobile-first responsive touch UI</li>
+                <li><CheckCircle2 size={14} className="text-emerald" /> WCAG AAA high-contrast accessibility</li>
               </ul>
             </div>
           </div>
@@ -282,7 +282,7 @@ export default function WebVisitorPage({
                 <p className="card-desc">{s.description}</p>
                 <div className="card-action-bar">
                   <span className="pay-note">Pay after service</span>
-                  <span className="book-link">Book Service <ChevronRight size={15} /></span>
+                  <span className="book-link">Book Service <ChevronRight size={16} /></span>
                 </div>
               </div>
             ))}

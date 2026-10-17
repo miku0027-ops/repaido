@@ -41,6 +41,8 @@ REQUIRED_SOURCE = {
     'engineering/release.py', 'engineering/server/app.py',
     'engineering/web/package.json', 'engineering/web/pnpm-lock.yaml',
     'engineering/requirements.txt', 'backend/main.py', 'web/src/firebase.ts',
+    'web/src/icons/index.ts', 'web/src/icons/createMaterialIcon.tsx',
+    'web/src/icon-system.css',
     'firebase.json', 'firestore.rules', 'cloudbuild.yaml',
 }
 ROOT = Path(__file__).resolve().parents[1]

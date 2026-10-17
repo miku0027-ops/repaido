@@ -3,7 +3,7 @@ import type {Service} from '../types';
 import {formatMoney} from '../data';
 import ServiceFinder from './ServiceFinder';
 import {Modal} from './ui';
-import {ArrowRight} from 'lucide-react';
+import {ArrowRight} from '../icons';
 export default function HomeServiceFinder({services,onPreview}:{services:Service[];onPreview:(service:Service)=>void}){
  const [sort,setSort]=useState('recommended'),[budget,setBudget]=useState(''),[filters,setFilters]=useState(false);
  const visible=services.filter(s=>!budget||s.price<=Number(budget)).slice().sort((a,b)=>sort==='price-low'?a.price-b.price:sort==='duration'?a.duration-b.duration:0);

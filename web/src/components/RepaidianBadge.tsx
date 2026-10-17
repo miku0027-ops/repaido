@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {BadgeCheck} from 'lucide-react';
+import {BadgeCheck} from '../icons';
 import './repaidian-badge.css';
 
 /** Membership is granted and expired by the server; roles alone never grant a badge. */

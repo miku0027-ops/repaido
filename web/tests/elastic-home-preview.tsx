@@ -1,7 +1,7 @@
 // Isolated browser entry. Never imported into production.
 import {useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Bell,Grid2X2,ShoppingCart,UserRound} from 'lucide-react';
+import {Bell,Grid2X2,ShoppingCart,UserRound} from '../src/icons';
 import {auth} from '../src/firebase';
 import RepaidoBrand from '../src/components/RepaidoBrand';
 import {HomeDiscoveryLayout} from '../src/components/HomeDiscoveryLayout';

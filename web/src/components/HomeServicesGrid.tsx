@@ -5,7 +5,7 @@ import { useCustomerBrowseHydration } from '../services/customerBrowseTracker';
 import './home-services-grid.css';
 import {money} from '../services/operations';
 import {bestCategoryOffer,offerExpiry} from '../services/promotionPresentation.mjs';
-import {ArrowUpRight,Tag,Pause,Play} from 'lucide-react';
+import {ArrowUpRight,LocalOffer,Pause,Play,Clock3,ShieldCheck,Leaf,type MaterialIcon} from '../icons';
 import './home-discovery-refresh.css';
 
 export interface ServiceSlide {
@@ -14,6 +14,8 @@ export interface ServiceSlide {
   title: string;
   badge: string;
   badgeTheme: 'emerald' | 'sky' | 'amber' | 'rose' | 'purple' | 'flame';
+  badgeIcon?: MaterialIcon;
+  captionIcon?: MaterialIcon;
   graphicKey?: string;
   image?: string;
   subLabel: string;
@@ -66,7 +68,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'FESTIVE SALE',
         badgeTheme: 'amber',
         graphicKey: 'offer-discount-25',
-        subLabel: '⚡ Flat 25% OFF',
+        subLabel: 'Flat 25% OFF',
+        captionIcon: LocalOffer,
         isOffer: true
       },
       {
@@ -85,7 +88,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'BEST VALUE',
         badgeTheme: 'rose',
         graphicKey: 'offer-price-299',
-        subLabel: '🏷️ Starts @ ₹299',
+        subLabel: 'Starts @ ₹299',
+        captionIcon: LocalOffer,
         isOffer: true
       }
     ]
@@ -103,7 +107,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         id: 'plumb-base',
         type: 'base',
         title: 'Plumbing',
-        badge: '⚡ 15m Arrival',
+        badge: '15m Arrival',
+        badgeIcon: Clock3,
         badgeTheme: 'sky',
         image: '/images/icon-plumbing.png',
         subLabel: 'Leak & Tap Repair'
@@ -124,7 +129,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'COMBO PACK',
         badgeTheme: 'amber',
         graphicKey: 'offer-combo-150',
-        subLabel: '⚡ Flat ₹150 OFF',
+        subLabel: 'Flat ₹150 OFF',
+        captionIcon: LocalOffer,
         isOffer: true
       },
       {
@@ -143,7 +149,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'FEE WAIVED',
         badgeTheme: 'rose',
         graphicKey: 'offer-visit-99',
-        subLabel: '🏷️ ₹99 Visit Fee',
+        subLabel: '₹99 Visit Fee',
+        captionIcon: LocalOffer,
         isOffer: true
       }
     ]
@@ -182,7 +189,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'SAFETY PACK',
         badgeTheme: 'flame',
         graphicKey: 'offer-shield-20',
-        subLabel: '⚡ Flat 20% OFF',
+        subLabel: 'Flat 20% OFF',
+        captionIcon: LocalOffer,
         isOffer: true
       },
       {
@@ -201,7 +209,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'FIXED PRICING',
         badgeTheme: 'emerald',
         graphicKey: 'offer-rate-149',
-        subLabel: '🏷️ Starts @ ₹149',
+        subLabel: 'Starts @ ₹149',
+        captionIcon: LocalOffer,
         isOffer: true
       }
     ]
@@ -240,7 +249,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'SUMMER SAVER',
         badgeTheme: 'amber',
         graphicKey: 'offer-saver-300',
-        subLabel: '⚡ Save ₹300 on AC',
+        subLabel: 'Save ₹300 on AC',
+        captionIcon: LocalOffer,
         isOffer: true
       },
       {
@@ -259,7 +269,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'REPAIDO SHIELD',
         badgeTheme: 'rose',
         graphicKey: 'offer-warranty-90',
-        subLabel: '🛡️ 90-Day Free Warranty',
+        subLabel: '90-Day Free Warranty',
+        captionIcon: ShieldCheck,
         isOffer: true
       }
     ]
@@ -277,7 +288,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         id: 'veh-base',
         type: 'base',
         title: 'Road Assistance',
-        badge: '🚨 20m Arrival',
+        badge: '20m Arrival',
+        badgeIcon: Clock3,
         badgeTheme: 'flame',
         image: '/images/icon-vehicle.png',
         subLabel: '24/7 Rapid Towing'
@@ -298,7 +310,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'HIGHWAY SOS',
         badgeTheme: 'rose',
         graphicKey: 'offer-sos-30',
-        subLabel: '⚡ Flat 30% OFF',
+        subLabel: 'Flat 30% OFF',
+        captionIcon: LocalOffer,
         isOffer: true
       },
       {
@@ -317,7 +330,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'ZERO SURCHARGE',
         badgeTheme: 'emerald',
         graphicKey: 'offer-fare-199',
-        subLabel: '🏷️ Starts @ ₹199',
+        subLabel: 'Starts @ ₹199',
+        captionIcon: LocalOffer,
         isOffer: true
       }
     ]
@@ -335,7 +349,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         id: 'gard-base',
         type: 'base',
         title: 'Gardening Help',
-        badge: '🌿 100% Organic',
+        badge: '100% Organic',
+        badgeIcon: Leaf,
         badgeTheme: 'emerald',
         image: '/images/icon-gardening.png',
         subLabel: 'Lawn & Balcony Care'
@@ -356,7 +371,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'GREEN HOME',
         badgeTheme: 'amber',
         graphicKey: 'offer-green-20',
-        subLabel: '⚡ Flat 20% OFF',
+        subLabel: 'Flat 20% OFF',
+        captionIcon: LocalOffer,
         isOffer: true
       },
       {
@@ -375,7 +391,8 @@ export const homeServicesData: HomeServiceConfig[] = [
         badge: 'MONTHLY PASS',
         badgeTheme: 'flame',
         graphicKey: 'offer-pass-249',
-        subLabel: '🏷️ Starts @ ₹249',
+        subLabel: 'Starts @ ₹249',
+        captionIcon: LocalOffer,
         isOffer: true
       }
     ]
@@ -846,6 +863,7 @@ function ServiceMotionCardItem({
 
   const currentSlide = service.slides[slideIndex % service.slides.length];
   const isOfferSlide = currentSlide.isOffer;
+  const BadgeIcon=currentSlide.badgeIcon,CaptionIcon=currentSlide.captionIcon;
 
   return (
     <button
@@ -883,7 +901,7 @@ function ServiceMotionCardItem({
         <div className="repaido-service-card-top-pill">
           <span className={`repaido-service-micro-badge repaido-badge-${currentSlide.badgeTheme}`}>
             {isOfferSlide && <span className="repaido-badge-radar-dot" />}
-            {currentSlide.badge}
+            {BadgeIcon&&<BadgeIcon size={14} aria-hidden="true"/>}{currentSlide.badge}
           </span>
         </div>
 
@@ -914,7 +932,7 @@ function ServiceMotionCardItem({
             key={`cap-${currentSlide.id}`}
             className={isOfferSlide ? 'repaido-caption-offer' : 'repaido-caption-attribute'}
           >
-            {currentSlide.subLabel}
+            {CaptionIcon&&<CaptionIcon size={14} aria-hidden="true"/>}{currentSlide.subLabel}
           </span>
         </div>
 
@@ -943,6 +961,7 @@ export function ServiceStaticCardItem({
   onSelect: () => void;
 }) {
   const baseSlide = service.slides.find(s => s.type === 'base') || service.slides[0];
+  const BadgeIcon=baseSlide.badgeIcon,CaptionIcon=baseSlide.captionIcon;
 
   return (
     <button
@@ -961,7 +980,7 @@ export function ServiceStaticCardItem({
         {/* 1. Top Micro Badge Pill */}
         <div className="repaido-service-card-top-pill">
           <span className={`repaido-service-micro-badge repaido-badge-${baseSlide.badgeTheme}`}>
-            {baseSlide.badge}
+            {BadgeIcon&&<BadgeIcon size={14} aria-hidden="true"/>}{baseSlide.badge}
           </span>
         </div>
 
@@ -989,7 +1008,7 @@ export function ServiceStaticCardItem({
         {/* 4. Sub-Caption */}
         <div className="repaido-service-motion-caption">
           <span className="repaido-caption-attribute">
-            {baseSlide.subLabel}
+            {CaptionIcon&&<CaptionIcon size={14} aria-hidden="true"/>}{baseSlide.subLabel}
           </span>
         </div>
 
@@ -1035,7 +1054,7 @@ export function HomeServicesGrid({
   },[offers,offerTime]);
   const regionServices=useMemo(()=>homeServicesData.map(service=>{
     const labels:Record<string,string>={cleaning:'Home care',plumber:'Pipes & taps',electrician:'Electrical',ac:'Appliances',car:'Roadside',gardening:'Garden care'};
-    const regular=service.slides.filter(slide=>!slide.isOffer).map(slide=>({...slide,badge:slide.type==='base'?(labels[service.id]||service.name):slide.badge,subLabel:slide.type==='base'?service.slides[0].subLabel:slide.subLabel}));
+    const regular=service.slides.filter(slide=>!slide.isOffer).map(slide=>({...slide,badge:slide.type==='base'?(labels[service.id]||service.name):slide.badge,badgeIcon:slide.type==='base'?undefined:slide.badgeIcon,subLabel:slide.type==='base'?service.slides[0].subLabel:slide.subLabel}));
     return {...service,slides:regular};
   }),[offers,offerTime]);
 
@@ -1049,14 +1068,14 @@ export function HomeServicesGrid({
       data-hydrated={shouldHydrate}
       data-city={city}
     >
-      <div className="service-grid-toolbar"><div><span className="service-grid-kicker">REPAIDO SPECIALS</span><h2>{city?`A little help in ${city}`:'A little help, nearby'}</h2></div><button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?<Play size={14}/>:<Pause size={14}/>}<span>{paused?'Play':'Pause'}</span></button></div>
+      <div className="service-grid-toolbar"><div><span className="service-grid-kicker">REPAIDO SPECIALS</span><h2>{city?`A little help in ${city}`:'A little help, nearby'}</h2></div><button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?<Play size={16} aria-hidden="true"/>:<Pause size={16} aria-hidden="true"/>}<span>{paused?'Play':'Pause'}</span></button></div>
       <div className={`repaido-services-3col-grid ${motionPaused?'service-grid-paused':''}`}>
         {regionServices.map((service,index)=>{
           const matchingOffers=offers.filter(card=>service.id==='gardening'?/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''):service.id!=='cleaning'||!/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''));
           const offer=bestCategoryOffer(matchingOffers,service.categoryId,Math.max(offerTime,Date.now()/1000)) as Promotion|undefined;
           if(offer&&onOffer)return <button key={service.id} type="button" className="service-offer-tile" onClick={()=>{if(offer.ends_at>Date.now()/1000)onOffer(offer);else setOfferTime(Date.now()/1000);}}
             aria-label={`${offer.service!.name}. ${money(offer.price_paise)} reduced to ${money(offer.offer_price_paise)}. Save ${money(offer.discount_paise)}. Valid until ${offerExpiry(offer.ends_at)}. Select offer.`}>
-            <span className="service-offer-badge"><Tag size={12} aria-hidden="true"/>Save {money(offer.discount_paise).replace('.00','')}</span>
+            <span className="service-offer-badge"><LocalOffer size={14} aria-hidden="true"/>Save {money(offer.discount_paise).replace('.00','')}</span>
             <img src={service.slides[0].image} width={44} height={44} alt=""/>
             <h3>{service.name}</h3><span className="service-offer-name">{offer.service!.name}</span>
             <span className="service-offer-prices"><s>{money(offer.price_paise).replace('.00','')}</s><strong>{money(offer.offer_price_paise).replace('.00','')}</strong></span>

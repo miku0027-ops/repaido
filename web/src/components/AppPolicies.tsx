@@ -1,5 +1,5 @@
 import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
-import {ArrowRight,BookOpen,Check,Clock3,Info,Mail,ShieldCheck,WalletCards,X,type LucideIcon} from 'lucide-react';
+import {ArrowRight,BookOpen,Check,Clock3,Info,Mail,ShieldCheck,WalletCards,X,type LucideIcon} from '../icons';
 import {Modal} from './ui';
 import './app-policies.css';
 
@@ -79,13 +79,13 @@ export function AppPolicies({initialPolicy='privacy',onClose,onContactSupport}:A
     <div className="app-policies-shell">
       <header className="app-policies-header"><div><span className="app-policies-eyebrow">REPAIDO · HELP & POLICIES</span><h2>Clarity at every step</h2></div><button type="button" className="app-policies-close" data-autofocus onClick={onClose} aria-label="Close policies"><X size={20} aria-hidden="true"/></button></header>
       <div className="app-policies-layout">
-        <nav className="app-policies-nav" aria-label="Policy sections">{policies.map(policy=>{const NavIcon=policy.icon;return <button type="button" key={policy.id} aria-current={selected===policy.id?'page':undefined} aria-controls={id} onClick={()=>choose(policy.id)}><NavIcon size={18} aria-hidden="true"/><span>{policy.label}</span><ArrowRight className="app-policies-nav-arrow" size={15} aria-hidden="true"/></button>;})}</nav>
+        <nav className="app-policies-nav" aria-label="Policy sections">{policies.map(policy=>{const NavIcon=policy.icon;return <button type="button" key={policy.id} aria-current={selected===policy.id?'page':undefined} aria-controls={id} onClick={()=>choose(policy.id)}><NavIcon size={18} aria-hidden="true"/><span>{policy.label}</span><ArrowRight className="app-policies-nav-arrow" size={16} aria-hidden="true"/></button>;})}</nav>
         <div ref={body} id={id} className="app-policies-scroll" role="region" aria-labelledby={`${id}-heading`}>
           <article className="app-policies-content" key={selected}>
             <div className="app-policies-title-icon" aria-hidden="true"><Icon size={26}/></div><p className="app-policies-category">{content.label}</p><h3 ref={heading} id={`${id}-heading`} tabIndex={-1}>{content.title}</h3><p className="app-policies-intro">{content.intro}</p>
             <ul className="app-policies-summary" aria-label="Key points">{content.summary.map(point=><li key={point}><Check size={16} aria-hidden="true"/>{point}</li>)}</ul>
             <div className="app-policies-sections">{content.sections.map(section=><section key={section.title}><h4>{section.title}</h4>{section.body}</section>)}</div>
-            <footer className="app-policies-support"><span className="app-policies-support-icon" aria-hidden="true"><Mail size={20}/></span><div><strong>Need help with your situation?</strong><p>Keep your booking or payment reference handy.</p>{onContactSupport?<button type="button" onClick={onContactSupport}>Contact support <ArrowRight size={15} aria-hidden="true"/></button>:<a href="mailto:support@repaido.com">Email support@repaido.com <ArrowRight size={15} aria-hidden="true"/></a>}</div></footer>
+            <footer className="app-policies-support"><span className="app-policies-support-icon" aria-hidden="true"><Mail size={20}/></span><div><strong>Need help with your situation?</strong><p>Keep your booking or payment reference handy.</p>{onContactSupport?<button type="button" onClick={onContactSupport}>Contact support <ArrowRight size={16} aria-hidden="true"/></button>:<a href="mailto:support@repaido.com">Email support@repaido.com <ArrowRight size={16} aria-hidden="true"/></a>}</div></footer>
           </article>
         </div>
       </div>

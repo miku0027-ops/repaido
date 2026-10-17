@@ -1,4 +1,4 @@
-import {CalendarCheck} from 'lucide-react';
+import {CalendarCheck} from '../icons';
 import {BusinessEmptyState} from './BusinessUI';
 
 export function BookingSignIn({title='Sign in to view your bookings',description='Keep your visits, plans and requests together.',actionLabel='Sign in',onSignIn}:{title?:string;description?:string;actionLabel?:string;onSignIn?:()=>void}) {

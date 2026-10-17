@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {House,MapPin,ArrowRight} from 'lucide-react';
+import {House,MapPin,ArrowRight} from '../icons';
 import {auth} from '../firebase';
 import {workJobs,subscribeWorkReads,clearWorkReads} from '../services/repaidiansWorkService';
 import type {WorkJob,WorkJobsPage} from '../types/repaidiansWork';

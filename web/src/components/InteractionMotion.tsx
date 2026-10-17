@@ -1,5 +1,5 @@
 import {useEffect,useRef} from 'react';
-import {Check,MapPin,Search} from 'lucide-react';
+import {Check,MapPin,Search} from '../icons';
 import type {AnimationItem} from 'lottie-web';
 import './interaction-motion.css';
 

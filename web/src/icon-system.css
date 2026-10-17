@@ -1,0 +1,39 @@
+/* Google Material Symbols Rounded: FILL 0, weight 400, optical size 24.
+   These are filled vector outlines, not stroked paths. Keep their authored
+   geometry intact when legacy component styles target every SVG. */
+:root {
+  --ui-icon-meta: 16px;
+  --ui-icon-control: 20px;
+  --ui-icon-navigation: 24px;
+  --ui-icon-category: 28px;
+}
+
+svg.repaido-icon.material-symbols-rounded,
+#root .repaido-icon.material-symbols-rounded {
+  display: inline-block;
+  width: var(--icon-size, 24px) !important;
+  height: var(--icon-size, 24px) !important;
+  min-width: var(--icon-size, 24px);
+  min-height: var(--icon-size, 24px);
+  max-width: none;
+  max-height: none;
+  flex-shrink: 0 !important;
+  flex-basis: auto;
+  vertical-align: -.15em;
+  overflow: visible;
+  fill: currentColor !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+svg.repaido-icon.material-symbols-rounded :is(path, circle, rect, ellipse, polygon, polyline),
+#root .repaido-icon.material-symbols-rounded :is(path, circle, rect, ellipse, polygon, polyline) {
+  fill: currentColor !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+/* A smaller glyph never reduces the surrounding button's touch target. */
+:where(button, a, summary, [role=button]) > .repaido-icon {
+  pointer-events: none;
+}

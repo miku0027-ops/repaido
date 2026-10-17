@@ -1,6 +1,6 @@
 import ServiceImage from './ServiceImage';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronDown, Home, LockKeyhole, MapPin, Minus, Plus, ReceiptText, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronDown, Home, LockKeyhole, MapPin, Minus, Plus, ReceiptText, ShoppingBag } from '../icons';
 import type { Address, BookingDraft, CartItem, ConfirmBooking } from '../types';
 import { addressErrors, bookingDays, calculateTotals, hours, slotAvailable } from '../booking.mjs';
 import { formatMoney, formatTime } from '../data';

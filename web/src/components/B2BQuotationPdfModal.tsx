@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Building2,CheckCircle2,Download,FileText,Printer} from 'lucide-react';
+import {Building2,CheckCircle2,Download,FileText,Printer} from '../icons';
 import type {B2BQuotation} from '../types/b2b';
 import {b2bMoney,b2bService} from '../services/b2bService';
 import {BusinessPageHeader,InlineNotice} from './BusinessUI';
@@ -15,7 +15,7 @@ export function B2BQuotationPdfModal({quotation:q,onClose,onAccept,onDecline,isB
  const canRespond=isBuyer&&q.status==='quoted'&&!expired;
  const run=async(action:string,fn:()=>Promise<unknown>|void,success?:string)=>{if(busy)return;setBusy(action);setError('');try{await fn();if(alive.current&&success)setNotice(success);}catch(e){if(alive.current)setError((e as Error).message);}finally{if(alive.current)setBusy('');}};
  return <Modal title="Supplier quotation" className="b2b-quotation-modal" onClose={()=>{if(!busy)onClose();}}>
-  <div className="b2b-quote-controls"><BusinessPageHeader eyebrow="Saved commercial record" title={q.quoteNumber} description={`Issued ${new Date(q.createdAt).toLocaleDateString('en-IN')} · ${q.status==='accepted'?'Acceptance recorded':q.status==='declined'?'Declined':expired?'Quotation expired':`Valid until ${q.validUntil}`}`} icon={<FileText size={15}/>}/><div className="b2b-quote-actions"><button className="b2b-button b2b-secondary" type="button" onClick={()=>window.print()}><Printer size={16}/>Print quotation</button><button className="b2b-button b2b-primary" type="button" disabled={!!busy} onClick={()=>void run('download',()=>b2bService.downloadQuotation(q.quoteNumber),'Saved PDF downloaded.')}><Download size={16}/>{busy==='download'?'Downloading…':'Download saved PDF'}</button></div></div>
+  <div className="b2b-quote-controls"><BusinessPageHeader eyebrow="Saved commercial record" title={q.quoteNumber} description={`Issued ${new Date(q.createdAt).toLocaleDateString('en-IN')} · ${q.status==='accepted'?'Acceptance recorded':q.status==='declined'?'Declined':expired?'Quotation expired':`Valid until ${q.validUntil}`}`} icon={<FileText size={16}/>}/><div className="b2b-quote-actions"><button className="b2b-button b2b-secondary" type="button" onClick={()=>window.print()}><Printer size={16}/>Print quotation</button><button className="b2b-button b2b-primary" type="button" disabled={!!busy} onClick={()=>void run('download',()=>b2bService.downloadQuotation(q.quoteNumber),'Saved PDF downloaded.')}><Download size={16}/>{busy==='download'?'Downloading…':'Download saved PDF'}</button></div></div>
   {error&&<InlineNotice tone="error">{error}</InlineNotice>}{notice&&<InlineNotice tone="success">{notice}</InlineNotice>}
   <article className="repaido-quotation-sheet" aria-label="Saved quotation details">
    <header className="repaido-quote-header"><div><span className="b2b-overline">Repaido wholesale</span><h2>Commercial quotation</h2><p>{q.quoteNumber}</p></div><div><p>Issued {new Date(q.createdAt).toLocaleDateString('en-IN')}</p><p>Valid until {q.validUntil}</p></div></header>

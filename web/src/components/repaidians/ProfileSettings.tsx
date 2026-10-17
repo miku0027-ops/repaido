@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
-import {Bell,LockKeyhole,ShieldCheck} from 'lucide-react';
+import {Bell,LockKeyhole,ShieldCheck} from '../../icons';
 import {blockedMembers,blockMember,profileSettings,updateSettings,type CommunitySettings} from '../../services/repaidiansService';
 
 export function ProfileSettings({children}:{children?:ReactNode}){
@@ -19,14 +19,14 @@ export function ProfileSettings({children}:{children?:ReactNode}){
     finally{if(alive.current)setBusy('');}
   };
   return <section className="rp-edit-profile rp-account-settings" aria-labelledby="rp-settings-title">
-    <h3 id="rp-settings-title" className="rp-settings-heading"><ShieldCheck size={19}/>Privacy & notifications</h3>
+    <h3 id="rp-settings-title" className="rp-settings-heading"><ShieldCheck size={20}/>Privacy & notifications</h3>
     {error&&<p className="rp-error" role="alert">{error}<button className="rp-secondary" onClick={()=>void load()}>Retry</button></p>}
     {!settings&&!error&&<p role="status">Loading your settings…</p>}
     {settings&&<form onSubmit={event=>{event.preventDefault();void save();}}>
-      <h3><LockKeyhole size={19}/>Who can message you?</h3>
+      <h3><LockKeyhole size={20}/>Who can message you?</h3>
       <label>Allow messages from<select aria-label="Allow messages from" value={settings.messagePrivacy} onChange={e=>{setSettings({...settings,messagePrivacy:e.target.value as CommunitySettings['messagePrivacy']});setSaved('');}}><option value="everyone">Everyone in the community</option><option value="following">People I follow</option><option value="nobody">Nobody</option></select></label>
       <p className="rp-fine">This controls incoming messages and story replies. Your existing conversations stay available.</p>
-      <h3><Bell size={19}/>Activity notifications</h3>
+      <h3><Bell size={20}/>Activity notifications</h3>
       {([{key:'likeNotifications',label:'Likes on my publications'},{key:'commentNotifications',label:'Comments on my publications'},{key:'followNotifications',label:'New followers'},{key:'messageNotifications',label:'New message alerts'},{key:'placementNotifications',label:'Connection placements'},{key:'applicationNotifications',label:'Application updates'}] as const).map(item=><label className="rp-setting-toggle" key={item.key}><span>{item.label}</span><input type="checkbox" checked={settings[item.key]} onChange={e=>{setSettings({...settings,[item.key]:e.target.checked});setSaved('');}}/></label>)}
       <p className="rp-fine">Turning off a type stops future activity notifications. Tender interests and essential booking updates remain available.</p>
       <button className="rp-primary" disabled={!!busy}>{busy==='settings'?'Saving…':'Save settings'}</button>{saved&&<p role="status">{saved}</p>}

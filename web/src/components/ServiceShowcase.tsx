@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Clock3, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock3, Sparkles } from '../icons';
 import ReferenceArt from './ReferenceArt';
 import ServiceImage from './ServiceImage';
 import { seededServices, formatMoney, formatDuration } from '../data';
@@ -134,7 +134,7 @@ export function ServiceSlideshow({onSelect, reduceMotion=false}:{reduceMotion?:b
         aria-label={`${index + 1} of ${slides.length}: ${slide.title} ${slide.accent}`}
       >
         <div className="compact-hero-text">
-          <span className="banner-eyebrow"><Sparkles size={11} aria-hidden="true" />{slide.eyebrow}</span>
+          <span className="banner-eyebrow"><Sparkles size={12} aria-hidden="true" />{slide.eyebrow}</span>
           <h2 className="banner-headline">
             {slide.title} <em>{slide.accent}</em>
           </h2>
@@ -170,10 +170,10 @@ export function ServiceSlideshow({onSelect, reduceMotion=false}:{reduceMotion?:b
           ))}
         </div>
         <button aria-label="Previous service slide" onClick={() => { setPaused(true); setIndex((index + slides.length - 1) % slides.length); }}>
-          <ArrowLeft size={15} />
+          <ArrowLeft size={16} />
         </button>
         <button aria-label="Next service slide" onClick={() => { setPaused(true); setIndex((index + 1) % slides.length); }}>
-          <ArrowRight size={15} />
+          <ArrowRight size={16} />
         </button>
       </div>
     </section>
@@ -205,7 +205,7 @@ export function CategoryPicks({onSelect}:{onSelect:(category:string, q?:string)=
             <span className="pick-copy">
               <strong>{s.name}</strong>
               <span><Clock3 size={12}/>{formatDuration(s.duration)}</span>
-              <b>{formatMoney(s.price)}<ArrowRight size={15}/></b>
+              <b>{formatMoney(s.price)}<ArrowRight size={16}/></b>
             </span>
           </button>
         ))}

@@ -10,7 +10,7 @@ import {SparePartsShop} from '../src/components/SparePartsShop';
 import {MarketWorkspace} from '../src/components/MarketWorkspace';
 import {AppExperience} from '../src/components/AppExperience';
 import RepaidoBrand from '../src/components/RepaidoBrand';
-import {CalendarDays,Grid2X2,Store,BriefcaseBusiness,Wrench} from 'lucide-react';
+import {CalendarDays,Grid2X2,Store,BriefcaseBusiness,Wrench} from '../src/icons';
 import '../src/styles.css';
 import '../src/design-system.css';
 import '../src/customer-layout.css';

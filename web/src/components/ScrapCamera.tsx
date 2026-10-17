@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Camera,Check,RotateCcw,ShieldCheck} from 'lucide-react';
+import {Camera,Check,RotateCcw,ShieldCheck} from '../icons';
 import {auth} from '../firebase';
 import {currentPosition,operation} from '../services/operations';
 import {business,businessPrivatePhoto,type BusinessLocation} from '../services/localBusiness';

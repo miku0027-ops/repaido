@@ -14,40 +14,7 @@ import {opportunityDetails} from '../services/repaidiansService';
 import type {OpportunityReference} from '../types/repaidians';
 import { cartService } from '../services/cartService';
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  ShoppingBag,
-  Search,
-  Filter,
-  ShieldCheck,
-  CheckCircle2,
-  Trash2,
-  MapPin,
-  CreditCard,
-  Truck,
-  ArrowRight,
-  Package,
-  Layers,
-  Wind,
-  Droplets,
-  Zap,
-  Cpu,
-  Wrench,
-  Star,
-  Sparkles,
-  SlidersHorizontal,
-  ChevronRight,
-  Tag,
-  Check,
-  X,
-  BadgePercent,
-  Repeat2,
-  Store,
-  Laptop,
-  Smartphone,
-  RotateCcw,
-  Award,
-  Share2
-} from 'lucide-react';
+import {Search,Filter,CheckCircle2,MapPin,ArrowRight,Wind,ChevronRight,Check,X,Laptop,Smartphone,Share2,SwapHoriz,BuildCircle,Storefront,Category,Kitchen,Construction,Plumbing,ElectricalServices,Tune,Inventory2,ShoppingCart,Devices,Sell} from '../icons';
 import './refurbished-market.css';
 import type { SparePartProduct, SpareCartItem, SparePartCategory } from '../types';
 import { Modal } from './ui';
@@ -189,21 +156,21 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
   },[quickIntent?.productId,products,catalogLoading,catalogError]);
 
   const standardCategories = [
-    { id: 'all', label: section==='refurbished'?'All refurbished':'All spares', icon: Layers },
-    { id: 'gadgets', label: 'Gadgets', icon: Sparkles },
+    { id: 'all', label: section==='refurbished'?'All refurbished':'All spares', icon: Category },
+    { id: 'gadgets', label: 'Gadgets', icon: Devices },
     { id: 'smartphones', label: 'Smartphones', icon: Smartphone },
     { id: 'laptops', label: 'Laptops & IT', icon: Laptop },
     { id: 'ac', label: 'AC & Cooling', icon: Wind },
-    { id: 'appliance', label: 'Appliances', icon: Cpu },
-    { id: 'tools', label: 'Pro Tools', icon: Wrench },
-    { id: 'electrician', label: 'Electrical & Wire', icon: Zap },
-    { id: 'plumber', label: 'Plumbing & Pipes', icon: Droplets }
+    { id: 'appliance', label: 'Appliances', icon: Kitchen },
+    { id: 'tools', label: 'Pro Tools', icon: Construction },
+    { id: 'electrician', label: 'Electrical & Wire', icon: ElectricalServices },
+    { id: 'plumber', label: 'Plumbing & Pipes', icon: Plumbing }
   ];
 
   const handleSelectCategory = (catId:string) => {setSelectedCategory(catId);if(catId!=='all')void recordShopActivity('search',{category:catId}).catch(()=>{});};
 
   // Filtering & Sorting
-  const categories=[...standardCategories,...[...new Set(products.filter(p=>(p.condition||'new')===(section==='refurbished'?'refurbished':'new')).map(p=>p.category))].filter(c=>c!=='refurbished'&&!standardCategories.some(s=>s.id===c)).map(c=>({id:c,label:c,icon:Wrench}))];
+  const categories=[...standardCategories,...[...new Set(products.filter(p=>(p.condition||'new')===(section==='refurbished'?'refurbished':'new')).map(p=>p.category))].filter(c=>c!=='refurbished'&&!standardCategories.some(s=>s.id===c)).map(c=>({id:c,label:c,icon:Category}))];
   const filteredProducts = products.filter(p => {
     if(maxPrice!==undefined&&p.price>maxPrice)return false;
     const cond = (p as any).condition || 'new';
@@ -307,7 +274,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               }}
               aria-label={`View cart with ${totalItemsCount} items`}
             >
-              <ShoppingBag size={16} />
+              <ShoppingCart size={18} />
               <span>Cart ({totalItemsCount})</span>
               <span>•</span>
               <span>{formatMoney(subtotalPaise)}</span>
@@ -328,7 +295,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               className={`stores-nav-pill ${section === 'spares' ? 'is-active' : ''}`}
               onClick={() => setSection('spares')}
             >
-              <ShoppingBag size={18} className="stores-pill-icon" aria-hidden="true" />
+              <Inventory2 size={20} className="stores-pill-icon" aria-hidden="true" />
               <div className="stores-pill-text">
                 <span className="stores-pill-label">Buy Spares</span>
                 <span className="stores-pill-tag">New parts</span>
@@ -336,7 +303,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             </button>
 
             <button type="button" role="tab" id="tab-refurbished" tabIndex={section==='refurbished'?0:-1} aria-selected={section==='refurbished'} aria-controls="panel-refurbished" className={`stores-nav-pill ${section==='refurbished'?'is-active':''}`} onClick={()=>setSection('refurbished')}>
-              <RotateCcw size={18} className="stores-pill-icon" aria-hidden="true"/>
+              <BuildCircle size={18} className="stores-pill-icon" aria-hidden="true"/>
               <div className="stores-pill-text"><span className="stores-pill-label">Refurbished</span><span className="stores-pill-tag">A Repaido specialty</span></div>
             </button>
 
@@ -349,7 +316,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               className={`stores-nav-pill ${section === 'rentals' ? 'is-active' : ''}`}
               onClick={() => setSection('rentals')}
             >
-              <Wrench size={18} className="stores-pill-icon" aria-hidden="true" />
+              <Construction size={18} className="stores-pill-icon" aria-hidden="true" />
               <div className="stores-pill-text">
                 <span className="stores-pill-label">Tool Rentals</span>
                 <span className="stores-pill-tag">Pay As You Use</span>
@@ -365,7 +332,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               className={`stores-nav-pill ${section === 'exchange' ? 'is-active' : ''}`}
               onClick={() => setSection('exchange')}
             >
-              <Repeat2 size={18} className="stores-pill-icon" aria-hidden="true" />
+              <SwapHoriz size={18} className="stores-pill-icon" aria-hidden="true" />
               <div className="stores-pill-text">
                 <span className="stores-pill-label">Direct Swap</span>
                 <span className="stores-pill-tag">1-to-1 Exchange</span>
@@ -381,7 +348,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
               className={`stores-nav-pill ${section === 'preowned' ? 'is-active' : ''}`}
               onClick={() => setSection('preowned')}
             >
-              <Sparkles size={18} className="stores-pill-icon" aria-hidden="true" />
+              <Sell size={20} className="stores-pill-icon" aria-hidden="true" />
               <div className="stores-pill-text">
                 <span className="stores-pill-label">Pre-Owned</span>
                 <span className="stores-pill-tag">Direct Member Sales</span>
@@ -426,7 +393,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                     className="text-slate-400 hover:text-slate-600 p-1"
                     aria-label="Clear search"
                   >
-                    <X size={15} />
+                    <X size={16} />
                   </button>
                 )}
               </label>
@@ -438,7 +405,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                 onClick={() => setShowFilterModal(true)}
                 aria-label={`Open filters, ${activeFilterCount} active`}
               >
-                <SlidersHorizontal size={17} aria-hidden="true" />
+                <Tune size={18} aria-hidden="true" />
                 <span>Filter</span>
                 {activeFilterCount > 0 && <span className="spare-filter-badge">{activeFilterCount}</span>}
               </button>
@@ -451,7 +418,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
           <div className="spare-category-rail-container">
             <div className="spare-category-rail" role="group" aria-label="Product categories">
               {categories.map(cat => {
-                const Icon = cat.icon || Wrench;
+                const Icon = cat.icon || Category;
                 const isSelected = selectedCategory === cat.id;
                 return (
                   <button
@@ -481,7 +448,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
         {catalogError&&products.length>0&&<p role="status" className="prime-placement-note">Showing the earlier catalogue. Stock and prices will be checked again at checkout.</p>}
         {catalogLoading?<p role="status" className="prime-placement-note">Loading shop inventory…</p>:catalogError&&products.length===0?null:sortedProducts.length === 0 ? (
           <div className="spare-catalog-empty bg-white rounded-xl border border-slate-200 p-12 text-center shadow-md max-w-lg mx-auto space-y-3">
-            <Package className="w-12 h-12 text-slate-300 mx-auto" />
+            <Inventory2 size={32} className="text-slate-300 mx-auto" />
             <h3 className="text-sm font-bold text-slate-900">{section==='refurbished'?'No refurbished products available':'No new parts available'}</h3>
             <p className="text-xs text-slate-500">
               {activeFilterCount||searchQuery||selectedCategory!=='all'?'Try another category or clear your filters.':'Products appear here when local shops list their stock.'}
@@ -524,16 +491,16 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                   )}
 
                   <div className="spare-card-summary">
-                    {product.image?<img className="spare-card-image" src={product.image} alt="" loading="lazy" />:<Wrench className="spare-card-image" aria-label="Product photo not provided"/>}
+                    {product.image?<img className="spare-card-image" src={product.image} alt="" loading="lazy" />:<Inventory2 className="spare-card-image" aria-label="Product photo not provided"/>}
                     <div className="spare-card-copy">
-                      <h3 title={product.name}>{product.name}</h3><button type="button" className="spare-card-seller spare-shop-profile" onClick={()=>setStorefront(product.shopId)} aria-label={`View ${product.shopName||'shop'} profile`}><Store size={12} aria-hidden="true"/>{product.shopName||'View shop'}<ChevronRight size={12} aria-hidden="true"/></button><PrimeBadge prime={product.prime}/>
+                      <h3 title={product.name}>{product.name}</h3><button type="button" className="spare-card-seller spare-shop-profile" onClick={()=>setStorefront(product.shopId)} aria-label={`View ${product.shopName||'shop'} profile`}><Storefront size={14} aria-hidden="true"/>{product.shopName||'View shop'}<ChevronRight size={14} aria-hidden="true"/></button><PrimeBadge prime={product.prime}/>
                       <div className="spare-card-price">
                         <strong>{formatMoney(Math.round(product.price*100))}</strong>
                         {offer&&offer.discount>0&&<><s>{formatMoney(offer.base)}</s><span>{offer.percent}% off</span></>}
                       </div>
                       {offer&&offer.discount>0&&<small className="spare-offer-source">{offer.label}</small>}{(product as any).condition === 'refurbished' ? (
                         <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
-                          <CheckCircle2 size={11} className="shrink-0" />
+                          <CheckCircle2 size={14} className="shrink-0" />
                           <span>{product.refurbishment?product.refurbishment.warranty_days>0?`${product.refurbishment.warranty_days}-day shop warranty`:'No shop warranty':'Open condition details'}</span>
                         </div>
                       ) : (
@@ -572,7 +539,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
                         onClick={() => addToCart(product)}
                         className="w-full py-2 bg-[#2874f0] hover:bg-blue-600 text-white text-xs font-bold rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5"
                       >
-                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <ShoppingCart size={16} />
                         <span>Add to Cart</span>
                       </button>
                     )}
@@ -740,11 +707,11 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
         </dl>
         <section className="spare-detail-store" aria-label="Store location">
           <h3><MapPin size={18} aria-hidden="true"/> {shop?.shopName || detail.shopName || 'Store not listed'}</h3>
-          <p>{address || 'The shop address is not available yet.'}</p><button type="button" className="spare-open-storefront" onClick={()=>{setStorefront(detail.shopId);setDetail(null);}}><Store size={15} aria-hidden="true"/>View shop profile & catalogue<ArrowRight size={15} aria-hidden="true"/></button>
+          <p>{address || 'The shop address is not available yet.'}</p><button type="button" className="spare-open-storefront" onClick={()=>{setStorefront(detail.shopId);setDetail(null);}}><Storefront size={16} aria-hidden="true"/>View shop profile & catalogue<ArrowRight size={16} aria-hidden="true"/></button>
           <p className="spare-detail-note">Catalogue information may change. Confirm stock, compatibility and the final price with the shop before travelling.</p>
           {directions ? <a className="spare-directions" href={directions} target="_blank" rel="noopener noreferrer">Directions to store <ArrowRight size={18} aria-hidden="true"/><span className="sr-only"> (opens Google Maps in a new tab)</span></a> : <p role="status">Directions will be available when the shop adds its location.</p>}
         </section>
-        <button type="button" className="ops-primary" disabled={detail.stock<=0} onClick={()=>addToCart(detail)}><ShoppingBag size={16}/> Add to cart</button>
+        <button type="button" className="ops-primary" disabled={detail.stock<=0} onClick={()=>addToCart(detail)}><ShoppingCart size={18}/> Add to cart</button>
         <ShopSuggestions context={{product_id:detail.id,category:detail.category,city:shop?.city,cart_product_ids:cart.map(i=>i.product.id)}} onShop={id=>{setDetail(null);setStorefront(id);}} onProduct={openProduct} onAdd={addSuggested} onSignIn={onSignIn} compact/>
         {shareableProductId===detail.id&&onShare&&<button type="button" className="ops-primary" onClick={()=>onShare({source:'inventory',id:detail.id})}><Share2 size={16}/> Share on Repaidians</button>}
       </Modal>}

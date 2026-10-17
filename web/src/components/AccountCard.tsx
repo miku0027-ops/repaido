@@ -1,6 +1,6 @@
 import {apiAssetUrl} from '../services/api';
 import {useEffect, useRef, useState} from 'react';
-import {ArrowRight, BriefcaseBusiness, CalendarCheck, CheckCircle2, Crown, LogOut, Mail, Receipt, User} from 'lucide-react';
+import {ArrowRight, WorkOutline, CalendarCheck, CheckCircle2, Crown, LogOut, Mail, ReceiptLong, User} from '../icons';
 
 export type AccountEmailStatus = 'missing' | 'unverified' | 'verified';
 export type AccountIdentity = {
@@ -37,23 +37,23 @@ export function AccountCard({hideSignOut, gold, identity, emailStatus, onComplet
     <div className="account-card-brand"><span className="account-card-brand-mark" aria-hidden="true">r.</span><span>YOUR REPAIDO ACCOUNT</span></div>
     {identity ? <>
       <div className="account-card-identity">
-        <div className="account-card-avatar" aria-hidden="true">{identity.photoURL ? <img src={apiAssetUrl(identity.photoURL)} alt="" referrerPolicy="no-referrer"/> : initials || <User size={27}/>}</div>
+        <div className="account-card-avatar" aria-hidden="true">{identity.photoURL ? <img src={apiAssetUrl(identity.photoURL)} alt="" referrerPolicy="no-referrer"/> : initials || <User size={24}/>}</div>
         <div className="account-card-name"><h2>{identity.label}</h2><p>{identity.phone || 'Signed in'}</p></div>
       </div>
       {gold&&<span className="account-card-gold"><Crown size={16} aria-hidden="true"/>Swachh Bharat Captain · Gold</span>}
-      {identity.agentLabel && <span className="account-card-role"><BriefcaseBusiness size={16} aria-hidden="true"/>{identity.agentLabel}</span>}
+      {identity.agentLabel && <span className="account-card-role"><WorkOutline size={16} aria-hidden="true"/>{identity.agentLabel}</span>}
       <div className="account-card-email">
-        <Mail size={19} aria-hidden="true"/>
+        <Mail size={16} aria-hidden="true"/>
         <div><span className="account-card-field-label">Email address</span><p>{email || 'Add your email for account updates'}</p>
           {emailStatus && <span className={`account-email-status account-email-status--${emailStatus}`}>
-            {emailStatus === 'verified' && <CheckCircle2 size={15} aria-hidden="true"/>}
+            {emailStatus === 'verified' && <CheckCircle2 size={16} aria-hidden="true"/>}
             {emailStatus === 'verified' ? 'Email verified' : emailStatus === 'unverified' ? 'Email verification needed' : 'Email needed'}
           </span>}
         </div>
       </div>
       {onCompleteEmail && <button className="account-card-profile-action" onClick={onCompleteEmail}>{emailStatus === 'missing' ? 'Complete your profile' : emailStatus === 'unverified' ? 'Verify your email' : 'Account details'}<ArrowRight size={18} aria-hidden="true"/></button>}
-    </> : <div className="account-card-guest"><div className="account-card-avatar" aria-hidden="true"><User size={27}/></div><h2>A place for your everyday plans.</h2><p>Sign in to keep your bookings, orders and requests together.</p><button className="account-card-sign-in" onClick={onSignIn}>Sign in or create account<ArrowRight size={18} aria-hidden="true"/></button></div>}
-    <div className="account-card-shortcuts" aria-label="Account shortcuts"><button onClick={onBookings}><CalendarCheck size={20} aria-hidden="true"/><span>My bookings</span><ArrowRight size={16} aria-hidden="true"/></button><button onClick={onOrders}><Receipt size={20} aria-hidden="true"/><span>My orders</span><ArrowRight size={16} aria-hidden="true"/></button></div>
+    </> : <div className="account-card-guest"><div className="account-card-avatar" aria-hidden="true"><User size={24}/></div><h2>A place for your everyday plans.</h2><p>Sign in to keep your bookings, orders and requests together.</p><button className="account-card-sign-in" onClick={onSignIn}>Sign in or create account<ArrowRight size={18} aria-hidden="true"/></button></div>}
+    <div className="account-card-shortcuts" aria-label="Account shortcuts"><button onClick={onBookings}><CalendarCheck size={20} aria-hidden="true"/><span>My bookings</span><ArrowRight size={16} aria-hidden="true"/></button><button onClick={onOrders}><ReceiptLong size={20} aria-hidden="true"/><span>My orders</span><ArrowRight size={16} aria-hidden="true"/></button></div>
     {identity && !hideSignOut && <AccountSignOut onSignOut={onSignOut}/>}
   </section>;
 }

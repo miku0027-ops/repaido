@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ArrowLeft, ArrowRight, Store, Wrench, Crown, BadgeCheck,
-  CheckCircle2, MapPin, CreditCard, Zap, Package, ChevronRight,
-  AlertCircle, Check
-} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Store,Wrench,Crown,BadgeCheck,CheckCircle2,MapPin,CreditCard,Zap,Package,ChevronRight,AlertCircle,Check,Wallet,Gift,IndianRupee,Award,TrendingUp,Clock,Payments,Dashboard,GraduationCap,SupportAgent} from '../icons';
 import { LocationPickerModal } from './LocationPickerModal';
 
 type RegistrationType = null | 'shop' | 'technician' | 'specialist';
@@ -67,7 +63,7 @@ function Toggle({ label, value, onChange }: { label:string; value:boolean; onCha
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-all select-none ${
         value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:border-blue-400'
       }`}>
-      {value && <Check size={12}/>} {label}
+      {value && <Check size={16}/>} {label}
     </button>
   );
 }
@@ -80,7 +76,7 @@ function StepBar({ steps, current }: { steps:string[]; current:number }) {
           <div className="flex flex-col items-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${
               i<current?'bg-green-500 border-green-500 text-white':i===current?'bg-blue-600 border-blue-600 text-white':'bg-white border-slate-300 text-slate-400'
-            }`}>{i<current?<Check size={14}/>:i+1}</div>
+            }`}>{i<current?<Check size={16}/>:i+1}</div>
             <span className={`text-sm mt-1 font-semibold whitespace-nowrap ${i===current?'text-blue-700':'text-slate-400'}`}>{s}</span>
           </div>
           {i<steps.length-1&&<div className={`flex-1 h-0.5 mb-4 mx-1 ${i<current?'bg-green-500':'bg-slate-200'}`}/>}
@@ -134,7 +130,7 @@ function ShopFlow({ onBack, onDone }: { onBack:()=>void; onDone:()=>void }) {
         <ArrowLeft size={16}/> {step===0?'Back to Options':'Previous Step'}
       </button>
       <div className="partner-flow-header shop">
-        <div className="partner-flow-icon"><Store size={28}/></div>
+        <div className="partner-flow-icon"><Store size={24}/></div>
         <div><h2>Register Your Shop</h2><p>Join Repaido's verified spare parts & supplies network</p></div>
       </div>
       <StepBar steps={steps} current={step}/>
@@ -166,7 +162,7 @@ function ShopFlow({ onBack, onDone }: { onBack:()=>void; onDone:()=>void }) {
         </div>
         <Field label="Shop Location on Map" required>
           <button type="button" onClick={()=>setMapOpen(true)} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-sm transition-all">
-            <MapPin size={18}/> {f.locationConfirmed?`📍 ${f.lat.toFixed(4)}, ${f.lng.toFixed(4)}`:'Set exact shop pin on map'}
+            <MapPin size={20}/> {f.locationConfirmed?`${f.lat.toFixed(4)}, ${f.lng.toFixed(4)}`:'Set exact shop pin on map'}
           </button>
         </Field>
         <div className="partner-section-title"><Package size={16}/> Shop Categories <span className="text-slate-400 text-sm">(select all that apply)</span></div>
@@ -247,7 +243,7 @@ function WorkerFlow({ mode, onBack, onDone }: { mode:'technician'|'specialist'; 
         <ArrowLeft size={16}/> {step===0?'Back to Options':'Previous Step'}
       </button>
       <div className={`partner-flow-header ${ac}`}>
-        <div className="partner-flow-icon">{isSp?<Crown size={28}/>:<Wrench size={28}/>}</div>
+        <div className="partner-flow-icon">{isSp?<Crown size={24}/>:<Wrench size={24}/>}</div>
         <div>
           <h2>{isSp?'Verified Specialist Registration':'Technician Registration'}</h2>
           <p>{isSp?'Premium badge · Priority discovery · Higher payouts':'Join Repaido and earn on your schedule'}</p>
@@ -297,7 +293,7 @@ function WorkerFlow({ mode, onBack, onDone }: { mode:'technician'|'specialist'; 
         <Field label="Tools & Equipment (comma separated)"><input className={ic} placeholder="e.g. Multimeter, AC vacuum pump, drill" value={f.toolsList} onChange={e=>s('toolsList',e.target.value)}/></Field>
         <Field label="Service Location on Map" required>
           <button type="button" onClick={()=>setMapOpen(true)} className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-sm transition-all">
-            <MapPin size={18}/> {f.locationConfirmed?`📍 ${f.lat.toFixed(4)}, ${f.lng.toFixed(4)}`:'Set exact service pin on map'}
+            <MapPin size={20}/> {f.locationConfirmed?`${f.lat.toFixed(4)}, ${f.lng.toFixed(4)}`:'Set exact service pin on map'}
           </button>
         </Field>
         <div className="partner-section-title"><Zap size={16}/> Service Categories <span className="text-slate-400 text-sm">(select all you can offer)</span></div>
@@ -309,7 +305,7 @@ function WorkerFlow({ mode, onBack, onDone }: { mode:'technician'|'specialist'; 
         <div className="grid grid-cols-2 gap-4">
           {(['hourly','fixed'] as const).map(m=>(
             <button key={m} type="button" onClick={()=>s('pricingModel',m)} className={`p-4 rounded-2xl border-2 text-left transition-all ${f.pricingModel===m?(isSp?'border-violet-600 bg-violet-50':'border-blue-600 bg-blue-50'):'border-slate-200 bg-white hover:border-slate-300'}`}>
-              <div className="font-bold text-sm mb-1">{m==='hourly'?'⏱ Hourly Rate':'📋 Fixed Price'}</div>
+              <div className="font-bold text-sm mb-1">{m==='hourly'?<Clock size={16} aria-hidden="true"/>:<Payments size={16} aria-hidden="true"/>} {m==='hourly'?'Hourly rate':'Fixed price'}</div>
               <div className="text-sm text-slate-500">{m==='hourly'?'Base fare + per-hour billing.':'Flat charge per job.'}</div>
             </button>
           ))}
@@ -322,18 +318,18 @@ function WorkerFlow({ mode, onBack, onDone }: { mode:'technician'|'specialist'; 
       </div>}
 
       {isSp&&step===payIdx&&<div className="specialist-payment-screen">
-        <div className="specialist-badge-preview"><Crown size={40} className="text-yellow-400"/><BadgeCheck size={22} className="text-violet-500 absolute -bottom-1 -right-1 bg-white rounded-full"/></div>
+        <div className="specialist-badge-preview"><Crown size={24} className="text-yellow-400"/><BadgeCheck size={20} className="text-violet-500 absolute -bottom-1 -right-1 bg-white rounded-full"/></div>
         <h3>Activate Your Verified Specialist Badge</h3>
         <p className="text-slate-500 text-sm text-center max-w-sm mx-auto mt-2">Priority placement in customer searches, official Specialist badge, and the Repaido Pro Kit.</p>
         <div className="specialist-perks">
-          {['🏅 Verified badge on profile & bookings','🚀 Priority over regular technicians','💼 Repaido Specialist Pro Kit','📊 Advanced earnings dashboard','🎓 Repaido skill certification','📞 Priority support'].map(p=>(
-            <div key={p} className="specialist-perk-item"><CheckCircle2 size={14} className="text-violet-500 shrink-0"/><span>{p}</span></div>
+          {[{label:'Verified badge on profile & bookings',Icon:BadgeCheck},{label:'Priority over regular technicians',Icon:TrendingUp},{label:'Repaido Specialist Pro Kit',Icon:Wrench},{label:'Advanced earnings dashboard',Icon:Dashboard},{label:'Repaido skill certification',Icon:GraduationCap},{label:'Priority support',Icon:SupportAgent}].map(({label,Icon})=>(
+            <div key={label} className="specialist-perk-item"><Icon size={16} className="text-violet-500 shrink-0" aria-hidden="true"/><span>{label}</span></div>
           ))}
         </div>
         <div className="specialist-plan-summary">
-          <div className="plan-selected-row"><Crown size={15} className="text-yellow-500"/> Selected: <strong>{plan==='yearly'?'Yearly — ₹9,999':'Monthly — ₹1,499'}</strong></div>
+          <div className="plan-selected-row"><Crown size={16} className="text-yellow-500"/> Selected: <strong>{plan==='yearly'?'Yearly — ₹9,999':'Monthly — ₹1,499'}</strong></div>
         </div>
-        {paid?<div className="payment-success-badge"><CheckCircle2 size={18} className="text-green-500"/> Payment successful! ID: {payId}</div>
+        {paid?<div className="payment-success-badge"><CheckCircle2 size={20} className="text-green-500"/> Payment successful! ID: {payId}</div>
           :<button className="partner-cta-btn specialist-btn w-full mt-4" onClick={handlePayment} disabled={paying}>
             {paying?'Processing…':<><Crown size={16}/> Pay {plan==='yearly'?'₹9,999':'₹1,499'} &amp; Activate Specialist</>}
           </button>}
@@ -373,10 +369,10 @@ function WorkerFlow({ mode, onBack, onDone }: { mode:'technician'|'specialist'; 
 // SUCCESS SCREEN
 // ────────────────────────────────────────────────────────────
 function SuccessScreen({ type, onClose }: { type:RegistrationType; onClose:()=>void }) {
-  const cfg:Record<string,{icon:string;title:string;sub:string;grad:string}> = {
-    shop:{icon:'🏪',title:'Shop application received',sub:"The Repaido team must review your shop and documents before activation.",grad:'from-blue-600 to-cyan-500'},
-    technician:{icon:'🔧',title:'Technician application received',sub:'Your profile is pending KYC verification. Once approved you\'ll appear in customer searches and start receiving bookings.',grad:'from-orange-500 to-amber-400'},
-    specialist:{icon:'⭐',title:'Specialist application received',sub:'The Repaido team must review your experience and documents before granting specialist status.',grad:'from-violet-700 to-purple-500'},
+  const cfg:Record<string,{icon:React.ReactNode;title:string;sub:string;grad:string}> = {
+    shop:{icon:<Store size={24} aria-hidden="true"/>,title:'Shop application received',sub:"The Repaido team must review your shop and documents before activation.",grad:'from-blue-600 to-cyan-500'},
+    technician:{icon:<Wrench size={24} aria-hidden="true"/>,title:'Technician application received',sub:'Your profile is pending KYC verification. Once approved you\'ll appear in customer searches and start receiving bookings.',grad:'from-orange-500 to-amber-400'},
+    specialist:{icon:<BadgeCheck size={24} aria-hidden="true"/>,title:'Specialist application received',sub:'The Repaido team must review your experience and documents before granting specialist status.',grad:'from-violet-700 to-purple-500'},
   };
   const c=cfg[type as string]||cfg.technician;
   return (
@@ -386,7 +382,7 @@ function SuccessScreen({ type, onClose }: { type:RegistrationType; onClose:()=>v
       <p className="partner-success-sub">{c.sub}</p>
       <div className="partner-success-steps">
         <div className="success-step"><CheckCircle2 size={16} className="text-green-500"/> Application received</div>
-        <div className="success-step"><CheckCircle2 size={16} className="text-green-500"/> Documents under review</div>
+        <div className="success-step"><Clock size={16} aria-hidden="true"/> Documents under review</div>
         <div className="success-step text-slate-400"><div className="w-4 h-4 rounded-full border-2 border-slate-300"/> Activation after approval</div>
       </div>
       <button className="partner-cta-btn shop-btn mt-8" onClick={onClose}>Back to app <ArrowRight size={16}/></button>
@@ -422,28 +418,28 @@ export default function PartnerRegistration({ onClose }: { onClose:()=>void }) {
         </div>
         <div className="partner-options-grid">
           <button className="partner-option-card shop-card" onClick={()=>setType('shop')}>
-            <div className="option-card-icon shop-icon"><Store size={32}/></div>
+            <div className="option-card-icon shop-icon"><Store size={24}/></div>
             <div className="option-card-content">
               <h3>Register Your Shop</h3>
               <p>List your spare parts & supplies store. Get discovered by Repaido technicians and customers.</p>
               <ul className="option-perks">
-                <li><CheckCircle2 size={12}/> Zero inventory risk — sell on demand</li>
-                <li><CheckCircle2 size={12}/> Verified supplier badge</li>
-                <li><CheckCircle2 size={12}/> Direct payout to your bank</li>
+                <li><Package size={16}/> Zero inventory risk — sell on demand</li>
+                <li><BadgeCheck size={16}/> Verified supplier badge</li>
+                <li><Wallet size={16}/> Direct payout to your bank</li>
               </ul>
             </div>
             <div className="option-card-cta">Register Shop <ChevronRight size={16}/></div>
           </button>
 
           <button className="partner-option-card technician-card" onClick={()=>setType('technician')}>
-            <div className="option-card-icon technician-icon"><Wrench size={32}/></div>
+            <div className="option-card-icon technician-icon"><Wrench size={24}/></div>
             <div className="option-card-content">
               <h3>Register as Technician</h3>
               <p>Offer your skills to customers in your area. Set your own pricing and grow your reputation.</p>
               <ul className="option-perks">
-                <li><CheckCircle2 size={12}/> Free registration — no upfront cost</li>
-                <li><CheckCircle2 size={12}/> Earn ₹299–₹999/hr based on skills</li>
-                <li><CheckCircle2 size={12}/> Level up to unlock Specialist role</li>
+                <li><Gift size={16}/> Free registration — no upfront cost</li>
+                <li><IndianRupee size={16}/> Earn ₹299–₹999/hr based on skills</li>
+                <li><Award size={16}/> Level up to unlock Specialist role</li>
               </ul>
             </div>
             <div className="option-card-cta">Register Free <ChevronRight size={16}/></div>
@@ -451,22 +447,22 @@ export default function PartnerRegistration({ onClose }: { onClose:()=>void }) {
 
           <button className="partner-option-card specialist-card" onClick={()=>setType('specialist')}>
             <div className="option-card-icon specialist-icon">
-              <Crown size={32}/>
+              <Crown size={24}/>
               <span className="specialist-card-badge">PREMIUM</span>
             </div>
             <div className="option-card-content">
               <h3>Register as Specialist <BadgeCheck size={16} className="inline text-violet-500 ml-1"/></h3>
               <p>Get the <strong>Verified Specialist badge</strong>, priority placement in all customer searches, and exclusive perks.</p>
               <ul className="option-perks">
-                <li><Crown size={12} className="text-yellow-500"/> Priority discovery over technicians</li>
-                <li><Crown size={12} className="text-yellow-500"/> Verified badge on profile & bookings</li>
-                <li><Crown size={12} className="text-yellow-500"/> Specialist Pro Kit — tools & uniform</li>
+                <li><TrendingUp size={16} className="text-yellow-500"/> Priority discovery over technicians</li>
+                <li><BadgeCheck size={16} className="text-yellow-500"/> Verified badge on profile & bookings</li>
+                <li><Wrench size={16} className="text-yellow-500"/> Specialist Pro Kit — tools & uniform</li>
               </ul>
               <div className="specialist-pricing-row">
                 <span>₹1,499/mo</span><span className="sep">or</span><span>₹9,999/yr <em>save 44%</em></span>
               </div>
             </div>
-            <div className="option-card-cta specialist-cta"><Crown size={13}/> Activate Specialist <ChevronRight size={16}/></div>
+            <div className="option-card-cta specialist-cta"><Crown size={16}/> Activate Specialist <ChevronRight size={16}/></div>
           </button>
         </div>
       </div>

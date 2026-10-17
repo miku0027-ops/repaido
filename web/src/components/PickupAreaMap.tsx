@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import L from 'leaflet';
-import {MapPin,Minus,Navigation,Plus} from 'lucide-react';
+import {directionsCarSvg} from '../icons/map-icons';
+import {MapPin,Minus,Navigation,Plus} from '../icons';
 import 'leaflet/dist/leaflet.css';
 import type {TransportArea} from './TransportRail';
 import type {PublicCabArea} from '../hooks/usePublicCabAreas';
@@ -38,7 +39,7 @@ export default function PickupAreaMap({area,departures,radiusKm,shared,active,on
   const layer=cabLayer.current;if(!layer)return;layer.clearLayers();
   if(!active||shared)return;
   for(const area of cabAreas){
-   const icon=L.divIcon({className:'mobility-map-cab-area',iconSize:[38,34],iconAnchor:[19,17],html:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 1.5-4h11L19 9m-14 0h14a2 2 0 0 1 2 2v6H3v-6a2 2 0 0 1 2-2Zm1 4h.01M18 13h.01M5 17v3m14-3v3"/></svg><span>${area.available_count>9?'9+':area.available_count}</span>`});
+   const icon=L.divIcon({className:'mobility-map-cab-area',iconSize:[38,34],iconAnchor:[19,17],html:`${directionsCarSvg}<span>${area.available_count>9?'9+':area.available_count}</span>`});
    const label=document.createElement('span');label.textContent=`${area.available_count} ${area.available_count===1?'cab':'cabs'} sharing availability · approximate area within ${area.approximation_metres} m`;
    const marker=L.marker([area.position.lat,area.position.lng],{icon,keyboard:false}).addTo(layer).bindTooltip(label);
    marker.getElement()?.setAttribute('aria-hidden','true');

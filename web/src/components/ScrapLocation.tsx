@@ -1,5 +1,5 @@
 import {createContext,useContext,useEffect,useRef,useState,type ReactNode} from 'react';
-import {Navigation} from 'lucide-react';
+import {Navigation} from '../icons';
 import {auth} from '../firebase';
 import {business} from '../services/localBusiness';
 import {currentPosition} from '../services/operations';
@@ -35,5 +35,5 @@ export function ScrapLocationProvider({rows,uid,children}:{rows:any[];uid:string
   return()=>{epoch.current++;clearInterval(timer);document.removeEventListener('visibilitychange',publish);window.removeEventListener('online',publish);};
  },[key,retry]);
  const resume=()=>setRetry(value=>value+1);
- return <SharingContext.Provider value={{managed:true,resume}}>{ids.length>0&&<aside className="scrap-sharing-banner" aria-label="Collection location sharing"><Navigation size={17} aria-hidden="true"/><span>{error||`Live location on for ${ids.length} collection${ids.length===1?'':'s'} while this app is open.`}</span>{error&&<button type="button" onClick={resume}>Retry location</button>}</aside>}{children}</SharingContext.Provider>;
+ return <SharingContext.Provider value={{managed:true,resume}}>{ids.length>0&&<aside className="scrap-sharing-banner" aria-label="Collection location sharing"><Navigation size={18} aria-hidden="true"/><span>{error||`Live location on for ${ids.length} collection${ids.length===1?'':'s'} while this app is open.`}</span>{error&&<button type="button" onClick={resume}>Retry location</button>}</aside>}{children}</SharingContext.Provider>;
 }

@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {ArrowRight,House,Recycle,ShoppingBag,Users,Wrench} from 'lucide-react';
+import {ArrowRight,House,BuildCircle,Sell,PersonSearch,HomeRepair} from '../icons';
 import type {Service} from '../types';
 import {Modal} from './ui';
 import RepaidoBrand from './RepaidoBrand';
@@ -20,10 +20,10 @@ export interface HomeQuickActionsProps {
 }
 export type QuickPanel='used'|'refurbished'|'hire'|'repair'|'home';
 const tiles=[
-  {id:'used' as const,label:'Buy / sell used',Icon:ShoppingBag,note:'Browse owner listings'},
-  {id:'refurbished' as const,label:'Refurbished',Icon:Recycle,note:'Current shop inventory'},
-  {id:'hire' as const,label:'Quick hire',Icon:Users,note:'Compare listed professionals'},
-  {id:'repair' as const,label:'Quick repair',Icon:Wrench,note:'Browse services and prices'},
+  {id:'used' as const,label:'Buy / sell used',Icon:Sell,note:'Browse owner listings'},
+  {id:'refurbished' as const,label:'Refurbished',Icon:BuildCircle,note:'Current shop inventory'},
+  {id:'hire' as const,label:'Quick hire',Icon:PersonSearch,note:'Compare listed professionals'},
+  {id:'repair' as const,label:'Quick repair',Icon:HomeRepair,note:'Browse services and prices'},
   {id:'home' as const,label:'Home premium',Icon:House,note:'Explore Home services'}
 ];
 
@@ -34,9 +34,9 @@ export default function HomeQuickActions(props:HomeQuickActionsProps){
     <nav className="home-quick-rail" aria-label="Quick actions">
       {tiles.map(({id,label,Icon,note})=><button key={id} data-action={id} aria-label={label} onClick={()=>setPanel(id)}>
         <span className="quick-tile-main">
-          <span className="quick-tile-icon"><Icon size={19} aria-hidden="true"/></span>
+          <span className="quick-tile-icon"><Icon size={20} aria-hidden="true"/></span>
           <span className="quick-tile-copy"><strong>{label}</strong><span className="quick-tile-note">{note}</span></span>
-          <span className="quick-tile-arrow"><ArrowRight size={13} aria-hidden="true"/></span>
+          <span className="quick-tile-arrow"><ArrowRight size={14} aria-hidden="true"/></span>
         </span>
       </button>)}
     </nav>

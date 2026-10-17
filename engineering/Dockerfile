@@ -11,8 +11,13 @@ RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
     export NODE_USE_ENV_PROXY=1; \
     pnpm install --frozen-lockfile --ignore-scripts
-COPY engineering/web/ ./
-RUN pnpm run test && pnpm run build
+# Preserve the shared Material icon import paths used by both web applications.
+# Dependencies remain at /build/node_modules and resolve for either source tree.
+COPY engineering/web/ ./engineering/web/
+COPY web/src/icons/ ./web/src/icons/
+COPY web/src/icon-system.css ./web/src/icon-system.css
+RUN ln -s /build/node_modules engineering/web/node_modules && \
+    pnpm --dir engineering/web run test && pnpm --dir engineering/web run build
 
 FROM python:3.12-slim
 WORKDIR /workspace
@@ -27,7 +32,7 @@ COPY web/src/ /workspace/web/src/
 COPY android/app/src/ /workspace/android/app/src/
 COPY infra/ /workspace/infra/
 COPY firebase.json firestore.rules cloudbuild.yaml /workspace/
-COPY --from=web /build/dist /workspace/engineering/web/dist/
+COPY --from=web /build/engineering/web/dist /workspace/engineering/web/dist/
 # Checkouts may restore owner-only modes; the runtime intentionally is non-root.
 RUN chmod -R a+rX /workspace
 ARG SOURCE_REVISION=unknown

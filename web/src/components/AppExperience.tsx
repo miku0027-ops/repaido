@@ -1,7 +1,7 @@
 import {InteractionMotion} from './InteractionMotion';
 import {useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import {createPortal} from 'react-dom';
-import {CheckCircle2,AlertCircle,Info,LoaderCircle,X} from 'lucide-react';
+import {CheckCircle2,AlertCircle,Info,LoaderCircle,X} from '../icons';
 import {onIdTokenChanged} from 'firebase/auth';
 import {auth} from '../firebase';
 import {loadingState} from '../services/loading';
@@ -59,5 +59,5 @@ export function AppExperience(){
   document.addEventListener('invalid',invalid,true);document.addEventListener('input',changed,true);document.addEventListener('change',changed,true);document.addEventListener('submit',submitted,true);
   return()=>{document.removeEventListener('invalid',invalid,true);document.removeEventListener('input',changed,true);document.removeEventListener('change',changed,true);document.removeEventListener('submit',submitted,true);};
  },[]);
- return createPortal(<div ref={host} popover="manual" className="app-feedback-stack" role="region" aria-label="Action updates">{items.map(item=><FeedbackCard key={item.id} item={item}/>)}{legacy&&<div className="app-feedback-card" data-tone="pending" role="status"><LoaderCircle size={22} className="app-feedback-spinner" aria-hidden="true"/><div><strong>{loadingLabel(legacy.path)}</strong>{now-legacy.started>10000&&<p>Still waiting for confirmation…</p>}</div></div>}</div>,portalTarget);
+ return createPortal(<div ref={host} popover="manual" className="app-feedback-stack" role="region" aria-label="Action updates">{items.map(item=><FeedbackCard key={item.id} item={item}/>)}{legacy&&<div className="app-feedback-card" data-tone="pending" role="status"><LoaderCircle size={20} className="app-feedback-spinner" aria-hidden="true"/><div><strong>{loadingLabel(legacy.path)}</strong>{now-legacy.started>10000&&<p>Still waiting for confirmation…</p>}</div></div>}</div>,portalTarget);
 }

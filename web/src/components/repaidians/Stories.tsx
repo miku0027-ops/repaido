@@ -1,12 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
-import {ChevronLeft,ChevronRight,Pause,Play,Plus,Send,Volume2,VolumeX,X} from 'lucide-react';
+import {ChevronLeft,ChevronRight,Pause,Play,Plus,Send,Volume2,VolumeX,X} from '../../icons';
 import {Modal} from '../ui';
 import type {CommunityMember,CommunityStory} from '../../types/repaidians';
 import {Avatar,LocalLabel,Media,timeAgo} from './common';
 export function StoriesTray({stories,memberFor,onOpen,onCreate}:{stories:CommunityStory[];memberFor:(id:string)=>CommunityMember;onOpen:(id:string)=>void;onCreate?:()=>void}) {
   const authors=[...new Set(stories.map(s=>s.authorId))];
   return <section className="rp-stories-section" aria-label="24-hour stories"><div className="rp-stories">
-    {onCreate&&<button className="rp-story-add" onClick={onCreate}><span><Plus size={27} strokeWidth={1.5}/></span><small>Your story</small></button>}
+    {onCreate&&<button className="rp-story-add" onClick={onCreate}><span><Plus size={24}/></span><small>Your story</small></button>}
     {authors.map(id=>{const member=memberFor(id);return <button className="rp-story-button" key={id} onClick={()=>onOpen(stories.find(s=>s.authorId===id)!.id)} aria-label={'View '+member.name+' stories'}><span className="rp-story-ring"><Avatar member={member}/></span><small>{member.handle||member.name.split(' ')[0]}</small></button>;})}
   </div></section>;
 }
@@ -29,13 +29,13 @@ export function StoryViewer({stories,initialId,memberFor,onClose,onReply,suspend
   const member=memberFor(story.authorId);
   return <Modal title={'Story by '+member.name} frameless className="rp-dialog rp-story-viewer" onClose={onClose}>
     <div className="rp-story-progress" aria-label={'Story '+(index+1)+' of '+stories.length}>{stories.map((s,i)=><span key={s.id}><i style={{width:(i<index?100:i===index?elapsed/duration*100:0)+'%'}}/></span>)}</div>
-    <div className="rp-story-header"><Avatar member={member}/><div><strong>{member.handle||member.name}</strong><small>{timeAgo(story.createdAt)}</small></div><button onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play story':'Pause story'}>{paused?<Play size={20}/>:<Pause size={20}/>}</button>{story.media.kind==='video'&&<button onClick={()=>setMuted(v=>!v)} aria-label={muted?'Unmute story':'Mute story'}>{muted?<VolumeX size={20}/>:<Volume2 size={20}/>}</button>}<button aria-label="Close story" data-autofocus onClick={onClose}><X size={25}/></button></div>
+    <div className="rp-story-header"><Avatar member={member}/><div><strong>{member.handle||member.name}</strong><small>{timeAgo(story.createdAt)}</small></div><button onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play story':'Pause story'}>{paused?<Play size={20}/>:<Pause size={20}/>}</button>{story.media.kind==='video'&&<button onClick={()=>setMuted(v=>!v)} aria-label={muted?'Unmute story':'Mute story'}>{muted?<VolumeX size={20}/>:<Volume2 size={20}/>}</button>}<button aria-label="Close story" data-autofocus onClick={onClose}><X size={24}/></button></div>
     <div className="rp-story-canvas" onPointerDown={()=>setHeld(true)} onPointerUp={()=>setHeld(false)} onPointerCancel={()=>setHeld(false)} onPointerLeave={()=>setHeld(false)}>
       <Media asset={story.media} active muted={muted} paused={paused||held||hidden||suspended||sending} onEnded={next}/>
-      {index>0&&<button className="rp-story-back" onClick={()=>setIndex(v=>v-1)} aria-label="Previous story"><ChevronLeft size={26}/></button>}
-      <button className="rp-story-next" onClick={next} aria-label="Next story"><ChevronRight size={26}/></button>
+      {index>0&&<button className="rp-story-back" onClick={()=>setIndex(v=>v-1)} aria-label="Previous story"><ChevronLeft size={24}/></button>}
+      <button className="rp-story-next" onClick={next} aria-label="Next story"><ChevronRight size={24}/></button>
       <div className="rp-story-caption"><LocalLabel sample={story.sample}/><p>{story.caption}</p></div>
     </div>
-    <form className="rp-compose rp-story-reply" onSubmit={async e=>{e.preventDefault();if(sending||!reply.trim())return;setSending(true);try{if(await onReply(member,reply))setReply('');}finally{setSending(false);}}}><label className="sr-only" htmlFor="rp-story-reply">Reply to {member.name}</label><div><input id="rp-story-reply" required maxLength={1000} placeholder={'Reply to '+member.name.split(' ')[0]+'…'} value={reply} onFocus={()=>setHeld(true)} onBlur={()=>setHeld(false)} onChange={e=>setReply(e.target.value)}/><button aria-label="Send story reply" disabled={!reply.trim()||sending} aria-busy={sending}><Send size={23}/></button></div></form>
+    <form className="rp-compose rp-story-reply" onSubmit={async e=>{e.preventDefault();if(sending||!reply.trim())return;setSending(true);try{if(await onReply(member,reply))setReply('');}finally{setSending(false);}}}><label className="sr-only" htmlFor="rp-story-reply">Reply to {member.name}</label><div><input id="rp-story-reply" required maxLength={1000} placeholder={'Reply to '+member.name.split(' ')[0]+'…'} value={reply} onFocus={()=>setHeld(true)} onBlur={()=>setHeld(false)} onChange={e=>setReply(e.target.value)}/><button aria-label="Send story reply" disabled={!reply.trim()||sending} aria-busy={sending}><Send size={20}/></button></div></form>
   </Modal>;
 }

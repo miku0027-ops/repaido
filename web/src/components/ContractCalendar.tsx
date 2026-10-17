@@ -1,5 +1,5 @@
 import {useMemo,useState} from 'react';
-import {CalendarDays,ChevronLeft,ChevronRight,ReceiptText} from 'lucide-react';
+import {CalendarDays,ChevronLeft,ChevronRight,ReceiptText} from '../icons';
 import type {ContractRecords} from '../types/contractRecords';
 import {contractCalendarEvents,contractDayKey,contractMonthDays,shiftContractMonth} from '../services/contractCalendar.mjs';
 import {contractDate,contractMoney} from './customContractUI';

@@ -15,34 +15,7 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import {
-  Activity,
-  ArrowDownToLine,
-  ArrowRight,
-  Boxes,
-  Cable,
-  Check,
-  ChevronRight,
-  CircleHelp,
-  Cloud,
-  Code2,
-  Database,
-  Focus,
-  GitBranch,
-  Layers3,
-  LockKeyhole,
-  LogOut,
-  Map,
-  Maximize2,
-  Network,
-  Pause,
-  Play,
-  Search,
-  Server,
-  Settings2,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import {Activity,ArrowDownToLine,ArrowRight,Boxes,Cable,Check,ChevronRight,CircleHelp,Cloud,Code2,Database,Focus,GitBranch,Layers3,LockKeyhole,LogOut,Map,Maximize2,Network,Pause,Play,Search,Server,Settings2,ShieldCheck,X,Folder,Functions,Schedule,Queue,Devices} from '../../../web/src/icons';
 import "@xyflow/react/dist/style.css";
 import { read, follow } from "./api";
 import {
@@ -65,14 +38,14 @@ const icons: Record<string, typeof Server> = {
   service: Server,
   endpoint: Cable,
   database: Database,
-  collection: Database,
+  collection: Folder,
   module: Code2,
-  client: Boxes,
+  client: Devices,
   hosting: Cloud,
   network: Network,
-  function: GitBranch,
-  scheduler: Activity,
-  queue: GitBranch,
+  function: Functions,
+  scheduler: Schedule,
+  queue: Queue,
   config: Settings2,
 };
 const views = [
@@ -110,7 +83,7 @@ function SystemNode({ data }: NodeProps) {
       <Handle type="target" position={Position.Left} />
       <header>
         <span className="node-icon">
-          <Icon size={18} />
+          <Icon size={20} />
         </span>
         <span>{item.kind}</span>
         <span className={"evidence evidence-" + item.evidence}>
@@ -125,7 +98,7 @@ function SystemNode({ data }: NodeProps) {
           : item.evidence === "cloud"
             ? item.status
             : "Defined in source"}
-        <ChevronRight size={14} />
+        <ChevronRight size={16} />
       </footer>
       <Handle type="source" position={Position.Right} />
     </div>
@@ -226,7 +199,7 @@ function Inspector({
           {tab === "details" && (
             <>
               <div className="callout">
-                <ShieldCheck size={19} />
+                <ShieldCheck size={20} />
                 <p>
                   {node.evidence === "cloud"
                     ? "Cloud inventory confirms this resource exists. Its configuration does not establish application health."
@@ -296,7 +269,7 @@ function Inspector({
                     </span>
                     <strong>
                       {allNodes.find((n) => n.id === e.source)?.label}
-                      <ArrowRight size={15} />
+                      <ArrowRight size={16} />
                       {allNodes.find((n) => n.id === e.target)?.label}
                     </strong>
                     <p>{e.label}</p>
@@ -595,7 +568,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
             <strong>{config.project}</strong>
             <small>System workspace</small>
           </div>
-          <LockKeyhole size={15} />
+          <LockKeyhole size={16} />
         </div>
         <p className="rail-label">BLUEPRINT</p>
         <nav aria-label="Architecture views">
@@ -605,7 +578,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
               className={view === v.id && pane === "canvas" ? "active" : ""}
               onClick={() => chooseView(v.id)}
             >
-              <v.icon size={18} />
+              <v.icon size={24} />
               {v.label}
             </button>
           ))}
@@ -616,24 +589,24 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
             className={pane === "activity" ? "active" : ""}
             onClick={() => setPane("activity")}
           >
-            <Activity size={18} /> API activity
+            <Activity size={20} /> API activity
           </button>
           <button
             className={pane === "traces" ? "active" : ""}
             onClick={() => setPane("traces")}
           >
-            <GitBranch size={18} /> Event traces
+            <GitBranch size={20} /> Event traces
           </button>
           <button
             className={pane === "coverage" ? "active" : ""}
             onClick={() => setPane("coverage")}
           >
-            <ShieldCheck size={18} /> Data coverage
+            <ShieldCheck size={20} /> Data coverage
           </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="read-only">
-            <ShieldCheck size={18} />
+            <ShieldCheck size={20} />
             <span>
               Read-only access<small>Production changes disabled</small>
             </span>
@@ -681,7 +654,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
                 running ? "Pause live updates" : "Resume live updates"
               }
             >
-              {running ? <Pause size={17} /> : <Play size={17} />}
+              {running ? <Pause size={20} /> : <Play size={20} />}
             </button>
             <button
               onClick={() => {
@@ -710,7 +683,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
         </header>
         {config.local_preview && (
           <div className="preview-bar">
-            <LockKeyhole size={14} /> Local preview · source data from this
+            <LockKeyhole size={16} /> Local preview · source data from this
             checkout · engineering sign-in required in production
           </div>
         )}
@@ -822,7 +795,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
                 aria-label="Fit blueprint to screen"
                 onClick={() => fitView({ padding: 0.12 })}
               >
-                <Maximize2 size={18} />
+                <Maximize2 size={20} />
               </button>
               <button onClick={saveLayout}>Save layout</button>
               <button
@@ -847,7 +820,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
               </span>
               {focus && (
                 <button onClick={() => setFocus("")}>
-                  Clear focus <X size={13} />
+                  Clear focus <X size={16} />
                 </button>
               )}
               {filtered.total > filtered.nodes.length && (
@@ -897,7 +870,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
               </ReactFlow>
               {!filtered.nodes.length && (
                 <div className="canvas-empty">
-                  <Network size={36} />
+                  <Network size={24} />
                   <h2>
                     {blueprint
                       ? "No elements in this view"
@@ -911,7 +884,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
                 </div>
               )}
               <div className="canvas-note">
-                <CircleHelp size={15} /> Drag to arrange · scroll to zoom ·
+                <CircleHelp size={16} /> Drag to arrange · scroll to zoom ·
                 select an element to inspect
               </div>
             </div>
@@ -1093,7 +1066,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
                                 }}
                               >
                                 {e.trace_id.slice(0, 8)}
-                                <ArrowRight size={13} />
+                                <ArrowRight size={16} />
                               </button>
                             ) : (
                               "Not recorded"
@@ -1106,7 +1079,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
               </div>
             ) : (
               <div className="empty">
-                <Activity size={32} />
+                <Activity size={24} />
                 <h2>No observed activity available</h2>
                 <p>
                   {snapshot?.collectors.events?.error ??
@@ -1153,7 +1126,7 @@ function Workspace({ config, logout }: { config: Config; logout: () => void }) {
               </div>
             ) : (
               <div className="empty">
-                <GitBranch size={32} />
+                <GitBranch size={24} />
                 <h2>No traces available</h2>
                 <p>
                   {snapshot?.collectors.traces?.error ??

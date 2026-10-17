@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
-import {ArrowRight,Pause,Play} from 'lucide-react';
+import {ArrowRight,Pause,Play} from '../icons';
 import './compact-experience.css';
 
 export type StorySlide={id:string;eyebrow:string;title:string;description:string;image:string;video?:string;action?:string;onAction?:()=>void};
@@ -14,7 +14,7 @@ export function StoryCarousel({slides,label}:{slides:StorySlide[];label:string})
  return <section className="compact-story" role="region" aria-roledescription="carousel" aria-label={label} onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)} onFocusCapture={()=>setHover(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget))setHover(false);}} onTouchStart={e=>{touch.current=e.touches[0].clientX;}} onTouchEnd={e=>{if(touch.current===null)return;const dx=e.changedTouches[0].clientX-touch.current;if(Math.abs(dx)>35){setIndex(i=>(i+(dx<0?1:-1)+slides.length)%slides.length);setPaused(true);}touch.current=null;}}>
   <div className="compact-story-visual" key={current.id}>{current.video&&!reduced?<video ref={video} src={current.video} poster={current.image} muted loop playsInline preload="metadata" aria-hidden="true"/>:<img src={current.image} alt=""/>}</div>
   <div className="compact-story-copy"><small>{current.eyebrow}</small><h2>{current.title}</h2><p>{current.description}</p>{current.onAction&&<button onClick={current.onAction}>{current.action||'Explore'}<ArrowRight size={14}/></button>}</div>
-  <div className="compact-story-controls"><div role="group" aria-label={`${label} slides`}>{slides.map((s,i)=><button key={s.id} aria-label={`Slide ${i+1}: ${s.title}`} aria-pressed={index%slides.length===i} onClick={()=>{setIndex(i);setPaused(true);}}><span/></button>)}</div>{!reduced&&<button aria-label={paused?'Play slideshow':'Pause slideshow'} onClick={()=>setPaused(p=>!p)}>{paused?<Play size={13}/>:<Pause size={13}/>}</button>}</div>
+  <div className="compact-story-controls"><div role="group" aria-label={`${label} slides`}>{slides.map((s,i)=><button key={s.id} aria-label={`Slide ${i+1}: ${s.title}`} aria-pressed={index%slides.length===i} onClick={()=>{setIndex(i);setPaused(true);}}><span/></button>)}</div>{!reduced&&<button aria-label={paused?'Play slideshow':'Pause slideshow'} onClick={()=>setPaused(p=>!p)}>{paused?<Play size={14}/>:<Pause size={14}/>}</button>}</div>
  </section>;
 }
 export function StageTrail({labels,step,onStep}:{labels:string[];step:number;onStep?:(step:number)=>void}){return <nav className="compact-stage-trail" aria-label="Form progress"><ol>{labels.map((label,i)=><li key={label} aria-current={step===i?'step':undefined}><button type="button" disabled={!onStep||i>step} onClick={()=>onStep?.(i)}><span>{i<step?'✓':i+1}</span>{label}</button></li>)}</ol></nav>;}

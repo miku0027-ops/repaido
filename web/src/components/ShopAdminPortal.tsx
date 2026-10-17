@@ -1,45 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Store,
-  MapPin,
-  FileText,
-  DollarSign,
-  Package,
-  Plus,
-  Edit2,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Compass,
-  Building2,
-  ShieldCheck,
-  Send,
-  Eye,
-  Download,
-  Search,
-  Trash2,
-  TrendingUp,
-  Boxes,
-  Check,
-  Upload,
-  Image as ImageIcon,
-  Settings,
-  Printer,
-  Sparkles,
-  Bell,
-  Menu,
-  X,
-  PanelLeftClose,
-  PanelLeft,
-  ChevronRight,
-  AlertTriangle,
-  Radio,
-  Megaphone,
-  Lock,
-  Unlock,
-  ExternalLink,
-  Layers
-} from 'lucide-react';
+import {Store,MapPin,FileText,Package,Plus,Edit2,CheckCircle2,AlertCircle,Compass,Building2,ShieldCheck,Send,Download,Search,Trash2,TrendingUp,Boxes,Check,Upload,Image as ImageIcon,Settings,Printer,Sparkles,Bell,Menu,X,PanelLeftClose,PanelLeft,ChevronRight,AlertTriangle,Megaphone,Lock,Unlock,Layers,Inventory2,ReceiptLong,FactCheck,IndianRupee,RefreshCw,Recycle} from '../icons';
 import type { SpareShop, SparePartProduct, TaskSpareItem, ProductChangeRequest, SparePartCategory, ShopNotification, CompanyShopDirective } from '../types';
 import {
   getSpareShops,
@@ -790,10 +750,10 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
 
   const navTabs = [
     { id: 'orders', label: 'Live Orders & Agent Tracker', icon: Package, badge: shopActiveOrders.length, badgeColor: 'bg-amber-600 text-white' },
-    { id: 'inventory', label: 'Inventory Management', icon: Store, badge: shopProducts.length, badgeColor: 'bg-slate-200 text-slate-700' },
+    { id: 'inventory', label: 'Inventory Management', icon: Inventory2, badge: shopProducts.length, badgeColor: 'bg-slate-200 text-slate-700' },
     { id: 'b2b', label: 'B2B Wholesale & RFQ Quotes', icon: Boxes },
-    { id: 'ledger', label: 'Wednesday Settlements & Ledger', icon: DollarSign },
-    { id: 'kyc_register', label: 'Partner Registration / KYC', icon: FileText },
+    { id: 'ledger', label: 'Wednesday Settlements & Ledger', icon: ReceiptLong },
+    { id: 'kyc_register', label: 'Partner Registration / KYC', icon: FactCheck },
     { id: 'company_oversight', label: 'Company HQ Directives', icon: ShieldCheck, badge: activeDirectives.filter(d => !d.acknowledged).length || undefined, badgeColor: 'bg-red-500 text-white' },
     { id: 'settings', label: 'Shop Settings', icon: Settings }
   ];
@@ -932,7 +892,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
               }`}
             >
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
                 <span>Company HQ Control</span>
               </div>
               <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-black/40">
@@ -1149,7 +1109,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 text-xs shadow-2xs"
               title={`Active Shop: ${currentShop?.shopName || 'Shop Portal'} (${currentShop?.id || ''})`}
             >
-              <Store className="w-3.5 h-3.5 text-[#003BB5] shrink-0" />
+              <Store className="w-4 h-4 text-[#003BB5] shrink-0" />
               <div className="flex items-center gap-1.5 truncate max-w-[140px] sm:max-w-[200px]">
                 <span className="font-bold text-slate-900 truncate">
                   {currentShop?.shopName || 'Partner Hub'}
@@ -1307,7 +1267,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <Package className="w-3.5 h-3.5" />
+                    <Package className="w-4 h-4" />
                     <span>Orders List ({allShopOrders.length})</span>
                   </button>
                   <button
@@ -1319,7 +1279,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <Compass className="w-3.5 h-3.5 animate-spin-slow" />
+                    <Compass className="w-4 h-4 animate-spin-slow" />
                     <span>Live Specialist Map & Radar</span>
                   </button>
                   <button
@@ -1331,7 +1291,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <Layers className="w-3.5 h-3.5" />
+                    <Layers className="w-4 h-4" />
                     <span>Split View</span>
                   </button>
                 </div>
@@ -1386,7 +1346,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 </div>
 
                 <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={orderSearch}
@@ -1400,7 +1360,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                       onClick={() => setOrderSearch('')}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-xs"
                     >
-                      ✕
+                      <X size={20} aria-hidden="true"/>
                     </button>
                   )}
                 </div>
@@ -1430,7 +1390,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 <div>
                   {filteredOrders.length === 0 ? (
                     <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 space-y-2 shadow-xs">
-                      <Package className="w-10 h-10 text-slate-400 mx-auto" />
+                      <Package className="w-6 h-6 text-slate-400 mx-auto" />
                       <p className="font-semibold text-slate-700">No orders match the selected filter</p>
                       <p className="text-xs text-slate-500">
                         Switch to "All Orders" or clear your search term.
@@ -1638,13 +1598,13 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                           }`}
                           title="Click to filter out-of-stock items"
                         >
-                          🚨 {outOfStockCount} Out
+                          <AlertTriangle size={16} aria-hidden="true"/> {outOfStockCount} Out
                         </button>
                       )}
                     </div>
                   ) : (
                     <div className="text-xs font-bold text-emerald-700 mt-0.5 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <Check className="w-4 h-4 text-emerald-600" />
                       <span>Healthy Stock</span>
                     </div>
                   )}
@@ -1664,7 +1624,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
               <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto py-0.5">
                 {/* Search */}
                 <div className="relative w-44 sm:w-56 shrink-0">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={invSearch}
@@ -1678,7 +1638,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                       onClick={() => setInvSearch('')}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold text-xs"
                     >
-                      ✕
+                      <X size={20} aria-hidden="true"/>
                     </button>
                   )}
                 </div>
@@ -1816,7 +1776,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   }}
                   className="h-8 px-3 py-1 bg-[#003BB5] hover:bg-[#002D8F] text-white font-bold rounded-lg flex items-center gap-1 text-xs transition-colors shadow-2xs active:scale-95"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                   <span>Add SKU</span>
                 </button>
               </div>
@@ -1912,7 +1872,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                                   {p.category}
                                 </span>
                                 <span className="text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-medium">
-                                  📍 {p.binLocation || 'Rack A-1'}
+                                  <MapPin size={16} aria-hidden="true"/> {p.binLocation || 'Rack A-1'}
                                 </span>
                               </div>
                             </td>
@@ -2103,7 +2063,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
             {/* Ledger Transactions */}
             <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 shadow-xs">
               <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-600" />
+                <IndianRupee className="w-4 h-4 text-emerald-600" />
                 <span>Shop Sales Ledger & Settlement Schedule</span>
               </h3>
 
@@ -2266,7 +2226,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-slate-900 flex items-center gap-2">
                     <div className="w-6 h-6 rounded bg-red-100 text-red-600 flex items-center justify-center">
-                      <MapPin className="w-3.5 h-3.5" />
+                      <MapPin className="w-4 h-4" />
                     </div>
                     <span>Shop Geo-Location & Dispatch GPS Pin</span>
                   </div>
@@ -2292,7 +2252,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                     onClick={() => setIsMapPickerOpen(true)}
                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition-all flex-shrink-0"
                   >
-                    <MapPin className="w-3.5 h-3.5" />
+                    <MapPin className="w-4 h-4" />
                     <span>Open Live Leaflet Google Map</span>
                   </button>
                 </div>
@@ -2375,7 +2335,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                       onClick={() => handleToggleShopFreeze(false)}
                       className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
                     >
-                      <Unlock className="w-3.5 h-3.5" />
+                      <Unlock className="w-4 h-4" />
                       <span>Unfreeze / Restore Shop</span>
                     </button>
                   ) : (
@@ -2384,7 +2344,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                       onClick={() => setIsSuspendingShop(true)}
                       className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
                     >
-                      <Lock className="w-3.5 h-3.5" />
+                      <Lock className="w-4 h-4" />
                       <span>Freeze / Suspend Shop</span>
                     </button>
                   )}
@@ -2437,7 +2397,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   <div className={`text-xs font-extrabold mt-0.5 ${
                     currentShop?.isOperationsFrozen || currentShop?.status === 'suspended_by_hq' ? 'text-red-700' : 'text-emerald-700'
                   }`}>
-                    {currentShop?.isOperationsFrozen || currentShop?.status === 'suspended_by_hq' ? '🚨 Suspended by HQ' : '✓ Live & Active'}
+                    {currentShop?.isOperationsFrozen || currentShop?.status === 'suspended_by_hq' ? 'Suspended by HQ' : 'Live & Active'}
                   </div>
                   <div className="text-[9px] text-slate-400 mt-0.5">SLA Handover: &lt; 15 mins</div>
                 </div>
@@ -2516,9 +2476,9 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                       onChange={e => setDirectivePriority(e.target.value as any)}
                       className="w-full p-2 bg-slate-50 border border-slate-300 rounded text-xs"
                     >
-                      <option value="urgent">🔴 Urgent (Immediate Action)</option>
-                      <option value="high">🟡 High (Within 4 Hours)</option>
-                      <option value="normal">🔵 Normal (Standard Info)</option>
+                      <option value="urgent">Urgent (Immediate Action)</option>
+                      <option value="high">High (Within 4 Hours)</option>
+                      <option value="normal">Normal (Standard Info)</option>
                     </select>
                   </div>
                 </div>
@@ -2555,7 +2515,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                     type="submit"
                     className="px-4 py-2 bg-[#0f244a] hover:bg-[#1a386d] text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
                   >
-                    <Send className="w-3.5 h-3.5" />
+                    <Send className="w-4 h-4" />
                     <span>Dispatch Directive to Shop Bell</span>
                   </button>
                 </div>
@@ -2612,7 +2572,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                         <div className="shrink-0 flex items-center gap-2">
                           {dir.acknowledged ? (
                             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg flex items-center gap-1 border border-emerald-300">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Acknowledged
+                              <CheckCircle2 className="w-4 h-4" /> Acknowledged
                             </span>
                           ) : (
                             <button
@@ -2620,7 +2580,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                               onClick={() => handleAcknowledgeDirective(dir.id)}
                               className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow-xs transition-all"
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              <Check className="w-4 h-4" />
                               <span>Acknowledge & Confirm Completed</span>
                             </button>
                           )}
@@ -2654,13 +2614,13 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 onClick={() => setShowProductModal(false)}
                 className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 font-bold"
               >
-                ✕
+                <X size={20} aria-hidden="true"/>
               </button>
             </div>
 
             {prodRequestSent ? (
               <div className="py-8 text-center text-emerald-700 space-y-2">
-                <CheckCircle2 className="w-10 h-10 mx-auto" />
+                <CheckCircle2 className="w-6 h-6 mx-auto" />
                 <p className="font-bold">Request sent for company review</p>
                 <p className="text-sm text-slate-500">Moderated within 2 hours for catalog quality assurance.</p>
               </div>
@@ -2673,9 +2633,9 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { id: 'new', label: '🆕 Brand New', desc: 'OEM sealed & warranty' },
-                      { id: 'refurbished', label: '🔄 Refurbished', desc: '40-pt tested & certified' },
-                      { id: 'preowned', label: '♻️ Pre-Owned', desc: 'Verified 2nd-hand stock' }
+                      { id: 'new', label: 'Brand New', Icon:Package, desc: 'OEM sealed & warranty' },
+                      { id: 'refurbished', label: 'Refurbished', Icon:RefreshCw, desc: '40-pt tested & certified' },
+                      { id: 'preowned', label: 'Pre-Owned', Icon:Recycle, desc: 'Verified 2nd-hand stock' }
                     ].map(c => (
                       <button
                         key={c.id}
@@ -2687,7 +2647,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                             : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                         }`}
                       >
-                        <div className="font-bold text-[11px]">{c.label}</div>
+                        <div className="font-bold text-[11px]"><c.Icon size={16} aria-hidden="true"/> {c.label}</div>
                         <div className="text-[9px] opacity-80 mt-0.5">{c.desc}</div>
                       </button>
                     ))}
@@ -2698,7 +2658,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 {prodCondition === 'refurbished' && (
                   <div className="bg-emerald-50/80 border border-emerald-300 rounded-lg p-3 space-y-2">
                     <div className="font-bold text-emerald-950 text-xs flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600"/>
+                      <Sparkles className="w-4 h-4 text-emerald-600"/>
                       <span>Refurbished Certification Parameters</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -2743,7 +2703,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 {prodCondition === 'preowned' && (
                   <div className="bg-amber-50/80 border border-amber-300 rounded-lg p-3 space-y-2">
                     <div className="font-bold text-amber-950 text-xs flex items-center gap-1.5">
-                      <Store className="w-3.5 h-3.5 text-amber-700"/>
+                      <Store className="w-4 h-4 text-amber-700"/>
                       <span>Pre-Owned / 2nd-Hand Listing Configuration</span>
                     </div>
                     <div>
@@ -2757,7 +2717,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                       />
                     </div>
                     <p className="text-[10.5px] text-amber-900 font-medium">
-                      ✓ Automatically published to both Spare Parts Shop AND Community Second-Hand Finds with Shop Verified badge.
+                      <Check size={16} aria-hidden="true"/> Automatically published to both Spare Parts Shop AND Community Second-Hand Finds with Shop Verified badge.
                     </p>
                   </div>
                 )}
@@ -2933,7 +2893,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                             className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-4 h-4 text-sm flex items-center justify-center opacity-80 hover:opacity-100"
                             title="Remove Image"
                           >
-                            ✕
+                            <X size={20} aria-hidden="true"/>
                           </button>
                         </>
                       ) : (
@@ -2948,7 +2908,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                     <div className="flex-1 space-y-2 w-full">
                       <div className="flex items-center gap-2">
                         <label className="cursor-pointer px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-slate-800 font-semibold text-sm shadow-2xs flex items-center gap-1.5 transition-all">
-                          <Upload className="w-3.5 h-3.5 text-amber-600" />
+                          <Upload className="w-4 h-4 text-amber-600" />
                           <span>Upload JPG / PNG</span>
                           <input
                             type="file"
@@ -3027,7 +2987,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                     type="submit"
                     className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <CheckCircle2 className="w-4 h-4" />
                     <span>Save & Sync to Cloud</span>
                   </button>
 
@@ -3037,7 +2997,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                     className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all"
                     title="Submit to Company Admin for official platform catalog listing"
                   >
-                    <Send className="w-3.5 h-3.5" />
+                    <Send className="w-4 h-4" />
                     <span>Send for Admin Catalog</span>
                   </button>
                 </div>
@@ -3068,7 +3028,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   onClick={() => window.print()}
                   className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
                 >
-                  <Printer className="w-3.5 h-3.5" />
+                  <Printer className="w-4 h-4" />
                   <span>Print Invoice</span>
                 </button>
                 <button
@@ -3076,7 +3036,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   onClick={() => setInvoiceModalOrder(null)}
                   className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 font-bold"
                 >
-                  ✕
+                  <X size={20} aria-hidden="true"/>
                 </button>
               </div>
             </div>
@@ -3196,7 +3156,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 onClick={() => window.print()}
                 className="px-4 py-2 bg-[#142858] hover:bg-slate-900 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-xs"
               >
-                <Printer className="w-3.5 h-3.5" />
+                <Printer className="w-4 h-4" />
                 <span>Print Official Copy</span>
               </button>
             </div>
@@ -3226,7 +3186,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   onClick={() => window.print()}
                   className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
                 >
-                  <Printer className="w-3.5 h-3.5" />
+                  <Printer className="w-4 h-4" />
                   <span>Print Audit Sheet</span>
                 </button>
                 <button
@@ -3234,7 +3194,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   onClick={() => setShowHsnAuditModal(false)}
                   className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 font-bold"
                 >
-                  ✕
+                  <X size={20} aria-hidden="true"/>
                 </button>
               </div>
             </div>
@@ -3362,7 +3322,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 onClick={() => setShowQuickRestockModal(false)}
                 className="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 font-bold"
               >
-                ✕
+                <X size={20} aria-hidden="true"/>
               </button>
             </div>
 
@@ -3459,7 +3419,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                 onClick={handleExecuteQuickRestock}
                 className="px-3.5 py-1.5 bg-[#003BB5] hover:bg-[#002D8F] text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-2xs active:scale-95"
               >
-                <Check className="w-3.5 h-3.5" />
+                <Check className="w-4 h-4" />
                 <span>Confirm Stock-In</span>
               </button>
             </div>
@@ -3489,7 +3449,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   onClick={() => window.print()}
                   className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
                 >
-                  <Printer className="w-3.5 h-3.5" />
+                  <Printer className="w-4 h-4" />
                   <span>Print Sheet</span>
                 </button>
                 <button
@@ -3497,7 +3457,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
                   onClick={() => setShowStockSheetModal(false)}
                   className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 font-bold"
                 >
-                  ✕
+                  <X size={20} aria-hidden="true"/>
                 </button>
               </div>
             </div>

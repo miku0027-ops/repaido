@@ -1,4 +1,4 @@
-import { ArrowUpRight, CarFront, Megaphone } from 'lucide-react';
+import { ArrowUpRight, CarFront, Megaphone } from '../icons';
 
 export interface SponsorCampaign {
   sample?: boolean;

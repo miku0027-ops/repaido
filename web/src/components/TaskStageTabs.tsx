@@ -1,5 +1,5 @@
 import {useEffect,useRef,type RefObject} from 'react';
-import {Check} from 'lucide-react';
+import {Check} from '../icons';
 
 /** Shared keyboard-accessible stage navigation for service and collection tasks. */
 export function TaskStageTabs({labels,value,current,completed,status,onChange,prefix='stage',panelId='agent-stage-panel',label='Task stages',buttonRefs}:{labels:readonly string[];value:number;current:number;completed:number;status:string;onChange:(index:number)=>void;prefix?:string;panelId?:string;label?:string;buttonRefs?:RefObject<(HTMLButtonElement|null)[]>}){

@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {onIdTokenChanged} from 'firebase/auth';
-import {Check,ChevronRight,Clock3,MessageCircle,RefreshCw,ShieldCheck,Sparkles} from 'lucide-react';
+import {Check,ChevronRight,Clock3,RefreshCw,Info,Store} from '../icons';
 import {auth} from '../firebase';
 import {operation} from '../services/operations';
 import {invalidateMarketAccess,readMarketAccess,type MarketAccess} from '../services/marketAccess';
@@ -34,7 +34,7 @@ export function MarketAccessSummary({onOpen}:{onOpen:()=>void}){
  const {uid,data,error}=useAccess();
  const title=data?.status==='trial'?'Your free marketplace period':data?.status==='paid'?'Marketplace access active':data?.status==='expired'?'Keep buying, selling & swapping':'Your local market. One simple plan.';
  const text=data?.active?`Until ${when(data.current_period_ends_at)} · Swaps, used items & messaging`:data?.status==='expired'?'₹99 for one calendar month · Manual renewal':'90 days free, then ₹99/month · Swaps, used items & messaging';
- return <button type="button" className="market-access-summary" onClick={onOpen}><span className="market-access-summary-icon"><MessageCircle size={18} aria-hidden="true"/></span><span><strong>{title}</strong><small>{error&&uid?'Plan status unavailable · Open to retry':text}</small></span><ChevronRight size={17} aria-hidden="true"/></button>;
+ return <button type="button" className="market-access-summary" onClick={onOpen}><span className="market-access-summary-icon"><Store size={20} aria-hidden="true"/></span><span><strong>{title}</strong><small>{error&&uid?'Plan status unavailable · Open to retry':text}</small></span><ChevronRight size={20} aria-hidden="true"/></button>;
 }
 export function MarketAccessModal({onClose,onSignIn,onUpdated}:{onClose:()=>void;onSignIn?:()=>void;onUpdated?:()=>void}){
  const {uid,data,error:readError,busy:reading,refresh}=useAccess();
@@ -83,12 +83,12 @@ export function MarketAccessModal({onClose,onSignIn,onUpdated}:{onClose:()=>void
  };
  const status=data?.status==='paid'?'Monthly access active':data?.status==='trial'?'Free period active':data?.status==='expired'?'Your free or paid period has ended':'Start your 90 free days';
  return <Modal title="Your marketplace plan" className="market-access-modal" onClose={()=>{if(!busy)onClose();}}><div className="market-access-panel">
-  <span className="market-access-eyebrow"><Sparkles size={14} aria-hidden="true"/> REPAIDO MARKET</span><h3>Good finds. Better conversations.</h3><p>One plan for direct swaps, second-hand selling and buyer–seller messaging.</p>
+  <span className="market-access-eyebrow"><Store size={16} aria-hidden="true"/> REPAIDO MARKET</span><h3>Good finds. Better conversations.</h3><p>One plan for direct swaps, second-hand selling and buyer–seller messaging.</p>
   <div className="market-access-price"><strong>90 days free</strong><span>Then <b>₹99</b> / calendar month</span><small>Manual renewal. No automatic debit.</small></div>
-  <ul>{['Publish used items and exchange listings','Message buyers and sellers about an item','Make price offers and propose your swap','Keep your inbox, read receipts and safety controls together'].map(text=><li key={text}><Check size={15} aria-hidden="true"/>{text}</li>)}</ul>
-  <section className="market-access-state" aria-live="polite"><Clock3 size={18} aria-hidden="true"/><div><strong>{uid?data?status:reading?'Checking your access…':'Your access status': 'Sign in to manage access'}</strong>{data?.current_period_ends_at&&<p>Access until {when(data.current_period_ends_at)}</p>}{data?.trial_started_at&&<small>Your one-time trial began {when(data.trial_started_at)}. It is shared across both sections.</small>}</div></section>
-  <p className="market-access-note"><ShieldCheck size={16} aria-hidden="true"/><span>Browsing, earlier messages and reporting remain available when access ends. Item payments and handovers are arranged between you and the other person.</span></p>
-  {(error||readError)&&<div className="market-access-error" role="alert"><p>{error||readError}</p><button type="button" disabled={busy} onClick={()=>void refresh(true)}><RefreshCw size={14} aria-hidden="true"/>Retry status</button></div>}
+  <ul>{['Publish used items and exchange listings','Message buyers and sellers about an item','Make price offers and propose your swap','Keep your inbox, read receipts and safety controls together'].map(text=><li key={text}><Check size={16} aria-hidden="true"/>{text}</li>)}</ul>
+  <section className="market-access-state" aria-live="polite"><Clock3 size={20} aria-hidden="true"/><div><strong>{uid?data?status:reading?'Checking your access…':'Your access status': 'Sign in to manage access'}</strong>{data?.current_period_ends_at&&<p>Access until {when(data.current_period_ends_at)}</p>}{data?.trial_started_at&&<small>Your one-time trial began {when(data.trial_started_at)}. It is shared across both sections.</small>}</div></section>
+  <p className="market-access-note"><Info size={16} aria-hidden="true"/><span>Browsing, earlier messages and reporting remain available when access ends. Item payments and handovers are arranged between you and the other person.</span></p>
+  {(error||readError)&&<div className="market-access-error" role="alert"><p>{error||readError}</p><button type="button" disabled={busy} onClick={()=>void refresh(true)}><RefreshCw size={20} aria-hidden="true"/>Retry status</button></div>}
   {message&&<p role="status">{message}</p>}
   <div className="market-access-actions">{!uid?<button type="button" className="market-access-primary" onClick={onSignIn}>Sign in</button>:data?.status==='not_started'?<button type="button" className="market-access-primary" disabled={busy} onClick={()=>void start()}>{busy?'Confirming…':'Start 90-day free trial'}</button>:data&&<button type="button" className="market-access-primary" disabled={busy||!data.payments_ready} onClick={()=>void pay()}>{busy?'Checking payment…':data.active?'Add one month · ₹99':'Continue for ₹99 / month'}</button>}{uid&&<button type="button" disabled={busy} onClick={()=>void check()}>Check payment</button>}</div>
   {data&&!data.payments_ready&&data.status!=='not_started'&&<p className="market-access-fine">Paid checkout is currently unavailable. Your existing access end date still applies; no charge was made.</p>}

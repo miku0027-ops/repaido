@@ -1,5 +1,5 @@
 import {useId,type ReactNode} from 'react';
-import {Boxes,CarFront,FileCheck2,Recycle,ShoppingBag} from 'lucide-react';
+import {Boxes,CarFront,FileCheck2,Recycle,ShoppingBag} from '../icons';
 import {BusinessTabs} from './BusinessUI';
 import './market-workspace.css';
 

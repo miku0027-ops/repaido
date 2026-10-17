@@ -1,5 +1,5 @@
 import {useRef,useState} from 'react';
-import {Mail,ShieldCheck} from 'lucide-react';
+import {Mail,VerifiedUser} from '../icons';
 import {Modal} from './ui';
 import {EmailProfileCompletion} from './EmailProfileCompletion';
 import type {useAccountProfile} from '../hooks/useAccountProfile';
@@ -15,7 +15,7 @@ export function AccountEmailAccess({account,onClose,onSignIn}:{account:ReturnTyp
   const [confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const actor=useRef(account.profile?.id);actor.current=account.profile?.id;
   return <Modal title="Private account details" onClose={onClose}>
-    {link&&!confirmed&&<section className="email-link-confirmation"><ShieldCheck size={24} aria-hidden="true"/><h3>Confirm your email</h3>
+    {link&&!confirmed&&<section className="email-link-confirmation"><VerifiedUser size={20} aria-hidden="true"/><h3>Confirm your email</h3>
       {'invalid' in link?<p role="alert">This verification link is invalid. Request a new link from your account below.</p>:<>
         <p>Confirm this link while signed in to the account that requested it.</p>
         <button type="button" disabled={busy||!account.profile} onClick={async()=>{

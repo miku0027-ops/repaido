@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {onIdTokenChanged} from 'firebase/auth';
-import {Check,ChevronDown,Flag,RefreshCw,ShieldCheck,X} from 'lucide-react';
+import {Check,ChevronDown,Flag,RefreshCw,ShieldCheck,X} from '../icons';
 import {auth} from '../firebase';
 import {operation} from '../services/operations';
 import './market-chat-moderation.css';
@@ -52,7 +52,7 @@ export function MarketChatModeration(){
   <div className="market-moderation-filters" role="group" aria-label="Message report status">{(['open','resolved','dismissed'] as Status[]).map(value=><button key={value} type="button" aria-pressed={status===value} disabled={!!actionId} onClick={()=>setStatus(value)}>{label(value)}</button>)}</div>
   {error&&<p className="market-moderation-error" role="alert">{error}</p>}{notice&&<p className="market-moderation-notice" role="status">{notice}</p>}
   {busy&&<p className="market-moderation-empty" role="status">Loading {status} reports…</p>}
-  {!busy&&!error&&!visible.length&&<p className="market-moderation-empty"><Check size={17} aria-hidden="true"/>No {status} marketplace message reports.</p>}
+  {!busy&&!error&&!visible.length&&<p className="market-moderation-empty"><Check size={18} aria-hidden="true"/>No {status} marketplace message reports.</p>}
   <div className="market-moderation-list">{visible.map(report=>{
    const draft=notes[report.id]||'',retry=pending[report.id],working=actionId===report.id;
    return <article className="market-moderation-report" key={report.id} aria-label={'Marketplace report '+report.id.slice(0,8)}>
@@ -63,6 +63,6 @@ export function MarketChatModeration(){
     {report.status==='open'?<div className="market-moderation-review"><label htmlFor={'market-moderation-note-'+report.id}>Review note<textarea aria-label="Review note" id={'market-moderation-note-'+report.id} rows={2} maxLength={1000} value={retry?.note||draft} disabled={!!retry||working} placeholder="Record the review and action taken (at least 10 characters)." onChange={event=>setNotes(previous=>({...previous,[report.id]:event.target.value}))}/></label>{retry&&<p role="status" className="market-moderation-muted">Confirmation is pending. Retry the same decision and note to avoid a conflicting resolution.</p>}<div className="market-moderation-actions">{retry?<button type="button" disabled={!!actionId} onClick={()=>void resolve(report,retry.status)}><RefreshCw size={14} aria-hidden="true"/>{working?'Confirming…':'Retry '+label(retry.status).toLowerCase()+' decision'}</button>:<><button type="button" disabled={!!actionId||draft.trim().length<10} onClick={()=>void resolve(report,'resolved')}><Check size={14} aria-hidden="true"/>{working?'Saving…':'Resolve report'}</button><button type="button" disabled={!!actionId||draft.trim().length<10} onClick={()=>void resolve(report,'dismissed')}><X size={14} aria-hidden="true"/>Dismiss report</button></>}</div></div>:<div className="market-moderation-outcome"><strong>Review note</strong><p>{report.note||'No review note was recorded.'}</p>{report.resolved_at&&<small>Reviewed {timestamp(report.resolved_at)}</small>}</div>}
    </article>;
   })}</div>
-  {cursor&&<button type="button" className="market-moderation-more" disabled={loading||busy||!!actionId} onClick={()=>void more()}>{loading?'Loading more…':'Load more reports'}<ChevronDown size={15} aria-hidden="true"/></button>}
+  {cursor&&<button type="button" className="market-moderation-more" disabled={loading||busy||!!actionId} onClick={()=>void more()}>{loading?'Loading more…':'Load more reports'}<ChevronDown size={16} aria-hidden="true"/></button>}
  </section>;
 }

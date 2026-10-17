@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {CalendarDays,ChevronLeft,ChevronRight,Star,Wallet,RefreshCw} from 'lucide-react';
+import {CalendarDays,ChevronLeft,ChevronRight,Star,Wallet,RefreshCw} from '../icons';
 import {auth} from '../firebase';
 import {money,operation} from '../services/operations';
 import {Modal} from './ui';
@@ -25,7 +25,7 @@ export function WorkerCalendar({compact=false,onActive}:{compact?:boolean;onActi
   <div className="work-month"><button aria-label="Previous month" onClick={()=>shift(-1)}><ChevronLeft size={18}/></button><label><span className="sr-only">Calendar month</span><input type="month" min="2000-01" max={today().slice(0,7)} value={month} onChange={e=>{if(/^20\d{2}-(0[1-9]|1[0-2])$/.test(e.target.value)){setMonth(e.target.value);setSelected(null);}}}/></label><button aria-label="Next month" disabled={month>=today().slice(0,7)} onClick={()=>shift(1)}><ChevronRight size={18}/></button></div>
   {error&&<p role="alert">{error} <button onClick={()=>setRevision(v=>v+1)}>Retry</button></p>}
   {!data&&!error&&<p role="status">Loading work records…</p>}
-  {data&&<><div className="work-month-metrics"><span><Wallet size={15}/>Calculated<strong>{money(data.summary.earned_paise)}</strong></span><span>Paid this month<strong>{money(data.summary.paid_paise)}</strong></span><span><Star size={15}/>Task points<strong>{data.summary.points}</strong></span></div>
+  {data&&<><div className="work-month-metrics"><span><Wallet size={16}/>Calculated<strong>{money(data.summary.earned_paise)}</strong></span><span>Paid this month<strong>{money(data.summary.paid_paise)}</strong></span><span><Star size={16}/>Task points<strong>{data.summary.points}</strong></span></div>
    <div className="work-calendar-grid" role="group" aria-label={monthTitle+' · India time'}>{['M','T','W','T','F','S','S'].map((v,i)=><span className="weekday" key={i} aria-hidden="true">{v}</span>)}{Array.from({length:(new Date(month+'-01T12:00:00Z').getUTCDay()+6)%7},(_,i)=><span key={'pad'+i}/>)}{data.days.map(d=><button key={d.date} data-tone={d.tone} aria-current={d.date===today()?'date':undefined} aria-label={`${date(d.date)}: ${label(d.tone)}, ${d.tasks.length} task records, ${d.points} points`} onClick={()=>setSelected(d.date)}><span>{Number(d.date.slice(-2))}</span><small>{d.points?`+${d.points}`:d.tasks.length?`${d.tasks.length} task${d.tasks.length===1?'':'s'}`:dayMarks[d.tone]||'—'}</small></button>)}</div>
    <div className="work-legend">{[['earning','Earnings'],['mixed','Earnings + deduction'],['penalty','Deduction'],['worked','Completed'],['online','Online check'],['offline','Offline set'],['scheduled','Task'],['unknown','No record']].map(([tone,text])=><span key={tone}><i data-tone={tone} aria-hidden="true">{dayMarks[tone]}</i>{text}</span>)}</div>
    <p className="work-footnote">India time · Availability checks are recorded moments, not hours. Unrecorded days are never assumed offline.</p>

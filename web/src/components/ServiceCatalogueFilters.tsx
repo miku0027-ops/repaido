@@ -1,5 +1,5 @@
 import {useId, useMemo, useState} from 'react';
-import {ArrowRight, LayoutGrid, MapPin, RotateCcw, UsersRound} from 'lucide-react';
+import {ArrowRight, Category, MapPin, RotateCcw, PersonSearch} from '../icons';
 import {categories} from '../data';
 import type {CategoryId, Service} from '../types';
 import {Modal} from './ui';
@@ -53,7 +53,7 @@ export default function ServiceCatalogueFilters({
         {query.trim() && <p className="catalogue-filter-query">Search: <bdi>{query.trim()}</bdi></p>}
 
         <fieldset className="catalogue-filter-section">
-          <legend><LayoutGrid size={16} aria-hidden="true"/>Service catalogue</legend>
+          <legend><Category size={16} aria-hidden="true"/>Service catalogue</legend>
           <div className="catalogue-filter-fields">
             <div className="catalogue-filter-field catalogue-filter-wide">
               <label htmlFor={`${id}-category`}>Service category</label>
@@ -85,7 +85,7 @@ export default function ServiceCatalogueFilters({
         </fieldset>
 
         <fieldset className="catalogue-filter-section" aria-describedby={`${id}-professionals-note`}>
-          <legend><UsersRound size={16} aria-hidden="true"/>Nearby professionals</legend>
+          <legend><PersonSearch size={16} aria-hidden="true"/>Nearby professionals</legend>
           <p id={`${id}-professionals-note`} className="catalogue-filter-note">Choose which professionals appear in Category leaders.</p>
           <div className="catalogue-filter-fields">
             <div className="catalogue-filter-field">
@@ -109,7 +109,7 @@ export default function ServiceCatalogueFilters({
       </div>
 
       <footer className="catalogue-filter-footer">
-        <button type="button" className="catalogue-filter-reset" onClick={() => setDraft({...defaults})}><RotateCcw size={15} aria-hidden="true"/>Reset Filters</button>
+        <button type="button" className="catalogue-filter-reset" onClick={() => setDraft({...defaults})}><RotateCcw size={16} aria-hidden="true"/>Reset Filters</button>
         <button type="submit" className="catalogue-filter-apply">Show {count} {count === 1 ? 'service' : 'services'}<ArrowRight size={16} aria-hidden="true"/></button>
       </footer>
     </form>

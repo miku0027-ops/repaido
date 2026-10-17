@@ -1,5 +1,5 @@
 import { useEffect, useRef, type InputHTMLAttributes, type ReactNode } from 'react';
-import { X, ArrowUpRight, Search, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { X, ArrowUpRight, Search, CheckCircle2, AlertCircle, Info } from '../icons';
 import './app-experience.css';
 import RepaidoBrand from './RepaidoBrand';
 import {acquireModalScrollLock} from '../services/modalScrollLock';

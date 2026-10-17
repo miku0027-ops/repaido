@@ -58,59 +58,34 @@ import type {CommunityOpportunity,CommunityTab,OpportunityReference,OpportunityS
 import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bell,
-  Package,
-  ChevronRight,
+  Explore, HomeRepair, PersonSearch, CleaningServices, Plumbing, ElectricalServices, LocalCarWash, Snowflake, Paintbrush, Scissors, Hammer, Inventory2, Construction, SwapHoriz, Sell, SupportAgent, FactCheck, Payments, RequestQuote, VerifiedUser, EventAvailable, ReceiptLong, Clock3, Award, Handyman, Handshake, LocalOffer,
   MapPin,
   ChevronDown,
   Search,
   ArrowRight,
   Store,
-  Home as HomeIcon,
-  Grid2X2,
-  CalendarDays,
-  Headphones,
   User,
   ShieldCheck,
-  IndianRupee,
-  Repeat2,
   Car,
-  Sprout,
-  Wrench,
   Sparkles,
-  Zap,
   Refrigerator,
-  Award,
-  BriefcaseBusiness,
-  Cog,
   CreditCard,
   FileCheck2,
-  GraduationCap,
   MapPinned,
   Star,
   Upload,
-  Clock3,
   Phone,
   CheckCircle2,
   Navigation,
-  FileText,
-  AlertCircle,
-  Building,
   Camera,
   Check,
-  LayoutGrid,
-  Calendar,
-  Receipt,
   CalendarCheck,
-  Globe,
-  Smartphone,
   Check as CheckIcon,
   X as XIcon,
   ArrowLeft,
-  LogOut,
-  ShoppingBag,
   ShoppingCart,
   Printer
-} from 'lucide-react';
+} from './icons';
 import CatalogApp from './CatalogApp';
 import { Brand, Modal, Field } from './components/ui';
 import {MarketWorkspace} from './components/MarketWorkspace';
@@ -216,14 +191,14 @@ const homePrimaryServices = [
 
 // Android Category Tiles Mapping
 const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
-  { id: 'cleaning', name: 'Cleaning', icon: Sparkles },
-  { id: 'ac', name: 'AC & App.', icon: Refrigerator },
-  { id: 'plumber', name: 'Plumber', icon: Wrench },
-  { id: 'electrician', name: 'Electrician', icon: Zap },
-  { id: 'car', name: 'Car Wash', icon: Car },
-  { id: 'carpenter', name: 'Carpenter', icon: Wrench },
-  { id: 'painting', name: 'Painting', icon: Sprout },
-  { id: 'salon', name: 'Salon', icon: Sparkles }
+  { id: 'cleaning', name: 'Cleaning', icon: CleaningServices },
+  { id: 'ac', name: 'AC & App.', icon: Snowflake },
+  { id: 'plumber', name: 'Plumber', icon: Plumbing },
+  { id: 'electrician', name: 'Electrician', icon: ElectricalServices },
+  { id: 'car', name: 'Car Wash', icon: LocalCarWash },
+  { id: 'carpenter', name: 'Carpenter', icon: Hammer },
+  { id: 'painting', name: 'Painting', icon: Paintbrush },
+  { id: 'salon', name: 'Salon', icon: Scissors }
 ];
 
 export default function App() {
@@ -848,7 +823,7 @@ export default function App() {
             {/* Desktop inline search bar — hidden on mobile */}
             <div className="desktop-header-search hidden lg:flex flex-1 mx-8 max-w-xl">
               <div className="repaido-search-bar customer-search-field">
-                <Search size={17} className="text-slate-400 shrink-0" />
+                <Search size={20} className="text-slate-400 shrink-0" />
                 <input
                   type="search"
                   placeholder="Search services — AC repair, plumber, cleaning…"
@@ -876,7 +851,7 @@ export default function App() {
                 aria-label={`Shopping cart with ${cartCount} items`}
                 title="Parts & Equipment Store Cart"
               >
-                <ShoppingCart size={22} aria-hidden="true" />
+                <ShoppingCart size={24} aria-hidden="true" />
                 {cartCount > 0 && (
                   <span className="repaido-cart-badge-pill" aria-label={`${cartCount} items in cart`}>
                     {cartCount > 99 ? '99+' : cartCount}
@@ -891,7 +866,7 @@ export default function App() {
                 aria-label={notificationCount > 0 ? `Notifications (${notificationCount} new)` : 'Notifications'}
                 title="Service updates and notifications"
               >
-                <Bell size={20} aria-hidden="true" />
+                <Bell size={24} aria-hidden="true" />
                 {notificationCount > 0 && (
                   <span className="repaido-bell-badge" aria-label={`${notificationCount} notifications`}>
                     {notificationCount > 99 ? '99+' : notificationCount}
@@ -902,7 +877,7 @@ export default function App() {
               {/* User / Profile Button */}
               {user ? (
                 <button onClick={() => setTab('You')} className="repaido-user-avatar-pill relative" title="My Profile" aria-label="My profile">
-                  <User size={20} aria-hidden="true" />
+                  <User size={24} aria-hidden="true" />
                   {(customerIdentity.agentLabel?.includes('pending') || Boolean(partnerApplicationId)) && (
                     <span className="repaido-header-badge repaido-user-badge" aria-label="1 pending application">
                       1
@@ -914,7 +889,7 @@ export default function App() {
                   onClick={() => { setAuthMode('signin'); setSheet('auth'); setError(''); setOtpStep('phone'); setOtpCode(''); }}
                   className="repaido-header-signin-btn relative" aria-label="Sign in" title="Sign in"
                 >
-                  <User size={20} aria-hidden="true"/>
+                  <User size={24} aria-hidden="true"/>
                 </button>
               )}
             </div>
@@ -942,19 +917,19 @@ export default function App() {
                 className="flex items-center gap-1 text-sm text-slate-500 hover:text-[#17285c] mt-0.5 transition-colors"
                 onClick={() => setCityModalOpen(true)}
               >
-                <MapPin size={12} />
+                <MapPin size={14} />
                 <span>{place.address||place.city}</span>
-                <ChevronDown size={11} />
+                <ChevronDown size={14} />
               </button>
             </div>
 
             {/* Nav links */}
             {([
-              { id: 'Explore', label: 'Explore', icon: LayoutGrid },
-              { id: 'Services', label: 'All Services', icon: Cog },
-              { id: 'Bookings', label: 'My Bookings', icon: CalendarDays },
+              { id: 'Explore', label: 'Explore', icon: Explore },
+              { id: 'Services', label: 'All Services', icon: HomeRepair },
+              { id: 'Bookings', label: 'My Bookings', icon: CalendarCheck },
               { id: 'ShopSpares', label: 'Market', icon: StoresIcon },
-              { id: 'Hire', label: 'Hire', icon: BriefcaseBusiness },
+              { id: 'Hire', label: 'Hire', icon: PersonSearch },
             ] as { id: Tab; label: string; icon: any }[]).map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -966,7 +941,7 @@ export default function App() {
                     : 'text-slate-600 hover:bg-slate-100 hover:text-[#17285c]'
                 }`}
               >
-                <Icon size={18} className={tab === id ? 'text-[#2c50e9]' : 'text-slate-400'} />
+                <Icon size={20} aria-hidden="true" className={tab === id ? 'text-[#2c50e9]' : 'text-slate-400'} />
                 <span className="flex-1 text-left">{label}</span>
                 {id === 'Bookings' && records.filter(b => ['requested','confirmed','on_the_way','in_progress'].includes(b.status)).length > 0 && (
                   <span className="text-sm bg-red-500 text-white rounded-full px-1.5 py-0.5 font-bold">
@@ -982,14 +957,14 @@ export default function App() {
               className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-[#17285c] transition-all"
               onClick={() => { setSheet('support_ticket'); setError(''); }}
             >
-              <Headphones size={17} className="text-slate-400" />
+              <SupportAgent size={20} aria-hidden="true" className="text-slate-400" />
               Help & Support
             </button>
             <button
               className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-[#17285c] transition-all"
               onClick={() => setShowCartDrawer(true)}
             >
-              <ShoppingBag size={17} className="text-slate-400" />
+              <ShoppingCart size={20} aria-hidden="true" className="text-slate-400" />
               <span>Parts & Store Cart</span>
               {cartCount > 0 && (
                 <span className="ml-auto text-xs bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full">
@@ -1001,7 +976,7 @@ export default function App() {
               className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-[#17285c] transition-all"
               onClick={() => setShowNotificationDrawer(true)}
             >
-              <Bell size={17} className="text-slate-400" />
+              <Bell size={20} aria-hidden="true" className="text-slate-400" />
               Notifications
               {records.some(b => ['requested','confirmed','on_the_way','in_progress'].includes(b.status)) && (
                 <span className="ml-auto w-2 h-2 rounded-full bg-red-500 shrink-0" />
@@ -1087,7 +1062,7 @@ export default function App() {
                         onClick={() => openStoreSection('spares')}
                       >
                         <span>Explore All</span>
-                        <ArrowRight size={13} />
+                        <ArrowRight size={14} />
                       </button>
                     </div>
 
@@ -1098,13 +1073,13 @@ export default function App() {
                         onClick={() => openStoreSection('spares')}
                       >
                         <div className="slide-card-icon bg-blue-100 text-blue-700">
-                          <ShoppingBag size={20} />
+                          <Inventory2 size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
                           <strong className="slide-card-title">Buy Spares</strong>
                           <span className="slide-card-desc">Parts from local stores</span>
                         </div>
-                        <ArrowRight size={15} className="slide-card-arrow text-blue-600" />
+                        <ArrowRight size={16} className="slide-card-arrow text-blue-600" />
                       </button>
 
                       <button
@@ -1113,13 +1088,13 @@ export default function App() {
                         onClick={() => openStoreSection('rentals')}
                       >
                         <div className="slide-card-icon bg-emerald-100 text-emerald-700">
-                          <Wrench size={20} />
+                          <Construction size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
                           <strong className="slide-card-title">Rent Tools</strong>
                           <span className="slide-card-desc">Deposit refund after return check</span>
                         </div>
-                        <ArrowRight size={15} className="slide-card-arrow text-emerald-600" />
+                        <ArrowRight size={16} className="slide-card-arrow text-emerald-600" />
                       </button>
 
                       <button
@@ -1128,13 +1103,13 @@ export default function App() {
                         onClick={() => openStoreSection('exchange')}
                       >
                         <div className="slide-card-icon bg-purple-100 text-purple-700">
-                          <Repeat2 size={20} />
+                          <SwapHoriz size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
                           <strong className="slide-card-title">Direct Swap</strong>
                           <span className="slide-card-desc">1-to-1 Gadget exchange</span>
                         </div>
-                        <ArrowRight size={15} className="slide-card-arrow text-purple-600" />
+                        <ArrowRight size={16} className="slide-card-arrow text-purple-600" />
                       </button>
 
                       <button
@@ -1143,13 +1118,13 @@ export default function App() {
                         onClick={() => openStoreSection('preowned')}
                       >
                         <div className="slide-card-icon bg-amber-100 text-amber-700">
-                          <Sparkles size={20} />
+                          <Sell size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
                           <strong className="slide-card-title">Sell Pre-Owned</strong>
                           <span className="slide-card-desc">New sellers · 90 days free</span>
                         </div>
-                        <ArrowRight size={15} className="slide-card-arrow text-amber-600" />
+                        <ArrowRight size={16} className="slide-card-arrow text-amber-600" />
                       </button>
                     </div>
                   </div>
@@ -1162,7 +1137,7 @@ export default function App() {
                 <section className="android-services-section">
                   <div className="home-essentials-heading">
                     <h2 className="android-section-title" aria-label={!query&&activeCategory==='all'?'Repaido Assured Home Essentials':undefined}>
-                      {query ? 'Search results' : activeCategory === 'all' ? <><span className="repaido-assured-tag"><ShieldCheck size={13} aria-hidden="true"/>Repaido Assured</span><span>Home Essentials</span></> : androidCategories.find(c => c.id === activeCategory)?.name}
+                      {query ? 'Search results' : activeCategory === 'all' ? <><span className="repaido-assured-tag"><VerifiedUser size={14} aria-hidden="true"/>Repaido Assured</span><span>Home Essentials</span></> : androidCategories.find(c => c.id === activeCategory)?.name}
                     </h2>
                     {activeCategory !== 'all' && (
                       <button className="android-show-all-btn" onClick={() => setActiveCategory('all')}>
@@ -1181,7 +1156,7 @@ export default function App() {
                   {!query&&filteredServices.length>6&&<button className="browse-all-services" onClick={()=>setTab('Services')}>See all {filteredServices.length} services <ArrowRight size={16} aria-hidden="true"/></button>}
                   <HydrationControls enabled={hydration.enabled} marketEnabled={hydration.marketEnabled} signedIn={hydration.signedIn} error={hydration.error} pending={hydration.pending} onChange={hydration.refresh} onSignIn={()=>setSheet('auth')}/>
 
-                  <details className="operations" style={{margin:"16px 0"}}><summary>Local leaderboards · verified reviews</summary><LocalLeaderboard/></details><section className="home-discovery-entry"><div><Sparkles size={22}/><h2>Find the right help nearby</h2><p>Compare services, check what’s included, and explore professionals within 8 km.</p></div><button onClick={() => setDiscoveryOpen(true)}>Explore & compare <ArrowRight size={16}/></button></section>
+                  <details className="operations" style={{margin:"16px 0"}}><summary>Local leaderboards · verified reviews</summary><LocalLeaderboard/></details><section className="home-discovery-entry"><div><PersonSearch size={20}/><h2>Find the right help nearby</h2><p>Compare services, check what’s included, and explore professionals within 8 km.</p></div><button onClick={() => setDiscoveryOpen(true)}>Explore & compare <ArrowRight size={16}/></button></section>
                   <div className="android-footer-slogan">
                     <h3>A little help makes a home.</h3>
                     <p>Pilot catalogue · Appointments require confirmation within 6 km</p>
@@ -1286,7 +1261,7 @@ export default function App() {
               onClick={() => navigate('Explore')}
               aria-current={tab === 'Explore' ? 'page' : undefined}
             >
-              <LayoutGrid size={22} />
+              <Explore size={24} aria-hidden="true" />
               <span>Explore</span>
             </button>
 
@@ -1295,7 +1270,7 @@ export default function App() {
               onClick={() => navigate('Services')}
               aria-current={tab === 'Services' ? 'page' : undefined}
             >
-              <Cog size={20} strokeWidth={2} aria-hidden="true" />
+              <HomeRepair size={24} aria-hidden="true" />
               <span>Services</span>
             </button>
 
@@ -1304,7 +1279,7 @@ export default function App() {
               onClick={() => navigate('Bookings')}
               aria-current={tab === 'Bookings' ? 'page' : undefined}
             >
-              <Calendar size={22} />
+              <CalendarCheck size={24} aria-hidden="true" />
               <span>Bookings</span>
             </button>
 
@@ -1313,11 +1288,11 @@ export default function App() {
               onClick={() => navigate('ShopSpares')}
               aria-current={tab === 'ShopSpares' ? 'page' : undefined}
             >
-              <StoresIcon size={20} />
+              <StoresIcon size={24} />
               <span>Market</span>
             </button>
 
-            <button className={`android-nav-item ${tab === 'Hire' ? 'active' : ''}`} onClick={() => navigate('Hire')} aria-current={tab === 'Hire' ? 'page' : undefined}><BriefcaseBusiness size={20} strokeWidth={2}/><span>Hire</span></button>
+            <button className={`android-nav-item ${tab === 'Hire' ? 'active' : ''}`} onClick={() => navigate('Hire')} aria-current={tab === 'Hire' ? 'page' : undefined}><PersonSearch size={24} aria-hidden="true"/><span>Hire</span></button>
           </nav>
         </div>
 
@@ -1350,7 +1325,7 @@ export default function App() {
               ['Pay after service','Review completed work and approved charges before payment.'],
               ['Review the work','Confirm completion or report a concern from your booking.'],
               ['Clear service prices','Review service scope and extras in your itemized bill.']
-            ]).map(([title,copy])=><div className="trust-pillar-card" key={title}><ShieldCheck size={20} aria-hidden="true"/><h2>{title}</h2><p>{copy}</p></div>)}
+            ]).map(([title,copy],index)=>{const Icon=(tab==='Hire'?[VerifiedUser,PersonSearch,EventAvailable,ShieldCheck]:tab==='ShopSpares'&&marketSubTab==='mobility'?[MapPin,RequestQuote,Navigation,ShieldCheck]:tab==='ShopSpares'?[SwapHoriz,FactCheck,EventAvailable,Payments]:tab==='Bookings'?[CalendarCheck,FactCheck,CheckCircle2,SupportAgent]:[VerifiedUser,Payments,FactCheck,ReceiptLong])[index];return <div className="trust-pillar-card" key={title}><Icon size={20} aria-hidden="true"/><h2>{title}</h2><p>{copy}</p></div>;})}
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-8 border-t border-slate-200 text-xs text-slate-500">
@@ -1363,7 +1338,7 @@ export default function App() {
               <button onClick={() => setTab('Services')} className="hover:text-slate-900 font-medium">Browse services</button>
               <button onClick={() => setTab('Bookings')} className="hover:text-slate-900 font-medium">Track booking</button>
               <button onClick={() => setTab('ShopSpares')} className="hover:text-emerald-800 text-emerald-700 font-bold flex items-center gap-1">
-                <ShoppingBag size={13} /> Market · Buy & rent
+                <StoresIcon size={16} /> Market · Buy & rent
               </button>
             </div>
           </div>
@@ -1373,7 +1348,7 @@ export default function App() {
         </div>
       </footer>
 
-      {communityReturn&&!repaidiansOpen&&<div className="community-return-bar"><button className="btn-outline" onClick={backToCommunity}><ArrowLeft size={17}/>Back to Repaidians</button></div>}
+      {communityReturn&&!repaidiansOpen&&<div className="community-return-bar"><button className="btn-outline" onClick={backToCommunity}><ArrowLeft size={18}/>Back to Repaidians</button></div>}
       {communityRouteBusy&&<p className="community-route-status" role="status">Checking this listing’s latest details…</p>}
       {communityRouteError&&<Modal title="Listing unavailable" onClose={()=>setCommunityRouteError('')}><p role="alert">{communityRouteError}</p><button className="btn-outline" onClick={()=>setCommunityRouteError('')}>Back to opportunities</button></Modal>}
       {communityNative&&<Modal title={communityNative.kind==='career'?'Project opportunity':communityNative.kind==='applications'?'My applications':'Business workspace'} className="work-network-sheet" onClose={backToCommunity}>{communityNative.kind==='career'?<ProjectDetail project={communityNative.card.details!} uid={user?.id} onApplied={()=>setCommunityNative({kind:'applications'})}/>:communityNative.kind==='applications'?<Applications uid={user?.id}/>:<ContractorPortal initialTab={communityNative.tab} initialTenderId={communityNative.tenderId} initialProjectId={communityNative.projectId} agent={communityNative.agent} onBackToCustomer={backToCommunity} onPartnerProfile={()=>{setCommunityNative(null);setTab('You');}}/>}</Modal>}
@@ -1569,7 +1544,7 @@ export default function App() {
                     checked={partnerForm.role === 'Specialist'}
                     onChange={() => setPartnerForm({ ...partnerForm, role: 'Specialist', hourlyRate: partnerForm.hourlyRate === '299' ? '499' : partnerForm.hourlyRate })}
                   />
-                  <div className="role-title">Specialist ★</div>
+                  <div className="role-title">Specialist <Award size={14} aria-hidden="true"/></div>
                   <div className="role-subtitle">Master Tier • ₹499/hr priority rate</div>
                 </label>
               </div>
@@ -1681,7 +1656,7 @@ export default function App() {
                   onClick={() => setWorkerMapModalOpen(true)}
                   className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1"
                 >
-                  <MapPin size={13} />
+                  <MapPin size={14} />
                   <span>Set Pin on Map</span>
                 </button>
               </div>
@@ -1744,7 +1719,7 @@ export default function App() {
                   onChange={e => setPartnerForm({ ...partnerForm, toolsPhotosCount: e.target.files?.length || 0 })}
                 />
                 {partnerForm.toolsPhotosCount > 0 && (
-                  <span className="upload-success-chip">✓ {partnerForm.toolsPhotosCount} Tool Photos Selected</span>
+                  <span className="upload-success-chip"><CheckCircle2 size={14} aria-hidden="true"/> {partnerForm.toolsPhotosCount} Tool Photos Selected</span>
                 )}
               </div>
             </div>
@@ -1825,7 +1800,7 @@ export default function App() {
                     aria-label="Upload Aadhaar card image"
                     onChange={() => setPartnerForm({ ...partnerForm, aadhaarUploaded: true })}
                   />
-                  {partnerForm.aadhaarUploaded && <span className="verified-check">✓ Uploaded</span>}
+                  {partnerForm.aadhaarUploaded && <span className="verified-check"><CheckCircle2 size={14} aria-hidden="true"/> Uploaded</span>}
                 </label>
 
                 <label className="kyc-upload-pill">
@@ -1837,7 +1812,7 @@ export default function App() {
                     aria-label="Upload PAN card image"
                     onChange={() => setPartnerForm({ ...partnerForm, panUploaded: true })}
                   />
-                  {partnerForm.panUploaded && <span className="verified-check">✓ Uploaded</span>}
+                  {partnerForm.panUploaded && <span className="verified-check"><CheckCircle2 size={14} aria-hidden="true"/> Uploaded</span>}
                 </label>
 
                 <label className="kyc-upload-pill">
@@ -1849,7 +1824,7 @@ export default function App() {
                     aria-label="Upload address proof image"
                     onChange={() => setPartnerForm({ ...partnerForm, addressProofUploaded: true })}
                   />
-                  {partnerForm.addressProofUploaded && <span className="verified-check">✓ Uploaded</span>}
+                  {partnerForm.addressProofUploaded && <span className="verified-check"><CheckCircle2 size={14} aria-hidden="true"/> Uploaded</span>}
                 </label>
               </div>
             </div>
@@ -1918,7 +1893,7 @@ export default function App() {
         >
           <div className="partner-success-modal">
             <div className="success-icon-badge">
-              <CheckCircle2 size={44} className="text-emerald" />
+              <CheckCircle2 size={32} aria-hidden="true" className="text-emerald" />
             </div>
             <h3 className="text-xl font-bold text-ink">Application Reference: {partnerApplicationId}</h3>
             <p className="text-sm text-muted mt-2">
@@ -1955,7 +1930,7 @@ export default function App() {
           <div className="space-y-3">
             {spareOrders.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
-                <ShoppingBag className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                <ReceiptLong size={32} aria-hidden="true" className="mx-auto mb-3 text-slate-300" />
                 <p className="text-sm font-semibold text-slate-700">No spare-part orders yet</p>
                 <p className="text-xs text-slate-500 mt-1">Your order history and live tracking will appear here after checkout.</p>
               </div>
@@ -2071,7 +2046,7 @@ export default function App() {
                   <div className="flex-1">
                     <strong>{activeTrackingBooking.worker.name}</strong>
                     <span className="block text-xs text-muted">
-                      {activeTrackingBooking.worker.role === 'specialist' ? '⭐ Senior Specialist' : '🔧 Junior Technician'} · ★ {activeTrackingBooking.worker.taskScore}
+                      {activeTrackingBooking.worker.role === 'specialist' ? <><Award size={14} aria-hidden="true"/> Senior Specialist</> : <><Handyman size={14} aria-hidden="true"/> Junior Technician</>} · ★ {activeTrackingBooking.worker.taskScore}
                     </span>
                     <span className="block text-xs text-emerald font-semibold">
                       Vaccinated · Aadhaar Verified · Safety Kit Equipped
@@ -2172,7 +2147,7 @@ export default function App() {
 
                   {discountAmount > 0 && (
                     <div className="table-row font-bold text-emerald">
-                      <span>🎉 First-Order 50% Service Charge Discount</span>
+                      <span><LocalOffer size={14} aria-hidden="true"/> First-Order 50% Service Charge Discount</span>
                       <span>-{formatMoney(discountAmount)}</span>
                     </div>
                   )}
@@ -2193,12 +2168,12 @@ export default function App() {
             {activeInvoiceBooking.worker && (
               <div className="payout-simulator-box my-3 text-left">
                 <div className="payout-simulator-title">
-                  <Sparkles size={13} className="text-accent" />
+                  <Sparkles size={14} className="text-accent" />
                   Assigned Professional
                 </div>
                 <div className="payout-row">
                   <span>Professional</span>
-                  <strong>{activeInvoiceBooking.worker.name} ({activeInvoiceBooking.worker.role === 'specialist' ? '⭐ Specialist' : '🔧 Technician'})</strong>
+                  <strong>{activeInvoiceBooking.worker.name} ({activeInvoiceBooking.worker.role === 'specialist' ? <><Award size={14} aria-hidden="true"/> Specialist</> : <><Handyman size={14} aria-hidden="true"/> Technician</>})</strong>
                 </div>
                 <div className="payout-row">
                   <span>Pricing Structure</span>
@@ -2664,7 +2639,7 @@ export default function App() {
                   <div className="text-left">
                     <strong className="text-xs text-slate-800 block">{ratingBooking.worker.name}</strong>
                     <span className="text-sm text-slate-500">
-                      {ratingBooking.worker.role === 'specialist' ? '⭐ Senior Specialist' : '🔧 Certified Technician'}
+                      {ratingBooking.worker.role === 'specialist' ? <><Award size={14} aria-hidden="true"/> Senior Specialist</> : <><Handyman size={14} aria-hidden="true"/> Certified Technician</>}
                     </span>
                   </div>
                 </div>
@@ -2685,6 +2660,7 @@ export default function App() {
                   >
                     <Star
                       size={28}
+                      filled={star <= ratingScore}
                       className={star <= ratingScore ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}
                     />
                   </button>
@@ -2704,13 +2680,14 @@ export default function App() {
               <label className="text-xs font-semibold text-slate-700 block mb-1.5">What did you appreciate most?</label>
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  '⚡ On-Time Arrival',
-                  '🧰 Professional Tools',
-                  '🧹 Cleaned Up After Work',
-                  '🤝 Polite & Courteous',
-                  '💎 Fair & Clear Pricing',
-                  '🩺 Accurately Diagnosed'
-                ].map(tag => {
+                  // Keep existing review payload values stable; render the label and icon separately.
+                  {tag:'⚡ On-Time Arrival',label:'On-Time Arrival',Icon:Clock3},
+                  {tag:'🧰 Professional Tools',label:'Professional Tools',Icon:Construction},
+                  {tag:'🧹 Cleaned Up After Work',label:'Cleaned Up After Work',Icon:CleaningServices},
+                  {tag:'🤝 Polite & Courteous',label:'Polite & Courteous',Icon:Handshake},
+                  {tag:'💎 Fair & Clear Pricing',label:'Fair & Clear Pricing',Icon:ReceiptLong},
+                  {tag:'🩺 Accurately Diagnosed',label:'Accurately Diagnosed',Icon:FactCheck}
+                ].map(({tag,label,Icon}) => {
                   const active = selectedCompliments.includes(tag);
                   return (
                     <button
@@ -2721,13 +2698,14 @@ export default function App() {
                           active ? curr.filter(t => t !== tag) : [...curr, tag]
                         );
                       }}
-                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                      aria-pressed={active}
+                      className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
                         active
                           ? 'bg-amber-100 border-amber-400 text-amber-900 font-semibold'
                           : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
-                      {tag}
+                      <Icon size={14} aria-hidden="true"/>{label}
                     </button>
                   );
                 })}

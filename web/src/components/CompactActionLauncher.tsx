@@ -1,5 +1,5 @@
 import {useEffect,useId,useRef,useState} from 'react';
-import {BriefcaseBusiness,FilePlus2,Plus,UsersRound} from 'lucide-react';
+import {BriefcaseBusiness,FilePlus2,Plus,UsersRound} from '../icons';
 import './compact-action-launcher.css';
 
 export function CompactActionLauncher({onCommunity,onCustomContract,onQuickHire}:{onCommunity:()=>void;onCustomContract:()=>void;onQuickHire:()=>void}){

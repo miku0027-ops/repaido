@@ -2,7 +2,7 @@ import CustomerBookingCard from './CustomerBookingCard';
 import {customerNeedsAction,customerOnSite} from '../services/customerBookings.mjs';
 import {startTaskBell} from '../services/taskBell.mjs';
 import {useEffect,useRef,useState} from 'react';
-import {Bell,RefreshCw,ArrowRight,BadgeCheck,ChevronLeft,ChevronRight} from 'lucide-react';
+import {Bell,RefreshCw,ArrowRight,BadgeCheck,ChevronLeft,ChevronRight} from '../icons';
 import {apiFetch} from '../services/api';
 import {auth} from '../firebase';
 import {jobCommand,currentPosition,money,operation,operationSnapshot,type Job} from '../services/operations';
@@ -23,7 +23,7 @@ export function JobSummaryCard({job,worker,onOpen,onRebook}:{job:Job;worker:bool
     <strong>{job.service_name}</strong>
     <span>{new Date(job.starts_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})} · {job.city}</span>
     <span>Customer bill {money(job.total_paise)}</span>{job.coupon&&<small>{job.coupon.code} · professional-funded saving {money(job.vendor_discount_paise||0)}</small>}
-    <span className="agent-open-task">{achieved?'View completion report':`Open ${worker?'task':'booking'}`}<ArrowRight size={17} aria-hidden="true"/></span>
+    <span className="agent-open-task">{achieved?'View completion report':`Open ${worker?'task':'booking'}`}<ArrowRight size={18} aria-hidden="true"/></span>
   </button>;
 }
 
@@ -314,7 +314,7 @@ export function OperationalJobs({worker=false,onSignIn,onRebook,initialJobId,vis
 
   if(!worker&&!auth.currentUser)return <BookingSignIn onSignIn={onSignIn}/>;
   return <section className={`operations ${worker?'agent-job-list':'reference-bookings'}`} aria-label={worker?'Assigned tasks':'Live bookings'}>
-    <div className="ops-heading"><h2>{worker?'Your tasks':'Your bookings'}</h2><div className="ops-actions"><button aria-label={worker?"Refresh tasks":"Refresh bookings"} disabled={loading||refreshing||!!busy} onClick={async()=>{setRefreshing(true);try{await load(true,true);}finally{setRefreshing(false);}}}><RefreshCw size={17} className={refreshing?"booking-refreshing":""}/></button>{worker&&<button onClick={()=>void enableSound()} aria-pressed={sound}><Bell size={17}/>{sound?'Sound on':'Enable alerts'}</button>}</div></div>
+    <div className="ops-heading"><h2>{worker?'Your tasks':'Your bookings'}</h2><div className="ops-actions"><button aria-label={worker?"Refresh tasks":"Refresh bookings"} disabled={loading||refreshing||!!busy} onClick={async()=>{setRefreshing(true);try{await load(true,true);}finally{setRefreshing(false);}}}><RefreshCw size={18} className={refreshing?"booking-refreshing":""}/></button>{worker&&<button onClick={()=>void enableSound()} aria-pressed={sound}><Bell size={18}/>{sound?'Sound on':'Enable alerts'}</button>}</div></div>
     <div className="agent-list-filters">{[{id:'active',title:'Active',count:active.length},{id:'attention',title:'Needs you',count:attentionJobs.length},{id:'in_progress',title:'On site',count:inProgressJobs.length},{id:'history',title:'History',count:history.length}].map(f=><button key={f.id} data-filter={f.id} aria-pressed={filter===f.id} onClick={()=>setFilter(f.id)}>{f.title}<strong>{f.count}</strong></button>)}</div>
     {error&&!detail&&<p role="alert" className="ops-error">{error}<button onClick={()=>void load()}>Retry</button>{onSignIn&&<button onClick={onSignIn}>Sign in</button>}</p>}
     {loading?<p role="status">{worker?'Loading tasks…':'Loading bookings…'}</p>:!filteredJobs().length&&!error?<div className="ops-empty">{worker?`No ${filter==='history'?'past':'matching'} tasks. New assignments appear here when available.`:filter==='attention'?'All clear. No booking needs your response right now.':filter==='in_progress'?'No visits at your location right now. Travelling agents appear under Active.':filter==='history'?'Your completed and cancelled bookings will appear here.':'No active bookings. Your next service visit will appear here.'}</div>:!filteredJobs().length?null:<TaskSlideshowRail jobs={filteredJobs()} worker={worker} onRebook={!worker&&onRebook?onRebook:undefined} onOpenReport={(id)=>setReportId(id)} onOpenJob={(id)=>setSelected(id)}/>}

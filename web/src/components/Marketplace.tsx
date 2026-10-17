@@ -1,7 +1,7 @@
 import {SaveMarketItem} from './SaveMarketItem';
 import {Card} from './Card';
 import {useEffect,useRef,useState} from 'react';
-import {Plus,MapPin,MessageCircle,Share2,PhoneCall,SlidersHorizontal,Search,RefreshCw} from 'lucide-react';
+import {MapPin,Share2,PhoneCall,Search,RefreshCw,Sell,SwapHoriz,Forum,Tune} from '../icons';
 import {operation,currentPosition,money} from '../services/operations';
 import {apiFetch,apiAssetUrl} from '../services/api';
 import {Modal,CustomerSearchField,ActionStatus} from './ui';
@@ -152,12 +152,12 @@ export function Marketplace({mode,manage=false,onSignIn,onShare,initialCreate=fa
 
 
   <button className="ops-primary market-create-btn" onClick={()=>setForm(true)}>
-    <Plus size={16}/> {mode==='exchange'?'List for exchange':'Sell a used item'}
+    {mode==='exchange'?<SwapHoriz size={18} aria-hidden="true"/>:<Sell size={18} aria-hidden="true"/>} {mode==='exchange'?'List for exchange':'Sell a used item'}
   </button>
 
   {!mine&&<form className="market-search market-search-compact" onSubmit={e=>{e.preventDefault();searchSnapshot.current={filters,query};void load(mine,searchSnapshot.current,false,true);}}>
     <div className="market-query"><CustomerSearchField label="Find a product" value={query} onChange={value=>setQuery(value.slice(0,120))} placeholder="Product, brand or model…"/></div>
-    <button type="button" className={`market-filter-trigger ${activeFilters?'is-filtered':''}`} aria-haspopup="dialog" aria-label={`Open filters${activeFilters?`, ${activeFilters} active`:''}`} onClick={()=>{setDraft(filters);setFilterError('');setFilterOpen(true);}}><SlidersHorizontal size={15} aria-hidden="true"/><span>Filter</span>{activeFilters>0&&<span className="market-filter-count">{activeFilters}</span>}</button>
+    <button type="button" className={`market-filter-trigger ${activeFilters?'is-filtered':''}`} aria-haspopup="dialog" aria-label={`Open filters${activeFilters?`, ${activeFilters} active`:''}`} onClick={()=>{setDraft(filters);setFilterError('');setFilterOpen(true);}}><Tune size={16} aria-hidden="true"/><span>Filter</span>{activeFilters>0&&<span className="market-filter-count">{activeFilters}</span>}</button>
     <button type="submit" className="market-search-submit" aria-label="Search nearby" disabled={busy||!filters.pin}><Search size={16} aria-hidden="true"/></button>
   </form>}
 
@@ -254,7 +254,7 @@ function MarketDetails({item,onClose,onShare,onSignIn,onMessage,own,onProfile}:{
       Condition and warranty are supplied by the seller. Test and inspect the item before agreeing to a direct handover. Repaido does not collect the item’s sale price here.
     </p>
 
-    {published(item)&&<button type="button" className="ops-primary market-chat-seller" onClick={onMessage}><MessageCircle size={17} aria-hidden="true"/>{own?'View buyer messages':'Message seller'}</button>}
+    {published(item)&&<button type="button" className="ops-primary market-chat-seller" onClick={onMessage}><Forum size={18} aria-hidden="true"/>{own?'View buyer messages':'Message seller'}</button>}
     <button type="button" className="market-seller-profile" onClick={onProfile}>View seller profile & listings</button>
     {contact ? (
       <div className="market-contact-revealed">
