@@ -51,6 +51,9 @@ def main():
     generation=gcloud('storage','objects','describe',uri,'--project=repaido','--format=value(generation)')
     if not generation.isdigit(): raise RuntimeError('Uploaded source generation could not be pinned.')
     config=json.loads((ROOT/CONFIG).read_text())
+    # The reviewed Dockerfile uses an optional BuildKit secret mount.
+    for step in config['steps']:
+        if step['id']=='build-api': step['env']=['DOCKER_BUILDKIT=1']
     config['source']={'storageSource':{'bucket':'repaido_cloudbuild','object':obj,'generation':generation}}
     config['substitutions'].update(COMMIT_SHA=SHA,_RELEASE_APPROVED='true')
     token=gcloud('auth','print-access-token')

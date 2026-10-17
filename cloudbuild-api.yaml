@@ -24,6 +24,7 @@ steps:
         REPAIDO_STORAGE=sqlite python -m pytest -q
   - id: build-api
     name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
     args: ['build', '--tag', '${_IMAGE}:$BUILD_ID', 'backend']
   - id: push-api
     name: gcr.io/cloud-builders/docker

@@ -9,3 +9,5 @@ The runner checks the live baseline and active builds, saves rollback traffic/sc
 Do not rerun if the command stops after submission or the terminal disconnects. Keep `submission.json` and `rollback-metadata`; a request timeout may hide an accepted build. Do not delete the submission record or use a fresh runner folder to force a retry. Check the existing Build ID/history first. Automatic rollback is not provided by the original API pipeline; share any failure before another attempt.
 
 Preparation and integrity checks have been tested locally. Cloud submission from this wrapper remains unexecuted locally because the environment's GCP credential fails. Read INDEX_RELEASE.md for exact source/config hashes and deployment/rollback gates. Do not print, save or share tokens in chat.
+
+The runner explicitly enables Docker BuildKit for the optional proxy CA secret mount. Standard cloudbuild.yaml and generated cloudbuild-api.yaml also enable it; production builds can omit that optional CA.
