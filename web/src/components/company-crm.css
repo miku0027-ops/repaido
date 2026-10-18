@@ -1,13 +1,205 @@
-#root .portal-company{--op-ink:#102953;--op-muted:#304b67;--op-line:#91a4bd;--op-blue:#143d80;font-family:Poppins,sans-serif;font-size:.8125rem;line-height:1.65;background:#f1f5fb;grid-template-columns:216px minmax(0,1fr)}#root .portal-company .portal-sidebar{padding:18px 12px;background:#fff;border-right:1px solid #91a4bd;gap:14px}#root .portal-company .portal-sidebar-heading{padding:0 4px 9px;border-bottom:1px solid #d1dce9}#root .portal-company .portal-sidebar-heading .repaido-brand{width:136px}#root .portal-company .portal-sidebar>.ops-eyebrow{font-size:.5625rem;letter-spacing:.12em;padding:0 8px;color:#304b67;margin:0}#root .portal-company .portal-sidebar nav{gap:3px}#root .portal-company .portal-sidebar nav button{font:500 .6875rem/1.6 Poppins,sans-serif;border:1px solid transparent;border-radius:10px;min-height:44px;padding:9px 10px;gap:9px;justify-content:flex-start;color:#304b67;box-shadow:none;transition:background 150ms ease,color 150ms ease,box-shadow 150ms ease}#root .portal-company .portal-sidebar nav button>svg{width:17px;height:17px;flex:none}#root .portal-company .portal-sidebar nav button[aria-current=page]{background:#e9f1ff;border-color:#a3b9dc;color:#102953;box-shadow:inset 3px 0 #17418a;font-weight:600}#root .portal-company .portal-sidebar-bottom{padding:12px 4px;border-top:1px solid #d1dce9;gap:7px}#root .portal-company .portal-sidebar-bottom p{font-size:.625rem;color:#304b67;margin:0 0 7px}#root .portal-company .portal-sidebar-bottom>button{min-height:44px;font-size:.6875rem;padding:8px 9px;gap:7px;border-radius:9px}#root .portal-company .portal-topbar{position:sticky;top:0;z-index:25;background:#ffffffef;backdrop-filter:blur(14px);border-bottom:1px solid #91a4bd;display:flex;align-items:center;gap:15px;flex-wrap:wrap;padding:12px 22px;color:#102953;min-height:69px}#root .portal-company .crm-account-summary{font-size:.6875rem;margin-left:auto}#root .portal-company .crm-account-summary small{font-size:.5625rem;color:#304b67}#root .portal-company .portal-topbar .ops-badge{font-size:.5625rem;line-height:1.6;padding:5px 7px;border:1px solid #96b3a2;background:#edf8f0;color:#164633;border-radius:7px;gap:5px}#root .portal-company .portal-topbar .ops-badge svg{width:13px;height:13px}#root .portal-company .crm-workspace-search{display:flex;position:relative;align-items:center;gap:7px;flex:1;min-width:180px;max-width:370px}#root .portal-company .crm-workspace-search>svg{position:absolute;left:10px;pointer-events:none;color:#304b67}#root .portal-company .crm-workspace-search>input{font:400 .75rem/1.6 Poppins,sans-serif;height:44px;min-height:44px;margin:0;padding:9px 48px 9px 34px;border:1px solid #91a4bd;border-radius:11px;background:#f5f8fd;color:#102953}#root .portal-company .crm-workspace-search>kbd{position:absolute;right:9px;font:500 .5625rem/1.6 Poppins,sans-serif;border:1px solid #a7b8cf;border-radius:5px;padding:2px 4px;color:#304b67;background:#fff;pointer-events:none}#root .portal-company .crm-no-workspace{font-size:.75rem;padding:10px;color:#304b67}#root .portal-company .portal-body main{padding:18px clamp(14px,2vw,30px) 36px;min-width:0}#root .portal-company .portal-breadcrumb{font-size:.625rem;gap:6px;margin-bottom:6px}#root .portal-company .portal-breadcrumb button{font-size:.625rem;min-height:44px;padding:6px 0;gap:5px}#root .portal-company .portal-page-heading{margin:0 0 14px;padding:0 0 13px;border-bottom:1px solid #cbd6e5}#root .portal-company .portal-page-heading>.ops-eyebrow,#root .portal-company .ops-eyebrow{font-size:.5625rem;font-weight:600;letter-spacing:.1em;color:#304b67}#root .portal-company .portal-page-heading h1{font-size:1.25rem;font-weight:600;line-height:1.5;letter-spacing:-.025em;margin:4px 0}#root .portal-company .portal-page-heading p{font-size:.6875rem;line-height:1.7;margin:0;color:#304b67}#root .portal-company :is(h2,h3){font-size:.9375rem;line-height:1.6;font-weight:600;letter-spacing:-.015em;margin:9px 0}#root .portal-company p{font-size:.75rem;line-height:1.7;margin:8px 0;color:var(--op-muted)}#root .portal-company :is(.ops-card,.review-row,.review-workspace){border:1px solid var(--op-line);border-radius:14px;background:var(--ui-surface,#fff);box-shadow:0 3px 10px #12315e08;padding:14px;margin:12px 0;min-width:0}#root .portal-company :is(button,.ops-primary,.ops-secondary){font-family:Poppins,sans-serif;font-size:.75rem;line-height:1.6;font-weight:500;min-height:44px;padding:9px 12px;border-radius:10px;gap:7px}#root .portal-company :is(input:not([type=checkbox]),select,textarea){font:400 .75rem/1.65 Poppins,sans-serif;min-height:44px;padding:10px 11px;margin-top:5px;border-radius:10px;border-color:var(--op-line)}#root .portal-company textarea{min-height:80px}#root .portal-company label{font-size:.6875rem;font-weight:500;line-height:1.7;margin:11px 0}#root .portal-company :is(input[type=checkbox],input[type=radio]){accent-color:#143d80}#root .portal-company :is(.ops-actions,.ops-toolbar){gap:8px;margin:10px 0}#root .portal-company :is(.ops-grid,.portal-form-grid,.portal-card-grid){gap:12px}#root .portal-company .portal-metrics{gap:11px;margin:14px 0}#root .portal-company .portal-metrics>button{background:var(--ui-surface,#fff);border:1px solid var(--op-line);border-radius:14px;padding:15px;min-width:0;box-shadow:0 3px 10px #12315e09;transition:box-shadow 160ms ease,border-color 160ms ease}#root .portal-company .portal-metrics>button>span{font-size:.6875rem;line-height:1.7}#root .portal-company .portal-metrics strong{font-size:1.75rem;line-height:1.3;font-weight:600;padding:3px 0;color:var(--op-ink)}#root .portal-company .ops-notice,#root .portal-company .ops-error{padding:12px;border-radius:12px;font-size:.75rem}#root .portal-company .ops-badge{font-size:.625rem;line-height:1.7;padding:4px 7px;border-radius:7px}#root .portal-company details{margin:11px 0;padding-top:9px}#root .portal-company summary{font-size:.75rem;min-height:44px;padding:8px 0;font-weight:500;line-height:1.65}#root .portal-company table{font-size:.6875rem;line-height:1.7;border-collapse:separate;border-spacing:0}#root .portal-company :is(td,th){padding:9px 10px;overflow-wrap:anywhere}#root .portal-company th{background:var(--ui-subtle,#eef3fa);font-size:.625rem;font-weight:600}#root .portal-company .support-workspace{font-size:.8125rem}#root .portal-company .support-workspace :is(h3,h4){margin:0}#root .portal-company .support-workspace p{margin:0}#root .portal-company .support-workspace label{margin:0}#root .portal-company .support-message p{margin:3px 0 7px;font-size:.8125rem}#root .portal-company .support-workspace .support-primary{background:#102953;color:#fff;border-color:#102953}#root .portal-company .support-workspace input{margin:0}#root .portal-company .support-message-log{max-height:52dvh;height:430px}#root .portal-company .support-workspace .support-reply textarea{min-height:62px;margin:0}#root .portal-company .support-reply button{min-height:62px}#root .portal-company .support-inbox-filters select{margin:0}#root .portal-company .support-workspace .support-case-row{padding:11px 8px}#root .portal-company .support-workspace .support-case-actions{margin:0;padding:9px 12px}#root .portal-company :is(button,a,input,textarea,summary,select):focus-visible{outline:3px solid var(--ui-link,#003bb5);outline-offset:3px}
-#root .crm-login .portal-intro h1{font-family:Poppins,sans-serif;font-size:1.875rem!important;font-weight:600!important;line-height:1.5!important;background:none!important;-webkit-text-fill-color:#102953!important;color:#102953;letter-spacing:-.03em;margin-bottom:12px!important}#root .crm-login .portal-intro p{font-family:Poppins,sans-serif;font-size:.8125rem!important;line-height:1.8!important;color:#304b67!important;max-width:45ch}#root .crm-login .portal-intro ol{font-family:Poppins,sans-serif;font-size:.75rem!important;gap:13px!important;color:#304b67!important}#root .crm-login .portal-login-form{padding:24px}#root .crm-login .portal-login-form h2{font-size:1.0625rem}#root .crm-login .portal-login-form p{font-size:.75rem;line-height:1.8}#root .crm-login .portal-login-form button{font-size:.75rem;min-height:44px;padding:10px 14px;border-radius:11px}#root .crm-login .portal-intro{background:linear-gradient(125deg,#edf4ff,#fafcff);border-right:1px solid #91a4bd}
-@media(max-width:1100px){#root .portal-company{grid-template-columns:188px minmax(0,1fr)}#root .portal-company .portal-topbar{padding:10px 15px;gap:10px}#root .portal-company .crm-account-summary{max-width:50%;overflow-wrap:anywhere}#root .portal-company .portal-topbar>.ops-badge{display:none}}
-@media(max-width:700px){#root .portal-company{grid-template-columns:minmax(0,1fr)}#root .portal-company .portal-sidebar{padding:10px 13px;position:static;height:auto;border-right:0;border-bottom:1px solid #91a4bd;gap:6px}#root .portal-company .portal-sidebar-heading{padding:0;border:0}#root .portal-company .portal-sidebar>.ops-eyebrow{display:none}#root .portal-company .portal-sidebar-heading .repaido-brand{width:119px}#root .portal-company .portal-menu-toggle{font-size:.6875rem;min-height:44px;padding:8px 10px}#root .portal-company .portal-topbar{position:static;padding:10px 13px;gap:7px}#root .portal-company .crm-workspace-search{max-width:none;min-width:160px}#root .portal-company .crm-account-summary{display:none}#root .portal-company .portal-body main{padding:12px 13px 28px}#root .portal-company .portal-page-heading h1{font-size:1.125rem}#root .portal-company .portal-page-heading p{font-size:.625rem}#root .portal-company .portal-sidebar[data-menu-open=true]>nav{gap:5px;padding-top:8px;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr))}#root .portal-company .portal-sidebar nav button{font-size:.6875rem;padding:8px;gap:7px;background:#f2f6fd;border:1px solid #a8b9d0}#root .portal-company .portal-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}#root .portal-company .portal-metrics>button{padding:10px;gap:5px}#root .portal-company .portal-metrics strong{font-size:1.375rem}#root .portal-company .portal-metrics>button>span{font-size:.5625rem}#root .portal-company .support-message-log{height:38dvh;max-height:430px}#root .crm-login .portal-intro{padding:21px;border-right:0;border-bottom:1px solid #91a4bd}#root .crm-login .portal-intro h1{font-size:1.5rem!important}#root .crm-login .portal-login-form{padding:14px}}
-@media(max-width:380px){#root .portal-company .portal-metrics{grid-template-columns:minmax(0,1fr)}#root .portal-company .portal-metrics>button{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;text-align:left}#root .portal-company .portal-metrics>button>span:last-child{grid-column:1/-1}}
-:is(.dark,[data-theme=dark]) #root .portal-company{--op-ink:#e6f0ff;--op-muted:#c2d3e9;--op-line:#8094b0;--op-blue:#183c73;background:#0e1d32;color:#e6f0ff}:is(.dark,[data-theme=dark]) #root .portal-company :is(.portal-sidebar,.portal-topbar){background:#172a44;border-color:#8094b0;color:#e6f0ff}:is(.dark,[data-theme=dark]) #root .portal-company .portal-sidebar nav button{color:#e6f0ff;background:#172a44}:is(.dark,[data-theme=dark]) #root .portal-company .portal-sidebar nav button[aria-current=page]{background:#e1edff;color:#102953;border-color:#b1c9eb;box-shadow:inset 3px 0 #4573b9}:is(.dark,[data-theme=dark]) #root .portal-company :is(.ops-eyebrow,.portal-page-heading p,.portal-sidebar-bottom p,.portal-topbar small,.crm-account-summary,.portal-sidebar>.ops-eyebrow){color:#c2d3e9}:is(.dark,[data-theme=dark]) #root .portal-company .crm-workspace-search>input{background:#203852;color:#e6f0ff;border-color:#8094b0}:is(.dark,[data-theme=dark]) #root .portal-company .crm-workspace-search>svg{color:#e6f0ff}:is(.dark,[data-theme=dark]) #root .portal-company .support-workspace .support-primary{background:#e3efff;color:#102953;border-color:#b6d3ff}
-@media(hover:hover) and (pointer:fine){#root .portal-company .portal-sidebar nav button:not([aria-current=page]):hover{background:#edf3ff;color:#102953;border-color:#abc0de}#root .portal-company .portal-metrics>button:hover{box-shadow:0 6px 16px #12315e16;border-color:var(--ui-link,#003bb5)}}
-@media(prefers-reduced-motion:reduce){#root .portal-company :is(button,.ops-card,.support-message){animation:none!important;transition:none!important}}
-html.reduce-motion #root .portal-company :is(button,.ops-card,.support-message){animation:none!important;transition:none!important}
-#root .portal-company .support-message p{color:inherit}
-#root .portal-company .support-workspace .support-confirmation{color:#154a2b;background:#edf9f1}#root .portal-company .support-workspace .support-error{color:#70251c;background:#fff2ed}
-#root .portal-company :is(input:not([type=checkbox]),select,textarea){border-color:var(--ui-control,#68768a)}#root .portal-company .crm-workspace-search>input{border-color:var(--ui-control,#68768a)}
-@layer repaido-brand{#root .portal-company .crm-workspace-search>input{padding-left:34px!important;padding-right:48px!important}}
+/* Company operations: quiet surfaces, compact records, deliberate review actions. */
+#root .portal-company {
+  --op-ink:#142a43; --op-muted:#364b63; --op-line:#c7d3e1; --op-blue:#173f77;
+  --crm-surface:#fff; --crm-subtle:#f3f6fb; --crm-active:#e8effb; --crm-control:#71849c;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:.8125rem; line-height:1.55; color:var(--op-ink); background:#f3f6fa;
+  grid-template-columns:232px minmax(0,1fr);
+}
+#root .portal-company :is(button,input,select,textarea) {font-family:inherit;font-size:.8125rem;line-height:1.5}
+#root .portal-company :is(button,.ops-primary,.ops-secondary) {min-height:44px;padding:8px 12px;border-radius:8px;gap:7px;font-weight:600;box-shadow:none}
+#root .portal-company :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {min-height:44px;padding:9px 11px;margin-top:4px;border-radius:8px;border:1px solid var(--crm-control);background:var(--crm-surface);color:var(--op-ink);max-width:100%}
+#root .portal-company textarea {min-height:82px}
+#root .portal-company label {font-size:.75rem;line-height:1.6;font-weight:600;margin:8px 0;min-width:0}
+#root .portal-company :is(input[type=checkbox],input[type=radio]) {accent-color:var(--op-blue)}
+#root .portal-company :is(button,a,input,textarea,summary,select,[tabindex]):focus-visible {outline:3px solid var(--ui-link,#003bb5);outline-offset:3px}
+#root .portal-company :is(h1,h2,h3,h4) {color:var(--op-ink);letter-spacing:-.02em;line-height:1.4}
+#root .portal-company :is(h2,h3) {font-size:1rem;font-weight:650;margin:8px 0}
+#root .portal-company p {font-size:.8125rem;line-height:1.6;margin:8px 0;color:var(--op-muted)}
+#root .portal-company small {font-size:.75rem;line-height:1.55;color:var(--op-muted)}
+#root .portal-company .ops-eyebrow {font-size:.6875rem;font-weight:650;letter-spacing:.09em;color:var(--op-muted)}
+#root .portal-company .portal-sidebar {padding:18px 12px 12px;background:var(--crm-surface);border-right:1px solid var(--op-line);gap:12px;scrollbar-width:thin;overscroll-behavior:contain}
+#root .portal-company .portal-sidebar-heading {padding:2px 9px 12px;border-bottom:1px solid var(--op-line)}
+#root .portal-company .portal-sidebar-heading .repaido-brand {width:144px}
+#root .portal-company .portal-sidebar>.ops-eyebrow {margin:0;padding:0 10px}
+#root .portal-company .portal-sidebar nav {display:grid;gap:14px;overflow:visible}
+#root .portal-company .crm-nav-group {display:grid;gap:2px;min-width:0}
+#root .portal-company .crm-nav-label {font-size:.6875rem;font-weight:650;letter-spacing:.05em;color:var(--op-muted);padding:2px 10px 4px}
+#root .portal-company .portal-sidebar nav button {font-size:.8125rem;line-height:1.45;font-weight:500;border:1px solid transparent;border-radius:8px;padding:9px 10px;justify-content:flex-start;gap:10px;color:var(--op-muted);background:transparent;white-space:normal;text-align:start;transition:background 140ms ease}
+#root .portal-company .portal-sidebar nav button>svg {width:19px;height:19px;flex:none}
+#root .portal-company .portal-sidebar nav button[aria-current=page] {color:var(--op-ink);background:var(--crm-active);border-color:var(--op-line);font-weight:650;box-shadow:inset 3px 0 var(--op-blue)}
+#root .portal-company .portal-sidebar-bottom {margin-top:auto;border-top:1px solid var(--op-line);padding:12px 4px 0;gap:4px}
+#root .portal-company .portal-sidebar-bottom p {font-size:.6875rem;margin:0 0 6px}
+#root .portal-company .portal-sidebar-bottom>button {font-size:.75rem;justify-content:flex-start}
+#root .portal-company .portal-topbar {position:sticky;top:0;z-index:25;display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:10px 24px;min-height:66px;background:var(--crm-surface);border-bottom:1px solid var(--op-line);color:var(--op-ink)}
+#root .portal-company .crm-account-summary {font-size:.75rem;margin-left:auto}
+#root .portal-company .crm-account-summary small {display:block;font-size:.6875rem}
+#root .portal-company .portal-topbar>.ops-badge {font-size:.6875rem;padding:5px 8px;border:1px solid var(--op-line);background:var(--crm-subtle);color:var(--op-ink);border-radius:7px}
+#root .portal-company .crm-workspace-search {display:flex;position:relative;align-items:center;gap:7px;flex:1;min-width:180px;max-width:340px}
+#root .portal-company .crm-workspace-search>svg {position:absolute;left:11px;pointer-events:none;color:var(--op-muted)}
+#root .portal-company .crm-workspace-search>input {height:44px;margin:0;padding:9px 61px 9px 38px;background:var(--crm-subtle)}
+#root .portal-company .crm-workspace-search>kbd {position:absolute;right:9px;font-size:.6875rem;line-height:1.6;font-weight:500;padding:2px 4px;color:var(--op-muted);pointer-events:none;border:1px solid var(--op-line);border-radius:4px;background:var(--crm-surface)}
+#root .portal-company .crm-no-workspace {padding:10px}
+#root .portal-company .portal-body main {padding:16px clamp(16px,2vw,32px) 40px;min-width:0}
+#root .portal-company .portal-breadcrumb {font-size:.75rem;gap:6px;margin-bottom:4px}
+#root .portal-company .portal-breadcrumb button {font-size:.75rem;padding:6px 0}
+#root .portal-company .portal-page-heading {margin:0 0 20px;padding:0 0 16px;border-bottom:1px solid var(--op-line)}
+#root .portal-company .portal-page-heading .ops-eyebrow {display:none}
+#root .portal-company .portal-page-heading h1 {font-size:1.5rem;font-weight:700;margin:0 0 5px}
+#root .portal-company .portal-page-heading p {margin:0}
+#root .portal-company :is(.ops-card,.review-row,.review-workspace,.business-record,.home-brief) {border:1px solid var(--op-line);border-radius:10px;background:var(--crm-surface);box-shadow:none;padding:16px;margin:12px 0;min-width:0}
+#root .portal-company :is(.ops-grid,.portal-form-grid,.portal-card-grid) {gap:12px}
+#root .portal-company :is(.ops-actions,.ops-toolbar) {gap:8px;margin:10px 0;flex-wrap:wrap}
+#root .portal-company :is(.ops-notice,.ops-error) {padding:12px;border-radius:8px;font-size:.8125rem}
+#root .portal-company .ops-badge {font-size:.75rem;line-height:1.5;padding:4px 7px;border-radius:5px}
+#root .portal-company details {margin:10px 0;padding-top:0}
+#root .portal-company summary {font-size:.8125rem;min-height:44px;padding:11px 0;font-weight:600;line-height:1.55}
+#root .portal-company .crm-policy-panel {border:1px solid var(--op-line);border-radius:10px;padding:0 14px;background:var(--crm-surface);margin:16px 0}
+#root .portal-company .crm-policy-panel[open] {padding-bottom:14px}
+#root .portal-company .crm-policy-panel>summary {padding:13px 0}
+#root .portal-company .crm-section-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+#root .portal-company .crm-section-heading :is(h2,p) {margin:0}
+#root .portal-company .portal-metrics {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}
+#root .portal-company .portal-metrics>button {position:relative;min-width:0;border:1px solid var(--op-line);background:var(--crm-surface);border-radius:12px;padding:16px 18px;gap:7px;box-shadow:0 2px 5px #10294905;transition:box-shadow 150ms ease,transform 150ms ease}
+#root .portal-company .portal-metrics>button>span {font-size:.75rem;display:flex;align-items:center;gap:8px;line-height:1.5;color:var(--op-muted)}
+#root .portal-company .portal-metrics strong {font-size:1.875rem;line-height:1.2;font-weight:700;color:var(--op-ink);letter-spacing:-.04em}
+#root .portal-company .crm-dashboard-grid {display:grid;grid-template-columns:1fr 1fr;gap:16px}
+#root .portal-company .crm-dashboard-panel {padding:18px;border:1px solid var(--op-line);border-radius:12px;background:var(--crm-surface);margin:16px 0;min-width:0}
+#root .portal-company .crm-dashboard-grid>.crm-dashboard-panel {margin:0 0 4px}
+#root .portal-company .crm-dashboard-panel>h2 {margin:0 0 10px}
+#root .portal-company .crm-pipeline {list-style:none;display:grid;gap:15px;padding:8px 0;margin:0}
+#root .portal-company .crm-pipeline li {display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:.8125rem;text-transform:capitalize}
+#root .portal-company .crm-pipeline-track {grid-column:1/-1;background:var(--crm-active);border-radius:5px;height:6px;overflow:hidden}
+#root .portal-company .crm-pipeline-track>span {display:block;height:100%;background:var(--op-blue);border-radius:5px}
+#root .portal-company .crm-scope-note {font-size:.75rem;margin-top:16px}
+#root .portal-company .crm-queue-links {display:grid}
+#root .portal-company .crm-queue-links>button {display:flex;align-items:center;text-align:start;border:0;border-bottom:1px solid var(--op-line);background:transparent;color:var(--op-ink);border-radius:0;padding:12px 0;gap:12px}
+#root .portal-company .crm-queue-links>button:last-child {border-bottom:0}
+#root .portal-company .crm-queue-links>button>span {flex:1;min-width:0}
+#root .portal-company .crm-queue-links small {display:block;font-weight:400}
+#root .portal-company .crm-workflow-links {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#root .portal-company .crm-workflow-links button {display:grid;grid-template-columns:1fr auto;text-align:start;background:var(--crm-subtle);color:var(--op-ink);border:1px solid var(--op-line);padding:12px}
+#root .portal-company .crm-workflow-links button>span {grid-column:1;font-size:.75rem;font-weight:400;color:var(--op-muted)}
+#root .portal-company .crm-workflow-links button>svg {grid-column:2;grid-row:1/3}
+/* Tables retain every column. Overflow is confined to a labelled keyboard region. */
+#root .portal-company .crm-data-panel {border:1px solid var(--op-line);border-radius:10px;background:var(--crm-surface);color:var(--op-ink);margin:16px 0;min-width:0;max-width:100%;overflow:hidden}
+#root .portal-company .crm-table-toolbar {display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:12px 16px;background:var(--crm-surface);border-bottom:1px solid var(--op-line)}
+#root .portal-company .crm-table-toolbar>label {margin:0;min-width:100px;max-width:100%}
+#root .portal-company .crm-table-search {flex:1;max-width:360px!important;min-width:160px!important}
+#root .portal-company .crm-table-search>span {display:block}
+#root .portal-company .crm-table-search>span:last-child {position:relative}
+#root .portal-company .crm-table-search svg {position:absolute;top:17px;left:11px;pointer-events:none;color:var(--op-muted)}
+#root .portal-company .crm-table-search input {padding-left:38px;width:100%}
+#root .portal-company .crm-page-size {margin-left:auto!important;min-width:74px!important}
+#root .portal-company .crm-table-scroll {overflow:auto;max-width:100%;scrollbar-width:thin;scrollbar-color:var(--crm-control) var(--crm-subtle)}
+#root .portal-company .crm-table-scroll:focus-visible {outline-offset:-3px}
+#root .portal-company table {font-size:.8125rem;line-height:1.55;border-collapse:separate;border-spacing:0;width:100%;text-align:start}
+#root .portal-company .crm-data-panel table {min-width:560px}
+#root .portal-company :is(td,th) {padding:10px 14px;overflow-wrap:anywhere;vertical-align:middle}
+#root .portal-company th {font-weight:600;text-align:start}
+#root .portal-company thead th {font-size:.75rem;color:var(--op-muted);background:var(--crm-subtle);border-bottom:1px solid var(--op-line);white-space:nowrap}
+#root .portal-company thead th button {padding:4px 0;min-height:44px;border:0;background:transparent;color:inherit;border-radius:4px;font-size:.75rem;white-space:nowrap}
+#root .portal-company tbody :is(th,td) {border-bottom:1px solid var(--op-line);color:var(--op-ink);background:transparent;min-width:105px;max-width:300px}
+#root .portal-company tbody tr:last-child>:is(th,td) {border-bottom:0}
+#root .portal-company tbody th {font-weight:600;min-width:160px}
+#root .portal-company tbody h3 {font-size:.8125rem;margin:0;font-weight:600}
+#root .portal-company tbody small {display:block;font-size:.75rem;font-weight:400;margin-top:3px}
+#root .portal-company .crm-numeric {font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+#root .portal-company th.crm-numeric button {margin-left:auto}
+#root .portal-company tr[data-expanded=true] {background:var(--crm-active)}
+#root .portal-company .crm-row-open {white-space:nowrap;padding:8px;border-color:var(--op-line);background:var(--crm-surface);color:var(--op-ink)}
+#root .portal-company .crm-detail-row>td {padding:0;max-width:none}
+#root .portal-company .crm-row-detail {padding:18px;background:var(--crm-subtle);max-width:min(1100px,calc(100vw - 90px));min-width:0}
+#root .portal-company .crm-row-detail>.ops-card {margin:0}
+#root .portal-company .crm-table-footer {display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 16px;border-top:1px solid var(--op-line)}
+#root .portal-company .crm-table-footer>p {margin:0;font-size:.75rem}
+#root .portal-company .crm-table-footer>div {display:flex;align-items:center;gap:10px}
+#root .portal-company .crm-table-footer button {padding:7px 10px;font-size:.75rem}
+#root .portal-company .crm-table-empty {padding:20px 16px;margin:0}
+#root .portal-company .crm-status {display:inline-flex;align-items:center;padding:3px 7px;border-radius:5px;border:1px solid var(--op-line);background:var(--crm-subtle);color:var(--op-ink);font-size:.75rem;font-weight:500;line-height:1.6;white-space:normal}
+#root .portal-company .crm-status[data-tone=good] {background:#eaf6ef;color:#164b30;border-color:#a1c6b1}
+#root .portal-company .crm-status[data-tone=attention] {background:#fff1e6;color:#6b2b0c;border-color:#d8b59a}
+.crm-sr-only {position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.portal-shell:not(.portal-company) .crm-nav-group {display:contents}
+#root .portal-company .home-admin-layout {grid-template-columns:minmax(190px,1fr) minmax(0,3fr)}
+#root .portal-company :is(.home-plans,.local-business-hub,.work-network,.rental-manager) {max-width:none}
+#root .portal-company :is(.campaign-admin-grid,.rental-management-grid,.leaderboard-grid,.market-grid) {gap:14px}
+#root .portal-company .campaign-admin-grid {grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}
+#root .portal-company .support-workspace {font-size:.8125rem}
+#root .portal-company .support-workspace :is(h3,h4,p,label) {margin:0}
+#root .portal-company .support-workspace .support-primary {background:#142a43;color:#fff;border-color:#142a43}
+#root .portal-company .support-message-log {max-height:52dvh;height:430px}
+#root .portal-company .support-workspace .support-reply textarea {min-height:62px;margin:0}
+#root .portal-company .support-reply button {min-height:62px}
+#root .portal-company .support-workspace .support-case-row {padding:11px 8px}
+#root .portal-company .support-workspace .support-case-actions {margin:0;padding:9px 12px}
+#root .portal-company .support-message p {color:inherit;margin:3px 0 7px}
+#root .portal-company .support-workspace .support-confirmation {color:#154a2b;background:#edf9f1}
+#root .portal-company .support-workspace .support-error {color:#70251c;background:#fff2ed}
+#root .crm-login .portal-intro h1 {font-size:1.875rem!important;line-height:1.4!important;background:none!important;-webkit-text-fill-color:#142a43!important;color:#142a43;letter-spacing:-.03em}
+#root .crm-login .portal-intro p {font-size:.875rem!important;line-height:1.7!important;color:#364b63!important}
+#root .crm-login .portal-intro {background:linear-gradient(125deg,#edf4ff,#fafcff);border-right:1px solid #c7d3e1}
+#root .crm-login .portal-login-form {padding:24px}
+@media(max-width:1100px) {
+ #root .portal-company {grid-template-columns:202px minmax(0,1fr)}
+ #root .portal-company .portal-topbar {padding:10px 16px;gap:10px}
+ #root .portal-company .portal-topbar>.ops-badge {display:none}
+ #root .portal-company .crm-account-summary {max-width:45%;overflow-wrap:anywhere}
+ #root .portal-company .crm-workflow-links {grid-template-columns:repeat(2,minmax(0,1fr))}
+ #root .portal-company .crm-dashboard-grid {grid-template-columns:1fr}
+ #root .portal-company .campaign-admin-grid {grid-template-columns:1fr}
+}
+@media(max-width:700px) {
+ #root .portal-company {grid-template-columns:minmax(0,1fr)}
+ #root .portal-company .portal-sidebar {position:static;height:auto;padding:12px;border-right:0;border-bottom:1px solid var(--op-line);gap:8px}
+ #root .portal-company .portal-sidebar-heading {padding:0;border:0}
+ #root .portal-company .portal-sidebar-heading .repaido-brand {width:125px}
+ #root .portal-company .portal-sidebar>.ops-eyebrow {display:none}
+ #root .portal-company .portal-sidebar[data-menu-open=false]>nav {display:none}
+ #root .portal-company .portal-sidebar[data-menu-open=true]>nav {grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:16px;align-items:start;padding-top:12px}
+ #root .portal-company .portal-sidebar nav button {background:var(--crm-subtle)}
+ #root .portal-company .portal-topbar {position:static;padding:10px 14px}
+ #root .portal-company .crm-account-summary {display:none}
+ #root .portal-company .crm-workspace-search {max-width:none;min-width:0}
+ #root .portal-company .portal-body main {padding:12px 14px 28px}
+ #root .portal-company .portal-page-heading h1 {font-size:1.375rem}
+ #root .portal-company .portal-metrics {grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:10px}
+ #root .portal-company .portal-metrics>button {padding:14px}
+ #root .portal-company .portal-metrics strong {font-size:1.625rem}
+ #root .portal-company .crm-dashboard-panel {padding:14px}
+ #root .portal-company .crm-workflow-links {grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))}
+ #root .portal-company .crm-table-toolbar {padding:12px;gap:8px}
+ #root .portal-company .crm-table-search {min-width:min(100%,160px)!important}
+ #root .portal-company .crm-table-footer {padding:10px 12px}
+ #root .portal-company .crm-table-footer>div {flex-wrap:wrap}
+ #root .portal-company .home-admin-layout {grid-template-columns:1fr}
+ #root .portal-company .support-message-log {height:38dvh}
+}
+:is(.dark,[data-theme=dark]) #root .portal-company {--op-ink:#ecf2fc;--op-muted:#c5d3e5;--op-line:#516782;--op-blue:#9ebff9;--crm-surface:#17283e;--crm-subtle:#1e334d;--crm-active:#2b4566;--crm-control:#8a9eb8;background:#101d2e;color:var(--op-ink)}
+:is(.dark,[data-theme=dark]) #root .portal-company :is(.portal-sidebar,.portal-topbar) {background:var(--crm-surface);border-color:var(--op-line);color:var(--op-ink)}
+:is(.dark,[data-theme=dark]) #root .portal-company .portal-sidebar nav button {color:var(--op-muted);background:transparent}
+:is(.dark,[data-theme=dark]) #root .portal-company .portal-sidebar nav button[aria-current=page] {background:var(--crm-active);color:var(--op-ink)}
+:is(.dark,[data-theme=dark]) #root .portal-company .support-workspace .support-primary {background:#e3efff;color:#102953;border-color:#b6d3ff}
+@media(hover:hover) and (pointer:fine) {
+ #root .portal-company .portal-sidebar nav button:not([aria-current=page]):hover,#root .portal-company .crm-queue-links>button:hover {background:var(--crm-subtle)}
+ #root .portal-company .portal-metrics>button:hover {box-shadow:0 5px 14px #12315e12;transform:translateY(-1px)}
+ #root .portal-company tbody tr:not(.crm-detail-row):hover {background:var(--crm-subtle)}
+}
+@media(prefers-reduced-motion:reduce) {#root .portal-company :is(button,.ops-card,.support-message) {animation:none!important;transition:none!important;transform:none!important}}
+html.reduce-motion #root .portal-company :is(button,.ops-card,.support-message) {animation:none!important;transition:none!important;transform:none!important}
+@layer repaido-brand {#root .portal-company .crm-workspace-search>input {padding-left:38px!important;padding-right:61px!important} #root .portal-company .crm-table-search input {padding-left:38px!important}}
+
+#root .portal-company .crm-table-toolbar label {color:var(--op-ink)}
+
+#root .portal-company .crm-scroll-hint {display:none}
+#root .portal-company .crm-action-cell {position:sticky;right:0;min-width:88px;max-width:110px;background:var(--crm-surface);border-left:1px solid var(--op-line)}
+#root .portal-company thead .crm-action-cell {background:var(--crm-subtle)}
+@media(max-width:700px) {
+ #root .portal-company .crm-scroll-hint {display:block;font-size:.75rem;margin:0;padding:8px 12px;border-bottom:1px solid var(--op-line)}
+ #root .portal-company .crm-action-cell {min-width:54px;max-width:54px;padding:6px}
+ #root .portal-company .crm-row-open {min-width:44px;justify-content:center}
+ #root .portal-company .crm-row-open>span {display:none}
+}
+
+#root .portal-company .campaign-admin-grid.crm-campaign-browse {grid-template-columns:minmax(0,1fr)}
+:is(.dark,[data-theme=dark]) #root .portal-company .support-case-row[aria-pressed=true] small {color:#e7effc}

@@ -121,7 +121,6 @@ import OperationsAdmin from './components/OperationsAdmin';
 import { SparePartsShop } from './components/SparePartsShop';
 import { ShopAdminPortal } from './components/ShopAdminPortal';
 import { B2BMarketplace } from './components/B2BMarketplace';
-import { CompanyAdminPortal } from './components/CompanyAdminPortal';
 import { LocationPickerModal } from './components/LocationPickerModal';
 import PartnerRegistration from './components/PartnerRegistration';
 import BrandTabTransition from './components/BrandTabTransition';

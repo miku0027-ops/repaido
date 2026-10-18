@@ -4,5 +4,7 @@ import {Homes} from '../src/components/Homes';
 import '../src/styles.css';
 import '../src/design-system.css';
 import '../src/customer-layout.css';
+import '../src/components/operations.css';
+import '../src/components/company-crm.css';
 const params=new URLSearchParams(location.search),tab=params.get('tab');
-createRoot(document.getElementById('root')!).render(<div className="repaido-customer-shell"><main>{params.has('admin')?<Homes admin/>:params.has('listing')||params.has('tab')?<Homes initialListingId={params.get('listing')||undefined} initialTab={tab==='mine'||tab==='enquiries'?tab:'browse'}/>:<RentalMarket onSignIn={()=>{}}/>}</main></div>);
+createRoot(document.getElementById('root')!).render(<div className={params.has('admin')?'operations portal-company':'repaido-customer-shell'}><main>{params.has('admin')?<Homes admin/>:params.has('listing')||params.has('tab')?<Homes initialListingId={params.get('listing')||undefined} initialTab={tab==='mine'||tab==='enquiries'?tab:'browse'}/>:<RentalMarket onSignIn={()=>{}}/>}</main></div>);

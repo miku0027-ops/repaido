@@ -1,3 +1,4 @@
+import {AdminTable, AdminStatus} from './AdminTable';
 import {SaveMarketItem} from './SaveMarketItem';
 import {Card} from './Card';
 import {useEffect,useRef,useState} from 'react';
@@ -306,6 +307,11 @@ function MarketDetails({item,onClose,onShare,onSignIn,onMessage,own,onProfile}:{
 }
 export function MarketplaceAdmin(){
  const [rows,setRows]=useState<Item[]>([]),[reports,setReports]=useState<{id:string;listing_id:string;reason:string}[]>([]),[error,setError]=useState(''),[reason,setReason]=useState('');
- const load=async()=>{try{const d=await operation<{listings:Item[];reports:typeof reports}>('/admin/market');setRows(d.listings);setReports(d.reports);}catch(e){setError((e as Error).message);}};useEffect(()=>{void load();},[]);
- return <section><MarketChatModeration/><h2>Community listings</h2><button onClick={()=>void load()}>Refresh</button><label>Moderation reason<textarea value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<div className="market-grid">{rows.map(x=><Card className="ops-card" key={x.id}><h3>{x.name}</h3><p>{x.mode} · {x.status} · fee {x.fee_status}</p>{reports.filter(r=>r.listing_id===x.id).map(r=><p key={r.id}>Report: {r.reason}</p>)}<button disabled={reason.trim().length<10||x.status==='suspended'} onClick={()=>void operation(`/admin/market/${x.id}/hide`,{method:'POST',body:JSON.stringify({reason})}).then(load).catch(e=>setError(e.message))}>Hide listing</button></Card>)}</div></section>;
+ const load=async()=>{setError('');try{const d=await operation<{listings:Item[];reports:typeof reports}>('/admin/market');setRows(d.listings);setReports(d.reports);}catch(e){setError((e as Error).message);}};useEffect(()=>{void load();},[]);
+ return <section><MarketChatModeration/><h2>Community listings</h2><button onClick={()=>void load()}>Refresh</button><label>Moderation reason<textarea value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert">{error}</p>}<AdminTable label="Community listings" rows={rows} rowKey={x=>x.id} rowLabel={x=>x.name} error={!!error} columns={[
+ {key:'name',label:'Listing',value:x=>x.name}, {key:'mode',label:'Type',value:x=>x.mode},
+ {key:'status',label:'Status',value:x=>x.status,render:x=><AdminStatus value={x.status}/>},
+ {key:'fee',label:'Listing access',value:x=>x.fee_status||'Not recorded'},
+ {key:'reports',label:'Reports',value:x=>reports.filter(r=>r.listing_id===x.id).length,numeric:true},
+ ]} renderDetail={x=><><h3>{x.name}</h3>{reports.filter(r=>r.listing_id===x.id).map(r=><p key={r.id}>Report: {r.reason}</p>)}<button disabled={reason.trim().length<10||x.status==='suspended'} onClick={()=>void operation(`/admin/market/${x.id}/hide`,{method:'POST',body:JSON.stringify({reason})}).then(load).catch(e=>setError(e.message))}>Hide listing</button></>}/></section>;
 }
