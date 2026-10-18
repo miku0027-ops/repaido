@@ -19,13 +19,13 @@ export interface CommunityOpportunity extends OpportunityReference {
   kind:'tender'|'job'|'product';title:string;description:string;imageUrl:string;trade:string;
   city:string;status:string;ownerId?:string;ownerName?:string;pricePaise?:number;rateUnit?:'day';openings?:number;budgetPaise?:number;
   condition?:'new'|'refurbished'|'second_hand'|string;refurbishment?:Record<string,unknown>;
-  saved?:boolean;shareable?:boolean;available?:boolean;deadline?:number;skills?:string[];createdAt?:number;
+  saved?:boolean;shareable?:boolean;available?:boolean;summaryOnly?:boolean;deadline?:number;skills?:string[];createdAt?:number;
   prime?:{active:boolean;paid_placement?:boolean;endsAt?:number|null};
   action:{route:string;source:OpportunitySource;id:string};
   details?:Record<string,unknown>;
 }
 export interface OpportunityFilters {
-  kind?:'all'|'tenders'|'jobs'|'products';mode?:'all'|'mine'|'shareable'|'saved';
+  kind?:'all'|'tenders'|'requirements'|'jobs'|'products';mode?:'all'|'mine'|'shareable'|'saved';
   trade?:Trade|'all';city?:string;cursor?:string;limit?:number;
 }
 export interface OpportunityPage {items:CommunityOpportunity[];nextCursor:string|null;indexing?:boolean;}

@@ -10,6 +10,7 @@ import {
 } from '../../services/repaidiansService';
 import type {CommunityMember,CommunityPost,CommunityReel,CommunityStory,CommunitySnapshot,CommunityTab,CommunityTender,CommunityOpportunity,OpportunityReference,OpportunitySource,StudioKind,Trade} from '../../types/repaidians';
 import {Feed} from './Feed';
+import {ContractRequirementDiscovery} from '../ContractDiscovery';
 import {OpportunityCard} from './OpportunityCard';
 import {StoriesTray,StoryViewer} from './Stories';
 import {Reels} from './Reels';
@@ -341,8 +342,9 @@ export default function RepaidiansModal({account,name,city,onClose,onBook,onSign
           {['feed','reels','tenders'].includes(tab)&&<div className="rp-genres" aria-label="Publication filters"><button aria-label="Refresh feed" title="Refresh feed" disabled={feedBusy||moreBusy} aria-busy={feedBusy} onClick={refreshContent}><RefreshCw size={20} aria-hidden="true"/></button><button aria-pressed={genre==='all'} onClick={()=>selectGenre('all')}>All trades</button>{orderedTrades.map(trade=><button key={trade.id} aria-pressed={genre===trade.id} onClick={()=>selectGenre(trade.id)}>{trade.name}</button>)}</div>}
           {['feed','reels','tenders'].includes(tab)&&feedBusy&&!activeItems.length&&<p className="rp-loading" role="status">Loading publications…</p>}
 
-          {((tab==='feed'&&mode==='all')||(tab==='opportunities'&&workView==='market'))&&<TransportRail accountKey={account} location={transportLocation} onLocation={onTransportLocation} onSignIn={()=>signed()} onSearch={onTransportSearch}/> }
+          {((tab==='feed'&&mode==='all')||(tab==='opportunities'&&workView==='market'))&&<TransportRail smallCards accountKey={account} location={transportLocation} onLocation={onTransportLocation} onSignIn={()=>signed()} onSearch={onTransportSearch}/> }
 
+          {tab==='feed'&&mode==='all'&&professional&&<ContractRequirementDiscovery accountKey={account} city={city} onOpen={id=>chooseWork('contracts',{contractId:id})}/>}
           {tab==='feed'&&!['jobs','applications'].includes(mode)&&(!feedBusy||activeItems.length>0)&&<div id="rp-feed-panel" role="tabpanel" aria-labelledby={'rp-feed-tab-'+mode}><Feed now={clockNow} professionalActions={professional} renderAttachment={attachment} suspended={!!(recipient||comments||storyId||studio||upgrade||detail||confirm)} posts={activeItems as CommunityPost[]} activity={state.activity} memberFor={memberFor} currentMemberId={state.member.id} onProfile={openProfile} onLike={like} onSave={save} onComments={id=>{if(professional&&signed())setComments(id);}} onShare={post=>void share(post)} onCreate={()=>create()} onDelete={id=>setConfirm({kind:'delete',id})} onReport={id=>{if(signed())setConfirm({kind:'report',id});}}/></div>}
 
           {tab==='live'&&<LiveVideoHub account={state.member.id} professional={professional} onSignIn={()=>signed()}/>}

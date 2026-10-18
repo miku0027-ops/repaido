@@ -1,0 +1,8 @@
+/* Shared browse controls: compact surfaces with full touch and focus targets. */
+#root select.ui-compact-select{min-width:0;min-height:44px;line-height:1.5;border-radius:10px;background-color:color-mix(in srgb,var(--ui-link) 4%,var(--ui-surface));color:var(--ui-ink);border-color:var(--ui-control);box-shadow:inset 0 1px 0 #ffffff20;transition:border-color 150ms ease,box-shadow 150ms ease}
+#root select.ui-compact-select:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px;border-color:var(--ui-link)}
+#root label[data-active=true]>select.ui-compact-select{background-color:color-mix(in srgb,var(--ui-link) 8%,var(--ui-surface));border-color:var(--ui-link)}
+@layer repaido-brand{#root select.ui-compact-select{font-size:.75rem!important;min-height:44px!important;padding-block:8px!important}}
+@media(hover:hover) and (pointer:fine){#root select.ui-compact-select:hover{border-color:var(--ui-link);box-shadow:0 2px 7px #14285810}}
+@media(prefers-reduced-motion:reduce){#root select.ui-compact-select{transition:none}}
+html.reduce-motion #root select.ui-compact-select{transition:none}

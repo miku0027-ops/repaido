@@ -3,3 +3,35 @@
 .transport-discovery button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:1px solid var(--ui-control,#9daac1);border-radius:12px;padding:10px 12px;background:var(--ui-surface,#fff);color:var(--ui-ink,#101a33);font:inherit;font-weight:600}.transport-discovery button:focus-visible,.transport-card-rail:focus-visible{outline:3px solid #1555c3;outline-offset:3px}.transport-discovery button:disabled{opacity:.7}.transport-caption{line-height:1.6;margin:10px 0}.transport-card-rail{display:flex;gap:12px;overflow-x:auto;padding:4px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:thin}.transport-card{flex:0 0 clamp(240px,75%,300px);max-width:100%;display:flex;flex-direction:column;gap:8px;border:1px solid var(--ui-line,#c4cede);border-radius:16px;padding:16px;background:var(--ui-subtle,#f3f6fb);scroll-snap-align:start;overflow-wrap:anywhere;box-sizing:border-box}.transport-card h3{font-size:1rem;font-weight:650;margin:0;line-height:1.5}.transport-card p{margin:0;font-size:.85rem;line-height:1.6;color:var(--ui-muted,#394963)}.transport-type{display:flex;gap:8px;align-items:center;font-size:.8rem;font-weight:600}.transport-price{font-size:1.1rem;margin-top:auto}.transport-card>button{margin-top:6px;background:#142953;color:#fff;border-color:#142953}.transport-empty{font-size:.9rem;line-height:1.7}.transport-confirmation{padding:12px;border-radius:12px;background:#e6f3ea;color:#114126;border:1px solid #43845b}
 @media(max-width:360px){.transport-discovery{padding:14px}.transport-discovery>header{align-items:flex-start;flex-wrap:wrap}.transport-card{flex-basis:100%}}
 [data-theme=dark] .transport-discovery{--ink:#f2f5ff;--muted:#c2cddd;--line:#60748f;--surface:#111e34;--surface-raised:#192b45}[data-theme=dark] .transport-card>button{background:#f2f5ff;color:#142953;border-color:#f2f5ff}
+
+/* The community feed uses a small rail; full transport workspaces keep their layout. */
+.rp-shell .transport-discovery-small{padding:12px;margin:12px 0;border-radius:18px;background:var(--ui-subtle);box-shadow:inset 0 1px 0 #ffffff40}
+.rp-shell .transport-discovery-small>header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+.rp-shell .transport-discovery-small h2{font-size:.9375rem;line-height:1.4;letter-spacing:-.02em;font-weight:600;margin:0}
+.rp-shell .transport-discovery-small .transport-rail-controls{flex-wrap:nowrap;gap:2px}
+.rp-shell .transport-discovery-small .transport-rail-controls button{padding:0;width:44px;height:44px;min-height:44px!important;min-width:44px!important;border:0;border-radius:12px;background:transparent;color:var(--ui-ink)}
+.rp-shell .transport-discovery-small .transport-rail-controls button:disabled{opacity:.35;cursor:default}
+.rp-shell .transport-discovery-small .transport-caption{font-size:.625rem;line-height:1.5;margin:0 0 5px;color:var(--ui-muted)}
+.rp-shell .transport-discovery-small .transport-card-rail{gap:10px;padding:5px 3px 12px;scroll-padding-inline:3px;overscroll-behavior-inline:contain;align-items:stretch;perspective:1000px;scrollbar-color:var(--ui-control) transparent}
+.rp-shell .transport-discovery-small .transport-mini-card{--card-radius:15px;--card-padding:10px;--card-shadow:0 3px 0 color-mix(in srgb,var(--ui-line) 70%,var(--ui-surface)),0 7px 15px #17285c16,inset 0 1px 0 #ffffffb0;--mini-accent:#183d70;--mini-wash:#eaf2ff;position:relative;display:grid;grid-template-rows:auto auto auto 1fr auto auto;flex:0 0 min(100%,clamp(11.5rem,42%,12.75rem));gap:5px;padding:11px;min-width:0;transform-origin:50% 85%;scroll-snap-align:start}
+.rp-shell .transport-mini-card[data-transport-kind=shared]{--mini-accent:#185a48;--mini-wash:#e7f6ef}
+.rp-shell .transport-mini-card[data-transport-kind=rental]{--mini-accent:#513a7d;--mini-wash:#f0ebfc}
+.transport-mini-top{display:flex;align-items:center;gap:8px;min-width:0}
+.transport-mini-symbol{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:10px;border:1px solid color-mix(in srgb,var(--mini-accent) 30%,transparent);background:linear-gradient(145deg,var(--ui-surface),var(--mini-wash));color:var(--mini-accent);box-shadow:0 2px 0 color-mix(in srgb,var(--mini-accent) 20%,transparent),0 4px 7px #1428580d}
+.rp-shell .transport-mini-card .transport-type{font-size:.625rem;line-height:1.4;font-weight:600;gap:0;min-width:0}
+.rp-shell .transport-mini-card h3{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:.8125rem;line-height:1.4;font-weight:600;letter-spacing:-.015em;margin:3px 0 0;min-height:2.8em}
+.rp-shell .transport-mini-card p{font-size:.625rem;line-height:1.5;margin:0;color:var(--ui-muted)}
+.rp-shell .transport-mini-owner,.rp-shell .transport-mini-note{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transport-mini-facts{min-width:0}
+.transport-mini-distance{font-size:.625rem;color:var(--mini-accent);line-height:1.5}
+.transport-mini-action{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:3px;border-top:1px solid var(--ui-line);padding-top:6px;min-width:0}
+.rp-shell .transport-mini-action .transport-price{font-size:.875rem;line-height:1.4;margin:0;min-width:0;font-weight:700;overflow-wrap:normal}
+.rp-shell .transport-mini-action .transport-price small{display:block;font-size:.625rem;font-weight:400;line-height:1.4;color:var(--ui-muted)}
+.rp-shell .transport-mini-action button{flex:none;gap:3px;padding:7px 6px;min-width:44px!important;min-height:44px!important;border:1px solid var(--ui-control);border-radius:10px;font-size:.625rem;font-weight:600;color:var(--ui-ink);background:var(--ui-subtle);box-shadow:inset 0 1px 0 #ffffff20}
+.rp-shell .transport-discovery-small :is(button,.transport-card-rail):focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+[data-theme=dark] .rp-shell .transport-mini-card{--card-shadow:0 3px 0 #ffffff0e,0 9px 16px #0004;--mini-accent:#c8dcff;--mini-wash:#1f304d}
+[data-theme=dark] .rp-shell .transport-mini-card[data-transport-kind=shared]{--mini-accent:#c5f1df;--mini-wash:#183d32}
+[data-theme=dark] .rp-shell .transport-mini-card[data-transport-kind=rental]{--mini-accent:#e1d3ff;--mini-wash:#332746}
+@media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){.rp-shell .transport-mini-card{transition:transform 180ms ease,box-shadow 180ms ease}.rp-shell .transport-mini-card:hover{transform:translateY(-2px) rotateX(2deg) rotateY(-1deg);--card-shadow:0 4px 0 color-mix(in srgb,var(--ui-line) 70%,var(--ui-surface)),0 11px 20px #17285c23;z-index:1}}
+@media(prefers-reduced-motion:reduce){.rp-shell .transport-mini-card{transform:none!important;transition:none!important}}
+html.reduce-motion .rp-shell .transport-mini-card{transform:none!important;transition:none!important}

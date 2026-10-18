@@ -40,7 +40,7 @@ def test_publication_reaches_matching_contractor_and_community_without_private_s
 
 
 @pytest.mark.parametrize('changes', [dict(categories=['plumber']), dict(city='Cuttack'),
-    dict(experience_years=0), dict(contractor_verified=False), dict(status='pending')])
+    dict(experience_years=0), dict(status='pending')])
 def test_changed_professional_eligibility_removes_saved_and_discovery_cards(custom_api, changes):
     q = custom_query(custom_api)
     path = '/repaidians/opportunities/contract/' + q['id']
@@ -86,3 +86,48 @@ def test_existing_live_queries_are_reindexed_after_old_backfill_finished(custom_
     assert marker['version'] == 2
     assert bridge.lane('contract', trade='ac', city='Balasore') in marker['channels']
     assert get('rp_opportunity_backfill', bridge.backfill_key('contract'))['done']
+
+
+def test_agents_discover_safe_requirements_without_workforce_or_site_pin(custom_api):
+    q=custom_query(custom_api)
+    put('contract_tenders',q['id'],{**get('contract_tenders',q['id']),'location':None,'workforce_requirements':[]})
+    put('workers','worker2',{**get('workers','worker2'),'contractor_verified':False})
+    response=custom_api.get('/repaidians/opportunities?kind=requirements',headers=auth('worker2'))
+    assert response.status_code==200,response.text
+    card=next(card for card in response.json()['items'] if card['id']==q['id'])
+    assert card['summaryOnly'] and card['action']['route']=='custom_contracts'
+    assert not {'site','location','scope','bids','terms','details','skills'}&card.keys()
+    assert 'PRIVATE exact customer entrance' not in response.text
+    assert 'PRIVATE Detailed campus' not in response.text
+    assert custom_api.get('/operations/custom-contracts/queries/'+q['id'],headers=auth('worker2')).status_code==404
+    assert custom_api.post('/operations/custom-contracts/agent-opportunities',headers=auth('worker2'),json={}).status_code==422
+    contractor=custom_api.get('/repaidians/opportunities?kind=requirements',headers=auth('worker')).json()['items'][0]
+    assert not contractor.get('summaryOnly')
+    put('workers','worker2',{**get('workers','worker2'),'city':'Cuttack'})
+    assert not custom_api.get('/repaidians/opportunities?kind=requirements',headers=auth('worker2')).json()['items']
+
+
+def test_missing_legacy_contract_references_are_repaired_in_bounded_worker_pages(custom_api):
+    import custom_contracts
+    q=custom_query(custom_api)
+    def remove(u):
+        for source in [custom_contracts.lane(q['work_trade'],q['city']),custom_contracts.social.lane('custom_contract_owned',q['owner_id'])]:
+            u.conn.execute('DELETE FROM operation_records WHERE kind=? AND id=?',(source,q['id']))
+    main.operations_store.run(remove)
+    assert not custom_api.get('/operations/custom-contracts/queries?scope=matched',headers=auth('worker')).json()['items']
+    for _ in range(20):
+        progress=custom_contracts.backfill_queries(main,limit=1)
+        assert progress['indexed']<=1
+        if progress['complete']:break
+    assert progress['complete']
+    assert q['id'] in {row['id'] for row in custom_api.get('/operations/custom-contracts/queries?scope=matched',headers=auth('worker')).json()['items']}
+
+
+def test_mixed_work_summary_reaches_related_trade_without_granting_contract_access(custom_api):
+    q=custom_query(custom_api)
+    put('contract_tenders',q['id'],{**get('contract_tenders',q['id']),'work_trade':'civil','skills':['Civil engineering','Electrical engineering']})
+    put('workers','worker2',{**get('workers','worker2'),'categories':['electrician']})
+    cards=custom_api.get('/repaidians/opportunities?kind=requirements',headers=auth('worker2')).json()['items']
+    assert len(cards)==1 and cards[0]['id']==q['id'] and cards[0]['summaryOnly']
+    assert custom_api.get('/operations/custom-contracts/queries/'+q['id'],headers=auth('worker2')).status_code==404
+    assert not custom_api.get('/operations/custom-contracts/queries?scope=matched',headers=auth('worker2')).json()['items']

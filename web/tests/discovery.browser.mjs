@@ -19,6 +19,7 @@ try{
  await page.route('**/*',async route=>{
   const url=new URL(route.request().url());if(url.hostname!=='127.0.0.1')return route.abort();
   if(url.pathname==='/api/catalog')return route.fulfill({json:{services,categories:[{id:'cleaning',name:'Home Cleaning'},{id:'electrician',name:'Electrical'},{id:'plumber',name:'Plumbing'},{id:'ac',name:'AC & Appliances'}]}});
+  if(url.pathname.startsWith('/api/operations/hiring/availability/'))return route.fulfill({json:{availability:{state:'not_confirmed',label:'Schedule needs confirmation',available_at:null,estimated:true,checked_at:Date.now()/1000}}});
   if(url.pathname==='/api/operations/hiring/leaderboard'){
    const b=route.request().postDataJSON();requests.push(b);
    if(!b.category&&malformedOverview)return route.fulfill({json:{}});
@@ -55,7 +56,7 @@ try{
   assert(dimensions.controls.every(control=>control.height>=43.9&&control.x>=dimensions.x-1&&control.right<=dimensions.right+1),'Dropdowns keep fully contained 44px touch targets');
   assert(dimensions.controls.every(control=>control.textWidth<=control.textSpace+1),'The selected category and sort labels remain fully visible, including at 200% text');
   assert(dimensions.height<=(enlarged?240:190),'Catalogue controls replace the tall category carousel');
-  if(!enlarged&&dimensions.viewport>=390)assert(Math.abs(dimensions.controls[0].y-dimensions.controls[1].y)<1,'Category and sort remain on one row on standard phones');
+  if(!enlarged&&dimensions.viewport>=320)assert(Math.abs(dimensions.controls[0].y-dimensions.controls[1].y)<1,'Category and sort remain on one row on standard phones');
   assert.equal(await page.locator('.service-controls-compact .service-story,.service-controls-compact .stories-heading').count(),0,'No duplicate photo rail or carousel arrows');
  };
  const filterDialog=()=>page.getByRole('dialog',{name:'Filters & sort',exact:true});

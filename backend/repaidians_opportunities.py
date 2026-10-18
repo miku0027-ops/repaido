@@ -208,11 +208,15 @@ def resolve(u, source, key, actor):
         if row.get('status') != 'open' or row.get('deadline', 0) <= now or row.get('ends_at', 0) <= now:
             return None
         if row.get('source_kind') == 'customer_custom_query':
-            from custom_contracts import access, match
-            if not uid or (uid != owner and not match(u, row, uid)['eligible']):
+            from custom_contracts import access, match, professional, summary_match
+            if not uid or (uid != owner and not summary_match(u, row, uid)):
                 return None
             try:
-                access(u, row, actor_user(actor))
+                if uid != owner and not match(u, row, uid)['eligible']:
+                    professional(u, actor_user(actor))
+                    card['summaryOnly'] = True
+                else:
+                    access(u, row, actor_user(actor))
             except HTTPException as error:
                 if error.status_code in (402, 403, 404):
                     return None
@@ -350,9 +354,9 @@ def page(u, actor, kind='all', trade='all', city='', mode='all', cursor=None, li
     uid = actor_user(actor).get('id', '')
     if mode != 'all':
         pro(u, actor)
-    filters = digest(json.dumps([kind, trade, city.casefold(), mode, uid if mode != 'all' else '', INDEX_VERSIONS]))
+    filters = digest(json.dumps([kind, trade, city.casefold(), mode, uid if mode != 'all' or kind=='requirements' else '', INDEX_VERSIONS]))
     positions = _token_decode(cursor, filters)
-    sources = [s for s in SOURCE_KINDS if kind == 'all' or (kind == 'tenders' and s == 'contract')
+    sources = [s for s in SOURCE_KINDS if kind == 'all' or (kind in ('tenders','requirements') and s == 'contract')
                or (kind == 'jobs' and s == 'career') or (kind == 'products' and s in ('inventory', 'second_hand'))]
     items, more = [], False
     seen = set()
@@ -399,7 +403,7 @@ def page(u, actor, kind='all', trade='all', city='', mode='all', cursor=None, li
                       or (stream == 'purchased' and row.get('origin') == 'legacy' and not pos.get('purchaseLegacy'))):
                     continue
                 card = resolve(u, source, key, actor)
-                if (not card or (trade != 'all' and card['trade'] != trade) or (city and card['city'].casefold() != city.casefold())
+                if (not card or (kind=='requirements' and card['action']['route']!='custom_contracts') or (trade != 'all' and card['trade'] != trade) or (city and card['city'].casefold() != city.casefold())
                         or (mode == 'mine' and card['ownerId'] != uid) or (mode == 'shareable' and not card['shareable'])
                         or (mode == 'saved' and not card['saved']) or ref_key(source, key) in seen):
                     continue
@@ -443,7 +447,7 @@ def install(core):
         return core.repaidians_actor(request, response, authorization)
 
     @router.get('')
-    def board(kind: Literal['all', 'tenders', 'jobs', 'products'] = 'all', trade: str = 'all', city: str = '',
+    def board(kind: Literal['all', 'tenders', 'requirements', 'jobs', 'products'] = 'all', trade: str = 'all', city: str = '',
               mode: Literal['all', 'mine', 'shareable', 'saved'] = 'all', cursor: str | None = None, limit: int = 20, a=Depends(actor)):
         from repaidians import TRADES
         if trade not in ('all', *TRADES) or len(city) > 80 or not 1 <= limit <= 50:

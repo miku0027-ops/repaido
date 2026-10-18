@@ -184,6 +184,20 @@ def backfill_contractors(core, limit=24):
     return core.operations_store.run(batch)
 
 
+def backfill_queries(core, limit=24):
+    """Repair older requirement discovery references in bounded worker pages."""
+    def batch(u):
+        checkpoint=u.get('custom_contract_index_state','queries-v1') or {'after':'','complete':False}
+        if checkpoint['complete']:return {'indexed':0,'complete':True}
+        size=min(24,max(1,limit));rows=native_scan(u,'contract_tenders',checkpoint['after'],size)
+        for key,row in rows:
+            if row.get('source_kind')==SOURCE:index_record(u,'contract_tenders',key,row)
+        checkpoint.update(after=rows[-1][0] if rows else checkpoint['after'],complete=len(rows)<size)
+        u.put('custom_contract_index_state','queries-v1',checkpoint)
+        return {'indexed':len(rows),'complete':checkpoint['complete']}
+    return core.operations_store.run(batch)
+
+
 def lane(trade, city):
     return 'custom_contract_queries_' + social.digest(json.dumps([trade, normalized(city)], separators=(',', ':')))
 
@@ -217,8 +231,8 @@ def index_record(u, kind, key, row):
         ensure_tender_size(row)
         stamp = int(row['created_at'] * 1000)
         entry = {'id': key, 'sortKey': social.sort_key(stamp, key)}
-        u.put(lane(row['work_trade'], row['city']), key, entry)
-        u.put(social.lane('custom_contract_owned', row['owner_id']), key, entry)
+        for source in (lane(row['work_trade'],row['city']),social.lane('custom_contract_owned',row['owner_id'])):
+            if u.get(source,key)!=entry:u.put(source,key,entry)
 
 
 def member_access(u, uid):
@@ -271,6 +285,18 @@ def fit(u, query, uid):
         experience=1.0 if worker.get('experience_years', 0) >= query.get('minimum_experience', 0) else 0.0)
     return dict(score=round(40*components['trade']+30*components['city']+20*components['skills']+10*components['experience'],2),
         model='custom-contract-fit-v1',components=components)
+
+
+def summary_match(u,query,uid):
+    """Related requested skills permit discovery, never bidding or private access."""
+    if match(u,query,uid,contractor=False)['eligible']:return True
+    worker=u.get('workers',uid) or {}
+    related={trade_for(skill) for skill in query.get('skills',[])}-{'spares'}
+    return bool(uid!=query['owner_id'] and worker.get('status')=='approved'
+        and worker_trades(worker)&related and normalized(worker.get('city'))==normalized(query['city'])
+        and worker.get('experience_years',0)>=query.get('minimum_experience',0)
+        and not social.blocked(u,uid,query['owner_id'])
+        and not (u.get('network_suspensions',uid) or {}).get('active'))
 
 
 def get_query(u, qid):
@@ -500,8 +526,9 @@ def process_notifications(core, limit=4):
     """A durable bounded candidate cursor; no synchronous recipient fan-out."""
     from repaidians_work import active_query
     indexing = backfill_contractors(core)
+    queries_indexing = backfill_queries(core)
     if not indexing['complete']:
-        return {'delivered': 0, 'queries': 0, 'indexing': indexing}
+        return {'delivered': 0, 'queries': 0, 'indexing': indexing, 'queries_indexing': queries_indexing}
     rows = core.operations_store.run(lambda u: active_query(u, 'custom_contract_match_queue', min(16, limit)))
     delivered = 0
     for entry in rows:
@@ -526,7 +553,7 @@ def process_notifications(core, limit=4):
             u.put('custom_contract_match_queue', entry['id'], queue)
             return count
         delivered += core.operations_store.run(batch)
-    return {'delivered': delivered, 'queries': len(rows), 'indexing': indexing}
+    return {'delivered': delivered, 'queries': len(rows), 'indexing': indexing, 'queries_indexing': queries_indexing}
 
 
 def install(core):

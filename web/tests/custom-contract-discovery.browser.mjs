@@ -25,6 +25,7 @@ async function newPage(account,mode='discovery',width=390){
  const context=await browser.newContext({viewport:{width,height:850},reducedMotion:'reduce'});
  await context.addInitScript(token=>{if(token)localStorage.setItem('repaido.token',token);},account?.token||'');
  await context.route('**/api/**',async route=>{const url=new URL(route.request().url());const response=await route.fetch({url:apiOrigin+url.pathname+url.search});await route.fulfill({response});});
+ await context.routeWebSocket('**',socket=>socket.close());
  const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/tests/contracts-preview.html?mode='+mode);return page;
 }
@@ -40,7 +41,7 @@ async function layout(page){
  });if(result.length){await mkdir(resolve(web,'test-results'),{recursive:true});await page.screenshot({path:resolve(web,'test-results/contracts-layout-failure.png')});console.log(await page.locator('dialog[open]').evaluateAll(nodes=>nodes.map(node=>({width:node.clientWidth,scroll:node.scrollWidth,children:[...node.querySelectorAll('*')].filter(child=>child.getBoundingClientRect().right>node.getBoundingClientRect().right+1).map(child=>({tag:child.tagName,class:child.className,width:child.getBoundingClientRect().width,scroll:child.scrollWidth})).slice(0,12)}))));}assert.deepEqual(result,[]);
 }
 async function audit(page){
- await page.addScriptTag({path:require.resolve('axe-core')});
+ if(!await page.evaluate(()=>Boolean(window.axe)))await page.addScriptTag({path:require.resolve('axe-core')});
  const result=await page.evaluate(()=>window.axe.run(document.querySelector('main'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}}));
  assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[]);
 }
@@ -57,6 +58,11 @@ try{
  // entering legacy tender endpoints or exposing its exact site.
  const publishedAt=Date.now()/1000;
  const custom=(await api('/operations/custom-contracts/queries',owner,'POST',{request_id:randomUUID(),title:'Campus lighting replacement request',sector:'Education',work_trade:'electrician',city:'Balasore',area:'Campus neighbourhood',site:'PRIVATE exact gate and room 401',scope:'Replace agreed campus lights and inspect the electrical safety of the installation.',skills:['Electrical inspection'],minimum_experience:2,starts_at:publishedAt+86400,ends_at:publishedAt+172800,deadline:publishedAt+3600,budget_paise:900000,terms:'Complete the agreed electrical scope with inspected work and documented safety.'},201)).query;
+ const agent=await register('Approved Agent');fixture('workers',agent.user.id,{...professional(contractor),id:agent.user.id,name:agent.user.name,contractor_verified:false});
+ const agentFeed=await newPage(agent,'community&feed=1');
+ const requirement=agentFeed.getByRole('region',{name:'Customer contract requirements',exact:true});await requirement.getByRole('heading',{name:custom.title,exact:true}).waitFor();await requirement.getByRole('button',{name:'View requirement',exact:true}).click();
+ await agentFeed.locator('.contract-requirement-summary').getByRole('heading',{name:custom.title,exact:true}).waitFor();assert.equal(await agentFeed.getByRole('button',{name:'Submit private proposal',exact:true}).count(),0);assert(!(await agentFeed.locator('.contract-requirement-summary').innerText()).includes('PRIVATE exact gate'));await agentFeed.getByRole('button',{name:'Explore workforce openings',exact:true}).click();await agentFeed.getByRole('region',{name:'Customer contract requirements',exact:true}).getByRole('heading',{name:custom.title,exact:true}).waitFor();await agentFeed.context().close();
+ const ownerList=await newPage(owner,'customer');await ownerList.locator('.cc-query-card').getByRole('heading',{name:custom.title,exact:true}).waitFor();assert.equal(await ownerList.getByText('Balasore, Balasore',{exact:true}).count(),0);for(const width of [320,477,768])for(const theme of ['light','dark'])for(const scale of [100,200]){await ownerList.setViewportSize({width,height:850});await ownerList.evaluate(({theme,scale})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=scale+'%';},{theme,scale});assert.equal(await ownerList.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);await audit(ownerList);}await ownerList.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});await ownerList.locator('.cc-query-details>summary').click();await ownerList.locator('.cc-query-details').getByText('Replace agreed campus lights and inspect the electrical safety of the installation.',{exact:true}).waitFor();await ownerList.locator('.cc-query-card').getByRole('button',{name:'Review proposals',exact:true}).click();await ownerList.getByRole('heading',{name:'Private contractor proposals',exact:true}).waitFor();await ownerList.context().close();
  const tenderDesk=await newPage(contractor,'workspace&tab=Tenders');
  const matched=tenderDesk.getByRole('region',{name:'Matched customer contracts'});
  await matched.getByRole('heading',{name:custom.title,exact:true}).waitFor();
@@ -105,6 +111,7 @@ try{
  await visible.waitFor();
  await api('/operations/custom-contracts/queries/'+custom.id+'/commands',owner,'POST',{request_id:randomUUID(),expected_version:ownerView.query.version,action:'close'});
  await refreshing.getByRole('button',{name:'Refresh opportunities',exact:true}).click();await visible.waitFor({state:'hidden'});
+ const closedRecord=await newPage(contractor,'agent&contract='+custom.id);await closedRecord.getByRole('heading',{name:custom.title,exact:true}).waitFor();await closedRecord.getByRole('heading',{name:'Your submitted proposals',exact:true}).waitFor();await closedRecord.context().close();
  for(const width of [320,465,1280]){await market.setViewportSize({width,height:850});await layout(market);}
  await mkdir(resolve(web,'test-results'),{recursive:true});await market.screenshot({path:resolve(web,'test-results/custom-contract-discovery-phone.png')});
  for(const page of [tenderDesk,market,community,ownerCommunity,agentOwner,refreshing])await page.context().close();

@@ -1,0 +1,22 @@
+.cc-query-card{--card-radius:19px;--card-padding:14px;--card-shadow:0 3px 0 color-mix(in srgb,var(--ui-line) 65%,var(--ui-surface)),0 10px 24px #122b4c0d;min-width:0;position:relative}
+.cc-query-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.cc-query-heading>small{font-size:.625rem;line-height:1.5;color:var(--ui-muted)}
+.cc-query-card .cc-status{font-size:.625rem;padding:5px 8px;border-radius:8px;line-height:1.5}
+.cc-query-card .cc-facts{gap:5px 12px;font-size:.6875rem;line-height:1.5;margin:8px 0}
+.cc-query-card .cc-facts span{min-width:0}.cc-query-card .cc-facts svg{flex:none}
+.cc-query-budget{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 12px;margin:10px 0;border:1px solid var(--ui-line);border-radius:12px;background:linear-gradient(125deg,var(--ui-subtle),var(--ui-surface))}
+.cc-query-budget>span{font-size:.625rem;color:var(--ui-muted)}.cc-query-budget>strong{font-size:1.125rem;line-height:1.4;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.cc-query-card .cc-query-summary{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cc-query-card:has(.cc-query-details[open]) .cc-query-summary{display:none}
+.cc-query-details{border-bottom:1px solid var(--ui-line);margin:6px 0 10px}
+.cc-query-details>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;list-style:none;min-height:44px;font-size:.75rem;font-weight:600;color:var(--ui-link)}.cc-query-details>summary::-webkit-details-marker{display:none}.cc-query-details[open]>summary svg{transform:rotate(180deg)}
+.cc-query-card .cc-query-details p{font-size:.8125rem;line-height:1.6}.cc-query-card .cc-query-details .cc-skills{margin:8px 0 12px}.cc-query-card .cc-skills li{font-size:.625rem;border-radius:7px}
+.cc-query-stats{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;color:var(--ui-muted);font-size:.625rem;line-height:1.5}.cc-query-stats span{display:inline-flex;gap:4px;align-items:center}.cc-query-stats strong{color:var(--ui-ink)}
+.cc-query-details>summary:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px;border-radius:7px}
+.cc-hub .cc-lifecycle-tabs{display:flex;gap:6px;overflow:auto;padding:4px;scrollbar-width:thin;margin:10px 0 14px;background:var(--ui-subtle);border-radius:13px;min-width:0}
+.cc-hub .cc-lifecycle-tabs button{flex:1 0 max-content;min-height:44px!important;padding:8px 10px;font-size:.75rem;white-space:nowrap;word-break:normal;overflow-wrap:normal;border-radius:10px;gap:6px}
+.cc-hub .cc-heading{gap:10px;align-items:center}.cc-hub .cc-heading p{font-size:.75rem;margin:4px 0 0;line-height:1.5}.cc-hub .cc-heading .cc-actions{gap:6px}.cc-hub .cc-heading .cc-primary{font-size:.75rem;min-height:44px!important;padding:8px 12px}
+@layer repaido-brand{.cc-query-card>.cc-query-summary{font-size:.8125rem!important;line-height:1.6!important;margin:8px 0!important}.cc-query-card>.cc-actions{padding-top:10px!important;margin-top:10px!important}.cc-query-card>.cc-actions>button{min-height:44px!important;padding:9px 12px!important;font-size:.75rem!important}}
+@media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){.cc-query-card{transition:transform 180ms ease,box-shadow 180ms ease}.cc-query-card:hover{transform:translateY(-2px);--card-shadow:0 4px 0 var(--ui-line),0 15px 27px #122b4c17}}
+@media(prefers-reduced-motion:reduce){.cc-query-card,.cc-query-details svg{transform:none!important;transition:none!important}}
+html.reduce-motion .cc-query-card{transform:none!important;transition:none!important}

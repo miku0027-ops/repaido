@@ -1,3 +1,4 @@
+import './compact-controls.css';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ArrowRight,Check,ChevronDown,MapPin,Search,ShieldCheck,Star,Wrench} from '../icons';
 import {InteractionMotion} from './InteractionMotion';
@@ -67,7 +68,7 @@ export function QuickRepairFinder({location,accountKey,onLocation,onBook,onHome,
   <div className="quick-repair-categories" role="group" aria-label="Repair category">{categories.map(({id,label,photo})=><button key={id} aria-pressed={request.category===id} onClick={()=>chooseCategory(id)}><span className="quick-repair-category-photo" aria-hidden="true"><ServiceImage service={photo} className="quick-repair-category-image" decorative/>{request.category===id&&<span className="quick-repair-category-check"><Check size={12}/></span>}</span><span>{label}</span></button>)}</div>
   <details className="quick-repair-ideas"><summary>Try a quick search<ChevronDown size={14} aria-hidden="true"/></summary><div className="quick-repair-examples" role="group" aria-label="Repair ideas">{examples.map(item=><button key={item.category} aria-pressed={request.query===item.query} onClick={()=>run(item.query,item.category)}>{item.label}<ArrowRight size={14} aria-hidden="true"/></button>)}</div></details>
   {!valid&&<button className="discovery-area-button" onClick={onLocation}><MapPin size={16} aria-hidden="true"/>Set service location<ArrowRight size={16} aria-hidden="true"/></button>}
-  {valid&&<div className="quick-repair-result-header"><h3>{label||'Matching professionals'}</h3><label className="quick-repair-filter"><span className="sr-only">Professional type</span><select aria-label="Professional type" value={role} onChange={e=>{touched.current=true;setRole(e.target.value);setExpanded(false);}}><option value="">All professionals</option><option value="technician">Agents</option><option value="specialist">Specialists</option></select></label></div>}
+  {valid&&<div className="quick-repair-result-header"><h3>{label||'Matching professionals'}</h3><label className="quick-repair-filter"><span className="sr-only">Professional type</span><select className="ui-compact-select" aria-label="Professional type" value={role} onChange={e=>{touched.current=true;setRole(e.target.value);setExpanded(false);}}><option value="">All professionals</option><option value="technician">Agents</option><option value="specialist">Specialists</option></select></label></div>}
   <ContractError error={current.error} onRetry={()=>setRetry(n=>n+1)}/>
   {current.busy&&<div className="discovery-state" role="status"><InteractionMotion kind="search" active={active}/><p>Finding nearby professionals…</p></div>}
   {data&&!current.busy&&<div className="quick-repair-results" aria-label="Repair search results">

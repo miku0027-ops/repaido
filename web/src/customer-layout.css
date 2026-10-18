@@ -1,4 +1,13 @@
 /* A quiet raised dock; selection and keyboard focus remain separate cues. */
+#root .repaido-home-header{
+  border:1px solid var(--ui-line);
+  border-top:0;
+  border-radius:0 0 22px 22px;
+  box-shadow:0 4px 14px #1428580c;
+}
+@media(max-width:767px){
+  #root .android-app-container:has(>.android-bottom-nav .customer-support-fab){padding-bottom:calc(var(--ui-nav-clearance) + 76px)}
+}
 #root .android-bottom-nav {
   background:linear-gradient(115deg,#20376b,#17285c 62%,#14234f);
   border:1px solid #90acd047;
