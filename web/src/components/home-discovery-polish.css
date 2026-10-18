@@ -1,0 +1,64 @@
+/* Compact home controls. Scoped here so standalone service flows keep their layout. */
+#root .home-discovery-hub.discovery-polished{padding:14px;border-radius:22px;background:var(--discovery-photo-surface,#fff);box-shadow:0 12px 28px #132d5010,0 1px 2px #132d5008;border-color:var(--ui-line)}
+#root .home-discovery-hub.discovery-polished .home-discovery-heading{margin-bottom:12px}
+#root .home-discovery-hub.discovery-polished .discovery-settings-button{border-color:var(--ui-line);background:var(--discovery-photo-wash)}
+#root .home-discovery-hub.discovery-polished .home-discovery-switch{border:0;padding:4px;border-radius:14px}
+#root .home-discovery-hub.discovery-polished .home-discovery-switch button[aria-pressed=true]{box-shadow:0 3px 8px #122e5026}
+#root .home-discovery-hub.discovery-polished .quick-repair-finder{display:flex;flex-direction:column;gap:8px}
+#root .home-discovery-hub.discovery-polished .quick-repair-intro{margin:2px 0 -2px}
+#root .home-discovery-hub.discovery-polished .quick-repair-intro p{font-size:.6875rem;font-weight:600}
+#root .home-discovery-hub.discovery-polished .quick-repair-categories{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(6.5rem,calc((100% - 12px)/3))),1fr));gap:6px;overflow:visible;padding:0;margin:0;scroll-snap-type:none}
+#root .home-discovery-hub.discovery-polished .quick-repair-categories button{flex-direction:row;align-items:center;justify-content:flex-start;gap:6px;border:1px solid var(--ui-line);border-radius:12px;background:var(--discovery-photo-surface);text-align:left;min-height:52px}
+#root .home-discovery-hub.discovery-polished .quick-repair-categories button>span:last-child{min-height:0;overflow-wrap:normal;line-height:1.35}
+#root .home-discovery-hub.discovery-polished .quick-repair-category-photo{width:34px;height:38px;flex:none;border-radius:8px}
+#root .home-discovery-hub.discovery-polished .quick-repair-category-check{inset:1px 1px auto auto;width:16px;height:16px}
+#root .home-discovery-hub.discovery-polished .quick-repair-categories button[aria-pressed=true]{border-color:var(--discovery-photo-ink);background:var(--discovery-photo-wash);box-shadow:0 0 0 1px var(--discovery-photo-ink)}
+#root .home-discovery-hub.discovery-polished .quick-repair-input{border-color:var(--discovery-photo-line);border-radius:14px;box-shadow:0 4px 12px #132d5008}
+#root .home-discovery-hub.discovery-polished .quick-repair-ideas{margin:0}
+#root .home-discovery-hub.discovery-polished .quick-repair-ideas summary{min-height:36px;padding:2px 0}
+#root .home-discovery-hub.discovery-polished .quick-repair-result-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:0;padding-top:10px;border-top:1px solid var(--ui-line)}
+#root .home-discovery-hub.discovery-polished .quick-repair-result-header h3{margin:0;font-size:.8125rem}
+.quick-repair-filter{display:block;max-width:100%;min-width:0}
+#root .home-discovery-hub.discovery-polished .quick-repair-filter select{width:auto;max-width:100%;min-width:0;min-height:44px;padding:7px 25px 7px 9px;font-size:.75rem;border:1px solid var(--discovery-photo-line);border-radius:10px;background:var(--discovery-photo-surface);color:var(--discovery-photo-ink)}
+#root .home-discovery-hub.discovery-polished .quick-repair-results .quick-repair-result-count{margin:0 0 6px;font-size:.6875rem}
+#root .home-discovery-hub.discovery-polished .quick-repair-empty{padding:9px 11px;margin:0 0 8px;background:var(--discovery-photo-wash);border-radius:10px;font-size:.75rem;line-height:1.5}
+#root .home-discovery-hub.discovery-polished .quick-repair-service{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:44px;width:100%;font-size:.75rem;text-align:left;border:0;border-bottom:1px solid var(--ui-line);border-radius:0;background:transparent;color:var(--discovery-photo-ink);padding:10px 2px;box-shadow:none}
+#root .home-discovery-hub.discovery-polished .quick-repair-service svg{flex:none}
+#root .home-discovery-hub.discovery-polished .quick-professional-card{border-color:var(--ui-line);border-radius:15px;box-shadow:0 4px 12px #142b4909}
+
+/* Greeting and sticky search share one surface, with a static blur for low GPU cost. */
+#root .android-explore-screen{--home-glass-start:#eaf2ff;--home-glass:#eef3faff;--home-glass-tint:#eef3fad9}
+#root .android-explore-screen>.home-greeting.home-welcome-banner{border-bottom:0;margin-bottom:calc(-1 * var(--app-section-gap,var(--ui-section-gap)));padding-bottom:12px}
+#root .android-explore-screen>.repaido-search-container{background:var(--home-glass-tint);backdrop-filter:blur(16px) saturate(125%);-webkit-backdrop-filter:blur(16px) saturate(125%);border:0;padding-block:8px 12px;isolation:isolate}
+#root .android-explore-screen>.repaido-search-container::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 10% 0%,#c6ddff44,transparent 65%);opacity:.6}
+#root .android-explore-screen .repaido-search-bar{background:var(--ui-surface);border-radius:16px;box-shadow:0 3px 12px #1428580a}
+@supports not (backdrop-filter:blur(1px)){#root .android-explore-screen>.repaido-search-container{background:var(--home-glass)}}
+[data-theme=dark] #root .android-explore-screen{--home-glass-start:#1b304c;--home-glass:#152237;--home-glass-tint:#152237ef}
+
+/* Category name + artwork only. Details live in the selected service, not six tickers. */
+#root .repaido-services-grid-container .repaido-services-3col-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,max(7.25rem,calc((100% - 20px)/3))),1fr));gap:10px}
+#root .repaido-services-grid-container :is(.repaido-service-motion-card,.repaido-service-static-card){display:grid;width:100%;aspect-ratio:1;min-width:0;border-radius:18px;padding:0;background:transparent}
+#root .repaido-services-grid-container .repaido-service-card-surface{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;aspect-ratio:1;border-radius:18px;border:1px solid var(--ui-line);box-shadow:0 3px 0 #dce5f2,0 7px 18px #1428580c;transform:none}
+#root .repaido-services-grid-container :is(.repaido-service-card-top-pill,.repaido-service-motion-caption,.repaido-service-dots-indicator,.repaido-static-dot,.repaido-service-card-shadow-ambient,.repaido-service-card-shimmer){display:none}
+#root .repaido-services-grid-container .repaido-service-graphic-stage{width:48px;height:48px;flex:none}
+#root .repaido-services-grid-container .repaido-service-graphic-stage::before,#root .repaido-services-grid-container .repaido-service-graphic-stage::after{display:none}
+#root .repaido-services-grid-container .repaido-service-motion-title{margin:0;text-align:center;color:var(--ui-ink);overflow-wrap:normal}
+#root .repaido-services-grid-container .repaido-service-icon-img{width:44px;height:44px;animation:none;mix-blend-mode:normal}
+#root .repaido-services-grid-container .service-offer-tile{aspect-ratio:1;justify-content:center;gap:4px;border-radius:18px;min-height:0;padding:10px 6px}
+#root .repaido-services-grid-container .service-offer-tile img{width:30px;height:30px}
+#root .repaido-services-grid-container .service-offer-name,#root .repaido-services-grid-container .service-offer-expiry{display:none}
+#root .repaido-services-grid-container .service-offer-prices{flex-wrap:wrap;line-height:1.4}
+#root .repaido-services-grid-container .service-grid-toolbar{margin-bottom:10px}
+@layer repaido-brand{
+ #root .repaido-services-grid-container .repaido-service-card-surface{height:auto!important;min-height:0!important;padding:12px 6px!important}
+ #root .repaido-services-grid-container .repaido-service-graphic-stage{min-height:44px!important;margin:0!important}
+ #root .repaido-services-grid-container .repaido-service-motion-title{font-size:.75rem!important;line-height:1.4!important}
+ #root .home-discovery-hub.discovery-polished .quick-repair-categories button{padding:6px!important}
+ #root .android-explore-screen>.home-greeting.home-welcome-banner{background:linear-gradient(120deg,var(--home-glass-start),var(--home-glass))!important}
+}
+[data-theme=dark] #root .repaido-services-grid-container .repaido-service-card-surface{background:linear-gradient(145deg,#243751,#182337);box-shadow:0 3px 0 #0b1628,0 6px 15px #0002}
+@media(min-width:768px){#root .repaido-services-grid-container .repaido-services-3col-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,max(7.25rem,calc((100% - 50px)/6))),1fr))}}
+@media(hover:hover) and (pointer:fine){#root .home-discovery-hub.discovery-polished .quick-repair-categories button:hover{transform:translateY(-1px);box-shadow:0 3px 9px #14285814}#root .repaido-services-grid-container :is(.repaido-service-motion-card,.repaido-service-static-card):hover .repaido-service-card-surface{transform:translateY(-2px)}}
+@media(prefers-reduced-motion:no-preference){#root .android-explore-screen>.repaido-search-container::before{animation:home-glass-settle 4s ease-out 1}@keyframes home-glass-settle{from{opacity:.15;transform:translateY(-4px)}to{opacity:.6;transform:none}}}
+@media(prefers-reduced-motion:reduce){#root .android-explore-screen>.repaido-search-container::before{animation:none!important}}
+html.reduce-motion #root .android-explore-screen>.repaido-search-container::before{animation:none!important}

@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 
 const source=await readFile(new URL('../src/services/transportBell.ts',import.meta.url),'utf8');
-const executable=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .* from ['"]\.\/taskBell\.mjs['"];?$/m,'const startTaskBell=globalThis.__startTransportBell;');
+const executable=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/^import .* from ['"]\.\/taskBell\.mjs['"];?$/m,'const startTransportChime=globalThis.__startTransportBell;');
 let service,revision=0,rings,contexts;
 const note=(id,fields={})=>({id,kind:'local_business',event_type:'rescheduled',created_at:Date.now()/1000,...fields});
 beforeEach(async()=>{
@@ -30,4 +30,19 @@ test('switching accounts stops sound and requires a fresh deliberate enable',asy
 test('an audio permission resolving after an account switch cannot enable the next account',async()=>{
  let resume;globalThis.AudioContext=class{constructor(){this.state='suspended';}resume(){return new Promise(resolve=>{resume=()=>{this.state='running';resolve();};});}async close(){this.state='closed';}};
  const pending=service.enableTransportBell('account-a');service.bindTransportBell('account-b');resume();await assert.rejects(pending,/account changed/);assert.equal(service.transportBellEnabled(),false);
+});
+test('pending join requests chime once across polls and component remounts',async()=>{
+ await service.enableTransportBell('account-a');
+ service.receiveTransportRequests(['request-1'],'account-a');
+ for(let i=0;i<10;i++)service.receiveTransportRequests(['request-1'],'account-a');
+ assert.equal(rings,1);
+ service.receiveTransportRequests(['request-1','request-2'],'account-a');assert.equal(rings,2);
+ service.disableTransportBell();await service.enableTransportBell('account-a');
+ service.receiveTransportRequests(['request-1','request-2'],'account-a');assert.equal(rings,2);
+});
+test('arrival updates are one-shot and stale arrivals stay silent',async()=>{
+ await service.enableTransportBell('account-a');service.receiveTransportNotes([],'account-a');
+ const fresh=note('arrival',{event_type:'destination_arrival'});
+ service.receiveTransportNotes([fresh],'account-a');service.receiveTransportNotes([fresh],'account-a');assert.equal(rings,1);
+ service.receiveTransportNotes([note('stale-arrival',{event_type:'destination_arrival',created_at:Date.now()/1000-76})],'account-a');assert.equal(rings,1);
 });

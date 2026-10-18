@@ -140,4 +140,10 @@ def delivery_allowed(u, delivery):
         return False
     if delivery.get('transport_event') == 'departure_reminder':
         return row['state']=='scheduled' and row['starts_at']-WINDOW<=now<row['starts_at'] and (actor(row,uid) or p['state']=='accepted' and arrival(u,row,p,now)['location_status']!='inside')
+    if delivery.get('transport_event') == 'destination_arrival':
+        from mobility_journeys import stop_proximity, location_value
+        passenger=u.get('shared_passengers',delivery.get('passenger_id',''))
+        return bool(row['state']=='in_progress' and passenger and passenger['departure_id']==row['id'] and
+            passenger['state']=='boarded' and (actor(row,uid) or passenger['customer_id']==uid) and
+            stop_proximity(location_value(u,'shared',row),passenger['match']['dropoff'],now)['status']=='inside')
     return True

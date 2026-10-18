@@ -107,9 +107,39 @@ def allowed(u,kind,row,uid):
 def fresh(pos):
     if not all(math.isfinite(v) for v in (pos.lat,pos.lng,pos.accuracy,pos.captured_at)) or not 0<pos.accuracy<=100 or abs(time.time()-pos.captured_at)>120:fail('PRECISE_LOCATION_REQUIRED','Get a fresh, precise GPS reading within 100 metres.',422)
 def location_value(u,kind,row):return u.get('journey_locations',kind+':'+row['id'])
+def stop_proximity(loc,pin,now=None):
+    """The arrival cue and boarding/drop-off gate share the same GPS boundary."""
+    now=time.time() if now is None else now
+    valid=bool(loc and pin and 0<loc.get('accuracy',0)<=100 and
+               0<=now-loc.get('received_at',0)<=75 and abs(now-loc.get('captured_at',0))<=120)
+    distance=metres(loc,pin) if valid else None
+    inside=valid and distance+loc['accuracy']<=300
+    outside=valid and distance-loc['accuracy']>300
+    return {'status':'inside' if inside else 'outside' if outside else 'unknown',
+            'distance_metres':round(distance) if distance is not None else None,'radius_metres':300,
+            'valid_until':min(loc['received_at']+75,loc['captured_at']+120) if valid else 0}
+
+def shared_stops(u,row,passengers):
+    now=time.time();loc=location_value(u,'shared',row)
+    if row['state'] not in ('scheduled','in_progress') or now<row['starts_at']-3600:loc=None
+    return {'server_time':now,'destination':stop_proximity(loc,row['destination'],now),
+            'passengers':{p['id']:{'kind':'dropoff' if p['state']=='boarded' else 'pickup',
+                **stop_proximity(loc,p['match']['dropoff' if p['state']=='boarded' else 'pickup'],now)}
+                for p in passengers if p['state'] in PASSENGERS}}
+
+def alert_destination_arrivals(u,row,loc):
+    if row['state']!='in_progress':return
+    from shared_departure_alerts import enqueue
+    for p in passenger_rows(u,row['id']):
+        if p['state']!='boarded' or stop_proximity(loc,p['match']['dropoff'])['status']!='inside':continue
+        for uid in {row['owner_id'],row.get('driver_id'),p['customer_id']}-{None}:
+            key=digest(f"shared-destination:{row['id']}:{p['id']}:{uid}")
+            body='Your agreed drop-off is within 300 m. Wait until the vehicle stops safely.' if uid==p['customer_id'] else 'An agreed passenger drop-off is within 300 m. Stop safely, then confirm drop-off.'
+            enqueue(u,row,uid,'Approaching the agreed drop-off',body,'destination_arrival',key,p)
+
 def inside(u,kind,row,pin):
     loc=location_value(u,kind,row)
-    if not loc or time.time()-loc['received_at']>75 or metres(loc,pin)+loc['accuracy']>300:fail('GEOFENCE_REQUIRED','Send a fresh GPS reading within 300 metres of the agreed pickup or stop.',409)
+    if stop_proximity(loc,pin)['status']!='inside':fail('GEOFENCE_REQUIRED','Send a fresh GPS reading within 300 metres of the agreed pickup or stop.',409)
 def tracking_value(u,kind,row):
     loc=location_value(u,kind,row);active=row['state'] in ACTIVE
     return {'id':row['id'],'kind':kind,'state':row['state'],'server_time':time.time(),'vehicle_name':row.get('vehicle_name') or (row.get('quote') or {}).get('vehicle',{}).get('name','Vehicle'),'position':loc if active and loc and time.time()-loc['received_at']<=75 else None,'location_status':'live' if active and loc and time.time()-loc['received_at']<=75 else 'ended' if not active else 'waiting','origin':row.get('origin',row.get('pickup')),'destination':row.get('destination',row.get('dropoff')),'route':row.get('route',{}).get('points',[]),'sharing_active':active}
@@ -122,6 +152,7 @@ def write_position(u,kind,row,pos,source):
     distance=project(pos.model_dump(),row['route']['points'])[0] if row.get('route') else None
     loc={**pos.model_dump(),'received_at':time.time(),'source':source,'outside_route':distance>1000+pos.accuracy if distance is not None else None}
     u.put('journey_locations',key,loc)
+    if kind=='shared':alert_destination_arrivals(u,row,loc)
     if loc['outside_route'] and not (previous or {}).get('outside_route'):
         for uid in {row['owner_id'],*([row['customer_id']] if kind=='rides' else [p['customer_id'] for p in passenger_rows(u,row['id']) if p['state']=='boarded'])}:notify(u,row,uid,'Vehicle location is outside the planned route')
     return loc
@@ -219,7 +250,8 @@ def install(core):
             return {'departures':sorted(out,key=lambda x:x['starts_at'])[:40]}
         return store.run(read)
     @r.get('/shared')
-    def mine(user=Depends(core.current_user)):
+    def mine(response:Response,user=Depends(core.current_user)):
+        response.headers.update(HEADERS)
         def read(u):
             uid=user['id'];own=u.find('shared_departures','owner_id',uid);driven=u.find('shared_departures','driver_id',uid);requests=u.find('shared_passengers','customer_id',uid)
             ids={p['departure_id'] for p in requests};rows={x['id']:x for x in own+driven};rows.update({i:u.get('shared_departures',i) for i in ids})
@@ -227,7 +259,9 @@ def install(core):
             for row in rows.values():
                 if not row:continue
                 ps=passenger_rows(u,row['id']) if actor(row,uid) else [p for p in requests if p['departure_id']==row['id']]
-                out.append(public(row,capacity(u,row),True)|{'owner_id':row['owner_id'],'driver_id':row.get('driver_id'),'passengers':ps,'events':row.get('events',[])})
+                live_ps=ps if actor(row,uid) else [p for p in ps if p['state'] in PASSENGERS]
+                stops=shared_stops(u,row,live_ps) if actor(row,uid) or live_ps else None
+                out.append(public(row,capacity(u,row),True)|{'owner_id':row['owner_id'],'driver_id':row.get('driver_id'),'passengers':ps,'events':row.get('events',[]),'stop_status':stops})
             return {'departures':sorted(out,key=lambda x:x['starts_at'],reverse=True)[:100]}
         return store.run(read)
     @r.post('/shared/{identifier}/join',status_code=201)

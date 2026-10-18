@@ -7,6 +7,8 @@ import {money} from '../services/operations';
 import {bestCategoryOffer,offerExpiry} from '../services/promotionPresentation.mjs';
 import {ArrowUpRight,LocalOffer,Pause,Play,Clock3,ShieldCheck,Leaf,type MaterialIcon} from '../icons';
 import './home-discovery-refresh.css';
+import './home-discovery-polish.css';
+const tileName=(name:string)=>({'Vehicle Road Assistance':'Vehicle help','Appliance Repair':'AC & appliances','Gardening Help':'Gardening','Home Cleaning':'Home cleaning'}[name]||name);
 
 export interface ServiceSlide {
   id: string;
@@ -924,7 +926,7 @@ function ServiceMotionCardItem({
         </div>
 
         {/* 3. Primary Service Title */}
-        <h3 className="repaido-service-motion-title">{service.name}</h3>
+        <h3 className="repaido-service-motion-title">{tileName(service.name)}</h3>
 
         {/* 4. Dynamic Motion Sub-Caption / Offer Ticker */}
         <div className="repaido-service-motion-caption">
@@ -1003,7 +1005,7 @@ export function ServiceStaticCardItem({
         </div>
 
         {/* 3. Primary Service Title */}
-        <h3 className="repaido-service-motion-title">{service.name}</h3>
+        <h3 className="repaido-service-motion-title">{tileName(service.name)}</h3>
 
         {/* 4. Sub-Caption */}
         <div className="repaido-service-motion-caption">
@@ -1077,7 +1079,7 @@ export function HomeServicesGrid({
             aria-label={`${offer.service!.name}. ${money(offer.price_paise)} reduced to ${money(offer.offer_price_paise)}. Save ${money(offer.discount_paise)}. Valid until ${offerExpiry(offer.ends_at)}. Select offer.`}>
             <span className="service-offer-badge"><LocalOffer size={14} aria-hidden="true"/>Save {money(offer.discount_paise).replace('.00','')}</span>
             <img src={service.slides[0].image} width={44} height={44} alt=""/>
-            <h3>{service.name}</h3><span className="service-offer-name">{offer.service!.name}</span>
+            <h3>{tileName(service.name)}</h3><span className="service-offer-name">{offer.service!.name}</span>
             <span className="service-offer-prices"><s>{money(offer.price_paise).replace('.00','')}</s><strong>{money(offer.offer_price_paise).replace('.00','')}</strong></span>
             <span className="service-offer-expiry">Until {offerExpiry(offer.ends_at)}<ArrowUpRight size={14} aria-hidden="true"/></span>
           </button>;

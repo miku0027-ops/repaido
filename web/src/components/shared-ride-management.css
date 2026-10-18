@@ -51,6 +51,62 @@
 .shared-booking-card .shared-booking-details>summary{padding:12px 0;font-size:.8125rem;color:var(--ui-link)}
 .shared-booking-card .shared-booking-details p,.shared-booking-card .business-timeline{font-size:.8125rem;line-height:1.6;color:var(--ui-muted)}
 .shared-booking-card .shared-booking-details>button{margin-top:12px}
+.shared-booking-card .shared-route-details{padding:0;margin-top:10px}
+.shared-route-details>summary{min-height:44px;align-content:center;font-weight:600;font-size:.75rem}
+.shared-booking-card:not(.shared-live-card)>.shared-route-details>summary{display:none}
+.local-business-hub .shared-live-card{padding:12px;border-radius:22px;border-top:1px solid var(--ui-line);box-shadow:0 12px 32px #1024461a,0 2px 5px #1024460a;transition:border-color .25s,box-shadow .25s;background:var(--ui-surface)}
+.shared-live-card .shared-booking-vehicle{padding:2px 2px 10px;align-items:center}
+.shared-live-card .shared-booking-vehicle>strong{font-weight:650;font-size:.8125rem}
+.shared-live-card .shared-booking-vehicle>.business-state{font-size:.625rem;border-radius:20px;padding:5px 9px}
+.shared-live-focus{margin:10px 0 0;min-width:0}
+.shared-live-stop{display:flex;gap:10px;align-items:center;padding:12px;border-radius:16px;background:var(--ui-primary);color:#fff}
+.shared-live-symbol{width:40px;height:40px;display:grid;place-items:center;flex:none;border-radius:13px;background:#ffffff18;box-shadow:inset 0 1px 0 #ffffff35}
+.shared-live-stop>div{min-width:0}
+.shared-live-card .shared-live-stop small{font-size:.5625rem;letter-spacing:.08em;line-height:1.6;color:#fff}
+.shared-live-card .shared-live-stop h3{font-size:1rem;line-height:1.4;margin:3px 0;font-weight:650;color:#fff}
+.shared-live-card .shared-live-stop p{font-size:.75rem;line-height:1.5;margin:0;color:#fff}
+.shared-live-directions{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;font-size:.75rem;color:var(--ui-link);font-weight:650;text-decoration:none;margin-top:4px}
+.local-business-hub .shared-live-card.is-at-stop{border-color:#278468;box-shadow:0 12px 30px #12684c25,0 0 0 1px #278468;background:linear-gradient(160deg,#edf9f2,var(--ui-surface) 45%)}
+.shared-live-card.is-at-stop .shared-live-stop,.shared-live-card.is-at-stop .business-state{background:#105741;color:#fff}
+.shared-live-card.is-at-stop .shared-passenger-primary .ops-primary{background:#105741;color:#fff;border-color:#105741}
+.shared-live-card .shared-booking-passengers{margin-top:10px}
+.shared-booking-card .shared-passenger-drawer{padding:0;margin:0}
+.shared-passenger-drawer>summary{min-height:44px;align-content:center;font-size:.8125rem;font-weight:600}
+.shared-booking-card:not(.shared-live-card)>.shared-passenger-drawer>summary{display:none}
+.shared-live-card .shared-booking-passengers>header{display:none}
+.shared-next-stop-action{display:grid;gap:5px;padding:10px 0 4px}
+.shared-next-stop-action>span{font-size:.75rem;color:var(--ui-ink)}
+.shared-next-stop-action>small{font-size:.6875rem;color:var(--ui-muted)}
+.local-business-hub .shared-next-stop-action>button,.local-business-hub .shared-finish-action{width:100%;min-height:48px!important;border-radius:12px;font-size:.8125rem}
+.shared-finish-action{margin-top:10px}
+.shared-live-card.is-at-stop .shared-next-stop-action>.ops-primary{background:#105741;color:#fff;border-color:#105741}
+.shared-live-card .shared-booking-passengers>header h4{font-size:.8125rem}
+.shared-live-card .shared-ride-passenger>header{gap:8px;align-items:center}
+.shared-live-card .shared-ride-passenger>header>div:not(.shared-passenger-primary){flex:1 1 130px}
+.shared-live-card .shared-passenger-primary{flex:1 1 100%;margin:2px 0 0}
+.local-business-hub .shared-live-card .shared-passenger-primary button{width:100%;min-height:48px!important;font-size:.8125rem;border-radius:12px}
+.local-business-hub .shared-live-card button:disabled{background:var(--ui-subtle);border-color:var(--ui-line);color:var(--ui-muted);cursor:not-allowed}
+.shared-live-card .shared-passenger-actions{margin-top:4px;gap:6px}
+.shared-live-card .shared-passenger-details summary{padding:7px 0;min-height:44px;align-content:center}
+.shared-live-card .shared-stop-hint{font-size:.6875rem!important;margin:6px 0 0!important}
+.shared-live-card .shared-route-details{margin-top:0;border-bottom:1px solid var(--ui-line)}
+.shared-live-card .shared-booking-journey-actions{margin-top:8px}
+.shared-live-card .shared-booking-details{margin-top:8px}
+.shared-live-focus .journey-tracking-compact{padding:0;border:0;background:transparent;margin:0}
+.journey-tracking-compact .journey-map{height:210px;border-radius:15px;border:1px solid var(--ui-line);background:var(--ui-subtle)}
+.journey-tracking-compact .journey-map.is-fullscreen{height:100dvh;border:0;border-radius:0}
+.journey-tracking-compact .journey-map-tools button{width:44px;height:44px;min-height:44px!important;border-radius:12px}
+.journey-tracking-compact .leaflet-control-zoom a{width:44px;height:44px;line-height:44px}
+.journey-tracking-compact>.business-note{font-size:.6875rem;margin:6px 0;line-height:1.5}
+.journey-tracking-compact>button{width:100%;min-height:44px!important;font-size:.75rem}
+.journey-tracking-compact .journey-share{display:block;margin-top:0;border-top:1px solid var(--ui-line)}
+.journey-tracking-compact .journey-share>summary{min-height:44px;align-content:center}
+.journey-tracking-compact .journey-share>button{margin:4px;min-height:44px!important}
+.shared-live-card a:focus-visible,.shared-live-card summary:focus-visible{outline:2px solid var(--ui-link);outline-offset:2px}
+html[data-theme=dark] .shared-live-card.is-at-stop{background:linear-gradient(160deg,#123f33,var(--ui-surface) 50%);border-color:#61b69a}
+@media(prefers-reduced-motion:no-preference){.shared-live-card:not(.is-at-stop) .shared-live-symbol{animation:shared-travel-cue 2s ease-in-out 2}@keyframes shared-travel-cue{50%{transform:translateY(-2px);box-shadow:0 3px 10px #0002,inset 0 1px 0 #ffffff35}}}
+@media(prefers-reduced-motion:reduce){.shared-live-card{transition:none!important}.shared-live-symbol{animation:none!important}}
+html.reduce-motion .shared-live-card,html.reduce-motion .shared-live-symbol{animation:none!important;transition:none!important}
 .shared-ride-passenger>header{flex-wrap:wrap}
 .shared-passenger-primary{display:flex;gap:6px;flex:none;margin-left:auto}
 .local-business-hub .shared-passenger-primary button{font-size:.75rem;padding:9px 12px;min-height:44px}

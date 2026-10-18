@@ -76,9 +76,9 @@ try{
 
  await family('Repairs').click();await page.locator('.quick-professional-card').filter({hasText:'Asha repair agent'}).waitFor();await page.locator('.quick-professional-card').filter({hasText:'Ravi AC specialist'}).waitFor();
  assert.equal(await page.locator('.quick-professional-card').count(),2);await accessibility('repair-all');
- await page.getByRole('group',{name:'Professional type'}).getByRole('button',{name:'Specialists',exact:true}).click();await page.locator('.quick-professional-card').filter({hasText:'Ravi AC specialist'}).waitFor();assert.equal(await page.locator('.quick-professional-card').count(),1);await accessibility('repair-specialist');
- await page.getByRole('group',{name:'Professional type'}).getByRole('button',{name:'Agents',exact:true}).click();await page.locator('.quick-professional-card').filter({hasText:'Asha repair agent'}).waitFor();
- await page.getByRole('group',{name:'Professional type'}).getByRole('button',{name:'All',exact:true}).click();
+ await page.getByRole('combobox',{name:'Professional type'}).selectOption('specialist');await page.locator('.quick-professional-card').filter({hasText:'Ravi AC specialist'}).waitFor();assert.equal(await page.locator('.quick-professional-card').count(),1);await accessibility('repair-specialist');
+ await page.getByRole('combobox',{name:'Professional type'}).selectOption('technician');await page.locator('.quick-professional-card').filter({hasText:'Asha repair agent'}).waitFor();
+ await page.getByRole('combobox',{name:'Professional type'}).selectOption('');
  await page.getByRole('group',{name:'Repair category'}).getByRole('button',{name:'Plumbing',exact:true}).click();await page.locator('.quick-professional-card').filter({hasText:'Priya plumbing agent'}).waitFor();assert.equal(await page.locator('.quick-professional-card').count(),1);
  checks.push('category selections immediately query approved nearby professionals; agent/specialist filters remain category-specific');
 
@@ -133,7 +133,16 @@ try{
  checks.push('the real local clock advances an untouched home into peak discovery and stops reshuffling after interaction');
  const fullApp=await context.newPage();fullApp.setDefaultTimeout(18000);fullApp.on('pageerror',error=>errors.push(error.message));await fullApp.goto(origin+'/');await fullApp.getByRole('button',{name:'Discovery settings',exact:true}).click();
  await fullApp.waitForFunction(()=>document.querySelector('dialog.home-discovery-preferences')?.open);assert.equal(await fullApp.locator('.home-discovery-preferences').count(),1,'Duplicate settings and notification keys created duplicate drawers');
- await fullApp.keyboard.press('Escape');await fullApp.locator('.home-discovery-preferences').waitFor({state:'detached'});assert.equal(await fullApp.getByRole('button',{name:'Discovery settings',exact:true}).evaluate(e=>e===document.activeElement),true);await fullApp.close();
+ await fullApp.keyboard.press('Escape');await fullApp.locator('.home-discovery-preferences').waitFor({state:'detached'});assert.equal(await fullApp.getByRole('button',{name:'Discovery settings',exact:true}).evaluate(e=>e===document.activeElement),true);await fullApp.evaluate(()=>{localStorage.setItem('repaido.customer.visits.v2',JSON.stringify({count:4}));});await fullApp.reload();await fullApp.locator('.repaido-services-grid-container').waitFor();
+ for(const width of [320,472,573]){
+  await fullApp.setViewportSize({width,height:850});await fullApp.evaluate(()=>window.scrollTo(0,0));
+  const geometry=await fullApp.evaluate(()=>{const greeting=document.querySelector('.home-welcome-banner').getBoundingClientRect(),search=document.querySelector('.repaido-search-container').getBoundingClientRect();return {gap:search.top-greeting.bottom,blur:getComputedStyle(document.querySelector('.repaido-search-container')).backdropFilter,cards:[...document.querySelectorAll('.repaido-service-card-surface')].map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};})};});
+  assert(geometry.gap<=1&&geometry.gap>=-1,`greeting and search join without a white seam: ${width}, ${geometry.gap}`);assert.match(geometry.blur,/blur/);assert(geometry.cards.length>0);assert(geometry.cards.every(r=>Math.abs(r.width-r.height)<=3),`service tiles stay square at ${width}px: ${JSON.stringify(geometry.cards)}`);
+  await fullApp.screenshot({path:out+'/home-glass-'+width+'.png',fullPage:true});
+ }
+ await fullApp.emulateMedia({reducedMotion:'reduce'});assert.equal(await fullApp.locator('.repaido-search-container').evaluate(el=>getComputedStyle(el,'::before').animationName),'none');
+ await fullApp.close();
+ checks.push('real App greeting joins the glass search surface without gaps; square service tiles verified at 320/472/573px and glass motion respects reduced motion');
  checks.push('the complete App renders one settings drawer, dismisses it with Escape and restores focus alongside the notification panel');
  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks,out},null,2));
 }catch(error){console.error(error);if(page)await page.screenshot({path:out+'/failure.png',fullPage:true}).catch(()=>{});console.error(log.slice(-1800));process.exitCode=1;}

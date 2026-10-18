@@ -1,0 +1,31 @@
+.ride-quote{min-width:0;margin:12px 0 0;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-surface);overflow:hidden;color:var(--ui-ink);font-size:.8125rem;box-shadow:0 4px 16px #14285808}
+.ride-quote .ride-quote-total{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;background:var(--ui-subtle)}
+.ride-quote-total>span{display:grid;gap:4px;min-width:0}
+.ride-quote-total small{font-size:.625rem;letter-spacing:.08em;color:var(--ui-muted)}
+.ride-quote-total strong{font-size:.8125rem}
+.ride-quote-total>b{font-size:1.25rem;letter-spacing:-.025em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ride-quote .ride-quote-lines{display:block;margin:0;padding:6px 14px}
+.ride-quote-lines>div{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.7fr);gap:10px;padding:7px 0;align-items:baseline}
+.ride-quote-lines dt{color:var(--ui-muted);font-size:.75rem;word-break:normal;overflow-wrap:normal;line-height:1.5}
+.ride-quote-lines dd{margin:0;text-align:right;font-size:.8125rem;font-weight:600;line-height:1.5;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.ride-quote-payments{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px 14px;border-block:1px solid var(--ui-line)}
+.ride-quote-payments>div{display:grid;gap:4px;min-width:0;align-content:start}
+.ride-quote-payments span{font-size:.75rem;line-height:1.4;color:var(--ui-muted)}
+.ride-quote-payments strong{font-size:1rem;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.ride-quote-payments small{font-size:.6875rem!important;color:var(--ui-muted);line-height:1.5}
+.ride-quote .ride-quote-distance{padding:0 14px;font-size:.75rem}
+.ride-quote-distance>summary{min-height:44px;align-content:center;cursor:pointer;font-weight:600;color:var(--ui-link)}
+.ride-quote-distance .ride-quote-lines{padding:0 0 8px}
+.ride-quote .ride-quote-basis{display:flex;gap:8px;align-items:flex-start;margin:0;padding:10px 14px;border-top:1px solid var(--ui-line);font-size:.75rem;color:var(--ui-muted);line-height:1.5}
+.ride-quote-basis svg{flex:none;margin-top:2px}
+.ride-quote-basis strong{display:block;color:var(--ui-ink);font-size:.75rem}
+.ride-booking-workspace .business-vehicle-list>article{padding:12px;border-radius:17px;background:var(--ui-surface);box-shadow:0 5px 20px #1428580a;min-width:0}
+.ride-booking-workspace .business-vehicle-list>article:has(button[aria-pressed=true]){border-color:var(--ui-link)}
+.ride-booking-workspace .business-vehicle-list>article>button{width:100%;min-height:44px!important}
+.ride-booking-workspace .compact-wizard{padding:0;border:0;background:transparent}
+.ride-booking-workspace .wizard-stage{min-width:0}
+.ride-booking-workspace .wizard-actions{box-shadow:0 -8px 18px var(--ui-surface);padding:10px 0!important;bottom:0!important}
+.ride-quote summary:focus-visible{outline:2px solid var(--ui-link);outline-offset:2px}
+@media(max-width:360px){.ride-quote .ride-quote-total,.ride-quote .ride-quote-lines,.ride-quote-payments{padding-inline:10px}.ride-quote-payments{gap:8px}.ride-quote-total>b{font-size:1.1rem}}
+@media(prefers-reduced-motion:no-preference){.ride-quote{animation:ride-quote-enter .2s ease-out}@keyframes ride-quote-enter{from{opacity:.5;transform:translateY(3px)}to{opacity:1;transform:none}}}
+html.reduce-motion .ride-quote{animation:none}

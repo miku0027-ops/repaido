@@ -28,3 +28,20 @@ export function startTaskBell(context, timers = globalThis) {
     playing.clear();
   };
 }
+
+/** One quiet, short transport chime; arrival is a cue, never a repeating alarm. */
+export function startTransportChime(context) {
+  if (!context || context.state !== 'running') return () => {};
+  const playing = new Set();
+  [0, .18].forEach((offset, i) => {
+    const oscillator = context.createOscillator(), gain = context.createGain(), at = context.currentTime + offset;
+    oscillator.type = 'sine'; oscillator.frequency.value = i ? 784 : 587;
+    gain.gain.setValueAtTime(.001, at);
+    gain.gain.exponentialRampToValueAtTime(.12, at + .015);
+    gain.gain.exponentialRampToValueAtTime(.001, at + .18);
+    oscillator.connect(gain); gain.connect(context.destination); playing.add(oscillator);
+    oscillator.onended = () => { playing.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
+    oscillator.start(at); oscillator.stop(at + .2);
+  });
+  return () => { for (const oscillator of playing) { try { oscillator.stop(); } catch { /* Already ended. */ } } playing.clear(); };
+}

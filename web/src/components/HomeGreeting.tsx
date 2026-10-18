@@ -1,3 +1,4 @@
+import './home-discovery-polish.css';
 import {ChevronDown,MapPin,Sparkles,ArrowUpRight} from '../icons';
 import type {Promotion} from './Promotions';
 import {money} from '../services/operations';
