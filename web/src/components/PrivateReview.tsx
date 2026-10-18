@@ -22,9 +22,9 @@ export function FinanceReview(){
  useEffect(()=>{void run(async()=>{});},[]);
  return <section className="crm-dashboard-panel"><h2>Settlement review</h2><p>Only captured payments for completed, undisputed jobs can settle. Accepted policy snapshots determine deductions. Payouts require a separately activated payout account.</p>{error&&<p role="alert" className="ops-error">{error}</p>}<button disabled={busy} onClick={()=>void run(async()=>{})}>{busy?'Loading finance records…':'Refresh finance records'}</button>{busy&&!data&&<p role="status">Loading finance records…</p>}{data&&<>
  <p role="status">{data.payments.length} collection records · {data.settlements.length} settlements · {data.payouts.length} payouts</p>
- <details className="crm-policy-panel"><summary>Collections and parts advances</summary><AdminTable label="Collections" rows={data.payments} rowKey={p=>p.id} rowLabel={p=>p.id} empty="No collection records yet." columns={[
+ <details className="crm-policy-panel"><summary>Collections and booking advances</summary><AdminTable label="Collections" rows={data.payments} rowKey={p=>p.id} rowLabel={p=>p.id} empty="No collection records yet." columns={[
   {key:'id',label:'Payment record',value:p=>p.id}, {key:'job',label:'Booking',value:p=>p.job_id},
-  {key:'kind',label:'Collection',value:p=>p.kind==='parts'?'Parts advance':'Final invoice'},
+  {key:'kind',label:'Collection',value:p=>p.kind==='parts'?'Parts advance':p.kind==='hire_base'?'Hiring advance':'Final invoice'},
   {key:'amount',label:'Amount',value:p=>p.amount_paise,numeric:true,render:p=>money(p.amount_paise)},
   {key:'state',label:'Status',value:p=>p.status,render:p=><AdminStatus value={p.status}/>},
  ]} renderDetail={p=><><p>Recovery: {p.recovery||'No recovery flag'}</p>{p.recovery==='refund_review'&&<p>Use this booking and payment record in Refund review. Verify the amount before authorizing.</p>}</>}/></details>

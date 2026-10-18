@@ -439,7 +439,9 @@ def profile_public(u, uid, viewer):
             endorsement = u.get('rp_network_endorsements', key)
             if endorsement and endorsement_live(u, endorsement):
                 endorsement_page['viewerEndorsed'].append(skill)
-    return dict(profile=row if can_view else None, profileInfoSource='member',
+    from hourly_hiring import public_availability
+    worker=u.get('workers',uid) if can_view else None
+    return dict(hireAvailability=public_availability(u,worker) if worker else None,profile=row if can_view else None, profileInfoSource='member',
                 connection=connection_public(u, viewer, uid),
                 endorsements=endorsement_page,
                 recommendations=proof_page(u, uid, 'recommendations', 'public', None, 6, viewer) if can_view else {'items': [], 'members': [], 'nextCursor': None},

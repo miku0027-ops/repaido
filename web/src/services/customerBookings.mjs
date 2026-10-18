@@ -1,11 +1,12 @@
 export function customerNeedsAction(job) {
-  return job.state === 'arrived' || job.proposal?.status === 'awaiting_payment' ||
+  return (job.state==='accepted'&&job.hourly_hire&&job.hire_base_status==='pending') || job.state === 'arrived' || job.proposal?.status === 'awaiting_payment' ||
     (job.allowed_actions || []).some(action => ['approve_parts', 'accept_completion', 'review'].includes(action));
 }
 export function customerOnSite(job) {
   return ['arrived', 'in_progress'].includes(job.state);
 }
 export function customerCardState(job) {
+  if(job.state==='accepted'&&job.hourly_hire&&job.hire_base_status==='pending')return {tone:'attention',label:'Booking advance due',action:'Pay advance & confirm',hint:'This slot is reserved briefly. Pay the advance to confirm; check any existing payment before retrying.',moving:false};
   if (job.state === 'cancelled') return {tone:'closed',label:'Cancelled',action:'View booking record',hint:'This booking is closed.',moving:false};
   if (job.state === 'completed') return {tone:'success',label:'Completed',action:job.allowed_actions?.includes('review')?'Leave a review':'View receipt & records',hint:'Work confirmed complete. Payment status is shown separately.',moving:false};
   if (['disputed','stop_requested'].includes(job.state)) return {tone:'review',label:job.state==='disputed'?'Under review':'Work paused',action:'View updates & support',hint:'Check your booking for the latest resolution.',moving:false};

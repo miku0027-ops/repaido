@@ -21,3 +21,8 @@ test('approval and completion review are clearly differentiated from work in pro
  assert.equal(customerCardState(job('in_progress')).tone,'onsite');
  assert.equal(customerCardState(job('offered')).label,'Awaiting agent response');
 });
+test('upfront hourly payment is a customer action, before confirmed travel',()=>{
+ const pending=job('accepted',['cancel'],{hourly_hire:{model:'hourly-v1'},hire_base_status:'pending'});
+ assert.equal(customerNeedsAction(pending),true);assert.equal(customerCardState(pending).label,'Booking advance due');
+ assert.equal(customerCardState({...pending,hire_base_status:'captured'}).label,'Visit accepted');
+});

@@ -17,7 +17,8 @@ from integrations import enabled,configured
 from hire_ranking import Evidence,profile_recommendation
 from hire_ranking_client import rank_candidates
 
-JOB_FIELDS=('worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at')
+from hourly_hiring import JOB_FIELDS as HOURLY_JOB_FIELDS
+JOB_FIELDS=tuple(dict.fromkeys(HOURLY_JOB_FIELDS+('review','service_name','category','service_id','home_plan_id','completed_at')))
 RECOMMENDATION_CANDIDATES=64
 RECOMMENDATION_PROFILES=12
 RECOMMENDATION_WORK_RECORDS=80
@@ -189,6 +190,7 @@ def recommendation_read(u,core,body,user,catalog):
         hires=bounded_rows(u,'hires','worker_id',wid,21,('worker_id','state'))
         offers=bounded_rows(u,'professional_offers','worker_id',wid,21)
         row=profile(u,w,work,offers[:20])
+        if not complete:row['hire_availability']=None
         offer_services={selected[5:]} if selected.startswith('home:') else {s['id'] for s in OFFERINGS if s['category']==selected}
         row['offers']=[offer for offer in row['offers'] if offer['service_id'] in offer_services]
         if body.min_completed>row['completed_tasks'] or (body.min_rating and (row['rating'] or 0)<body.min_rating):continue
@@ -231,9 +233,9 @@ def recommendation_read(u,core,body,user,catalog):
         row['comparison']={'category':selected,'category_name':known[selected]['name'],
             'verified_work':{'completed':done,'review_count':n,'rating':rating,'confidence':round(confidence,3)},
             'attributes':attributes,'catalogue_references':references,'budget_status':budget,
-            'price_note':'Catalogue amounts are reference prices for the listed scope, not a binding day-hire quote. Materials, extras, tax and route-based travel must be confirmed separately.',
+            'price_note':('Catalogue amounts describe fixed service packages. Personal hiring is ₹150 base plus ₹150/hour for actual work, capped at six working hours, with a separate unpaid meal break. Demand and tax are disclosed in the quote.' if hire_policy.get('billing_model')=='hourly-v1' else 'Catalogue amounts are reference prices for the listed scope, not a binding day-hire quote. Materials, extras, tax and route-based travel must be confirmed separately.'),
             'offers_note':'Only the professional’s active, reviewed Home offers are shown. Savings apply to an agreed first-period base fee and are calculated in the written quote; catalogue prices are not reduced here.',
-            'hire_readiness':{'enabled':readiness,'policy_version':hire_policy['version'],'day_hours':hire_policy.get('day_hours'),
+            'hire_readiness':{'billing_model':hire_policy.get('billing_model','fixed-day-v1'),'enabled':readiness,'policy_version':hire_policy['version'],'day_hours':hire_policy.get('day_hours'),
                 'base_paise':hire_policy.get('base_paise') if readiness else None,'quote_required':True,
                 'routing_ready':bool(os.getenv('GOOGLE_ROUTES_API_KEY')),
                 'payments_ready':enabled('REPAIDO_PAYMENTS_ENABLED') and configured('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET')}}

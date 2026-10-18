@@ -41,3 +41,8 @@ test('interrupted tasks preserve recorded milestones and never turn fully comple
  assert.equal(dispute.percent,80);assert.equal(dispute.tone,'danger');
  assert.equal(taskProgress(job('completed',[])).tone,'success');
 });
+test('an unpaid hourly reservation is not a confirmed visit milestone',()=>{
+ const pending=job('accepted',[],{hourly_hire:{model:'hourly-v1'},hire_base_status:'pending'});
+ assert.equal(taskProgress(pending).percent,0);assert.equal(taskNextAction(pending),null);
+ assert.equal(taskProgress({...pending,hire_base_status:'captured'}).percent,20);
+});

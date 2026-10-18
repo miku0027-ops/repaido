@@ -127,7 +127,7 @@ class Booking(Input):
 
 class Command(Input):
     action: Literal['schedule_follow_up','accept', 'decline', 'ack_reminder', 'depart', 'position', 'stop_tracking',
-                    'start', 'propose_parts', 'approve_parts', 'reject_parts', 'collect_parts',
+                    'start', 'start_meal_break', 'resume_after_break', 'propose_parts', 'approve_parts', 'reject_parts', 'collect_parts',
                     'return_to_site', 'install_parts', 'parts_unavailable', 'submit_completion', 'accept_completion',
                     'dispute', 'cancel', 'reschedule', 'review', 'retry_dispatch']
     expected_version: int = Field(ge=1)
@@ -235,7 +235,7 @@ class Unit:
         """Indexed equality lookups with transaction-local writes overlaid."""
         allowed = {'cleanup_reports': {'customer_id','owner_id','state','city_key','queue'}, 'cleanup_points': {'user_id'}, 'captain_profiles': {'city_key'}, 'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state','customer_id','owner_id'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id','customer_id'}, 'rentals': {'customer_id'}, 'rental_payments': {'rental_id'}, 'retail_orders': {'customer_id'}, 'home_plans': {'customer_id'},
                    'support_cases': {'customer_id','job_id','state'}, 'support_messages': {'case_id'}, 'market_listings': {'owner_id'}, 'market_chat_inbox': {'user_id'}, 'market_chat_reports': {'status'}, 'market_access_payments': {'status'}, 'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
-        allowed.update({'community_missions':{'active'},'community_contributions':{'user_id','state'},'community_knowledge':{'mission_id'},'retail_resolution_cases':{'customer_id','shop_id','state','order_id'},'retail_resolution_messages':{'case_id'},'campaign_redemptions':{'campaign_id'},'refunds':{'job_id'},'shop_payables':{'shop_id'},'shop_batches':{'shop_id'},'parts_orders':{'shop_id'},'home_listings':{'owner_id','status','city_key','photo_id'},'home_enquiries':{'owner_id','customer_id'},'shops':{'status','city','owner_id'},'inventory':{'shop_id','category','status'},'rental_inventory':{'shop_id'},'shop_reviews':{'shop_id','product_id','order_id'},'commerce_events':{'user_id'},'commerce_order_facts':{'shop_id'},'commerce_product_pairs':{'product_id'},'shop_access_payments':{'status'},'commerce_projection_queue':{'active'}})
+        allowed.update({'payments':{'job_id'},'community_missions':{'active'},'community_contributions':{'user_id','state'},'community_knowledge':{'mission_id'},'retail_resolution_cases':{'customer_id','shop_id','state','order_id'},'retail_resolution_messages':{'case_id'},'campaign_redemptions':{'campaign_id'},'refunds':{'job_id'},'shop_payables':{'shop_id'},'shop_batches':{'shop_id'},'parts_orders':{'shop_id'},'home_listings':{'owner_id','status','city_key','photo_id'},'home_enquiries':{'owner_id','customer_id'},'shops':{'status','city','owner_id'},'inventory':{'shop_id','category','status'},'rental_inventory':{'shop_id'},'shop_reviews':{'shop_id','product_id','order_id'},'commerce_events':{'user_id'},'commerce_order_facts':{'shop_id'},'commerce_product_pairs':{'product_id'},'shop_access_payments':{'status'},'commerce_projection_queue':{'active'}})
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:
@@ -264,8 +264,8 @@ class Unit:
         """Indexed worker lookup, batched to at most 30 IDs on Firestore."""
         if kind not in ('jobs', 'hires', 'professional_offers'): raise ValueError('Unsupported worker lookup')
         if fields is not None:
-            allowed={'jobs': {'worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at'},
-                     'hires': {'id','worker_id','state'}, 'professional_offers': {'worker_id'}}
+            allowed={'jobs': {'worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at','id','starts_epoch','duration_minutes','hourly_hire','work_seconds','work_clock_started_at','started_at','hire_break','hire_base_status'},
+                     'hires': {'id','worker_id','state','starts_at','planned_minutes','policy','offer_expires_at','quote_expires_at','quote_lease_until'}, 'professional_offers': {'worker_id'}}
             if not set(fields) <= allowed[kind] or 'worker_id' not in fields:
                 raise ValueError('Unsupported projection')
         ids = list(set(worker_ids))
@@ -371,7 +371,7 @@ def monitor_worksite(u,j,now,actor):
 
 
 def assign(u, job, now):
-    occupied = {j['worker_id'] for j in u.all('jobs') if j['id'] != job['id'] and j.get('worker_id') and j['state'] not in ('completed', 'cancelled') and not (j.get('home_plan_id') and j['state']=='accepted' and abs(j['starts_epoch']-job['starts_epoch'])>(j.get('duration_minutes',120)+job.get('duration_minutes',120))*60+1800) and not (j['state']=='follow_up_scheduled' and abs(j['starts_epoch']-job['starts_epoch'])>=7200)}
+    occupied = {j['worker_id'] for j in u.all('jobs') if j['id'] != job['id'] and j.get('worker_id') and j['state'] not in ('completed', 'cancelled') and not ((j.get('home_plan_id') or j.get('hourly_hire')) and j['state']=='accepted' and abs(j['starts_epoch']-job['starts_epoch'])>(j.get('duration_minutes',120)+job.get('duration_minutes',120))*60+1800) and not (j['state']=='follow_up_scheduled' and abs(j['starts_epoch']-job['starts_epoch'])>=7200)}
     occupied |= {h['worker_id'] for h in u.all('hires') if h['state'] in ('offered','quoting','quoted') and (h.get('quote_expires_at',h.get('offer_expires_at',0))>now or h.get('quote_lease_until',0)>now)}
     candidates = []
     requested=job.get('requested_worker_id')
@@ -462,6 +462,20 @@ def actions(job, actor, now):
     if job.get('home_plan_id'):
         result=[a for a in result if a not in ('cancel','reschedule','schedule_follow_up','retry_dispatch')]
         if now<job['starts_epoch']-3600:result=[a for a in result if a!='depart']
+    if job.get('hourly_hire'):
+        result=[a for a in result if a not in ('reschedule','schedule_follow_up','retry_dispatch')]
+        if job.get('hire_base_status')!='captured' or job.get('financial_hold') or job.get('hire_refund_hold'):
+            result=[a for a in result if a in ('cancel','review')]
+        elif actor==job.get('worker_id'):
+            if now<job['starts_epoch']-3600:result=[a for a in result if a!='depart']
+            if state=='in_progress':
+                meal=job.get('hire_break') or {}
+                if meal.get('state')=='active':
+                    result=[a for a in result if a in ('position','stop_tracking')]
+                    if now>=meal['until']:result.append('resume_after_break')
+                elif not meal:result.append('start_meal_break')
+                from hourly_hiring import recorded_seconds
+                if recorded_seconds(job,now)>=job['hourly_hire']['planned_minutes']*60:result=[a for a in result if a not in ('start_meal_break','resume_after_break','propose_parts')]
     return result
 
 
@@ -490,6 +504,9 @@ def public_job(u, job, actor, admin=False):
             u.put('audit', audit_id, {'id': audit_id, 'actor_id': actor, 'job_id': job['id'], 'action': 'AssignedLocationAccessed', 'fields': fields, 'at': now})
     value.pop('tracking_generation', None)
     value['allowed_actions'] = actions(job, actor, now) if not admin else []
+    if job.get('hourly_hire'):
+        from hourly_hiring import current_bill
+        value['hourly_bill']=current_bill(job,now)
     value['server_time'] = now
     value['distance_metres'] = round(metres(job['position'], job['location'])) if fresh_position(job, now) else None
     value['blockers'] = []
@@ -519,6 +536,7 @@ def command_response(u, job, actor):
 
 
 def assess_penalties(u, j, now):
+    if j.get('hourly_hire') and j.get('hire_base_status')!='captured':return False
     if j.get("home_plan_id"):return False  # New home-plan SLA terms require explicit policy; attendance stays auditable.
     if not j.get('accepted_at') or j['state'] in ('stop_requested','disputed','follow_up_required','completed','cancelled'): return False
     changed = False
@@ -881,7 +899,7 @@ def install(core):
                 metric=u.get('assignment_metrics',j['assignment_metric_id'])
                 if metric:metric.update(responded_at=now,response=a);u.put('assignment_metrics',metric['id'],metric)
             if a == 'accept':
-                busy = any(other['id'] != j['id'] and other.get('worker_id') == user['id'] and other['state'] not in ('cancelled', 'completed', 'searching') and not (other.get('home_plan_id') and other['state']=='accepted' and abs(other['starts_epoch']-j['starts_epoch'])>(other.get('duration_minutes',120)+j.get('duration_minutes',120))*60+1800) and not (other['state']=='follow_up_scheduled' and abs(other['starts_epoch']-j['starts_epoch'])>=7200) for other in u.all('jobs'))
+                busy = any(other['id'] != j['id'] and other.get('worker_id') == user['id'] and other['state'] not in ('cancelled', 'completed', 'searching') and not ((other.get('home_plan_id') or other.get('hourly_hire')) and other['state']=='accepted' and abs(other['starts_epoch']-j['starts_epoch'])>(other.get('duration_minutes',120)+j.get('duration_minutes',120))*60+1800) and not (other['state']=='follow_up_scheduled' and abs(other['starts_epoch']-j['starts_epoch'])>=7200) for other in u.all('jobs'))
                 if busy: fail('CAPACITY_CONFLICT', 'You already have another active assignment.')
                 from integrations import snapshot_policy
                 snapshot_policy(u, j, w)
@@ -923,7 +941,21 @@ def install(core):
                 from procurement import movement
                 movement(u,j,now)
                 monitor_worksite(u,j,now,user['id'])
+            elif a in ('start_meal_break','resume_after_break'):
+                from procurement import pause_timer,resume_timer
+                if a=='start_meal_break':
+                    pause_timer(j,now);j['hire_break']={'state':'active','started_at':now,'until':now+1800}
+                else:
+                    j['hire_break'].update(state='completed',ended_at=now);resume_timer(j,now)
             elif a == 'start':
+                if j.get('hourly_hire'):
+                    from hourly_hiring import recorded_seconds
+                    if recorded_seconds(j,now)>=j['hourly_hire']['planned_minutes']*60:fail('WORK_LIMIT','The agreed work limit is reached. Submit the work for review.')
+                    if (j.get('hire_break') or {}).get('state')=='active':
+                        if now<j['hire_break']['until']:fail('BREAK_ACTIVE','The separate 30-minute break has not ended.')
+                        j['hire_break'].update(state='completed',ended_at=now)
+                    if not j.get('started_at') and not j['starts_epoch']-900<=now<=j['starts_epoch']+3600:fail('VISIT_WINDOW','Start within the confirmed hourly visit window. Ask support to resolve a delayed booking.')
+                    if any(o['id']!=j['id'] and o.get('worker_id')==user['id'] and o['state'] in ('en_route','arrived','in_progress','collecting_parts','completion_pending') for o in u.all('jobs')):fail('ACTIVE_VISIT_CONFLICT','Finish your current visit before starting the next hiring.')
                 if j.get('home_plan_id') and not at_site(j,now):fail('ARRIVAL_LOCATION_REQUIRED','Confirm arrival with a fresh location or the customer’s manual arrival confirmation.')
                 if j.get('home_plan_id') and not j['starts_epoch']-900<=now<=j['starts_epoch']+j['duration_minutes']*60+3600:fail('VISIT_WINDOW','Start this visit within its scheduled attendance window. Contact support if the time changed.')
                 otp_code = str(p.get('code') or p.get('otp') or '').strip()
@@ -1027,23 +1059,40 @@ def install(core):
                 elif p.get('forgotten_info') or p.get('before_omission_reason'):
                     j['forgotten_info'] = str(p.get('forgotten_info') or p.get('before_omission_reason')).strip()[:2000]
                 if not str(p.get('notes', '')).strip(): fail('EVIDENCE_REQUIRED', 'Describe the work and checks completed.', 422)
+                if j.get('hourly_hire'):
+                    from hourly_hiring import finalize_bill
+                    finalize_bill(j,now)
                 j.update(state='completion_pending', completion_notes=str(p['notes'])[:2000])
                 j.pop('position', None)
                 j['tracking_consent'] = False
             elif a == 'accept_completion':
                 j.update(state='completed', completed_at=now, invoice={'id': j['id'], 'total_paise': j['total_paise'], 'status': 'payment_due'})
+                if j.get('hourly_hire'):
+                    from hourly_hiring import advance_total as hire_credit
+                    from parts_payments import advance_total as parts_credit
+                    if hire_credit(u,j['id'])+parts_credit(u,j['id'])==j['total_paise'] and not j.get('financial_hold'):
+                        j['payment_status']='verified';j['invoice']['status']='paid'
                 w = u.get('workers', j['worker_id'])
                 w['completed_tasks'] += 1
                 j['points_awarded'] = 10
                 w['points'] += 10  # Points confer review eligibility only, never verification or a kit.
                 u.put('workers', w['id'], w)
-                u.put('ledger', j['id'], {'id': j['id'], 'invoice_paise': j['total_paise'], 'payment_status': 'unverified', 'payout_status': 'held', 'penalties': j['penalties'], 'reason': 'PAYMENT_AND_PAYOUT_PROVIDER_REQUIRED'})
+                u.put('ledger', j['id'], {'id': j['id'], 'invoice_paise': j['total_paise'], 'payment_status': j['payment_status'] if j['payment_status']=='verified' else 'unverified', 'payout_status': 'held', 'penalties': j['penalties'], 'reason': 'PAYMENT_AND_PAYOUT_PROVIDER_REQUIRED'})
             elif a == 'dispute':
                 if len(str(p.get('reason', '')).strip()) < 5: fail('REASON_REQUIRED', 'Describe the issue so support can investigate.', 422)
                 j.update(state='disputed', dispute_reason=str(p['reason'])[:2000], payout_status='held')
             elif a in ('cancel', 'reschedule'):
                 if any(r.get('job_id')==j['id'] and r['state'] not in ('returned','cancelled','rejected','expired') for r in u.all('rentals')):fail('RENTALS_OUTSTANDING','Resolve equipment custody before cancelling or rescheduling this task. Contact support if needed.')
-                if a == 'cancel': j['state'] = 'cancelled'
+                if a == 'cancel':
+                    j['state'] = 'cancelled'
+                    if j.get('hourly_hire'):
+                        hire=u.get('hires',j['hire_id']);hire.update(state='cancelled',version=hire['version']+1);u.put('hires',hire['id'],hire)
+                        advance=u.get('payments',j['hire_base_payment_id'])
+                        if advance and advance.get('status') in ('captured','partially_refunded'):
+                            advance['recovery']='refund_review';u.put('payments',advance['id'],advance)
+                            j.update(financial_hold=True,payout_status='held',hire_base_status='refund_review')
+                            event(u,j,'HireAdvanceRefundRequired',user['id'],{'payment_record_id':advance['id']})
+
                 else:
                     try:
                         start = datetime.fromisoformat(p['starts_at'])
@@ -1093,6 +1142,19 @@ def install(core):
                     j['reminder_sent_at'] = now
                     event(u, j, 'PreparationReminderDue', 'scheduler')
                     dirty = True
+                if j.get('hourly_hire') and j.get('work_clock_started_at'):
+                    from hourly_hiring import recorded_seconds
+                    if recorded_seconds(j,now)>=j['hourly_hire']['planned_minutes']*60:
+                        j['work_seconds']=j['hourly_hire']['planned_minutes']*60;j.pop('work_clock_started_at',None)
+                        if not j.get('hourly_limit_reached_at'):
+                            j['hourly_limit_reached_at']=now;j['version']+=1
+                            event(u,j,'HourlyWorkLimitReached','scheduler')
+                            from hiring import notify
+                            hire=u.get('hires',j['hire_id'])
+                            if hire:
+                                notify(u,hire,j['worker_id'],'Agreed work limit reached','Stop timed work and submit the completed scope and evidence for review.',True)
+                                notify(u,hire,j['customer_id'],'Hourly work limit reached','The agreed time cap is reached. Review the completed work; extra time is not charged.')
+                        dirty=True
                 # Assessments are auditable obligations. Never invent a payout basis or charge a bank.
                 dirty = assess_penalties(u, j, now) or dirty
                 if dirty:

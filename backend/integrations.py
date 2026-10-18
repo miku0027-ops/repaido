@@ -112,6 +112,9 @@ def apply_payment(u, payment):
     if a.get('kind')=='home_plan':
         from home_plans import apply_capture
         return apply_capture(u,a,payment)
+    if a.get('kind')=='hire_base':
+        from hourly_hiring import apply_capture
+        return apply_capture(u,a,payment)
     if a.get('kind')=='parts':
         from parts_payments import apply_capture
         return apply_capture(u,a,payment)
@@ -163,7 +166,7 @@ def settlement(u, job_id):
     old = u.get('settlements', job_id)
     if old and not old.get('invalidated'): return old
     j = u.get('jobs', job_id)
-    if not j or j.get('financial_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state'] != 'completed' or j['payment_status'] != 'verified':
+    if not j or j.get('financial_hold') or j.get('hire_refund_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state'] != 'completed' or j['payment_status'] != 'verified':
         fail('SETTLEMENT_HELD', 'A completed, undisputed job and captured payment are required.')
     policy = j.get('settlement_policy')
     if not policy: fail('POLICY_NOT_ACCEPTED', 'No earnings and deduction policy was accepted for this assignment.')
@@ -542,12 +545,13 @@ def install(core):
             j=u.get('jobs',job_id)
             if not j or j['customer_id']!=user['id']: fail('NOT_FOUND','Booking not found.',404)
             if j['state']!='completed' or j['payment_status'] in ('verified','refunded','partially_refunded'): fail('PAYMENT_NOT_DUE','This booking cannot take another payment.')
-            if j.get('financial_hold') or j.get('parts_refund_hold'):fail('FINANCIAL_REVIEW_REQUIRED','Support must resolve the payment or refund hold before collecting a final balance.')
+            if j.get('financial_hold') or j.get('hire_refund_hold') or j.get('parts_refund_hold'):fail('FINANCIAL_REVIEW_REQUIRED','Support must resolve the payment or refund hold before collecting a final balance.')
             if j.get('home_plan_id'):fail('MONTHLY_INVOICE','Pay this visit through the monthly invoice in your Home plan.')
             old=u.get('payments',job_id)
             if old: return old,False
             from parts_payments import advance_total
-            balance=j['total_paise']-advance_total(u,job_id)
+            from hourly_hiring import advance_total as hire_credit
+            balance=j['total_paise']-advance_total(u,job_id)-hire_credit(u,job_id)
             if balance<=0:fail('PAYMENT_NOT_DUE','No remaining balance is due. Contact support for reconciliation.')
             a=dict(id=job_id,job_id=job_id,customer_id=user['id'],amount_paise=balance,status='creating',receipt=job_id,created_at=time.time())
             u.put('payments',job_id,a);return a,True
@@ -615,7 +619,7 @@ def install(core):
         if not status()['payouts']: fail('PAYOUTS_UNAVAILABLE','Payout account, static outbound IP and live provider activation are required.',503)
         def reserve(u):
             s=settlement(u,job_id);j=u.get('jobs',job_id);v=u.get('verification',s['worker_id']) or {};w=u.get('workers',s['worker_id'])
-            if j.get('financial_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state']!='completed' or j['payment_status']!='verified' or v.get('bank_status')!='verified' or v.get('identity_status')!='approved' or w['status']!='approved': fail('PAYOUT_HELD','Payment, identity, bank account and completion must be verified.')
+            if j.get('financial_hold') or j.get('hire_refund_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state']!='completed' or j['payment_status']!='verified' or v.get('bank_status')!='verified' or v.get('identity_status')!='approved' or w['status']!='approved': fail('PAYOUT_HELD','Payment, identity, bank account and completion must be verified.')
             if body.expected_net_paise!=s['net_paise']: fail('SETTLEMENT_CHANGED','Review the current net amount.')
             if s['net_paise']<100: fail('BELOW_PAYOUT_MINIMUM','Net earnings are below the provider minimum; manual carry-forward review is required.')
             old=u.get('payouts',job_id)
@@ -624,9 +628,12 @@ def install(core):
             u.put('payouts',job_id,p);s['status']='processing';u.put('settlements',job_id,s)
             # Balanced immutable allocation. Bonus is a liability, never spendable company revenue.
             from parts_payments import advance_total
+            from hourly_hiring import advance_total as hire_credit
+            hire_prepaid=hire_credit(u,job_id)
             prepaid=advance_total(u,job_id)
-            lines=[{'account':'payment_clearing','debit':j['total_paise']-prepaid,'credit':0},
+            lines=[{'account':'payment_clearing','debit':j['total_paise']-prepaid-hire_prepaid,'credit':0},
                    {'account':'customer_parts_advances','debit':prepaid,'credit':0},
+                   {'account':'customer_hire_advances','debit':hire_prepaid,'credit':0},
                    {'account':'worker_payable','debit':0,'credit':s['net_paise']},
                    {'account':'company_commission','debit':0,'credit':s['company_base_commission_paise']},
                    {'account':'company_penalty_income','debit':0,'credit':s['deduction_paise']},
@@ -753,7 +760,7 @@ def install(core):
         if p.get('provider_id'): return reconcile_payout(razorpay('payouts/'+p['provider_id'],payout=True))
         def eligible(u):
             j=u.get('jobs',p['id']);v=u.get('verification',p['worker_id']) or {};w=u.get('workers',p['worker_id']) or {}
-            if not j or j.get('financial_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state']!='completed' or j['payment_status']!='verified' or v.get('fund_account_id')!=p['fund_account_id'] or v.get('bank_status')!='verified' or v.get('identity_status')!='approved' or w.get('status')!='approved':
+            if not j or j.get('financial_hold') or j.get('hire_refund_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state']!='completed' or j['payment_status']!='verified' or v.get('fund_account_id')!=p['fund_account_id'] or v.get('bank_status')!='verified' or v.get('identity_status')!='approved' or w.get('status')!='approved':
                 fail('PAYOUT_RECONCILIATION_HOLD','Payout eligibility changed. Reconcile the existing provider attempt before any further transfer.')
         store.run(eligible)
         result=razorpay('payouts',dict(account_number=os.environ['RAZORPAYX_ACCOUNT_NUMBER'],fund_account_id=p['fund_account_id'],amount=p['amount_paise'],currency='INR',mode='IMPS',purpose='payout',queue_if_low_balance=False,reference_id=p.get('reference_id',p['id']),narration='Repaido earnings'),payout=True,key=p['idempotency_key'])
@@ -769,7 +776,7 @@ def install(core):
         def reserve(u):
             p=u.get('payouts',job_id);j=u.get('jobs',job_id);v=u.get('verification',p['worker_id']) or {}
             if p.get('provider_id')!=checked['provider_id'] or p['status']!=checked['status']:fail('PAYOUT_CHANGED','Refresh the current attempt.')
-            if j.get('financial_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state']!='completed' or j['payment_status']!='verified' or v.get('bank_status')!='verified':fail('PAYOUT_HELD','Resolve the payment, booking and bank checks first.')
+            if j.get('financial_hold') or j.get('hire_refund_hold') or j.get('parts_refund_hold') or j.get('allocation_review_required') or j['state']!='completed' or j['payment_status']!='verified' or v.get('bank_status')!='verified':fail('PAYOUT_HELD','Resolve the payment, booking and bank checks first.')
             if body.expected_net_paise!=p['amount_paise']:fail('AMOUNT_CHANGED','Review the current earnings amount.')
             u.put('payout_attempts',p['provider_id'],p)
             fresh={k:p[k] for k in ('id','worker_id','amount_paise')}
@@ -907,7 +914,11 @@ def install(core):
                     matches=[r for r in matches if r.get('receipt')==a['receipt'] and r.get('amount')==a['amount_paise'] and r.get('currency')=='INR']
                     if len(matches)!=1:continue
                     def attach(u):
-                        saved=u.get('payments',a['id']);saved.update(order_id=matches[0]['id'],status='created');u.put('payments',a['id'],saved)
+                        saved=u.get('payments',a['id'])
+                        if saved.get('order_id') and saved['order_id']!=matches[0]['id']:fail('ORDER_CONFLICT','Multiple provider orders require review.')
+                        saved['order_id']=matches[0]['id']
+                        if saved['status']=='creating':saved['status']='created'
+                        u.put('payments',a['id'],saved)
                     store.run(attach);a['order_id']=matches[0]['id']
                 for p in razorpay('orders/'+a['order_id']+'/payments').get('items',[]):store.run(lambda u:apply_payment(u,p))
             except Exception:errors+=1

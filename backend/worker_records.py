@@ -61,7 +61,8 @@ def public_profile(u, w, jobs=None, *, include_membership=True, include_network=
         if j.get('worker_id')==w['id'] and j['state']=='completed' and j.get('review'):
             r=j['review']
             reviews.append(dict(service=j['service_name'],rating=r['rating'],text=r.get('text',''),at=r.get('at',r.get('created_at',j.get('completed_at'))),reply=(r.get('worker_reply') or {}).get('text'),verified=True))
-    return {**{k:w.get(k) for k in ('id','name','role','city','categories','skills','tools','experience_years','radius_km','completed_tasks')},
+    from hourly_hiring import public_availability
+    return {'hire_availability':public_availability(u,w,jobs=jobs),**{k:w.get(k) for k in ('id','name','role','city','categories','skills','tools','experience_years','radius_km','completed_tasks')},
         'completed_tasks':len(completed),
         'performance':professional_performance(jobs),
         'work_history':[{'service':j.get('service_name','Completed service'),'category':j.get('category',''),'completed_at':j.get('completed_at'),'rating':(j.get('review') or {}).get('rating')} for j in sorted(completed,key=lambda j:j.get('completed_at') or 0,reverse=True)[:12]],
@@ -78,7 +79,7 @@ def public_profile(u, w, jobs=None, *, include_membership=True, include_network=
 def task_record(u,j):
     settlement=u.get('settlements',j['id']);payout=u.get('payouts',j['id'])
     # Explicit allowlists: no bank account, private documents, home address or raw GPS in reports.
-    return {**{k:j.get(k) for k in ('id','service_name','category','state','starts_at','created_at','accepted_at','reminder_at','reminder_ack_at','departed_at','started_at','completed_at','completion_notes','work_seconds','visit_id','payment_status','payout_status','base_price_paise','total_paise','terms','service_terms','settlement_policy')},
+    return {**{k:j.get(k) for k in ('id','service_name','category','state','starts_at','created_at','accepted_at','reminder_at','reminder_ack_at','departed_at','started_at','completed_at','completion_notes','work_seconds','hourly_hire','hourly_final_bill','hire_base_paid_paise','hire_break','visit_id','payment_status','payout_status','base_price_paise','total_paise','terms','service_terms','settlement_policy')},
         'penalties':j.get('penalties',[]),'events':j.get('events',[]),'review':j.get('review'),
         'parts_assessments':[{k:o.get(k) for k in ('id','assessment_paise','assessment_status','assessment_reason','assessment_reviewed_at','picked_up_at','returned_at')} for oid in j.get('parts_order_ids',[]) if (o:=u.get('parts_orders',oid))],
         'settlement':{k:settlement.get(k) for k in ('gross_paise','deduction_paise','net_paise','vendor_discount_paise','community_reward_paise','status','created_at','bonus_reserve_paise','travel_reimbursement_paise','hire_bonus_paise')} if settlement else None,
@@ -290,8 +291,11 @@ def install(core):
             complete=len(work)<=RECOMMENDATION_WORK_RECORDS;work=work[:RECOMMENDATION_WORK_RECORDS]
             offers=bounded_rows(u,'professional_offers','worker_id',wid,21)
             row=profile(u,w,work,offers[:20])
+            if not complete:
+                from hourly_hiring import public_availability
+                row['hire_availability']=public_availability(u,w)
             # Retain the existing public service-area fields. Never return the
-            # professional's exact origin, presence or private contact details.
+            # professional's exact origin, GPS trail or private contact details.
             row.update(city=w.get('city'),radius_km=w.get('radius_km'))
             row['service_packages']=[{k:s.get(k) for k in ('id','category','name','description','price_paise','duration_minutes','included','excluded')}
                 for s in catalog['services'] if s.get('active',True) and s['category'] in row['categories']]

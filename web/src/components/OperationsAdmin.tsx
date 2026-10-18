@@ -136,7 +136,7 @@ function CompanyBookings(){
   {key:'state',label:'Stage',value:j=>j.state,render:j=><AdminStatus value={j.state}/>},
   {key:'worker',label:'Professional / city',value:j=>j.worker_name||'Awaiting assignment',render:j=><>{j.worker_name||'Awaiting assignment'}<small>{j.city}</small></>},
   {key:'schedule',label:'Scheduled',value:j=>j.starts_epoch||0,render:j=>j.starts_at||'Not scheduled'},
-  {key:'amount',label:'Total',value:j=>j.total_paise,numeric:true,render:j=>money(j.total_paise)},
+  {key:'amount',label:'Total',value:j=>j.total_paise,numeric:true,render:j=><>{money(j.total_paise)}{j.hourly_hire&&j.hourly_final_total_paise===undefined&&<small> · ceiling</small>}</>},
   {key:'payment',label:'Payment / payout',value:j=>j.payment_status,render:j=><>{j.payment_status.replaceAll('_',' ')}<small>Payout: {j.payout_status.replaceAll('_',' ')}</small></>},
  ]} renderDetail={job=><><h3>{job.service_name} · #{job.id}</h3><AdminRecovery job={job} onRefresh={()=>resource.refresh()}/><details><summary>Private visit evidence</summary><VisitEvidence job={job} admin onRefresh={()=>resource.refresh()}/></details></>}/>}</>;
 }

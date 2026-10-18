@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "ops_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "worker_id", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [

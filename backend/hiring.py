@@ -5,28 +5,44 @@ import copy,hashlib,json,os,time,uuid,urllib.request
 from datetime import datetime,timezone
 from typing import Literal
 from fastapi import APIRouter,Depends
-from pydantic import Field
+from pydantic import Field, model_validator
 from operations import Input,Pin,Position,fail,metres,event
 from integrations import audit,razorpay,enabled,configured,snapshot_policy
 from worker_records import public_profile
 
 DEFAULT={'version':'hire-v1','enabled':False,'base_paise':49900,'gst_bps':None,'travel_paise_per_km':1000,'minimum_travel_paise':2000,'day_hours':None,'membership_paise':None,'membership_days':30,'radius_buffer_bps':1500,'response_seconds':300,'rematch_bonus_bps':1000,'terms':'','missed_response_policy':'Review required; no automatic monetary deduction.'}
+HOURLY_DEFAULT={**DEFAULT,'version':'hire-hourly-v1','billing_model':'hourly-v1','base_paise':15000,'hourly_paise':15000,'day_hours':6,'meal_break_minutes':30,'maximum_surcharge_bps':2500,'terms':'₹150 booking base paid upfront, plus ₹150 per hour billed by actual recorded time. One separate unpaid 30-minute meal break. Work is capped at the agreed duration, never more than six hours. A disclosed high-demand surcharge of up to 25% may apply to base and work; the rate is locked in your quote. The advance is credited to your final invoice. No separate travel fee. Materials require separate approval. Availability is estimated; cancellation and refund concerns can be reviewed through support.'}
 class Policy(Input):
     version:str=Field(min_length=3,max_length=80)
     enabled:bool=False
-    base_paise:Literal[49900]=49900
+    billing_model:Literal['fixed-day-v1','hourly-v1']='fixed-day-v1'
+    base_paise:Literal[49900,15000]=49900
+    hourly_paise:Literal[15000]=15000
+    meal_break_minutes:Literal[30]=30
+    maximum_surcharge_bps:Literal[2500]=2500
     gst_bps:int=Field(ge=0,le=3000)
     travel_paise_per_km:int=Field(gt=0,le=100000)
     minimum_travel_paise:int=Field(ge=0,le=100000)
     day_hours:int=Field(ge=1,le=12)
-    membership_paise:int=Field(gt=0,le=10000000)
+    membership_paise:int|None=Field(default=None,gt=0,le=10000000)
     membership_days:int=Field(ge=1,le=365)
     radius_buffer_bps:int=Field(default=1500,ge=1000,le=1500)
     response_seconds:Literal[300]=300
     rematch_bonus_bps:Literal[1000]=1000
     terms:str=Field(min_length=30,max_length=4000)
     missed_response_policy:Literal['Review required; no automatic monetary deduction.']='Review required; no automatic monetary deduction.'
+    @model_validator(mode='after')
+    def validate_billing(self):
+        if self.billing_model=='hourly-v1' and (self.base_paise!=15000 or self.day_hours!=6):
+            raise ValueError('Hourly hiring requires a ₹150 base and a six-hour maximum.')
+        if self.billing_model=='fixed-day-v1' and self.membership_paise is None:
+            raise ValueError('The fixed-day listing policy requires a membership amount.')
+        if self.billing_model=='fixed-day-v1' and self.base_paise!=49900:
+            raise ValueError('Existing fixed-day contracts retain their ₹499 base.')
+        return self
 class Area(Input):
+    starts_at:str|None=None
+    planned_minutes:int=Field(default=360,ge=15,le=360)
     location:Pin
     radius_km:float=Field(default=10,gt=0,le=50)
     category:str=''
@@ -40,6 +56,7 @@ class MemberConsent(Input):
     radius_km:float=Field(gt=0,le=50)
     consent:Literal[True]
 class HireRequest(Input):
+    planned_minutes:int=Field(default=360,ge=15,le=360)
     coupon_code:str|None=Field(default=None,max_length=30)
     worker_id:str
     category:str
@@ -58,7 +75,7 @@ class Decision(Input):
     expected_version:int=Field(ge=1)
     position:Position|None=None
 
-def policy(u):return u.get('hire_policy','current') or DEFAULT
+def policy(u):return u.get('hire_policy','current') or HOURLY_DEFAULT
 def paid(u,wid):
     m=u.get('hire_memberships',wid) or {}
     return m.get('status')=='active' and m.get('expires_at',0)>time.time()
@@ -90,18 +107,33 @@ def candidates(u,area,exclude=(),request_id=None):
         if distance+pos.get('accuracy',0)>limit*1000:continue
         nearby.append((w,distance))
     u.prefetch([('worker_profiles',w['id']) for w,_ in nearby])
-    jobs=u.for_workers('jobs',[w['id'] for w,_ in nearby],('worker_id','state','review','service_name','category','service_id','home_plan_id','completed_at'))
-    hires=u.for_workers('hires',[w['id'] for w,_ in nearby],('id','worker_id','state'))
+    from hourly_hiring import is_hourly, public_availability, demand_rate, JOB_FIELDS
+    jobs=u.for_workers('jobs',[w['id'] for w,_ in nearby],tuple(set(JOB_FIELDS+('review','service_name','category','service_id','home_plan_id','completed_at'))))
+    hires=u.for_workers('hires',[w['id'] for w,_ in nearby],('id','worker_id','state','starts_at','planned_minutes','policy','offer_expires_at','quote_expires_at','quote_lease_until'))
     by_worker={w['id']:[] for w,_ in nearby}
     for j in jobs:by_worker[j['worker_id']].append(j)
     busy={j.get('worker_id') for j in jobs if j['state'] not in ('completed','cancelled','searching')}
     busy|={h.get('worker_id') for h in hires if h['id']!=request_id and h['state'] in ('offered','awaiting_choice','quoting','quoted')}
+    capacity={'jobs':jobs,'hires':hires,'plans':u.all('home_plans'),'projects':u.all('contract_projects')} if is_hourly(p) and nearby else None
+    demand_by_start={}
     for w,distance in nearby:
-        if w['id'] in busy:continue
+        if is_hourly(p):
+            availability=public_availability(u,w,jobs=by_worker[w['id']],now=now)
+            try:
+                parsed=datetime.fromisoformat(area.starts_at) if area.starts_at else None
+                if parsed and (parsed.tzinfo is None or not now<parsed.timestamp()<now+30*86400):raise ValueError()
+                requested=parsed.timestamp() if parsed else max(now+1860,availability.get('available_at') or now+1860)
+            except (ValueError,TypeError):fail('INVALID_TIME','Choose a valid hiring start time.',422)
+            from hourly_hiring import reservation_conflict
+            if reservation_conflict(u,w['id'],requested,area.planned_minutes,request_id=request_id,now=now,context=capacity):continue
+        elif w['id'] in busy:continue
         profile=public_profile(u,w,jobs=by_worker[w['id']])
         if area.min_rating and (profile['rating'] or 0)<area.min_rating:continue
         if area.query and area.query.casefold() not in ' '.join([w['name'],*w['skills'],*w['categories'],*profile['specialties']]).casefold():continue
         profile.update(distance_km=round(distance/1000,1),outside_preferred_radius=distance>area.radius_km*1000,zone=w['city'],premium=True)
+        if is_hourly(p):
+            if requested not in demand_by_start:demand_by_start[requested]=demand_rate(u,[worker for worker,_ in nearby],starts_epoch=requested,now=now,jobs=jobs)
+            profile.update(hire_availability=availability,hire_suggested_start=requested,hourly_demand=demand_by_start[requested])
         out.append(profile)
     keys={'distance':lambda w:(w['distance_km'],w['id']),'rating':lambda w:(-(w['rating'] or 0),-w['review_count'],w['distance_km']),'experience':lambda w:(-(w['experience_years'] or 0),w['distance_km']),'recommended':lambda w:(-((w['rating'] or 0)*w['review_count']/(w['review_count']+5)),-(w['completed_tasks'] or 0),w['distance_km'])}
     return sorted(out,key=keys[area.sort])[:40]
@@ -129,11 +161,17 @@ def notify(u,h,uid,title,body,urgent=False):
             did=hashlib.sha256((nid+d['id']).encode()).hexdigest();u.put('deliveries',did,dict(id=did,notification_id=nid,device_id=d['id'],status='pending'))
 
 def safe(h,uid):
-    fields=('id','version','state','worker_id','worker_name','category','starts_at','city','notes','policy','offer_expires_at','quote','quote_expires_at','job_id','bonus_paise','assessment','wait_used','created_at')
+    fields=('id','version','state','worker_id','worker_name','category','starts_at','city','notes','policy','offer_expires_at','quote','quote_expires_at','job_id','bonus_paise','assessment','wait_used','created_at','planned_minutes','demand','payment_expires_at')
     return {k:copy.deepcopy(h[k]) for k in fields if k in h}
 
 def expire(u,h):
     now=time.time()
+    if h['state']=='awaiting_payment' and now>=h.get('payment_expires_at',0):
+        job=u.get('jobs',h.get('job_id',''))
+        if job and job.get('hire_base_status')=='pending':
+            job.update(state='cancelled',hire_base_status='expired',version=job['version']+1)
+            event(u,job,'HirePaymentReservationExpired','scheduler');u.put('jobs',job['id'],job)
+            h.update(state='cancelled',version=h['version']+1);u.put('hires',h['id'],h)
     if h['state']=='offered' and now>=h['offer_expires_at']:
         h.update(state='awaiting_choice',version=h['version']+1)
         aid=f"{h['id']}:{h['worker_id']}"
@@ -156,7 +194,7 @@ def install(core):
         return w
     def available(u):
         p=policy(u)
-        if not p['enabled']:fail('HIRE_NOT_READY','Day hiring is awaiting pricing and policy activation. Regular service booking is still available.',503)
+        if not p['enabled']:fail('HIRE_NOT_READY','Personal hiring is awaiting pricing and policy activation. Regular service booking is still available.',503)
         return p
     @r.get('/hiring/policy')
     def public_policy():
@@ -166,6 +204,7 @@ def install(core):
         def save(u):
             existing=u.get('hire_policy_versions',body.version)
             if existing and existing!=body.model_dump():fail('IMMUTABLE_VERSION','Use a new version for changed terms.')
+            if body.enabled and body.billing_model=='hourly-v1' and not (enabled('REPAIDO_PAYMENTS_ENABLED') and configured('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET')):fail('PAYMENTS_REQUIRED','Connect verified booking payments before hourly hiring activation.')
             if body.enabled and not os.getenv('GOOGLE_ROUTES_API_KEY'):fail('ROUTING_REQUIRED','Connect the server-side route provider before activation.')
             u.put('hire_policy_versions',body.version,body.model_dump());u.put('hire_policy','current',body.model_dump());audit(u,'HiringPolicyUpdated',admin['id'],version=body.version);return body.model_dump()
         return store.run(save)
@@ -194,6 +233,7 @@ def install(core):
             if m.get('policy_version')!=p['version']:fail('TERMS_REQUIRED','Accept the current Hire terms and radius first.')
             key=f"{user['id']}:{m.get('expires_at',0)}";old=u.get('hire_fees',key)
             if old:return old,False
+            if p.get('membership_paise') is None:fail('MEMBERSHIP_PRICE_UNSET','Paid listing has no published price yet. Contact support; no membership payment was created.')
             fee=dict(id=key,worker_id=user['id'],amount=p['membership_paise'],receipt='hp_'+uuid.uuid4().hex[:30],status='creating',created_at=time.time(),days=p['membership_days'],policy_version=p['version'])
             u.put('hire_fees',key,fee);return fee,True
         fee,new=store.run(reserve)
@@ -248,18 +288,22 @@ def install(core):
             from account_profile import require_email
             require_email(u,user)
             p=available(u)
+            from hourly_hiring import is_hourly
+            hourly=is_hourly(p)
+            if hourly and body.coupon_code:fail('COUPON_SCOPE','This coupon applies to fixed-price hiring, not the new timed-work quote.')
             if p['version']!=body.policy_version:fail('POLICY_CHANGED','Review the current hiring terms.')
             if len([h for h in u.all('hires') if h['customer_id']==user['id'] and h['state'] not in ('booked','cancelled')])>=3:fail('OPEN_REQUESTS','Finish or cancel an existing hire request first.')
-            eligible=candidates(u,Area(location=body.location,radius_km=body.radius_km,category=body.category,allow_buffer=body.allow_buffer))
+            eligible=candidates(u,Area(location=body.location,radius_km=body.radius_km,category=body.category,allow_buffer=body.allow_buffer,starts_at=body.starts_at,planned_minutes=body.planned_minutes))
             chosen=next((w for w in eligible if w['id']==body.worker_id),None)
             if not chosen:fail('NO_LONGER_AVAILABLE','This professional is no longer eligible or available. Refresh results.')
             h={**body.model_dump(), 'id':str(uuid.uuid4()),'customer_id':user['id'],'customer_name':user.get('name','Customer'),'worker_name':chosen['name'],'policy':copy.deepcopy(p),'state':'offered','version':1,'offer_expires_at':time.time()+300,'attempted_workers':[body.worker_id],'created_at':time.time(),'bonus_paise':0}
+            if hourly:h['demand']=chosen['hourly_demand']
             from professional_offers import quote_offer
-            h['professional_offer']=quote_offer(u,body.worker_id,'day:'+body.category,p['base_paise'],1) if not body.coupon_code else None
+            h['professional_offer']=quote_offer(u,body.worker_id,'day:'+body.category,p['base_paise'],1) if not body.coupon_code and not hourly else None
             if body.coupon_code:
                 from coupons import reserve
                 h['coupon']=reserve(u,user['id'],body.coupon_code,'hire',p['base_paise'],'hire:'+h['id'])
-            u.put('hires',h['id'],h);u.put('hire_keys',key,{'id':h['id'],'fingerprint':fingerprint});notify(u,h,body.worker_id,'New day-hire request','Respond within five minutes. Review scope and earnings before accepting.',True)
+            u.put('hires',h['id'],h);u.put('hire_keys',key,{'id':h['id'],'fingerprint':fingerprint});notify(u,h,body.worker_id,'New hourly hire request' if hourly else 'New day-hire request','Respond within five minutes. Review scope and earnings before accepting.',True)
             from transactional_mail import enqueue
             enqueue(u,h['id'],'hire_request_saved',[h['customer_id']],{'record_type':'booking','record_id':h['id'],'path':'/'})
             return safe(h,user['id'])
@@ -280,12 +324,14 @@ def install(core):
         store.run(lambda u:expire(u,access(u)))
         def save(u):
             h=access(u);now=time.time();a=body.action
-            if h['state']=='booked' and a=='confirm' and user['id']==h['customer_id']:return h
+            from hourly_hiring import is_hourly, reservation_conflict
+            hourly=is_hourly(h['policy'])
+            if h['state'] in ('booked','awaiting_payment') and a=='confirm' and user['id']==h['customer_id']:return h
             if h['version']!=body.expected_version:fail('STALE_VERSION','Request changed. Refresh and review it.')
             customer=user['id']==h['customer_id']
             if customer and a not in ('wait','rematch','confirm','cancel') or not customer and a not in ('accept','decline'):fail('FORBIDDEN','This action is not available to your role.',403)
             if a=='cancel':
-                if h['state']=='booked':fail('BOOKING_CREATED','Manage cancellation from the confirmed booking.')
+                if h['state'] in ('booked','awaiting_payment'):fail('BOOKING_CREATED','Manage cancellation from the confirmed booking.')
                 h['state']='cancelled'
             elif a=='decline':
                 if h['state']!='offered':fail('STATE_CHANGED','This request is no longer offered.')
@@ -295,12 +341,13 @@ def install(core):
                 h.update(state='offered',wait_used=True,offer_expires_at=now+300);notify(u,h,h['worker_id'],'Customer extended the response window','Please respond within five minutes.',True)
             elif a=='rematch':
                 if h['state']!='awaiting_choice':fail('CHOICE_NOT_DUE','Wait for the current response window or cancel.')
-                area=Area(location=h['location'],radius_km=h['radius_km'],category=h['category'],allow_buffer=h['allow_buffer'])
+                area=Area(location=h['location'],radius_km=h['radius_km'],category=h['category'],allow_buffer=h['allow_buffer'],starts_at=h['starts_at'],planned_minutes=h.get('planned_minutes',360))
                 rows=candidates(u,area,exclude=h['attempted_workers'],request_id=h['id'])
                 if not rows:fail('NO_MATCH','No alternative is available within your agreed radius. Retry later or cancel.')
                 w=rows[0];h.update(worker_id=w['id'],worker_name=w['name'],state='offered',offer_expires_at=now+300,bonus_paise=h['policy']['base_paise']//10,wait_used=False)
+                if hourly:h['demand']=w['hourly_demand']
                 from professional_offers import quote_offer
-                h['professional_offer']=quote_offer(u,w['id'],'day:'+h['category'],h['policy']['base_paise'],1) if not h.get('coupon') else None
+                h['professional_offer']=quote_offer(u,w['id'],'day:'+h['category'],h['policy']['base_paise'],1) if not h.get('coupon') and not hourly else None
                 h['attempted_workers'].append(w['id']);notify(u,h,w['id'],'Priority reassignment · 10% base-fee bonus','A customer is waiting after an earlier request. Company-funded bonus applies after completed, paid work.',True)
             elif a=='accept':
                 worker(u,user)
@@ -311,16 +358,26 @@ def install(core):
                 if not listing_eligible(u,user['id']) or m.get('policy_version')!=h['policy']['version']:fail('MEMBERSHIP_REQUIRED','Your paid membership or accepted policy is no longer valid.')
                 limit=min(h['radius_km'],m['radius_km'])*(1+h['policy']['radius_buffer_bps']/10000 if h['allow_buffer'] else 1)*1000
                 if metres(pos.model_dump(),h['location'])+pos.accuracy>limit:fail('OUTSIDE_RADIUS','Your current location is outside the agreed hiring range.')
-                if any(j.get('worker_id')==user['id'] and j['state'] not in ('completed','cancelled','searching') for j in u.all('jobs')):fail('BUSY','Finish your active task before accepting a day hire.')
+                if hourly and reservation_conflict(u,user['id'],datetime.fromisoformat(h['starts_at']).timestamp(),h['planned_minutes'],request_id=h['id'],now=now):fail('BUSY','This reserved time overlaps another assignment.')
+                if not hourly and any(j.get('worker_id')==user['id'] and j['state'] not in ('completed','cancelled','searching') for j in u.all('jobs')):fail('BUSY','Finish your active task before accepting a day hire.')
                 h.update(state='quoting',accepted_position=pos.model_dump(),quote_lease_until=now+120)
             elif a=='confirm':
                 if h['state']!='quoted' or now>=h['quote_expires_at']:fail('QUOTE_EXPIRED','Ask the professional to refresh the route quote.')
                 w=u.get('workers',h['worker_id'])
-                if not w or w['status']!='approved' or any(j.get('worker_id')==w['id'] and j['state'] not in ('completed','cancelled','searching') for j in u.all('jobs')):fail('CAPACITY_CHANGED','Professional availability changed. Cancel or choose another.')
+                if not w or w['status']!='approved' or (not hourly and any(j.get('worker_id')==w['id'] and j['state'] not in ('completed','cancelled','searching') for j in u.all('jobs'))):fail('CAPACITY_CHANGED','Professional availability changed. Cancel or choose another.')
                 q=h['quote'];jid=str(uuid.uuid4());p=h['policy'];start=datetime.fromisoformat(h['starts_at'])
+                if hourly and start.timestamp()<now+900:fail('VISIT_TOO_SOON','Choose a later visit so the booking payment can be confirmed before travel.')
                 from home_plans import conflict
-                if conflict(u,w['id'],start.timestamp(),p['day_hours']*60):fail('CAPACITY_CHANGED','This agent has an overlapping project or home visit. Choose another time or professional.')
+                if (reservation_conflict(u,w['id'],start.timestamp(),h['planned_minutes'],request_id=h['id'],now=now) if hourly else conflict(u,w['id'],start.timestamp(),p['day_hours']*60)):fail('CAPACITY_CHANGED','This agent has an overlapping project or home visit. Choose another time or professional.')
                 j=dict(id=jid,booking_id=jid,work_order_id=str(uuid.uuid4()),visit_id=str(uuid.uuid4()),procurement_version=3,customer_id=h['customer_id'],customer_name=h['customer_name'],worker_id=w['id'],worker_name=w['name'],worker_role=w['role'],service_id='day-hire-'+h['category'],service_name=h['category']+' · day hire',category=h['category'],city=h['city'],address=h['address'],phone=h['phone'],location=h['location'],notes=h['notes'],starts_at=start.isoformat(),starts_epoch=start.timestamp(),duration_minutes=p['day_hours']*60,state='accepted',version=1,scope_version=1,base_price_paise=p['base_paise'],total_paise=q['total_paise'],settlement_base_paise=p['base_paise'],hire_travel_paise=q['travel_paise'],hire_gst_paise=q['gst_paise'],hire_bonus_paise=h['bonus_paise'],hire_id=h['id'],hire_quote=q,hire_origin=h['accepted_position'],payment_status='pay_after_service',payout_status='held',events=[],penalties=[],scopes=[{'version':1,'price_paise':q['total_paise'],'accepted_by':user['id'],'accepted_at':now}],created_at=now,accepted_at=now,reminder_at=max(now,start.timestamp()-7200),attempted_workers=[w['id']],terms={'version':p['version'],'reminder_grace_seconds':600,'missed_reminder_current_percent':10,'late_departure_percent':20,'free_cancel_before_start':True},service_terms={'version':1,'text':p['terms']})
+                if hourly:
+                    from hourly_hiring import terms
+                    j.update(service_id='hourly-hire-'+h['category'],service_name=h['category']+' · personal hourly hire',
+                             duration_minutes=h['planned_minutes']+30,
+                             hourly_hire={**terms(h['planned_minutes']),'surcharge_bps':q['surcharge_bps'],'gst_bps':p['gst_bps'],
+                                          'quoted_service_total_paise':q['total_paise'],'booking_advance_paise':q['booking_advance_paise']},
+                             base_price_paise=q['service_earnings_base_paise'],settlement_base_paise=q['service_earnings_base_paise'],
+                             hire_base_status='pending',hire_base_paid_paise=0,hire_base_payment_id=str(uuid.uuid4()),hire_payment_expires_at=now+900)
                 if h.get("coupon"):
                     from coupons import attach_job
                     attach_job(j,h["coupon"],already_discounted=bool(q.get('coupon')))
@@ -329,7 +386,8 @@ def install(core):
                 snapshot_policy(u,j,w)
                 ep=j.get('settlement_policy')
                 if not ep or p['base_paise']*(10000-ep['worker_share_bps']-ep.get('bonus_reserve_bps',0))//10000<h['bonus_paise']:fail('EARNINGS_POLICY','Agent must accept an earnings policy that funds the promised bonus before confirmation.')
-                event(u,j,'HireBookingConfirmed',user['id']);u.put('jobs',jid,j);h.update(state='booked',job_id=jid)
+                event(u,j,'HirePaymentReservationCreated' if hourly else 'HireBookingConfirmed',user['id']);u.put('jobs',jid,j);h.update(state='awaiting_payment' if hourly else 'booked',job_id=jid)
+                if hourly:h['payment_expires_at']=j['hire_payment_expires_at']
             h['version']+=1;u.put('hires',h['id'],h)
             if a=='cancel':
                 from transactional_mail import enqueue
@@ -350,11 +408,15 @@ def install(core):
                 if row['version']!=h['version'] or row['state']!='quoting':fail('REQUEST_CHANGED','Request changed during route calculation. Refresh.')
                 p=row['policy'];travel=max(p['minimum_travel_paise'],((outbound+inbound)*p['travel_paise_per_km']+500)//1000);gst=((p['base_paise']+travel)*p['gst_bps']+5000)//10000
                 row.update(state='quoted',version=row['version']+1,quote_expires_at=time.time()+300,quote={'base_paise':p['base_paise'],'travel_paise':travel,'gst_paise':gst,'total_paise':p['base_paise']+travel+gst,'outbound_metres':outbound,'return_metres':inbound,'distance_source':'Google driving routes','origin_captured_at':row['accepted_position']['captured_at']})
+                from hourly_hiring import is_hourly,price
+                if is_hourly(p):
+                    priced=price(row['planned_minutes']*60,surcharge_bps=row['demand']['bps'],gst_bps=p['gst_bps'],limit_minutes=row['planned_minutes'])
+                    row['quote']={**row['quote'],**priced,'billing_model':'hourly-v1','planned_minutes':row['planned_minutes'],'meal_break_minutes':30,'is_ceiling':True}
                 if row.get('professional_offer'):
                     row['quote']['professional_offer']=row['professional_offer'];row['quote']['total_paise']-=row['professional_offer']['discount_paise']
                 if row.get('coupon'):
                     row['quote']['coupon']=row['coupon'];row['quote']['total_paise']-=row['coupon']['discount_paise']
-                u.put('hires',hid,row);notify(u,row,row['customer_id'],'Review your day-hire quote','The professional responded. Review travel and tax before confirming.');return row
+                u.put('hires',hid,row);notify(u,row,row['customer_id'],'Review your hiring quote','The professional responded. Review the price, advance and tax before confirming.');return row
             h=store.run(quote)
         return safe(h,user['id'])
     def tick():
@@ -368,3 +430,5 @@ def install(core):
                 except Exception:pass
         return {'checked':True}
     core.hiring_tick=tick;core.app.include_router(r)
+    from hourly_hiring import install as install_hourly
+    install_hourly(core)

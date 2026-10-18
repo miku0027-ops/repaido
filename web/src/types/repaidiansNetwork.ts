@@ -16,6 +16,6 @@ export interface NetworkEndorsement {id:string;authorId:string;recipientId:strin
 export interface NetworkEndorsementsPage {items:NetworkEndorsement[];members:CommunityMember[];nextCursor:string|null;viewerEndorsed?:string[];}
 export interface NetworkRecommendation {id:string;authorId:string;recipientId:string;text:string;relationship:string;status:'pending'|'approved'|'declined'|'retracted';version:number;createdAt:number;updatedAt:number;approvedAt?:number;}
 export interface NetworkRecommendationsPage {items:NetworkRecommendation[];members:CommunityMember[];nextCursor:string|null;}
-export interface NetworkProfileDetails {profile:NetworkProfessionalProfile|null;profileInfoSource:'member';connection:NetworkConnection;endorsements:NetworkEndorsementsPage;recommendations:NetworkRecommendationsPage;stats:{connections:number};}
+export interface NetworkProfileDetails {hireAvailability?:import('../components/HourlyHire').HireAvailability|null;profile:NetworkProfessionalProfile|null;profileInfoSource:'member';connection:NetworkConnection;endorsements:NetworkEndorsementsPage;recommendations:NetworkRecommendationsPage;stats:{connections:number};}
 export interface NetworkPreferences {connectionPrivacy:'everyone'|'nobody';allowEndorsements:boolean;allowRecommendations:boolean;networkNotifications:boolean;}
 export type NetworkProfilePatch=Partial<Omit<NetworkProfessionalProfile,'userId'|'version'|'updatedAt'>>;

@@ -2,6 +2,7 @@ export const taskStages = ['Request', 'Travel', 'Arrival', 'Work', 'Finish'];
 // Exact count of five server-confirmed visit milestones, not a time/effort estimate.
 // A follow-up is a new visit; old task events must not turn its stages green.
 export function taskProgress(job) {
+  if(job.hourly_hire&&job.state==='accepted'&&job.hire_base_status==='pending')return {completed:0,percent:0,tone:'warning',status:'Booking advance pending'};
   const stagesByState = {searching:0,offered:0,accepted:1,follow_up_scheduled:1,en_route:1,arrived:2,in_progress:3,collecting_parts:3,completion_pending:4,completed:5};
   const recorded = job.completion_notes ? 4 : job.started_at ? 3 :
     ((job.arrival_verified_visit && job.arrival_verified_visit === job.visit_id) || job.manual_arrival || job.evidence_summary?.has_before) ? 2 : job.accepted_at ? 1 : 0;

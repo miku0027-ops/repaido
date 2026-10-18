@@ -52,6 +52,7 @@ export function actionMessages(path, init = {}) {
   if (/\/market\/[^/]+\/close$/.test(route)) return note('Listing closed', 'This item is no longer available for new enquiries.');
   if (/\/hiring\/requests$/.test(route)) return note('Hire request sent', 'Follow the professional’s response and full quote in Bookings → Hiring.');
   if (/\/hiring\/requests\/[^/]+\/decision$/.test(route)) {
+   if(body.action==='confirm'&&data.state==='awaiting_payment')return note('Slot reserved','Pay the booking advance to confirm this visit. Do not pay twice if a payment is pending.','info');
    const messages = {confirm:['Visit confirmed','Open your task to follow the visit.'], cancel:['Hire request cancelled','Your cancellation was saved.'], accept:['Quote sent','Wait for the customer to confirm the full price before travelling.'], decline:['Request declined','Your decision was saved.'], wait:['Waiting time extended','The professional has five more minutes to respond.'], rematch:['Matching request updated','Check your Hire request for the next professional’s response.']};
    return note(...(messages[action] || ['Decision saved','Your Hire request has been updated.']));
   }

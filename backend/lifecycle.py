@@ -254,7 +254,7 @@ def install(core):
             if t.get('job_id'):
                 j=u.get('jobs',t['job_id'])
                 other=any(c['id']!=case_id and c['state']!='resolved' and c['category'] in ('warranty','payment','penalty','safety') for c in u.find('support_cases','job_id',j['id']))
-                j['financial_hold']=other or (t['state']!='resolved' and t['category'] in ('warranty','payment','penalty','safety'))
+                j['financial_hold']=other or (t['state']!='resolved' and t['category'] in ('warranty','payment','penalty','safety')) or j.get('hire_refund_hold',False) or (bool(j.get('hourly_hire')) and (j.get('hire_base_status') not in ('pending','captured') or j['state'] in ('disputed','stop_requested')))
                 u.put('jobs',j['id'],j)
             audit(u,'SupportCase'+body.action,user['id'],case_id=case_id,reason=body.reason)
             from transactional_mail import enqueue
@@ -297,6 +297,15 @@ def install(core):
             if not j or j['state'] not in ('disputed','stop_requested','follow_up_required','completion_pending'):fail('RECOVERY_NOT_REQUIRED','No recovery decision is pending.')
             if j['version']!=body.expected_version:fail('STALE_VERSION','Refresh the booking before proposing a resolution.')
             if any(x['job_id']==job_id and x['status']=='pending' for x in u.all('resolutions')):fail('PENDING_RESOLUTION','Withdraw or decide the existing proposal first.')
+            if j.get('hourly_hire') and body.action in ('follow_up','reassign'):
+                fail('HOURLY_NEW_RESERVATION','Close and reconcile the recorded hourly work first, then request a new reservation. A paid hourly slot cannot silently change worker or dates.')
+            if j.get('hourly_hire'):
+                from hourly_hiring import current_bill, reservation_conflict
+                if j.get('hire_base_status')!='captured' or j.get('hire_refund_hold'):fail('FINANCE_REVIEW_REQUIRED','Reconcile the booking advance before resolving this visit.')
+                if body.action=='partial_close':
+                    bill=current_bill(j);extras=j['total_paise']-j.get('hourly_final_total_paise',j['hourly_hire']['quoted_service_total_paise'])
+                    if body.final_paise!=bill['total_paise']+extras or body.final_base_paise!=bill['service_earnings_base_paise']:fail('HOURLY_RECORDED_AMOUNT','Close at the actual recorded service amount plus approved materials. Separate refunds need finance review.')
+                if body.action=='resume' and reservation_conflict(u,j['worker_id'],time.time(),max(1,j['hourly_hire']['planned_minutes']-int(current_bill(j)['billable_seconds']/60)),job_id=j['id'],request_id=j['hire_id']):fail('CAPACITY_CHANGED','The remaining work conflicts with another reservation. Review the recorded work for closure.')
             if body.action in ('follow_up','reassign'):
                 try:
                     date=datetime.fromisoformat(body.starts_at)
@@ -305,7 +314,7 @@ def install(core):
             if body.action=='partial_close' and (j.get('promotion_discount_paise') or j.get('vendor_discount_paise') or j.get('community_reward_paise')):
                 fail('PROMOTIONAL_SETTLEMENT_REVIEW','A discounted partial completion needs finance review. Use the dispute/refund route; do not remove an agreed discount or change worker earnings silently.')
             if body.action=='partial_close' and (body.final_paise is None or body.final_paise>j['total_paise'] or body.final_base_paise is None or body.final_base_paise>min(body.final_paise,j['base_price_paise']) or body.final_paise-body.final_base_paise>j['total_paise']-j['base_price_paise']):fail('INVALID_AMOUNT','Final amount must not exceed the customer-approved scope.',422)
-            if any(a.get('job_id')==job_id for a in u.all('payments')) or u.get('payouts',job_id):fail('FINANCE_REVIEW_REQUIRED','Reconcile the existing payment before changing the final invoice.')
+            if any(a.get('job_id')==job_id and not (j.get('hourly_hire') and a.get('kind') in ('hire_base','parts') and a.get('status')=='captured' and a.get('allocated') and not a.get('amount_refunded')) for a in u.all('payments')) or u.get('payouts',job_id):fail('FINANCE_REVIEW_REQUIRED','Reconcile the existing payment before changing the final invoice.')
             proposal=dict(id=key,job_id=job_id,status='pending',proposal=body.model_dump(),created_at=time.time(),expires_at=time.time()+7*86400)
             u.put('resolutions',key,proposal);audit(u,'RecoveryProposed',admin['id'],job_id=job_id,resolution_id=key);return proposal
         return store.run(save)
@@ -329,8 +338,19 @@ def install(core):
             if body.accept:
                 proposal=p['proposal'];action=proposal['action']
                 j['version']+=1;j['financial_hold']=any(c.get('job_id')==j['id'] and c['state']!='resolved' and c['category'] in ('warranty','payment','penalty','safety') for c in u.all('support_cases'))
+                if j.get('hourly_hire'):
+                    from hourly_hiring import current_bill, reservation_conflict
+                    if j.get('hire_base_status')!='captured' or j.get('hire_refund_hold'):fail('FINANCE_REVIEW_REQUIRED','The booking advance changed. Ask support to review it.')
+                    if action=='resume' and reservation_conflict(u,j['worker_id'],time.time(),max(1,j['hourly_hire']['planned_minutes']-int(current_bill(j)['billable_seconds']/60)),job_id=j['id'],request_id=j['hire_id']):fail('CAPACITY_CHANGED','Another reservation now conflicts. Ask support to review the remaining work.')
                 if action=='partial_close':
+                    if j.get('hourly_hire'):
+                        from hourly_hiring import finalize_bill
+                        finalize_bill(j,time.time())
                     j.update(state='completed',outcome='partial',settlement_base_paise=proposal['final_base_paise'],total_paise=proposal['final_paise'],completed_at=time.time(),invoice={'id':j['id'],'total_paise':proposal['final_paise'],'status':'payment_due'})
+                    if j.get('hourly_hire'):
+                        from hourly_hiring import advance_total as hire_credit
+                        from parts_payments import advance_total as parts_credit
+                        if hire_credit(u,j['id'])+parts_credit(u,j['id'])==j['total_paise'] and not j.get('financial_hold'):j['payment_status']='verified';j['invoice']['status']='paid'
                     if proposal['final_paise']==0:j['payment_status']='no_payment_due';j['invoice']['status']='no_payment_due'
                     j['scope_version']=len(j['scopes'])+1
                     j['scopes'].append({'version':j['scope_version'],'price_paise':proposal['final_paise'],'accepted_at':time.time(),'accepted_by':user['id'],'resolution_id':resolution_id})

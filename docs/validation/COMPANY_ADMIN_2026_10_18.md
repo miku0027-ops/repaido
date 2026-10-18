@@ -37,7 +37,7 @@ Removed `CompanyAdminPortal.tsx` and its unused import after reference inspectio
 
 The deployed system shares a backend image across main, work and private worker applications. Existing transactions, operator claims, worker/customer ownership, immutable policies and payment/provider reconciliation remain authoritative. A visual redesign does not justify adding a separate container per table or duplicating financial state in client storage. These changes add no new production service, scheduler, database collection or Firestore index.
 
-The separate new hourly-hiring request requires pricing, timed-work and schedule changes; the old fixed-day policy is not made hourly by this admin redesign. Existing contract snapshots must remain intact when that lifecycle is added.
+The separate new hourly-hiring request adds pricing, timed-work and schedule changes, documented in [the hourly-hiring validation report](HOURLY_HIRING_2026_10_18.md). The old fixed-day policy is not made hourly by this admin redesign. Existing contract snapshots remain intact.
 
 ## Local evidence
 

@@ -27,7 +27,7 @@ def install(core):
             saved.update(provider_id=result['id'],status=result['status'],checked_at=time.time())
             u.put('refunds',saved['id'],saved);apply_payment(u,payment)
             if saved['status']=='processed' and not u.get('journals','refund_'+saved['id']):
-                u.put('journals','refund_'+saved['id'],dict(id='refund_'+saved['id'],job_id=saved['job_id'],status='posted',posted_at=time.time(),lines=[{'account':'customer_parts_advances' if saved.get('payment_kind')=='parts' else 'customer_refunds','debit':saved['amount_paise'],'credit':0},{'account':'payment_clearing','debit':0,'credit':saved['amount_paise']}]))
+                u.put('journals','refund_'+saved['id'],dict(id='refund_'+saved['id'],job_id=saved['job_id'],status='posted',posted_at=time.time(),lines=[{'account':'customer_parts_advances' if saved.get('payment_kind')=='parts' else 'customer_hire_advances' if saved.get('payment_kind')=='hire_base' else 'customer_refunds','debit':saved['amount_paise'],'credit':0},{'account':'payment_clearing','debit':0,'credit':saved['amount_paise']}]))
             audit(u,'RefundReconciled','provider',refund_id=saved['id'],status=saved['status']);return saved
         return store.run(save)
     def check(record):
@@ -57,6 +57,7 @@ def install(core):
             if any(x['status'] not in ('processed','failed') for x in previous):fail('REFUND_PENDING','Reconcile the pending refund before another intent.')
             if body.amount_paise>payment['amount_paise']-payment.get('amount_refunded',0):fail('REFUND_EXCEEDS_PAYMENT','Amount exceeds the remaining captured balance.',422)
             record=dict(id=key,job_id=job_id,payment_kind=payment.get('kind','final'),payment_id=payment['payment_id'],receipt='rf_'+key[:32],amount_paise=body.amount_paise,reason=body.reason,status='submitting',created_at=time.time())
+            if payment.get('kind')=='hire_base':j['hire_refund_hold']=True
             u.put('refunds',key,record);j['parts_refund_hold' if payment.get('kind')=='parts' and not payment.get('allocated') else 'financial_hold']=True;j['payout_status']='held';u.put('jobs',job_id,j)
             audit(u,'RefundAuthorized',admin['id'],refund_id=key,job_id=job_id,amount_paise=body.amount_paise,reason=body.reason)
             return record,True

@@ -14,6 +14,11 @@ export function operationSnapshot<T>(path:string):T|null {const scope=syncAccoun
 export function invalidateOperationReads(){operationCache.invalidate();window.dispatchEvent(new Event('repaido:operations-updated'));}
 
 export interface Job {
+  hourly_final_total_paise?:number;
+  hourly_hire?:{model:string;base_paise:number;hourly_paise:number;planned_minutes:number;maximum_work_minutes:number;meal_break_minutes:number;surcharge_bps:number;gst_bps:number;quoted_service_total_paise:number;booking_advance_paise:number};
+  hourly_bill?:{base_paise:number;work_paise:number;billable_seconds:number;surcharge_bps:number;surcharge_paise:number;gst_paise:number;total_paise:number;advance_paid_paise:number;remaining_service_paise:number;timer_running:boolean;limit_reached:boolean};
+  hire_base_status?:string;hire_base_paid_paise?:number;hire_payment_expires_at?:number;hire_break?:{state:string;started_at:number;until:number;ended_at?:number};
+
   coupon?:{code:string;bps:number;discount_paise:number};vendor_discount_paise?:number;community_reward_paise?:number;
   service_id:string;
   home_plan_id?:string;home_brief_rows?:{label:string;value:string}[];home_log_required?:boolean;home_checklist?:string[];home_arrival_log?:{hygiene:boolean;checked:number[];note:string;at:number};home_daily_log?:{hygiene:boolean;checked:number[];note:string;at:number};

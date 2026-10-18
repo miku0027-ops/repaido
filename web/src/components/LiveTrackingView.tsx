@@ -1,3 +1,4 @@
+import {HourlyHirePanel} from './HourlyHire';
 import {ShareMilestone} from './ShareMilestone';
 import {ProfessionalAvatar,ProfessionalDetails,ProfileHighlights,type Professional} from './Hiring';
 import {ProfessionalQuickActions} from './ProfessionalQuickActions';
@@ -325,7 +326,7 @@ export function LiveTrackingView({
       </div>
 
       {/* Underneath Body Content: High-Density Branded Elements */}
-      <div className="rt-body">{job.state!=='cancelled'&&<ShareMilestone source="service" id={job.id}/>}
+      <div className="rt-body"><HourlyHirePanel job={job} onRefresh={async()=>{if(onRefresh)await onRefresh();}}/>{job.state!=='cancelled'&&<ShareMilestone source="service" id={job.id}/>}
         {/* 5-Step Segmented Milestone Tracker */}
         <div
           className="rt-milestone-bar"
@@ -701,12 +702,12 @@ export function LiveTrackingView({
             </div>
             <div className="rt-drawer-body">
               <div className="rt-drawer-line">
-                <span>Base Service Package</span>
+                <span>{job.hourly_hire?(job.hourly_final_total_paise===undefined?'Service ceiling before GST':'Recorded service before GST'):'Base Service Package'}</span>
                 <strong>{money(job.base_price_paise)}</strong>
               </div>
               {job.total_paise + (job.promotion_discount_paise || 0) > job.base_price_paise && (
                 <div className="rt-drawer-line">
-                  <span>Approved Extras & Genuine Parts</span>
+                  <span>{job.hourly_hire?'GST & approved materials':'Approved Extras & Genuine Parts'}</span>
                   <strong>{money(job.total_paise + (job.promotion_discount_paise || 0) - job.base_price_paise)}</strong>
                 </div>
               )}
@@ -717,7 +718,7 @@ export function LiveTrackingView({
                 </div>
               )}
               <div className="rt-drawer-line rt-drawer-total">
-                <span>Total Amount</span>
+                <span>{job.hourly_hire&&job.hourly_final_total_paise===undefined?'Agreed ceiling, including extras':'Total Amount'}</span>
                 <strong className="rt-total-amount">{money(job.total_paise)}</strong>
               </div>
               <p className="rt-escrow-badge">

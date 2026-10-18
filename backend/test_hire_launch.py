@@ -15,7 +15,7 @@ def test_fixed_offer_boundaries(monkeypatch):
 def test_free_approved_listing_without_payment_and_expiry(api,monkeypatch):
     campaign(monkeypatch);onboard(api)
     assert browse(api)['professionals'][0]['id']=='worker'
-    r=api.post('/operations/worker/hire-membership/accept',headers=auth('worker'),json={'version':hiring.DEFAULT['version'],'radius_km':10,'consent':True})
+    r=api.post('/operations/worker/hire-membership/accept',headers=auth('worker'),json={'version':api.get('/operations/hiring/policy').json()['version'],'radius_km':10,'consent':True})
     assert r.status_code==200,r.text
     assert api.post('/operations/worker/hire-membership/payment-order',headers=auth('worker')).json()['detail']['code']=='FREE_LISTING_ACTIVE'
     assert not main.operations_store.run(lambda u:u.all('hire_fees'))
