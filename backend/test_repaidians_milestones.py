@@ -28,6 +28,37 @@ def test_public_feed_does_not_expose_record_ids_or_private_fields_and_tracks_sta
     feed=api.get('/repaidians/feed?kind=post').json()
     assert next(p for p in feed['items'] if p['id']==post['id'])['milestoneUnavailable']
 
+def test_activity_phase_is_checked_again_and_cannot_be_supplied_by_the_author(api):
+    seed(api)
+    body=draft();body['milestone']['phase']='completed'
+    assert api.post('/repaidians/publications',headers=auth(),json=body).status_code==422
+    posted=api.post('/repaidians/publications',headers=auth(),json=draft()).json()['item']
+    card=posted['milestoneCard']
+    assert card['phase']=='active' and card['participant']=='Professional update'
+    assert abs(card['checkedAt']-time.time()*1000)<5000
+    api.core.operations_store.run(lambda u:u.put('jobs','real-work',{**u.get('jobs','real-work'),'state':'completion_pending'}))
+    check=api.post('/repaidians/feed/validate',json={'ids':[posted['id']]}).json()['items'][0]['milestoneCard']
+    assert check['phase']=='review' and check['label']=='Completion under review'
+    assert 'SECRET' not in str(check) and 'real-work' not in str(check)
+
+def test_ride_cards_distinguish_the_authors_participation(api):
+    seed(api,'shared_departures','ride-proof',worker_id=None,owner_id='alice',driver_id='bob',state='in_progress',origin={'lat':21.49,'lng':86.91},starts_at=time.time())
+    seed(api,'shared_passengers','seat-proof',worker_id=None,departure_id='ride-proof',state='boarded')
+    for uid,label in [('alice','Ride owner update'),('bob','Driver update'),('customer','Passenger update')]:
+        response=api.post('/repaidians/publications',headers=auth(uid),json=draft('shared','ride-proof'))
+        assert response.status_code==201,response.text
+        card=response.json()['item']['milestoneCard']
+        assert card['participant']==label and card['phase']=='active' and card['label']=='Ride in progress'
+        assert not {'owner_id','driver_id','customer_id','origin','destination','passenger_id'}&set(card)
+
+def test_credibility_counts_only_come_from_approved_worker_records(api):
+    for uid,status in [('alice','approved'),('bob','suspended')]:
+        profile(api,uid,'electrician')
+        api.core.operations_store.run(lambda u:u.put('workers',uid,{**u.get('workers',uid),'status':status,'completed_tasks':7,'rating_sum':9,'rating_count':2}))
+    for uid,expected in [('alice',(True,7,4.5,2)),('bob',(False,0,None,0))]:
+        member=api.get('/repaidians/members/'+uid).json()['member']
+        assert (member['reviewed'],member['completedTasks'],member['rating'],member['reviewCount'])==expected
+
 def test_contract_award_and_fulfillment_use_actual_parties_and_project(api):
     seed(api,'contract_tenders','contract-proof',owner_id='customer',awarded_contractor_id='alice',status='awarded',state='awarded',winning_project_id='project-proof')
     seed(api,'contract_projects','project-proof',owner_id='alice',client_id='customer',state='completed',status='completed')

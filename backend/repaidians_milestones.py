@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import Field
 from fastapi import Depends
 from operations import Input,fail
+import time
 
 class Reference(Input):
     source:Literal['service','home','hire','cab','shared','contract','project','scrap','cleanup']
@@ -44,17 +45,21 @@ def preview(u,reference,uid,strict=True):
         people.update(p.get('worker_id') for p in row.get('team',[]) if p.get('status')=='accepted')
     if uid not in people:return unavailable()
     if state in ('draft','cancelled','declined','rejected','expired','closed','withdrawn','suspended','disputed','referred'):return unavailable()
+    def card(**fields):
+        phase='completed' if state in ('completed','fulfilled') else 'review' if state in ('completion_submitted','completion_pending','verification') else 'paused' if state=='paused' else 'active' if state in ('active','in_progress','boarded','assigned','en_route','arrived','on_the_way') else 'scheduled'
+        participant=('Driver update' if uid==row.get('driver_id') else 'Ride owner update' if uid==row.get('owner_id') else 'Passenger update') if source=='shared' else 'Customer update' if uid in (row.get('customer_id'),row.get('client_id')) else 'Professional update'
+        return dict(**fields,phase=phase,participant=participant,checkedAt=int(time.time()*1000))
     if source in ('scrap','cleanup'):
         city=row.get('city','');city=city if city in CITIES else ''
         if source=='scrap':
             if state!='completed' or row.get('payment_source')!='customer_confirmed_receipt':return unavailable()
             points=row.get('customer_points',0) if uid==row['customer_id'] else row.get('collector_points',0)
-            return dict(source=source,title='Scrap given a second life',label='Collection completed',city=city,trade='recycling',points_earned=points)
+            return card(source=source,title='Scrap given a second life',label='Collection completed',city=city,trade='recycling',points_earned=points)
         if row.get('category')=='hazardous':return unavailable()
         labels={'reported':'Cleanup reported · awaiting review','approved':'Cleanup approved','assigned':'Cleanup in progress','verification':'Cleanup awaiting verification','completed':'Cleanup verified'}
         if state not in labels:return unavailable()
         points=row.get('points',0) if uid==row['customer_id'] else row.get('collector_points',0)
-        return dict(source=source,title='A cleaner neighbourhood',label=labels[state],city=city,trade='recycling',points_earned=points if state=='completed' else 0)
+        return card(source=source,title='A cleaner neighbourhood',label=labels[state],city=city,trade='recycling',points_earned=points if state=='completed' else 0)
     title={'service':'Service visit','home':'Home service','hire':'Professional hire','cab':'Self-drive rental' if row.get('mode')=='rental' else 'Cab journey','shared':'Shared ride','contract':'Contract','project':'Contract project'}[source]
     if source=='contract' and row.get('winning_project_id'):
         project=u.get('contract_projects',row['winning_project_id']) or {}
@@ -65,8 +70,11 @@ def preview(u,reference,uid,strict=True):
     labels={'paused':'Work paused','en_route':'Professional on the way','arrived':'Professional arrived','on_the_way':'Cab on the way','completion_submitted':'Completion under review','completion_pending':'Completion under review','quoted':'Quote offered'}
     label=labels.get(state,label)
     if source=='shared' and uid in (row.get('owner_id'),row.get('driver_id')) and state=='scheduled':label='Departure published'
+    if source in ('shared','cab'):
+        if completed:label='Ride completed'
+        elif active and state not in ('completion_submitted','completion_pending'):label='Ride in progress'
     city=row.get('city','');city=city if city in CITIES else ''
-    return {'source':source,'title':title,'label':label,'city':city,'trade':trade_for(row.get('category',row.get('sector','')))}
+    return card(source=source,title=title,label=label,city=city,trade=trade_for(row.get('category',row.get('sector',''))))
 
 def install(core,router,actor):
     @router.post('/milestones/preview')

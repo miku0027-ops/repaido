@@ -211,6 +211,7 @@ def member_public(u, row):
     approved = bool(w and w.get('status') == 'approved')
     out.update(reviewed=approved, registeredId=row['id'] if w else None,
                completedTasks=int(w.get('completed_tasks', 0)) if approved else 0,
+               reviewCount=int(w.get('rating_count', 0)) if approved else 0,
                rating=(w.get('rating_sum', 0) / w['rating_count']) if approved and w.get('rating_count') else None)
     from repaidians_billing import membership_badge
     out['repaidianBadge'] = membership_badge(u, row['id'], worker=w, now=now_ms() / 1000)

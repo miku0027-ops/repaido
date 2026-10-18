@@ -31,7 +31,7 @@ export interface OpportunityFilters {
 export interface OpportunityPage {items:CommunityOpportunity[];nextCursor:string|null;indexing?:boolean;}
 export interface CommunityMember extends ProfessionalFields {
   id: string; name: string; handle: string; trade: Trade; role: string; avatarUrl: string; bio: string;
-  registeredId?: string; reviewed?: boolean; completedTasks?: number; rating?: number | null;
+  registeredId?: string; reviewed?: boolean; completedTasks?: number; rating?: number | null; reviewCount?:number;
   followersCount?: number; followingCount?: number; postsCount?: number;
   professionalInfoSource?:'profile';
   repaidianBadge?:RepaidianBadgeMetadata|null;
@@ -40,7 +40,8 @@ export interface CommunityMedia { url: string; kind: 'image' | 'video'; alt: str
 export interface CommunityItem {
   id: string; authorId: string; createdAt: number; trade: Trade; visibility: Visibility; sample: boolean;
 }
-export interface CommunityPost extends CommunityItem { milestoneCard?:{title:string;label:string;city:string;source:string;points_earned?:number}|null;milestoneUnavailable?:boolean; caption: string; media: CommunityMedia[]; reference?:OpportunityReference;referenceCard?:CommunityOpportunity|null;referenceUnavailable?:boolean; likeCount?: number; commentCount?: number; liked?: boolean; saved?: boolean; }
+export interface CommunityMilestone {title:string;label:string;city:string;source:string;points_earned?:number;phase?:'active'|'completed'|'scheduled'|'review'|'paused';participant?:string;checkedAt?:number;}
+export interface CommunityPost extends CommunityItem { milestoneCard?:CommunityMilestone|null;milestoneUnavailable?:boolean; caption: string; media: CommunityMedia[]; reference?:OpportunityReference;referenceCard?:CommunityOpportunity|null;referenceUnavailable?:boolean; likeCount?: number; commentCount?: number; liked?: boolean; saved?: boolean; }
 export interface CommunityStory extends CommunityItem { caption: string; media: CommunityMedia; expiresAt: number; }
 export interface CommunityReel extends CommunityItem { caption: string; media: CommunityMedia; likeCount?: number; commentCount?: number; liked?: boolean; saved?: boolean; }
 export interface CommunityTender extends CommunityItem {
