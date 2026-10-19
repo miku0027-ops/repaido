@@ -28,6 +28,7 @@ class Search(Input):
     starts_at:float
     until:float
     seats:int=Field(default=1,ge=1,le=12)
+    vehicle_kind:Literal['car','bike']|None=None
 class Join(Input):
     request_id:str=Field(min_length=16,max_length=100)
     expected_version:int=Field(ge=1)
@@ -201,6 +202,7 @@ def install(core):
             vehicles=[]
             catalogue=sorted(u.find('mobility_vehicles','status','approved'),key=lambda v:(metres(pin,v['location']),v['id']))
             for v in catalogue:
+                if v.get('vehicle_kind','car')=='bike':continue
                 distance=metres(pin,v['location'])
                 # Discovery is a catalogue, not a reservation or a final quote.
                 # Cab pickup coverage remains 8 km; shared departures use 20 km.
@@ -242,6 +244,7 @@ def install(core):
         def read(u):
             out=[]
             for row in u.find('shared_departures','state','scheduled'):
+                if body.vehicle_kind and row.get('vehicle_kind','car')!=body.vehicle_kind:continue
                 if not max(time.time(),body.starts_at)<=row['starts_at']<=body.until:continue
                 v=u.get('mobility_vehicles',row['vehicle_id'])
                 if not live_vehicle(u,v,'cab',row['starts_at'],row['ends_at'],row['id']):continue
@@ -485,6 +488,10 @@ def install(core):
             if not i or i['driver_id']!=user['id'] or i['state']!='pending':fail('NOT_FOUND','Invitation unavailable.',404)
             v=u.get('mobility_vehicles',identifier)
             if body.accept:
+                from bike_rides import active_reservations
+                now=time.time()
+                if active_reservations(u,v,now,now+86400,mode='rental') or active_reservations(u,{**v,'driver_id':user['id']},now,now+86400):
+                    fail('BOOKED','Finish this vehicle or rider’s bike reservations before changing assignments.',409)
                 for collection in ('mobility_rides','shared_departures'):
                     if any(x.get('vehicle_id')==identifier and x['state'] not in ('completed','cancelled','expired') for x in u.find(collection,'owner_id',v['owner_id'])):fail('BOOKED','Finish this vehicle’s outstanding bookings before changing its driver.',409)
                 reservation_guard(u,v);reservation_guard(u,{**v,'driver_id':user['id']});v['driver_id']=user['id'];v['version']+=1;u.put('mobility_vehicles',identifier,v)

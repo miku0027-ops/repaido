@@ -18,7 +18,10 @@ async function tab(page,name){
   if(['Payments','Account'].includes(name)){await nav.getByRole('button',{name:'More',exact:true}).click();await page.locator('.suite-menu>button').filter({has:page.getByText(name,{exact:true})}).click();return;}
   name=name==='Fleet & rates'?'Fleet':name==='Overview'?'Home':name;
  }else if(await page.locator('.suite-scrap_owner').count()){if(['Schedule','Account'].includes(name)){await nav.getByRole('button',{name:'More',exact:true}).click();await page.locator('.suite-menu>button').filter({has:page.getByText(name,{exact:true})}).click();return;}name=name==='Overview'?'Home':name;
- }else if(await page.locator('.suite-driver').count())name=name==='Cab journeys'?'Cab rides':name==='Shared journeys'?'Shared rides':name==='My vehicles'?'Vehicles':name;
+ }else if(await page.locator('.suite-driver').count()){
+  if(name==='Shared journeys'){await nav.getByRole('button',{name:'Cab rides',exact:true}).click();await page.getByRole('navigation',{name:'Booking types'}).getByRole('button',{name:'Shared journeys',exact:true}).click();return;}
+  name=name==='Cab journeys'?'Cab rides':name==='My vehicles'?'Vehicles':name;
+ }
  await nav.getByRole('button',{name,exact:true}).click();
 }
 async function pinnedNavigation(page){

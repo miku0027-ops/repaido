@@ -33,6 +33,7 @@ import './company-crm.css';
 import {SupportCenter,AdminRecovery,RefundReview,EvidenceReview} from './Lifecycle';
 import {FinanceReview} from './PrivateReview';
 import {ShopB2BSection} from './ShopB2BSection';
+import {BikeRideAdmin} from './BikeRideAdmin';
 
 export default function OperationsAdmin({onBack,shop=false}:{onBack:()=>void;shop?:boolean}){
  return <PortalAccess shop={shop}><Workspace shop={shop} onBack={onBack}/></PortalAccess>;
@@ -94,7 +95,7 @@ function AdminContent({shop,shopId,tab,onTab,title}:{shop:boolean;shopId?:string
   if(tab==='Rankings')content=<LocalLeaderboard/>;
   if(tab==='Activity')content=<AuditHistory/>;
   if(tab==='Bookings')content=<CompanyBookings/>;
-  if(tab==='Transport & scrap')content=<LocalBusinessAdmin/>;
+  if(tab==='Transport & scrap')content=<><BikeRideAdmin/><LocalBusinessAdmin/></>;
   if(tab==='Finance')content=<><FinanceReview/><RefundReview/><details className="crm-policy-panel"><summary>Day-hire policy & activation</summary><HiringAdmin/></details></>;
   if(tab==='Support')content=<><RetailResolutionAdmin/><SupportCenter admin/></>;
   if(tab==='Moderation')content=<><NetworkModeration/><EvidenceReview/></>;

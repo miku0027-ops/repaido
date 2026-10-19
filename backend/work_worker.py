@@ -76,6 +76,8 @@ def create_app(core=None):
             import repaidians_live
             import shop_discovery
             import saved_alerts
+            import bike_rides
+            import bike_payroll
             result = {'profiles_indexing': repaidians.reindex_professional_members(core, limit=min(body.limit, 5)),
                       'indexing': repaidians_work.backfill(core, limit=min(body.limit, 20)),
                       'devices': work_push.backfill_devices(core, limit=min(body.limit, 20)),
@@ -83,6 +85,8 @@ def create_app(core=None):
                       'updates': repaidians_work.process_updates(core, limit=body.limit),
                       'shared_backfill': shared_departure_alerts.backfill(core, limit=min(body.limit,20)),
                       'shared_reminders': shared_departure_alerts.process_departures(core, limit=body.limit),
+                      'bike_rides': bike_rides.process_deadlines(core, limit=body.limit),
+                      'bike_payroll': core.operations_store.run(lambda u: bike_payroll.tick(u)),
                       'live_cleanup': repaidians_live.expire(core,limit=min(body.limit,12)),
                       'push': work_push.process_deliveries(core, limit=body.limit),
                       'email': transactional_mail.dispatch(core, limit=min(body.limit, 20)),

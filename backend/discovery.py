@@ -175,13 +175,13 @@ def install(core):
         from home_plans import OFFERINGS
         catalog = core.catalog()
         services = [s for s in catalog['services'] if s.get('active', True)]+[{**s,'id':'home:'+s['id']} for s in OFFERINGS]
-        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}|{'transport','transport_cab','transport_shared','transport_self_drive','transport_rental'}|MARKET_CATEGORIES
+        categories = {s['category'] for s in services}|{'home:'+s['id'] for s in OFFERINGS}|{'transport','transport_cab','transport_bike','transport_shared','transport_self_drive','transport_rental'}|MARKET_CATEGORIES
         targets = []
         # Queries are resolved transiently; never store raw keywords, locations or form contents.
         if body.kind == 'search':
             if body.category in MARKET_CATEGORIES:
                 targets = [body.category]
-            elif body.category in ('transport','transport_cab','transport_shared','transport_self_drive','transport_rental'):
+            elif body.category in ('transport','transport_cab','transport_bike','transport_shared','transport_self_drive','transport_rental'):
                 targets = ['transport']+([body.category] if body.category!='transport' else [])
             elif body.category and body.category in categories:
                 targets = [body.category]
@@ -272,7 +272,7 @@ def install(core):
                           'personalised':category in interested,
                           'service':{k:service[k] for k in ('id','name','category','description','price_paise','duration_minutes','included','excluded')}})
         transport = row.get('signals', {}).get('transport', {})
-        modes={key.removeprefix('transport_'):signal for key,signal in row.get('signals',{}).items() if enabled and key in ('transport_cab','transport_shared','transport_self_drive','transport_rental') and now-signal.get('at',0)<30*86400}
+        modes={key.removeprefix('transport_'):signal for key,signal in row.get('signals',{}).items() if enabled and key in ('transport_cab','transport_bike','transport_shared','transport_self_drive','transport_rental') and now-signal.get('at',0)<30*86400}
         # An explicit recent choice guides the next discovery visit. After two
         # hours, fall back to decayed category strength. Existing consent, expiry,
         # bounds and reset apply; no additional history or raw inputs are saved.

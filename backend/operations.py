@@ -164,6 +164,14 @@ class Store:
             c.execute("CREATE INDEX IF NOT EXISTS operation_jobs_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='jobs'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_hires_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='hires'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_offers_worker ON operation_records(json_extract(body,'$.worker_id')) WHERE kind='professional_offers'")
+            for kind, fields in {'bike_rides': ('customer_id', 'driver_id', 'owner_id', 'state'),
+                                 'bike_quotes': ('customer_id',), 'bike_rider_presence': ('driver_id', 'online')}.items():
+                for field in fields:
+                    c.execute(f"CREATE INDEX IF NOT EXISTS operation_{kind}_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='{kind}'")
+            for field in ('driver_id', 'status'):
+                c.execute(f"CREATE INDEX IF NOT EXISTS operation_bike_cash_remittances_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='bike_cash_remittances'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_bike_company_cash_credits_driver ON operation_records(json_extract(body,'$.unremitted_driver_id')) WHERE kind='bike_company_cash_credits'")
+            c.execute("CREATE INDEX IF NOT EXISTS operation_bike_company_cash_accounts_outstanding ON operation_records(json_extract(body,'$.outstanding')) WHERE kind='bike_company_cash_accounts'")
 
     def run(self, callback):
         if self.core.USE_FIRESTORE:
@@ -236,6 +244,10 @@ class Unit:
         allowed = {'cleanup_reports': {'customer_id','owner_id','state','city_key','queue'}, 'cleanup_points': {'user_id'}, 'captain_profiles': {'city_key'}, 'shared_departures': {'owner_id','driver_id','state'}, 'shared_passengers': {'customer_id','departure_id'}, 'driver_invitations': {'driver_id'}, 'business_partners': {'role','status'}, 'business_documents': {'owner_id'}, 'mobility_vehicles': {'owner_id','driver_id','active','status'}, 'mobility_rides': {'owner_id','driver_id','customer_id','state'}, 'scrap_collections': {'state','customer_id','owner_id'}, 'business_inbox': {'user_id'}, 'workers': {'city', 'online'}, 'jobs': {'worker_id', 'customer_id'}, 'notifications': {'user_id'}, 'hires': {'worker_id','customer_id'}, 'rentals': {'customer_id'}, 'rental_payments': {'rental_id'}, 'retail_orders': {'customer_id'}, 'home_plans': {'customer_id'},
                    'support_cases': {'customer_id','job_id','state'}, 'support_messages': {'case_id'}, 'market_listings': {'owner_id'}, 'market_chat_inbox': {'user_id'}, 'market_chat_reports': {'status'}, 'market_access_payments': {'status'}, 'professional_offers': {'worker_id'}, 'rp_members': {'handle'}, 'rp_blocks': {'from'}}
         allowed.update({'payments':{'job_id'},'community_missions':{'active'},'community_contributions':{'user_id','state'},'community_knowledge':{'mission_id'},'retail_resolution_cases':{'customer_id','shop_id','state','order_id'},'retail_resolution_messages':{'case_id'},'campaign_redemptions':{'campaign_id'},'refunds':{'job_id'},'shop_payables':{'shop_id'},'shop_batches':{'shop_id'},'parts_orders':{'shop_id'},'home_listings':{'owner_id','status','city_key','photo_id'},'home_enquiries':{'owner_id','customer_id'},'shops':{'status','city','owner_id'},'inventory':{'shop_id','category','status'},'rental_inventory':{'shop_id'},'shop_reviews':{'shop_id','product_id','order_id'},'commerce_events':{'user_id'},'commerce_order_facts':{'shop_id'},'commerce_product_pairs':{'product_id'},'shop_access_payments':{'status'},'commerce_projection_queue':{'active'}})
+        allowed.update({'bike_rides': {'customer_id', 'driver_id', 'owner_id', 'state'},
+                        'bike_quotes': {'customer_id'}, 'bike_rider_presence': {'driver_id', 'online'},
+                        'bike_cash_remittances': {'driver_id', 'status'},
+                        'bike_company_cash_credits': {'unremitted_driver_id'}, 'bike_company_cash_accounts': {'outstanding'}})
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:
@@ -1165,6 +1177,10 @@ def install(core):
         result = store.run(tick)
         from shared_departure_alerts import process_departures
         result['shared_departures'] = process_departures(core)
+        from bike_rides import process_deadlines
+        result['bike_rides'] = process_deadlines(core)
+        from bike_payroll import tick as payroll_tick
+        result['bike_payroll'] = store.run(lambda u: payroll_tick(u))
         return result
 
     @router.post('/admin/tick', dependencies=[Depends(core.operator)])

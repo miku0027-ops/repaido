@@ -142,6 +142,8 @@ def document(u,identifier,uid):
 def schedule(start,end):
     if not all(isinstance(v,(int,float)) and math.isfinite(v) for v in (start,end)) or not time.time()+300<=start<=time.time()+180*86400 or not start+900<=end<=start+30*86400:fail('INVALID_DATES','Choose a pickup at least five minutes ahead and an end at least 15 minutes later, within 180 days.',422)
 def conflicts(u,vehicle,start,end,ignore='',mode='cab'):
+    from bike_rides import active_reservations
+    if active_reservations(u,vehicle,start,end,ignore,mode=mode):return True
     operator=(vehicle.get('driver_id') or vehicle['owner_id']) if mode=='cab' else None
     rows=u.find('mobility_rides','owner_id',vehicle['owner_id'])+u.find('shared_departures','owner_id',vehicle['owner_id'])
     if operator:
@@ -359,6 +361,7 @@ def install(core):
         def read(u):
             candidates=[]
             for v in u.find('mobility_vehicles','active',True):
+                if v.get('vehicle_kind','car')=='bike':continue
                 distance=metres(v['location'],body.pickup.model_dump())
                 if distance<=8000 and live_vehicle(u,v,body.mode,body.starts_at,body.ends_at):candidates.append({**vehicle_public(u,v),'nearby_km':round(distance/1000,2)})
             return {'vehicles':sorted(candidates,key=lambda v:(v['nearby_km'],v['id']))[:30],'radius_km':8}
@@ -368,6 +371,7 @@ def install(core):
         schedule(body.starts_at,body.ends_at)
         def inspect(u):
             v=u.get('mobility_vehicles',body.vehicle_id)
+            if v and v.get('vehicle_kind','car')=='bike':fail('BIKE_FLOW_REQUIRED','Use Bike rides or shared bike journeys for this vehicle.',409)
             if not live_vehicle(u,v,body.mode,body.starts_at,body.ends_at) or metres(v['location'],body.pickup.model_dump())>8000:fail('UNAVAILABLE','This vehicle is no longer eligible within 8 km.',409)
             return v,vehicle_public(u,v)
         v,public=store.run(inspect);origin=v['location'];pickup=body.pickup.model_dump();drop=body.dropoff.model_dump()
@@ -401,6 +405,7 @@ def install(core):
                 q=u.get('mobility_quotes',qid)
                 if not q or q['customer_id']!=user['id'] or q['expires_at']<=time.time():fail('QUOTE_EXPIRED','Refresh your trip quote before requesting a vehicle.',409)
                 schedule(q['starts_at'],q['ends_at']);v=u.get('mobility_vehicles',q['vehicle_id'])
+                if v and v.get('vehicle_kind','car')=='bike':fail('BIKE_FLOW_REQUIRED','Request this journey through Bike rides.',409)
                 if not live_vehicle(u,v,q['mode'],q['starts_at'],q['ends_at']) or v['version']!=q['vehicle_version']:fail('UNAVAILABLE','A quoted vehicle changed. Refresh availability.',409)
                 if quotes and any(q[k]!=quotes[0][k] for k in ('pickup','dropoff','mode','trip','starts_at','ends_at')):fail('TRIP_MISMATCH','All requested vehicles must use the same trip.',422)
                 quotes.append(q)
@@ -442,6 +447,7 @@ def install(core):
                 current(u,uid,('cab_owner','driver'))
                 if state!='requested' or uid not in row['candidate_owner_ids'] or row['offer_expires_at']<=time.time():fail('ALREADY_ASSIGNED','This request has expired or another owner accepted first.',409)
                 q=next(x for x in row['quotes'] if x['owner_id']==uid);v=u.get('mobility_vehicles',q['vehicle_id'])
+                if v and v.get('vehicle_kind','car')=='bike':fail('BIKE_FLOW_REQUIRED','New bike requests must use the bike dispatch service.',409)
                 if not v or q['expires_at']<=time.time() or v['version']!=q['vehicle_version'] or not live_vehicle(u,v,row['mode'],row['starts_at'],row['ends_at']):fail('UNAVAILABLE','This vehicle or driver is no longer available.',409)
                 if uid==row['customer_id']:fail('SELF_BOOKING','Choose another customer booking.',422)
                 reservation_guard(u,v,row['mode'])

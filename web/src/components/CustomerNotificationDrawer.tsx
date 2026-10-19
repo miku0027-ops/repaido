@@ -11,7 +11,7 @@ import './customer-notifications.css';
 
 export interface RawNotification {
   id:string;title:string;body:string;job_id?:string;destination?:string;campaign_id?:string;plan_id?:string;
-  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;market_chat_id?:string;kind?:string;business_id?:string;cleanup_id?:string;case_id?:string;
+  query_id?:string;queryId?:string;bid_id?:string;project_id?:string;community_job_id?:string;market_chat_id?:string;kind?:string;business_id?:string;bike_ride_id?:string;cleanup_id?:string;case_id?:string;
   homes_tab?:'mine'|'enquiries';created_at?:number;read_at?:number|null;alert_kind?:string;event_type?:string;
 }
 type Filter='all'|'unread'|'bookings'|'offers'|'contracts'|'discoveries';
@@ -21,6 +21,7 @@ interface Props {
   onOpenCommunityJob?:(id:string)=>void;
   onOpenMarketChat?:(id:string)=>void;
   onOpenSharedRide?:(id:string)=>void;
+  onOpenBikeRide?:(id:string)=>void;
   onOpenContract?:(queryId:string,proposalId?:string)=>void;
   onOpenQuotationModal?:(quotation:B2BQuotation)=>void;onNavigateTab?:(tab:string,sub?:string)=>void;
   onOpenPromotion?:(id?:string)=>void;onOpenHomePlan?:(id?:string)=>void;onUnreadCountChange?:(count:number)=>void;
@@ -29,7 +30,7 @@ export function CustomerNotificationDrawer(props:Props){
   // Mount the actual dialog only while open: native modal focus and inert background.
   return props.isOpen?<NotificationPanel {...props}/>:null;
 }
-function NotificationPanel({onOpenSaved,onOpenHomes,onClose,onOpenJob,onOpenCommunityJob,onOpenMarketChat,onOpenSharedRide,onOpenContract,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
+function NotificationPanel({onOpenSaved,onOpenHomes,onClose,onOpenJob,onOpenCommunityJob,onOpenMarketChat,onOpenSharedRide,onOpenBikeRide,onOpenContract,onNavigateTab,onOpenPromotion,onOpenHomePlan,onUnreadCountChange}:Props){
   const cached=operationSnapshot<{notifications:RawNotification[]}>('/notifications');
   const [notifications,setNotifications]=useState(cached?.notifications||[]);
   const [loading,setLoading]=useState(!cached),[refreshing,setRefreshing]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState('');
@@ -94,6 +95,29 @@ function NotificationPanel({onOpenSaved,onOpenHomes,onClose,onOpenJob,onOpenComm
       if(!await mark(n.id))return;onClose();const id=encodeURIComponent(n.cleanup_id||n.business_id||'');
       window.location.assign(location.pathname.startsWith('/worker')?'/worker?mode=scrap_owner&cleanup-report='+id:'/?view=contribute&contribution=reports&cleanup-report='+id);return;
     }
+    if(n.bike_ride_id){
+      if(openingDiscovery.current||busy)return;
+      openingDiscovery.current=true;
+      try{
+        if(location.pathname.startsWith('/worker')){
+          let role=new URLSearchParams(location.search).get('mode');
+          if(role!=='driver'&&role!=='cab_owner'){
+            const me=await operation<{registered_roles?:string[]}>('/worker/me',{}, {background:true});
+            if(uid!==(auth.currentUser?.uid||''))return;
+            role=me.registered_roles?.includes('driver')?'driver':me.registered_roles?.includes('cab_owner')?'cab_owner':null;
+          }
+          if(!role){setError('Open Bike rides from your approved rider account.');return;}
+          if(await mark(n.id)){onClose();window.location.assign(`/worker?mode=${role}&tab=bikes&bike-ride=${encodeURIComponent(n.bike_ride_id)}`);}
+        }else if(await mark(n.id)){
+          onClose();
+          if(onOpenBikeRide)onOpenBikeRide(n.bike_ride_id);
+          else if(onNavigateTab)onNavigateTab('Bookings','rides');
+          else window.location.assign(`/?view=rides&bike-ride=${encodeURIComponent(n.bike_ride_id)}`);
+        }
+      }catch(e){if(alive.current&&uid===(auth.currentUser?.uid||''))setError((e as Error).message);}
+      finally{openingDiscovery.current=false;}
+      return;
+    }
     void mark(n.id);
     const queryId=n.query_id||n.queryId;
     if(n.destination==='custom_contract'&&queryId&&onOpenContract){onClose();onOpenContract(queryId,n.bid_id);}
@@ -105,7 +129,7 @@ function NotificationPanel({onOpenSaved,onOpenHomes,onClose,onOpenJob,onOpenComm
     else if(n.destination==='b2b_quotation'&&onNavigateTab){onClose();onNavigateTab('ShopSpares','b2b');}
   };
   const label=(n:RawNotification)=>n.destination==='saved'?'Saved update':n.destination==='homes'?'Home rental':n.market_chat_id?'Market message':n.destination==='support'?'Support reply':n.kind==='local_business'?(n.destination==='cleanup'?'Cleanup update':n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
-  const actionable=(n:RawNotification)=>!!((n.destination==='saved'&&onOpenSaved)||(n.destination==='homes'&&onOpenHomes)||(n.market_chat_id&&onOpenMarketChat)||(n.destination==='support'&&n.case_id)||(n.kind==='local_business'&&(onNavigateTab||n.destination==='cleanup'))||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
+  const actionable=(n:RawNotification)=>!!(n.bike_ride_id||(n.destination==='saved'&&onOpenSaved)||(n.destination==='homes'&&onOpenHomes)||(n.market_chat_id&&onOpenMarketChat)||(n.destination==='support'&&n.case_id)||(n.kind==='local_business'&&(onNavigateTab||n.destination==='cleanup'))||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
   const actionLabel=(n:RawNotification)=>n.market_chat_id?'Open conversation':discoveryJob(n)?'View matching job':n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
   const date=(n:RawNotification)=>n.created_at?new Date(n.created_at*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Date unavailable';
   return <Modal title="Notifications" className="customer-notification-dialog" frameless onClose={onClose}>

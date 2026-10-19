@@ -222,6 +222,8 @@ async def lifespan(app):
     if not os.getenv("K_SERVICE") or os.getenv("REPAIDO_SEED_CATALOG") == "true":
         init_firestore_seed()
     operations_store.init()
+    import bike_dispatch
+    bike_dispatch.initialize(sys.modules[__name__])
     contract_work.initialize(sys.modules[__name__])
     repaidians.initialize(sys.modules[__name__])
     repaidians_network.initialize(sys.modules[__name__])
@@ -1303,6 +1305,12 @@ captain_rewards.install(sys.modules[__name__])
 
 import mobility_journeys
 mobility_journeys.install(sys.modules[__name__])
+
+import bike_rides
+bike_rides.install(sys.modules[__name__])
+
+import bike_payroll
+bike_payroll.install(sys.modules[__name__])
 
 import housing
 housing.install(sys.modules[__name__])

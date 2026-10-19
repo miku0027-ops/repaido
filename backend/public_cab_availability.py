@@ -61,6 +61,7 @@ def guard_versions(u, v):
 
 
 def approval(u, v, now):
+    if v and v.get('vehicle_kind','car')=='bike':return None
     if not v or not v.get('active') or v.get('status') != 'approved' or v.get('mode') not in ('cab', 'both') or v.get('valid_until', 0) <= now:
         return None
     owner = partner_profile(u, v['owner_id'], 'cab_owner') or {}

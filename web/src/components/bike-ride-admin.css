@@ -1,0 +1,47 @@
+.bike-admin {min-width:0;margin-block:18px 26px}
+.bike-admin-heading,.bike-admin-status,.bike-admin-save,.bike-admin-activation {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.bike-admin-heading h2 {margin:2px 0!important}
+.bike-admin-heading button {display:inline-flex;align-items:center}
+.bike-admin-status {justify-content:flex-start;padding-block:10px;font-size:.8125rem}
+.bike-admin-status>small {margin-left:auto}
+.bike-admin-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:8px 0}
+.bike-admin-metrics>div {min-width:0;padding:12px 14px;border:1px solid var(--op-line,#c7d3e1);border-radius:10px;background:var(--crm-surface,#fff)}
+.bike-admin dt {font-size:.75rem;color:var(--op-muted,#364b63)}
+.bike-admin dd {margin:4px 0 0;color:var(--op-ink,#142a43);font-weight:650}
+.bike-admin-metrics dd {font-size:1.5rem;line-height:1.3;font-variant-numeric:tabular-nums}
+#root .portal-company .bike-admin-scope {font-size:.75rem;margin:7px 0 14px}
+#root .portal-company .bike-admin-panel {border:1px solid var(--op-line);border-radius:10px;padding:0 14px;background:var(--crm-surface);margin:12px 0}
+#root .portal-company .bike-admin-panel>summary {display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;padding:12px 0}
+.bike-admin-panel>summary::after {content:'+';margin-left:6px;font-size:1.1rem}
+.bike-admin-panel[open]>summary::after {content:'−'}
+.bike-admin-panel>summary>svg {flex:none}
+.bike-admin-panel>summary>span {margin-left:auto;font-size:.75rem;font-weight:400;text-align:right;color:var(--op-muted,#364b63)}
+.bike-admin-panel[open] {padding-bottom:12px!important}
+.bike-admin-ledger,.bike-admin-rules {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:8px 0 14px}
+.bike-admin-ledger>div,.bike-admin-rules>div {min-width:0;overflow-wrap:anywhere}
+.bike-admin-readiness {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+.bike-admin-readiness>span {display:flex;align-items:center;gap:5px;background:var(--crm-subtle,#f3f6fb);padding:5px 8px;border:1px solid var(--op-line,#c7d3e1);border-radius:6px;font-size:.75rem}
+.bike-admin-readiness>span>svg {flex:none}
+.bike-admin-readiness [data-ready=true]>svg {color:var(--op-blue,#173f77)}
+.bike-admin fieldset {min-width:0;padding:12px 0;border:0;border-top:1px solid var(--op-line,#c7d3e1);margin:14px 0 0}
+.bike-admin legend {padding:0 8px 0 0;font-size:.8125rem;font-weight:650}
+.bike-admin-fields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 12px}
+.bike-admin label {display:block}
+.bike-admin label>input,.bike-admin label>textarea {width:100%;min-width:0}
+.bike-admin .bike-admin-check {display:flex!important;align-items:center;gap:8px;min-height:44px}
+.bike-admin .bike-admin-check>input {width:18px;height:18px;margin:0;flex:none}
+.bike-admin-save {padding:12px 0;font-size:.75rem;border-top:1px solid var(--op-line,#c7d3e1)}
+.bike-admin-activation {padding:14px 0 6px;border-top:1px solid var(--op-line,#c7d3e1)}
+.bike-admin-activation>div {flex:1;min-width:min(240px,100%)}
+#root .portal-company .bike-admin-activation p {font-size:.75rem;margin:3px 0}
+.bike-admin .bike-admin-retained {display:flex;align-items:flex-start;gap:5px}
+.bike-admin-retained>svg {flex:none;margin-top:3px}
+.bike-admin .bike-admin-success {color:var(--op-ink,#142a43);border-left:3px solid var(--op-blue,#173f77);padding-left:10px}
+.bike-economics-scroll {max-width:100%;overflow-x:auto;border:1px solid var(--op-line,#c7d3e1);border-radius:8px}
+.bike-economics-table {width:100%;border-collapse:collapse;text-align:left;font-size:.75rem}
+.bike-economics-table caption {text-align:left;font-weight:600;padding:10px;background:var(--crm-subtle,#f3f6fb)}
+.bike-economics-table :is(th,td) {padding:9px 10px;border-top:1px solid var(--op-line,#c7d3e1)}
+.bike-economics-table thead th {font-weight:600;background:var(--crm-subtle,#f3f6fb)}
+@media(max-width:900px) {.bike-admin-fields {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px) {.bike-admin-metrics {grid-template-columns:repeat(2,minmax(0,1fr))}.bike-admin-status>small {margin-left:0}.bike-admin-save button,.bike-admin-activation>button {max-width:100%}}
+@media(max-width:400px) {.bike-admin-fields,.bike-admin-ledger,.bike-admin-rules {grid-template-columns:minmax(0,1fr)}}

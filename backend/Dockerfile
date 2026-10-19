@@ -9,6 +9,8 @@ RUN --mount=type=secret,id=proxy_ca \
     pip install --no-cache-dir -r requirements.txt && useradd --create-home appuser && mkdir /data && chown appuser:appuser /data
 COPY main.py legacy_bookings.py shared_departure_alerts.py mobility_journeys.py transport_discovery.py local_business.py http_boundary.py operations.py integrations.py rewards.py lifecycle.py refunds.py evidence.py shops.py procurement.py shop_payouts.py discovery.py search_index.py rentals.py workspace.py marketplace.py parts_payments.py worker_records.py hiring.py hourly_hiring.py promotions.py home_plans.py home_briefs.py partner_program.py hire_discovery.py tenders.py contract_work.py coupons.py opportunities.py retail_checkout.py worker_network.py ./
 COPY public_cab_availability.py ./
+COPY bike_rides.py bike_payroll.py bike_dispatch.py bike_dispatch_worker.py bike_kafka_worker.py ./
+COPY bike_economics.py ./
 COPY b2b.py professional_offers.py shop_prime.py repaidians.py repaidians_milestones.py repaidians_live.py repaidians_network.py repaidians_media.py repaidians_billing.py repaidians_opportunities.py ./
 COPY cleanup.py captain_rewards.py captain_policy.py custom_contracts.py contract_records.py account_profile.py transactional_mail.py repaidians_work.py work_runtime.py work_service.py work_worker.py work_push.py ./
 COPY repaidians_tools.py community_service.py work_dispatch.py ./

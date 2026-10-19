@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const origin=process.env.REPAIDO_QA_URL||'http://127.0.0.1:5187',writes=[],errors=[];
+try{
+ const page=await browser.newPage({viewport:{width:390,height:850},reducedMotion:'reduce'});
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/api/**',async route=>{
+  const request=route.request(),path=new URL(request.url()).pathname;
+  if(request.method()==='PUT'&&path.endsWith('/local-business/vehicles/local-qa-vehicle')){writes.push(request.postDataJSON());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({id:'local-qa-vehicle',version:5})});}
+  assert.equal(request.method(),'GET','only the intentional isolated vehicle save may write');
+  const body=path.endsWith('/notifications')?{notifications:[]}:path.endsWith('/shared')?{departures:[]}:path.endsWith('/rides')?{rides:[]}:{vehicles:[],server_time:Date.now()/1000};
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+ });
+ await page.goto(origin+'/tests/vehicle-services-preview.html?fleet&kind=bike');
+ await page.getByRole('navigation',{name:'Cab owner suite navigation'}).getByRole('button',{name:'Fleet',exact:true}).click();
+ await page.getByText('Set by Repaido',{exact:true}).waitFor();
+ assert.equal(await page.getByText('Cab rate',{exact:true}).count(),0);
+ assert.equal(await page.getByText('Rental rate',{exact:true}).count(),0);
+ assert.equal(await page.getByText('₹87.00/km',{exact:true}).count(),0);
+ await page.getByRole('button',{name:'Edit bike & documents',exact:true}).click();
+ let editor=page.getByRole('dialog',{name:'Bike & ride services',exact:true});
+ assert.equal(await editor.getByLabel('Seats',{exact:true}).inputValue(),'1');
+ assert.equal(await editor.getByLabel('Offer for',{exact:true}).locator('option').count(),1);
+ await editor.getByRole('button',{name:'Continue',exact:true}).click();
+ await editor.getByRole('heading',{name:'Bike ride services',exact:true}).waitFor();
+ for(const name of ['base','per_km','daily','included','gst'])assert.equal(await editor.locator(`input[name="${name}"]`).count(),0,'bike tariff input is absent: '+name);
+ await editor.getByText('Repaido sets company bike booking fares.',{exact:false}).waitFor();
+ await editor.getByText('Set a shared-departure fare when publishing each shared bike ride.',{exact:false}).waitFor();
+ assert.equal(await editor.getByText('₹500 minimum total',{exact:false}).count(),0);
+ await editor.getByRole('button',{name:'Continue',exact:true}).click();
+ await editor.getByRole('button',{name:'Save bike & documents',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('dialog[aria-label="Bike & ride services"]')===null);
+ assert.equal(writes.length,1);assert.equal(writes[0].mode,'cab');assert.equal(writes[0].seats,1);
+ assert.equal(writes[0].base_paise,23300);assert.equal(writes[0].per_km_paise,8700,'existing legacy vehicle metadata is retained without exposing or editing company rates');
+ await page.goto(origin+'/tests/vehicle-services-preview.html?kind=car');
+ editor=page.getByRole('dialog',{name:'Vehicle & owner tariffs',exact:true});
+ await editor.getByRole('button',{name:'Continue',exact:true}).click();
+ await editor.getByLabel('Cab base charge (₹)',{exact:true}).fill('249');
+ await editor.getByLabel('Cab / extra rental km (₹)',{exact:true}).fill('19.50');
+ await editor.getByLabel('Rental daily rate (₹)',{exact:true}).fill('1700');
+ await editor.getByRole('button',{name:'Continue',exact:true}).click();
+ await editor.getByRole('button',{name:'Save vehicle & rates',exact:true}).click();
+ await page.getByText('Local fixture saved',{exact:true}).waitFor();
+ assert.equal(writes.length,2);assert.equal(writes[1].mode,'both');assert.equal(writes[1].base_paise,24900);assert.equal(writes[1].per_km_paise,1950);assert.equal(writes[1].daily_paise,170000);
+ await page.goto(origin+'/tests/vehicle-services-preview.html?kind=car');
+ editor=page.getByRole('dialog',{name:'Vehicle & owner tariffs',exact:true});
+ await editor.getByLabel('Vehicle kind',{exact:true}).selectOption('bike');
+ editor=page.getByRole('dialog',{name:'Bike & ride services',exact:true});
+ assert.equal(await editor.getByLabel('Seats',{exact:true}).inputValue(),'1');
+ assert.equal(await editor.getByLabel('Offer for',{exact:true}).inputValue(),'cab');
+ await editor.getByRole('button',{name:'Continue',exact:true}).click();
+ assert.equal(await editor.locator('input[name="per_km"]').count(),0,'switching a car to bike immediately removes cab pricing inputs');
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'vehicle services fit a phone viewport');
+ assert.deepEqual(errors,[]);
+ console.log('PASS: bike Fleet/editor never expose cab tariff controls; unsupported bike rental absent; shared-fare guidance and one seat retained; car/rental tariffs save correctly; zero real API writes');
+}finally{await browser.close();}

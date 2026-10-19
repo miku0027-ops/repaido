@@ -2,7 +2,7 @@ import {ScrapLocationProvider} from './ScrapLocation';
 import {CaptainClub,useCaptain} from './CaptainClub';
 import {CleanupWorkspace} from './CleanupWorkspace';
 import {useEffect,useRef,useState,type ReactNode} from 'react';
-import {ArrowRight,Building2,CalendarDays,Car,ClipboardList,Home,MoreHorizontal,Recycle,Route,Scale,ShieldCheck,Truck,UserRound,Users,Wallet,Wrench,Trophy,type LucideIcon,DriverBadge,LocalTaxi,KeyRound} from '../icons';
+import {ArrowRight,Building2,CalendarDays,Car,ClipboardList,Home,MoreHorizontal,Recycle,Route,Scale,ShieldCheck,Truck,UserRound,Users,Wallet,Wrench,Trophy,type LucideIcon,DriverBadge,LocalTaxi,KeyRound,TwoWheeler} from '../icons';
 import {BusinessCalendar,BusinessRecords,VehicleEditor,useBusinessRecords} from './LocalBusiness';
 import {DriverInvitations,SharedRideBookings,useSharedRecords,VehicleConnections} from './SharedRides';
 import {money} from '../services/operations';
@@ -10,6 +10,7 @@ import {ContractError} from './customContractUI';
 import {Modal} from './ui';
 import {SharedRideRequestAlerts} from './SharedRideRequestAlerts';
 import {PublicCabAvailability} from './PublicCabAvailability';
+import {BikeRiderWorkspace} from './BikeRiderWorkspace';
 import './business-suites.css';
 
 type BusinessRole='cab_owner'|'driver'|'scrap_owner';
@@ -27,8 +28,8 @@ export function BusinessAppLauncher({currentRole,registeredRoles,onClose}:{curre
 function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,children}:{role:BusinessRole;title:string;description:string;partner:any;panels:Panel[];panel:string;onPanel:(p:string)=>void;action?:ReactNode;children:ReactNode}){
  const heading=useRef<HTMLHeadingElement>(null),frame=useRef<HTMLElement>(null),navigation=useRef<HTMLElement>(null),panelHeader=useRef<HTMLDivElement>(null),first=useRef(true);
  const mobility=role!=='scrap_owner',owner=role==='cab_owner',scrap=role==='scrap_owner';
- const bookingPanels=panels.filter(p=>['cabs','shared','rentals'].includes(p.id));
- const inBookings=owner&&bookingPanels.some(p=>p.id===panel),inMore=owner?['more','payments','account'].includes(panel):scrap&&['more','cleanup','impact','calendar','account'].includes(panel);
+ const bookingPanels=panels.filter(p=>(owner?['cabs','shared','rentals','bikes']:['journeys','shared','bikes']).includes(p.id));
+ const inBookings=mobility&&bookingPanels.some(p=>p.id===panel),inMore=owner?['more','payments','account'].includes(panel):scrap&&['more','cleanup','impact','calendar','account'].includes(panel);
  const primary:Panel[]=owner?[
   {id:'overview',label:'Home',icon:Home},{id:'bookings',label:'Bookings',icon:ClipboardList},
   {id:'fleet',label:'Fleet',icon:Car},{id:'schedule',label:'Schedule',icon:CalendarDays},
@@ -37,8 +38,8 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   {id:'overview',label:'Home',icon:Home},{id:'requests',label:'Collect',icon:Truck},
   {id:'weighing',label:'Inspect',icon:Scale},{id:'payments',label:'Payments',icon:Wallet},
   {id:'more',label:'More',icon:MoreHorizontal}
- ]:panels;
- const group=inBookings?'bookings':inMore?'more':panel;
+ ]:panels.filter(p=>p.id!=='shared');
+ const group=owner&&inBookings?'bookings':role==='driver'&&panel==='shared'?'journeys':inMore?'more':panel;
  const label=panels.find(p=>p.id===panel)?.label||'Overview';
  const select=(id:string)=>onPanel(id==='bookings'?'cabs':id);
  useEffect(()=>{
@@ -80,25 +81,26 @@ function CalendarPanel({rows,children}:{rows:any[];children?:(month:string)=>Rea
 
 export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{partner:any;vehicles:any[];onRefresh:()=>Promise<unknown>;accountControls?:ReactNode}){
  const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
- const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).has('shared-ride')?'shared':'overview'),[editing,setEditing]=useState<any>(null);const source=useBusinessRecords('rides'),shared=useSharedRecords();
+ const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).get('tab')==='bikes'||new URLSearchParams(location.search).has('bike-ride')?'bikes':new URLSearchParams(location.search).has('shared-ride')?'shared':'overview'),[editing,setEditing]=useState<any>(null);const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.customer_id!==source.uid&&(r.owner_id===source.uid||r.state==='requested'));
  const cabs=only(records,r=>r.mode==='cab'),rentals=only(records,r=>r.mode==='rental');
  const departures=shared.rows.filter(r=>r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r)),pending=active.filter(r=>r.state==='requested');
  const received=records.rows.filter(r=>r.state==='completed'&&!r.financial_hold).reduce((sum,r)=>sum+(r.advance_paid_paise||0)+(r.balance_paid_paise||0),0);
- const panels:Panel[]=[{id:'overview',label:'Overview',icon:Home},{id:'shared',label:'Shared rides',icon:Users},{id:'cabs',label:'Cab bookings',icon:LocalTaxi},{id:'rentals',label:'Self-drive',icon:KeyRound},{id:'fleet',label:'Fleet & rates',icon:Car},{id:'schedule',label:'Schedule',icon:CalendarDays},{id:'payments',label:'Payments',icon:Wallet},{id:'account',label:'Account',icon:UserRound},{id:'more',label:'More',icon:MoreHorizontal}];
+ const panels:Panel[]=[{id:'overview',label:'Overview',icon:Home},{id:'bikes',label:'Bike rides',icon:TwoWheeler},{id:'shared',label:'Shared rides',icon:Users},{id:'cabs',label:'Cab bookings',icon:LocalTaxi},{id:'rentals',label:'Self-drive',icon:KeyRound},{id:'fleet',label:'Fleet & rates',icon:Car},{id:'schedule',label:'Schedule',icon:CalendarDays},{id:'payments',label:'Payments',icon:Wallet},{id:'account',label:'Account',icon:UserRound},{id:'more',label:'More',icon:MoreHorizontal}];
  const open=(r:any)=>{setRecordId(r.id);setPanel(r.vehicle_name?'shared':r.mode==='rental'?'rentals':'cabs');};
  return <SuiteFrame role="cab_owner" title="Cab owner suite" description="Your fleet. Your routes. Your business." partner={partner} panels={panels} panel={panel} onPanel={setPanel} action={panel==='fleet'?<button className="ops-primary" onClick={()=>setEditing({id:crypto.randomUUID(),version:0})}>Add vehicle</button>:undefined}><ContractError error={records.error||shared.error} onRetry={()=>{void records.refresh();void shared.refresh();}}/>
   <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} settings={panel==='account'}/>
   {panel==='overview'&&<>
    <div className="suite-metrics"><Metric label="New booking requests" value={pending.length} onClick={()=>{setRecordId(pending[0]?.id||'');setPanel(pending[0]?.mode==='rental'?'rentals':'cabs');}}/><Metric label="Active vehicles" value={vehicles.filter(v=>v.active&&v.status==='approved'&&v.valid_until>Date.now()/1000).length} onClick={()=>setPanel('fleet')}/><Metric label="Shared departures" value={departures.filter(r=>!closed(r)).length} onClick={()=>setPanel('shared')}/><Metric label="Completed fares collected" value={money(received)} onClick={()=>setPanel('payments')}/></div>
    <NextWork rows={[...active,...departures]} onOpen={open} limit={1}/>
-   <div className="suite-quick-actions" role="group" aria-label="Manage your services">{[{id:'shared',label:'Shared rides',icon:Users},{id:'cabs',label:'Cab bookings',icon:LocalTaxi},{id:'rentals',label:'Self-drive',icon:KeyRound}].map(({id,label,icon:Icon})=><button key={id} onClick={()=>setPanel(id)}><Icon size={20} aria-hidden="true"/><span>{label}</span><ArrowRight size={16} aria-hidden="true"/></button>)}</div>
+   <div className="suite-quick-actions" role="group" aria-label="Manage your services">{[{id:'bikes',label:'Bike rides',icon:TwoWheeler},{id:'shared',label:'Shared rides',icon:Users},{id:'cabs',label:'Cab bookings',icon:LocalTaxi},{id:'rentals',label:'Self-drive',icon:KeyRound}].map(({id,label,icon:Icon})=><button key={id} onClick={()=>setPanel(id)}><Icon size={20} aria-hidden="true"/><span>{label}</span><ArrowRight size={16} aria-hidden="true"/></button>)}</div>
    {!vehicles.length&&<Empty title="Add your first vehicle" description="Set your services, rates and vehicle documents." action="Set up fleet" onClick={()=>setPanel('fleet')}/>}
   </>}
   {panel==='shared'&&<>{!vehicles.length&&<Empty title="A vehicle comes first" description="Add an approved vehicle for shared departures." action="Open fleet" onClick={()=>setPanel('fleet')}/>}<SharedRideBookings owner managementRole="cab_owner" vehicles={vehicles} initialRecordId={recordId}/></>}
+  {panel==='bikes'&&<BikeRiderWorkspace/>}
   {panel==='cabs'&&<><BusinessRecords kind="rides" records={cabs} owner managementRole="cab_owner" initialRecordId={recordId} heading="Cab bookings"/></>}
   {panel==='rentals'&&<><BusinessRecords kind="rides" records={rentals} owner managementRole="cab_owner" initialRecordId={recordId} heading="Self-drive rentals"/></>}
-  {panel==='fleet'&&<>{vehicles.map(v=><article className="suite-card" key={v.id}><header className="suite-vehicle-heading"><h3>{v.name}</h3><span className="business-state">{v.status==='approved'&&v.valid_until<=Date.now()/1000?'Approval expired':v.status}</span></header><p>{v.registration} · {v.seats} passenger seats · {v.mode==='both'?'Cab & self-drive':v.mode==='rental'?'Self-drive':'Cab'}</p><dl className="suite-facts"><dt>Cab rate</dt><dd>{v.mode==='rental'?'Not offered':money(v.per_km_paise)+'/km'}</dd><dt>Rental rate</dt><dd>{v.mode==='cab'?'Not offered':money(v.daily_paise)+'/day'}</dd><dt>Availability</dt><dd>{v.active?'Listed when approved and available':'Not listed'}</dd></dl><button onClick={()=>setEditing(v)}>Edit vehicle & rates</button><VehicleConnections vehicle={v}/></article>)}{!vehicles.length&&<Empty title="Your fleet starts here" description="Add vehicle details and documents. Vehicles are reviewed before customers can book them."/>}</>}
+  {panel==='fleet'&&<>{vehicles.map(v=><article className="suite-card" key={v.id}><header className="suite-vehicle-heading"><h3>{v.name}</h3><span className="business-state">{v.status==='approved'&&v.valid_until<=Date.now()/1000?'Approval expired':v.status}</span></header><p>{v.registration} · {v.seats} passenger seats · {v.vehicle_kind==='bike'?'Bike rides & shared departures':v.mode==='both'?'Cab & self-drive':v.mode==='rental'?'Self-drive':'Cab'}</p><dl className="suite-facts">{v.vehicle_kind==='bike'?<><dt>Company bike fares</dt><dd>Set by Repaido</dd><dt>Shared departure fare</dt><dd>Set per published ride</dd></>:<><dt>Cab rate</dt><dd>{v.mode==='rental'?'Not offered':money(v.per_km_paise)+'/km'}</dd><dt>Rental rate</dt><dd>{v.mode==='cab'?'Not offered':money(v.daily_paise)+'/day'}</dd></>}<dt>Availability</dt><dd>{v.active?'Listed when approved and available':'Not listed'}</dd></dl><button onClick={()=>setEditing(v)}>{v.vehicle_kind==='bike'?'Edit bike & documents':'Edit vehicle & rates'}</button><VehicleConnections vehicle={v}/></article>)}{!vehicles.length&&<Empty title="Your fleet starts here" description="Add vehicle details and documents. Vehicles are reviewed before customers can book them."/>}</>}
   {panel==='schedule'&&<CalendarPanel rows={[...records.rows.filter(r=>r.owner_id===source.uid),...departures]}>{month=><><BusinessRecords kind="rides" records={records} owner managementRole="cab_owner" dateFilter={month} heading="Scheduled cab bookings & rentals"/><SharedRideBookings owner managementRole="cab_owner" dateFilter={month}/></>}</CalendarPanel>}
   {panel==='payments'&&<><div className="suite-metrics"><Metric label="Completed fares collected" value={money(received)}/><Metric label="Owner transfers confirmed" value={money(records.rows.filter(r=>r.settlement_received_at).reduce((s,r)=>s+(r.settlement?.amount_paise||0),0))}/></div><PanelCard title="Collections & owner transfers" description="Fare collection and transfer to your account are separate. Confirm a transfer only after you receive it."/><BusinessRecords kind="rides" records={records} owner managementRole="cab_owner" initialFilter="history" heading="Booking payment records"/><SharedRideBookings owner managementRole="cab_owner"/></>}
   {panel==='more'&&<div className="suite-menu">{[{id:'payments',label:'Payments',description:'Fare collections and owner transfers',icon:Wallet},{id:'account',label:'Account',description:'Business profile and account settings',icon:UserRound}].map(({id,label,description,icon:Icon})=><button key={id} onClick={()=>setPanel(id)}><Icon size={20} aria-hidden="true"/><span><strong>{label}</strong><small>{description}</small></span><ArrowRight size={20} aria-hidden="true"/></button>)}</div>}
@@ -111,9 +113,9 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
 export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;vehicles?:any[];accountControls?:ReactNode}){
  const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
  const open=(row:any)=>{setRecordId(row.id);setPanel(row.vehicle_name?'shared':'journeys');};
- const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).has('shared-ride')?'shared':'overview');const source=useBusinessRecords('rides'),shared=useSharedRecords();
+ const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).get('tab')==='bikes'||new URLSearchParams(location.search).has('bike-ride')?'bikes':new URLSearchParams(location.search).has('shared-ride')?'shared':'overview');const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.mode==='cab'&&(r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid)),departures=shared.rows.filter(r=>r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r));
- const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'My vehicles',icon:Car},{id:'account',label:'Account',icon:UserRound}];
+ const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'bikes',label:'Bike rides',icon:TwoWheeler},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'My vehicles',icon:Car},{id:'account',label:'Account',icon:UserRound}];
  return <SuiteFrame role="driver" title="Driver suite" description="Your pickups, passengers and journeys." partner={partner} panels={panels} panel={panel} onPanel={setPanel}><ContractError error={records.error||shared.error}/>
   <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} driver settings={panel==='account'}/>
   {panel==='overview'&&<>
@@ -123,6 +125,7 @@ export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;v
   </>}
   {panel==='journeys'&&<><BusinessRecords kind="rides" records={records} owner managementRole="driver" initialRecordId={recordId} heading="Assigned cab journeys"/></>}
   {panel==='shared'&&<><SharedRideBookings owner managementRole="driver" vehicles={vehicles} initialRecordId={recordId}/></>}
+  {panel==='bikes'&&<BikeRiderWorkspace/>}
   {panel==='vehicles'&&<DriverInvitations/>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
   <PublicCabAvailability accountKey={source.uid}/>

@@ -1,0 +1,3 @@
+-r requirements.txt
+# Optional compatibility transport. The normal production image uses Pub/Sub.
+confluent-kafka==2.12.2

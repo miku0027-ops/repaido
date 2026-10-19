@@ -15,7 +15,7 @@ export function typeDiscoveryIntent(categories){
  if(!Array.isArray(categories)||!categories.length)return null;
  const marketMode=['refurbished','preowned','rentals','sell'].find(mode=>categories.includes('market_'+mode));
  if(marketMode)return {focus:'marketplace',mode:marketMode};
- const modes=['cab','shared','self_drive','rental'];
+ const modes=['bike','cab','shared','self_drive','rental'];
  const mode=modes.find(mode=>categories.includes('transport_'+mode));
  if(mode||categories.includes('transport'))return {focus:'transport',mode:mode||null};
  const category=categories.find(value=>typeof value==='string'&&/^[a-z][a-z0-9_:-]{0,99}$/.test(value)&&!value.startsWith('transport')&&!value.startsWith('market'));
