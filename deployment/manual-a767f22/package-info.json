@@ -1,0 +1,34 @@
+{
+  "approved_additions": [
+    {
+      "collectionGroup": "ops_jobs",
+      "fields": [
+        {
+          "fieldPath": "worker_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "queryScope": "COLLECTION"
+    }
+  ],
+  "baseline": "f1ef43876da329647283fcbb704aaca6944e0693",
+  "baseline_build": "dbb737d0-bbc8-4f19-8ac9-93e327517c28",
+  "baseline_indexes_sha256": "4cbd42ac2021147d5bf4393c117c33e3e4951f7b0379a09cb8b0e0f13ef70641",
+  "commit": "a767f224cba32b60f47b0cd00ae86300c06e354a",
+  "config_sha256": "54bc9bb8e64c1d2f5406f3bdc6fd276833238b6b9a200b64b2c5534ce4f21e35",
+  "desired_indexes_sha256": "be00637f55e9aa173a47dbb715871326c4fcf62a13839016a453d62eed6d4fdc",
+  "manifest_sha256": "ce969dbc9d9c9c70e89180490945c0e2fa35f20fb700687c9b295dcceec70dea",
+  "source_archive": "repaido-a767f224cba3-index-gated-source.tar.gz",
+  "source_bytes": 83485631,
+  "source_files": 1268,
+  "source_sha256": "364b53c215fee7459d54d6ccd4a4f9323ebada5b4f389e337608c3aeb597b7cb",
+  "tracked_files": 1265
+}
