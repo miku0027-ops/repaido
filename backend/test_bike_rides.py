@@ -129,6 +129,73 @@ def test_cancel_before_start_releases_quota_and_slot(api, setup_bike):
     assert main.operations_store.run(lambda u:u.get('bike_quota',quota_key('customer')))['entries'] == {}
 
 
+def test_verified_rider_contact_is_only_in_active_customer_booking_views(api, setup_bike):
+    result = search(api)
+    assert PHONES['worker'] not in str(result) and 'rider_phone' not in result['quotes'][0]
+    row, _ = book(api, result['quotes'][0], rider_phone='9876543210')
+    assert 'rider_phone' not in row
+    # Acceptance saves the authenticated rider's verified number privately;
+    # the passenger-supplied booking phone is never a contact source.
+    row = command(api, row, 'accept')
+    assert 'rider_phone' not in row
+    current = latest(api, row)
+    assert current['rider_phone'] == PHONES['worker']
+    assert api.get(BASE+'/bookings', headers=auth('customer')).json()['rides'][0]['rider_phone'] == PHONES['worker']
+    assert all('rider_phone' not in ride for ride in api.get(BASE+'/driver/rides', headers=auth('worker')).json()['rides'])
+    assert api.get(BASE+'/bookings/'+row['id'], headers=auth('stranger')).status_code == 404
+    records = main.operations_store.run(lambda u: {
+        kind: u.all(kind) for kind in ('bike_rides', 'bike_quotes', 'bike_dispatch_outbox', 'notifications')})
+    assert PHONES['worker'] not in str(records)
+    command(api, row, 'cancel', 'customer')
+    assert 'rider_phone' not in latest(api, row)
+    assert all('rider_phone' not in ride for ride in api.get(BASE+'/bookings', headers=auth('customer')).json()['rides'])
+
+
+@pytest.mark.parametrize('verified,phone', [(False, '+919333333333'), (True, 'not-a-phone'), (True, '9876543210')])
+def test_rider_contact_never_trusts_an_unverified_or_malformed_phone(api, setup_bike, verified, phone):
+    row, _ = book(api, search(api)['quotes'][0])
+    original_actor = main.app.dependency_overrides[main.current_user]
+    def changed_actor(authorization: str=Header(default='')):
+        actor = original_actor(authorization)
+        return {**actor, 'phone_verified': verified, 'phone': phone} if actor['id'] == 'worker' else actor
+    main.app.dependency_overrides[main.current_user] = changed_actor
+    command(api, row, 'accept')
+    assert 'rider_phone' not in latest(api, row)
+    assert main.operations_store.run(lambda u:u.get('bike_ride_contacts', row['id'])) is None
+
+
+def test_rider_contact_accept_retry_keeps_original_verified_phone(api, setup_bike):
+    row, _ = book(api, search(api)['quotes'][0])
+    body = dict(action='accept', command_id=str(uuid.uuid4()), expected_version=row['version'])
+    assert api.post(BASE+'/bookings/'+row['id']+'/commands', headers=auth('worker'), json=body).status_code == 200
+    saved = main.operations_store.run(lambda u:u.get('bike_ride_contacts', row['id']))
+    original_actor = main.app.dependency_overrides[main.current_user]
+    def changed_actor(authorization: str=Header(default='')):
+        actor = original_actor(authorization)
+        return {**actor, 'phone': PHONES['worker2']} if actor['id'] == 'worker' else actor
+    main.app.dependency_overrides[main.current_user] = changed_actor
+    response = api.post(BASE+'/bookings/'+row['id']+'/commands', headers=auth('worker'), json=body)
+    assert response.status_code == 200 and 'rider_phone' not in response.json()
+    assert main.operations_store.run(lambda u:u.get('bike_ride_contacts', row['id'])) == saved
+    assert latest(api, row)['rider_phone'] == PHONES['worker']
+
+
+def test_queued_rider_contact_is_hidden_until_promoted_and_revoked_at_dropoff(api, setup_bike):
+    first, _ = book(api, search(api)['quotes'][0]); first = start(api, first)
+    assert latest(api, first)['rider_phone'] == PHONES['worker']
+    with patch('time.time', return_value=time.time()+12):
+        second, _ = book(api, search(api, 'stranger')['quotes'][0], 'stranger')
+        command(api, second, 'accept')
+        assert 'rider_phone' not in latest(api, second, 'stranger')
+        assert all('rider_phone' not in ride for ride in api.get(BASE+'/bookings', headers=auth('stranger')).json()['rides'])
+    with patch('time.time', return_value=time.time()+25):
+        first = command(api, first, 'complete', position=gps(DROP))
+    assert 'rider_phone' not in latest(api, first)
+    assert latest(api, second, 'stranger')['rider_phone'] == PHONES['worker']
+    command(api, first, 'confirm', 'customer')
+    assert 'rider_phone' not in latest(api, first)
+
+
 def test_actual_minute_route_cap_and_stale_gps(api, setup_bike, monkeypatch):
     monkeypatch.setattr(bikes,'verified_route',lambda a,b:dict(distance_metres=4001,duration_seconds=600,points=[a,b],provider='fixture'))
     response = api.post(BASE+'/search',headers=auth('customer'),json={'pickup':PIN,'dropoff':DROP})

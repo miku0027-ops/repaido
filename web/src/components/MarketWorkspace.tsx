@@ -1,5 +1,5 @@
 import {useId,type ReactNode} from 'react';
-import {Boxes,CarFront,FileCheck2,Recycle,ShoppingBag} from '../icons';
+import {Boxes,Route,FileCheck2,Recycle,ShoppingBag} from '../icons';
 import {BusinessTabs} from './BusinessUI';
 import './market-workspace.css';
 
@@ -8,7 +8,7 @@ const destinations=[
  {id:'spares',label:'Market',accessibleLabel:'Marketplace',Icon:ShoppingBag},
  {id:'b2b',label:'Wholesale',accessibleLabel:'B2B Wholesale',Icon:Boxes},
  {id:'tenders',label:'Contracts',accessibleLabel:'Contracts',Icon:FileCheck2},
- {id:'mobility',label:'Cabs',accessibleLabel:'Cabs & cars',Icon:CarFront},
+ {id:'mobility',label:'Rides',accessibleLabel:'Rides',Icon:Route},
  {id:'scrap',label:'Scrap',accessibleLabel:'Sell scrap',Icon:Recycle},
 ] as const;
 

@@ -19,7 +19,7 @@ await auth.authStateReady();
 localStorage.setItem('repaido.token','isolated-market-customer');
 const area=new URLSearchParams(location.search).has('noPickup')?{city:'Balasore',confirmed:false}:{lat:21.4934,lng:86.9135,city:'Balasore',address:'Station Road, Balasore',confirmed:true};
 function Preview(){
- const [destination,setDestination]=useState<MarketDestination>('spares');
+ const [destination,setDestination]=useState<MarketDestination>(new URLSearchParams(location.search).get('destination')==='mobility'?'mobility':'spares');
  return <div className="repaido-customer-shell" style={{minHeight:'100vh',paddingBottom:88}}>
   <header className="repaido-home-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,padding:'12px 16px',height:64,position:'sticky',top:0,zIndex:40,background:'var(--ui-surface)'}}><RepaidoBrand size="sm"/><span style={{display:'flex',gap:20,color:'var(--ui-link)'}}><ShoppingCart size={20}/><Bell size={20}/><UserRound size={20}/></span></header>
   <main id="android-main-content" style={{'--customer-header-height':'64px'} as React.CSSProperties}><MarketWorkspace value={destination} onChange={setDestination}>

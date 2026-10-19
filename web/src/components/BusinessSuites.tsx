@@ -53,7 +53,22 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   measure();return()=>observer.disconnect();
  },[]);
  useEffect(()=>{
-  if(first.current){first.current=false;return;}
+  const initial=first.current;first.current=false;
+  if(initial&&panel!=='bikes')return;
+  if(panel==='bikes'&&frame.current){
+   // Enter the ride cockpit once its data has a layout. Waiting for that first
+   // render avoids clamping a deep-link scroll against the short loading view.
+   let pending=true;
+   const enter=()=>{
+    if(!pending||!frame.current?.querySelector('.bike-rider-settings,.bike-rider-workspace>.bike-rider-error'))return;
+    pending=false;observer.disconnect();
+    const top=window.scrollY+(panelHeader.current?.parentElement?.getBoundingClientRect().top||0);
+    window.scrollTo({top:Math.max(0,top),behavior:'instant'});
+   };
+   const observer=new ResizeObserver(enter);observer.observe(frame.current);enter();
+   heading.current?.focus({preventScroll:true});
+   return()=>{pending=false;observer.disconnect();};
+  }
   if(panelHeader.current&&frame.current&&frame.current.getBoundingClientRect().top<0){const top=window.scrollY+(panelHeader.current.parentElement?.getBoundingClientRect().top||0);window.scrollTo({top:Math.max(0,top),behavior:'instant'});}
   heading.current?.focus({preventScroll:true});
  },[panel,mobility]);

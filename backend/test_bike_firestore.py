@@ -108,6 +108,11 @@ def test_firestore_free_lifecycle_commits_hmac_quota_once(api, setup_bike):
     assert result['duplicate'] is True
 
 
+def test_firestore_verified_rider_contact_stays_private_through_acceptance_and_closure(api, setup_bike):
+    from test_bike_rides import test_verified_rider_contact_is_only_in_active_customer_booking_views
+    test_verified_rider_contact_is_only_in_active_customer_booking_views(api, setup_bike)
+
+
 def test_firestore_concurrent_same_account_cannot_create_two_active_holds(api, setup_bike):
     quote = search(api)['quotes'][0]
     def request(_):

@@ -42,7 +42,7 @@
 .bike-rider-route{display:grid;gap:12px;margin:0;padding:0 0 0 2px}.bike-rider-route>div{position:relative;display:grid;grid-template-columns:60px minmax(0,1fr);align-items:start;gap:8px}.bike-rider-route>div:first-child:after{content:"";position:absolute;left:3px;top:12px;bottom:-20px;width:1px;background:#c6d3e4}.bike-rider-route dt{display:flex;align-items:center;gap:7px;font-size:.625rem;color:var(--bike-muted);line-height:1.5;padding-top:2px}.bike-rider-route dt>span{position:relative;z-index:1;width:7px;height:7px;border:2px solid #2a64a5;background:#fff;border-radius:50%;box-sizing:border-box;flex:none}.bike-rider-route>div:last-child dt>span{border-radius:2px;border-color:#153b64}.bike-rider-route dd{margin:0;font-size:.8125rem;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
 .bike-rider-arrival,.bike-rider-distance{display:flex;align-items:center;gap:6px;font-size:.6875rem;line-height:1.5}.bike-rider-arrival{color:#075b3a;font-weight:700}.bike-rider-distance{color:var(--bike-muted)}
 .bike-rider-progress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;list-style:none;padding:0;margin:0}.bike-rider-progress li{display:grid;gap:4px;font-size:.5625rem;color:#6c7b90;line-height:1.5}.bike-rider-progress i{display:block;height:3px;border-radius:4px;background:#dae2ee}.bike-rider-progress li[data-done=true] i,.bike-rider-progress li[aria-current=step] i{background:#2368b2}.bike-rider-progress li[aria-current=step]{color:#18477b;font-weight:700}.is-at-stop .bike-rider-progress li[aria-current=step] i{background:#118359}
-.bike-rider-fare{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;padding:10px 11px;background:#edf3fa;border:1px solid #e1e8f2;border-radius:13px}.bike-rider-fare>div{display:grid;gap:2px;min-width:0}.bike-rider-fare small{font-size:.625rem;color:var(--bike-muted)}.bike-rider-fare strong{font-size:1rem;line-height:1.4;letter-spacing:-.015em;font-variant-numeric:tabular-nums}.bike-rider-fare span{font-size:.625rem;line-height:1.4;color:#37644c}.bike-rider-fare>div+div{border-left:1px solid #d3deec;padding-left:10px}.is-at-stop .bike-rider-fare{background:#f4fff8;border-color:#cee8d9}
+.bike-rider-trip-fare{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;padding:10px 11px;background:#edf3fa;border:1px solid #e1e8f2;border-radius:13px}.bike-rider-trip-fare>div{display:grid;gap:2px;min-width:0}.bike-rider-trip-fare small{font-size:.625rem;color:var(--bike-muted)}.bike-rider-trip-fare strong{font-size:1rem;line-height:1.4;letter-spacing:-.015em;font-variant-numeric:tabular-nums}.bike-rider-trip-fare span{font-size:.625rem;line-height:1.4;color:#37644c}.bike-rider-trip-fare>div+div{border-left:1px solid #d3deec;padding-left:10px}.is-at-stop .bike-rider-trip-fare{background:#f4fff8;border-color:#cee8d9}
 .bike-rider-payment-status,.bike-rider-queue-note{display:flex;align-items:center;gap:6px;color:var(--bike-muted);font-size:.6875rem;line-height:1.5}.bike-rider-queue-note>svg{flex:none}
 .bike-rider-navigation{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;box-sizing:border-box;border:1px solid #c5d9f2;border-radius:12px;background:#eaf3ff;color:#164a8c;text-decoration:none;font-size:.8125rem;font-weight:700}.bike-rider-navigation>svg:last-child{margin-left:auto}.bike-rider-navigation>svg:first-child{margin-left:auto}
 .bike-rider-trip-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:7px}.bike-rider-workspace .bike-rider-trip-actions button{font-size:.75rem;font-weight:650;line-height:1.3}.bike-rider-workspace button.bike-rider-primary,.bike-rider-confirm button.bike-rider-primary{border-color:#194a91;background:#194a91;color:#fff;box-shadow:0 2px 0 #113466}.bike-rider-trip.is-at-stop button.bike-rider-primary{background:#087b50;border-color:#087b50;box-shadow:0 2px 0 #075a3d}
@@ -58,9 +58,9 @@
 [data-theme=dark] .bike-rider-workspace :is(button,select),[data-theme=dark] .bike-rider-workspace .bike-rider-icon-button,[data-theme=dark] .bike-rider-history>details{background:#20344f;color:#e8f0fc;border-color:#465c7b}
 [data-theme=dark] .bike-rider-trip{background:linear-gradient(145deg,#20344f,#17283f);border-color:#425b7d;box-shadow:0 3px 0 #132237,0 12px 25px -18px #000}
 [data-theme=dark] .bike-rider-trip.is-at-stop{background:linear-gradient(145deg,#163b31,#172e2a);border-color:#4e967a}
-[data-theme=dark] .bike-rider-availability,[data-theme=dark] .bike-rider-fare,[data-theme=dark] .bike-rider-view-tabs,[data-theme=dark] .bike-rider-empty{background:#192d46;border-color:#3a506e}
+[data-theme=dark] .bike-rider-availability,[data-theme=dark] .bike-rider-trip-fare,[data-theme=dark] .bike-rider-view-tabs,[data-theme=dark] .bike-rider-empty{background:#192d46;border-color:#3a506e}
 [data-theme=dark] .bike-rider-salary{background:#192d46;border-color:#3a506e}[data-theme=dark] .bike-rider-workspace .bike-rider-view-tabs button[aria-pressed=true]{background:#334e70;color:#fff}
-[data-theme=dark] .bike-rider-fare span,[data-theme=dark] .bike-rider-arrival{color:#96e6bf}
+[data-theme=dark] .bike-rider-trip-fare span,[data-theme=dark] .bike-rider-arrival{color:#96e6bf}
 [data-theme=dark] .bike-rider-presence.is-online{color:#96e6bf}
 [data-theme=dark] .bike-rider-workspace .bike-rider-online-toggle,[data-theme=dark] .bike-rider-workspace button.bike-rider-primary{background:#215aaa;color:#fff;border-color:#4272b6}
 [data-theme=dark] .bike-rider-workspace .bike-rider-online-toggle.is-online{background:#1e4c3c;color:#baf4da}
@@ -81,3 +81,120 @@
 .bike-earnings-records{display:grid;gap:7px}.bike-earnings-records h4{font-size:.8125rem}.bike-earnings-records article{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--bike-line);border-radius:12px;background:var(--bike-surface)}.bike-earnings-records article>span{display:grid;gap:4px;flex:1;min-width:0}.bike-earnings-records article strong,.bike-earnings-records article b{font-size:.8125rem}.bike-earnings-records article small{font-size:.625rem;line-height:1.6;color:var(--bike-muted);overflow-wrap:anywhere}.bike-earnings-records>p{font-size:.75rem;color:var(--bike-muted)}.bike-earning-receipt{border:1px solid #82b8a0;padding:12px;border-radius:13px;display:grid;gap:10px;font-size:.75rem}.bike-earning-receipt>div{display:flex;gap:8px;flex-wrap:wrap}
 .bike-rider-enrollment-nudge{display:flex;align-items:center;gap:8px;padding:9px;border:1px solid var(--bike-line);border-radius:13px;background:var(--bike-surface);font-size:.75rem}.bike-rider-enrollment-nudge>span{flex:1}.bike-rider-enrollment-nudge svg{flex:none}.bike-rider-workspace .bike-rider-enrollment-nudge button{font-size:.6875rem}
 @media(max-width:360px){.bike-rider-live-map{height:170px}.bike-earnings-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Rider cockpit: destination first; setup and route metadata stay one tap away. */
+.bike-rider-workspace{--bike-blue:#172e55;gap:14px;font-size:.875rem;line-height:1.5}
+.bike-rider-workspace :is(button,a,summary,select){touch-action:manipulation}
+.bike-rider-workspace :is(button,a,summary,select):focus-visible{outline:3px solid #608fe0;outline-offset:3px}
+.bike-rider-workspace svg{flex-shrink:0}
+.bike-rider-control{padding:2px 1px}.bike-rider-title h3{font-size:1.125rem;letter-spacing:-.025em}
+.bike-rider-emblem{background:#e7f2ed;color:#075f41;box-shadow:inset 0 1px 0 #fff,0 3px 0 #d8e8df}
+.bike-rider-presence{font-size:.75rem}
+.bike-rider-shift-panel{overflow:hidden;border:1px solid var(--bike-line);border-radius:18px;background:var(--bike-surface);box-shadow:0 4px 14px #18395306}
+.bike-rider-availability{border:0;border-radius:0;background:transparent;padding:12px;gap:12px}
+.bike-rider-availability label{font-size:.75rem;letter-spacing:0;color:var(--bike-muted);font-weight:550}
+.bike-rider-availability select{font-size:.875rem;background:#f4f7fb;border-color:transparent}
+.bike-rider-workspace .bike-rider-online-toggle{min-height:46px;padding-inline:16px;border-radius:13px;font-size:.875rem;background:#172e55}
+.bike-rider-workspace .bike-rider-online-toggle.is-online{background:#e1f3e9;color:#075f41}
+.bike-rider-settings>summary{display:flex;align-items:center;gap:7px;min-height:44px;box-sizing:border-box;padding:7px 12px;border-top:1px solid var(--bike-line);font-size:.75rem;font-weight:600;cursor:pointer;list-style:none;color:var(--bike-muted)}
+.bike-rider-settings>summary::-webkit-details-marker,.bike-rider-route-details>summary::-webkit-details-marker{display:none}
+.bike-rider-settings>summary>small{margin-left:auto;font-size:.6875rem;font-weight:500;padding:2px 7px;background:#edf3f8;border-radius:6px;color:var(--bike-ink)}
+.bike-rider-settings>summary>svg:last-child,.bike-rider-route-details>summary>svg,.bike-rider-more-actions>summary>svg{transition:transform .18s ease}
+.bike-rider-settings[open]>summary>svg:last-child,.bike-rider-route-details[open]>summary>svg,.bike-rider-more-actions[open]>summary>svg{transform:rotate(180deg)}
+.bike-rider-settings>div{display:grid;gap:9px;padding:4px 12px 12px}.bike-rider-location{font-size:.8125rem}
+.bike-rider-settings .bike-rider-alert-control>button{font-size:.8125rem;background:#f1f5fa;color:var(--bike-ink)}
+.bike-rider-driving-note{font-size:.75rem;color:var(--bike-muted);line-height:1.55}
+.bike-rider-stale-session{display:flex;align-items:center;gap:7px;padding:3px 12px 9px;font-size:.75rem;color:#86500d;flex-wrap:wrap}
+.bike-rider-workspace .bike-rider-stale-session>button{padding:6px 9px;min-height:44px;font-size:.75rem;color:#765014;background:#fff7e6;border-color:#ebd8b3}
+.bike-rider-view-tabs{border-radius:13px;padding:3px;background:#eaf0f6}
+.bike-rider-workspace .bike-rider-view-tabs button{min-width:0;padding:8px 12px;font-size:.8125rem;gap:6px}
+.bike-rider-workspace .bike-rider-money-button{font-size:.8125rem;padding-inline:11px;border-color:transparent;background:transparent;color:var(--bike-ink)}
+.bike-rider-section{gap:8px}.bike-rider-section>h4{font-size:.8125rem;letter-spacing:0;color:var(--bike-ink)}
+.bike-rider-trip{gap:12px;padding:16px;border-radius:21px;background:var(--bike-surface);border-color:#dbe4ed;box-shadow:0 2px 0 #e5edf4,0 14px 28px -20px #112e5659}
+.bike-rider-trip>header{align-items:center;flex-wrap:wrap}.bike-rider-trip>header>small{font-size:.6875rem;letter-spacing:.04em}
+.bike-rider-trip-state{font-size:.75rem;font-weight:650;border-radius:8px;background:#edf2f8;color:#294467;padding:5px 8px}
+.bike-rider-trip.is-next{background:linear-gradient(120deg,#f6f8fd,#fff);border-color:#dce4ed}
+.bike-rider-trip.is-next .bike-rider-trip-state{background:#eaeef8;color:#3e517b}
+.bike-rider-stop-focus{display:flex;align-items:center;gap:12px;min-width:0;padding:2px 0}
+.bike-rider-stop-focus>div{flex:1;min-width:0}.bike-rider-stop-focus>div>span{font-size:.75rem;color:var(--bike-muted)}
+.bike-rider-stop-focus h4{font-size:1.0625rem;line-height:1.45;letter-spacing:-.02em;overflow-wrap:anywhere;margin-top:3px}
+.bike-rider-stop-focus .bike-rider-navigation{display:grid;place-content:center;gap:2px;justify-items:center;flex:none;min-width:64px;min-height:64px;padding:8px;line-height:1.4;background:#eaf1f9;border:0;color:#173c6e;border-radius:16px;font-size:.75rem}
+.bike-rider-stop-focus .bike-rider-navigation>svg{margin:0}
+.bike-rider-live-map{height:174px;margin:0;border-radius:15px;border-color:#d4dfe9;background:#eef3f7}
+.bike-rider-map-state{bottom:9px;left:9px;padding:5px 8px;font-size:.6875rem;border-color:#d4dfe9;max-width:calc(100% - 28px);box-sizing:border-box;line-height:1.5}
+.bike-rider-arrival{background:#e3f5e9;border:1px solid #bfdfca;border-radius:10px;padding:8px 9px;font-size:.8125rem;color:#075b3a;line-height:1.5}
+.bike-rider-distance{font-size:.8125rem}.bike-rider-trip.is-at-stop{background:linear-gradient(160deg,#fff 15%,#f1fcf5);border-color:#80c29c;box-shadow:0 2px 0 #d3eadc,0 14px 28px -20px #10563859}
+.bike-rider-passenger{gap:9px;padding:2px 0}.bike-rider-passenger h4{font-size:.875rem;font-weight:650}.bike-rider-passenger small{font-size:.75rem}
+.bike-rider-passenger-icon{width:36px;height:36px;background:#f0f4f8;color:#52677f;border-radius:12px}
+.bike-rider-route-details{border-top:1px solid var(--bike-line);border-bottom:1px solid var(--bike-line)}
+.bike-rider-route-details>summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;font-size:.8125rem;list-style:none;cursor:pointer;color:var(--bike-muted);font-weight:550}
+.bike-rider-route-details>.bike-rider-route{padding:3px 0 12px 2px}
+.bike-rider-route dt{font-size:.75rem}.bike-rider-route dd{font-size:.875rem;font-weight:550}
+.bike-rider-route>div{grid-template-columns:67px minmax(0,1fr)}
+.bike-rider-progress li{font-size:.6875rem;color:var(--bike-muted)}.bike-rider-progress i{height:3px}
+.bike-rider-trip-fare{padding:10px 11px;background:#f4f7fa;border:0;border-radius:12px;gap:10px}
+.bike-rider-trip-fare>div{grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:baseline}
+.bike-rider-trip-fare small{font-size:.75rem}.bike-rider-trip-fare strong{font-size:1rem;grid-column:2;grid-row:1 / span 2;align-self:center;overflow-wrap:anywhere}
+.bike-rider-trip-fare span{font-size:.6875rem}.bike-rider-trip-fare>div+div{padding-left:0;border:0;border-top:1px solid #d3deec;padding-top:8px}
+.bike-rider-trip-fare:has(>div+div){grid-template-columns:minmax(0,1fr)}
+.bike-rider-payment-status,.bike-rider-queue-note{font-size:.8125rem;line-height:1.55}
+.bike-rider-queue-note{padding:9px 10px;background:#f1f5fa;border-radius:10px}
+.bike-rider-trip-actions{display:flex;flex-wrap:wrap;gap:7px;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+.bike-rider-workspace .bike-rider-trip-actions>.bike-rider-primary{flex:1 1 155px;min-height:48px;padding:11px 12px;border-radius:13px;background:#172e55;border-color:#172e55;box-shadow:0 3px 0 #0f2343;font-size:.875rem;line-height:1.5;gap:9px}
+.bike-rider-more-actions{flex:1 1 95px;min-width:0}.bike-rider-more-actions>summary{gap:4px;font-size:.75rem;min-height:48px;padding:0 7px;box-sizing:border-box;border-radius:12px;background:#f1f5f9;color:var(--bike-ink)}
+.bike-rider-more-actions>div{padding-top:8px}.bike-rider-workspace .bike-rider-more-actions button{font-size:.8125rem;background:#fff;color:#76322d;border-color:#e4d4d3}
+.bike-rider-request-clock{display:flex;align-items:center;gap:4px;font-size:.75rem;line-height:1.5;color:#755115;font-variant-numeric:tabular-nums}.bike-rider-request-clock.is-expired{color:#7a3230}
+.bike-rider-trip.is-request{background:linear-gradient(145deg,#fff,#f6faf8);border-color:#c8ddd0}
+.bike-rider-offer-rail{grid-auto-columns:min(100%,340px);gap:12px;padding-bottom:10px}
+.bike-rider-empty{border:1px solid var(--bike-line);background:linear-gradient(150deg,#f9fbfd,#f0f6f4);padding:28px 20px;gap:9px;box-shadow:inset 0 1px 0 #fff}.bike-rider-empty p{font-size:.8125rem;line-height:1.65}.bike-rider-empty-icon{background:#e4f0e9;color:#1a6c4d}
+@media(hover:hover){.bike-rider-trip:hover{transform:translateY(-1px);box-shadow:0 3px 0 #e1e9f1,0 16px 30px -22px #112e5670}.bike-rider-navigation:hover{background:#dce9f8}.bike-rider-settings>summary:hover,.bike-rider-route-details>summary:hover{color:var(--bike-ink)}}
+@media(max-width:360px){.bike-rider-trip{padding:13px}.bike-rider-availability{padding:10px;gap:8px}.bike-rider-workspace .bike-rider-online-toggle{padding-inline:10px}.bike-rider-stop-focus{gap:8px}.bike-rider-stop-focus h4{font-size:1rem}.bike-rider-live-map{height:164px}.bike-rider-stop-focus .bike-rider-navigation{min-width:56px;min-height:60px;padding:6px}.bike-rider-section-tools{gap:5px}.bike-rider-workspace .bike-rider-view-tabs button{padding-inline:9px}.bike-rider-workspace .bike-rider-money-button{padding-inline:7px}.bike-rider-route>div{grid-template-columns:64px minmax(0,1fr)}}
+[data-theme=dark] .bike-rider-shift-panel{background:#192c43;border-color:#3c506a}
+[data-theme=dark] .bike-rider-availability,[data-theme=dark] .bike-rider-trip-actions{background:transparent}
+[data-theme=dark] .bike-rider-emblem{background:#214b3b;color:#b2e6cc;box-shadow:0 3px 0 #163428}
+[data-theme=dark] .bike-rider-trip{background:linear-gradient(155deg,#20344f,#192b42);border-color:#405575;box-shadow:0 2px 0 #101e31,0 14px 28px -20px #000}
+[data-theme=dark] .bike-rider-trip.is-next{background:linear-gradient(155deg,#23314e,#1a2b42);border-color:#425472}
+[data-theme=dark] .bike-rider-trip.is-request{background:linear-gradient(155deg,#203c37,#1b2c40);border-color:#496354}
+[data-theme=dark] .bike-rider-trip.is-at-stop{background:linear-gradient(155deg,#214537,#192f2a);border-color:#6aa686}
+[data-theme=dark] .bike-rider-arrival{background:#214f3c;border-color:#44866a;color:#c2f1d7}
+[data-theme=dark] .bike-rider-settings>summary>small,[data-theme=dark] .bike-rider-trip-fare,[data-theme=dark] .bike-rider-queue-note,[data-theme=dark] .bike-rider-more-actions>summary,[data-theme=dark] .bike-rider-passenger-icon{background:#253c55;color:#c5d3e6}
+[data-theme=dark] .bike-rider-trip-state,[data-theme=dark] .bike-rider-trip.is-next .bike-rider-trip-state{background:#2e4867;color:#d4e5ff}
+[data-theme=dark] .bike-rider-trip.is-at-stop .bike-rider-trip-state{background:#2a5c45;color:#c4f4d9}
+[data-theme=dark] .bike-rider-stop-focus .bike-rider-navigation{background:#29476b;color:#e0edff}
+[data-theme=dark] .bike-rider-workspace .bike-rider-trip-actions>.bike-rider-primary{background:#245aa0;border-color:#4c7dbd;box-shadow:0 3px 0 #142d4b}
+[data-theme=dark] .bike-rider-trip.is-at-stop .bike-rider-trip-actions>.bike-rider-primary{background:#176f4c;border-color:#5fa180}
+[data-theme=dark] .bike-rider-workspace .bike-rider-more-actions button{background:#352e39;border-color:#6d4b58;color:#f4d8d6}
+[data-theme=dark] .bike-rider-request-clock,[data-theme=dark] .bike-rider-stale-session{color:#f1ce89}
+[data-theme=dark] .bike-rider-request-clock.is-expired{color:#f5b8b3}
+[data-theme=dark] .bike-rider-empty{background:linear-gradient(150deg,#1e3249,#1b3531);box-shadow:none}
+@media(prefers-reduced-motion:reduce){.bike-rider-workspace *{transition:none!important;animation:none!important}.bike-rider-trip:hover{transform:none}}
+.bike-rider-live-map .leaflet-container{background:#eaf0f5}
+.bike-rider-trip:has(.bike-rider-live-map) .bike-rider-trip-actions{padding-bottom:3px}
+[data-theme=dark] .bike-rider-live-map .leaflet-container{background:#2a3c4d}
+/* Keep the standalone rider cockpit independent of broad operations styles. */
+.operations .bike-rider-workspace :is(h3,h4,p){margin:0}
+.bike-rider-workspace .bike-rider-settings,.bike-rider-workspace .bike-rider-more-actions{margin:0;padding:0;border:0}
+.bike-rider-workspace .bike-rider-route-details{margin:0;padding:0}
+.bike-rider-workspace .bike-rider-availability{display:block;padding:0}
+.bike-rider-workspace .bike-rider-availability label{display:grid;margin:0;gap:5px;font-size:.75rem}
+.bike-rider-workspace .bike-rider-availability select{min-height:44px;margin:0;padding:8px 28px 8px 10px;font-size:.875rem}
+.bike-rider-workspace .bike-rider-settings>summary{border:0;padding:9px 11px;min-height:48px;font-size:.8125rem}
+.bike-rider-settings-name{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.bike-rider-settings>summary>small{white-space:nowrap;margin-left:0}
+.bike-rider-control-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.bike-rider-workspace .bike-rider-control-actions>.bike-rider-online-toggle{padding-inline:11px;font-size:.8125rem;min-height:44px!important}
+.bike-rider-workspace :is(button,summary){min-height:44px!important}
+.bike-rider-workspace .bike-rider-trip-actions>.bike-rider-primary{min-height:48px!important}
+.operations .bike-rider-workspace .bike-rider-settings>summary{min-height:48px!important;font-size:.8125rem;font-weight:600;line-height:1.5}
+.operations .bike-rider-workspace .bike-rider-more-actions>summary{padding:0 7px;font-size:.75rem;line-height:1.5}
+.operations .bike-rider-workspace .bike-rider-route-details>summary{padding:0;font-size:.8125rem;line-height:1.5}
+.business-suite .bike-rider-workspace .bike-rider-title h3{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.business-suite .bike-rider-workspace .bike-rider-presence{font-size:.8125rem;margin:0}
+.business-suite .bike-rider-workspace .bike-rider-section{gap:8px}
+.business-suite .bike-rider-workspace .bike-rider-trip{gap:10px}
+.business-suite .bike-rider-workspace .bike-rider-title{gap:7px}
+@media(max-width:480px){.bike-rider-control .bike-rider-emblem{display:none}.bike-rider-title h3{font-size:1rem}.bike-rider-title{gap:0}.bike-rider-presence{font-size:.6875rem}.bike-rider-control{gap:6px}}
+.bike-rider-control{flex-wrap:wrap;row-gap:8px}
+.bike-rider-title{flex:1 1 90px}
+.bike-rider-control-actions{margin-left:auto}
+.business-suite .bike-rider-workspace{gap:10px}

@@ -1,0 +1,67 @@
+/* Shared rides language: a clear route, one next step and truthful availability. */
+#root .local-business-hub.mobility-experience.rides-workspace{--discovery-tone:#17285c;--discovery-light:#abc7ff;--rides-accent:#17285c;--rides-shadow:0 2px 6px #152b4c06,0 12px 26px #152b4c09;min-width:0;color:var(--ui-ink)}
+#root .local-business-hub.mobility-experience.rides-workspace[data-mode=shared]{--discovery-tone:#0b4634}
+#root .local-business-hub.mobility-experience.rides-workspace[data-mode=self_drive]{--discovery-tone:#352455}
+#root .local-business-hub.mobility-experience.rides-workspace[data-mode=rental]{--discovery-tone:#482b12}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 14px;padding:0}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-heading>div{min-width:0;flex:1 1 130px}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-heading h2{font-size:1.375rem;line-height:1.3;letter-spacing:-.035em;font-weight:700;margin:0;color:var(--ui-ink)}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-heading .mobility-area-button{display:flex;align-items:center;justify-content:flex-start;gap:5px;min-width:0!important;min-height:44px!important;max-width:100%;padding:5px 0;background:transparent;border:0;border-radius:8px;color:var(--ui-muted);font-size:.75rem;line-height:1.5;text-align:left;box-shadow:none}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-area-button>span{white-space:normal;overflow-wrap:anywhere;min-width:0}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-area-button>svg{flex:none;width:16px;height:16px}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-history-button{display:flex;align-items:center;justify-content:center;gap:7px;flex:none;min-width:44px;min-height:44px;padding:9px 11px;border:1px solid var(--ui-line);border-radius:13px;background:var(--ui-surface);color:var(--ui-ink);font-size:.75rem;font-weight:600;line-height:1.4;box-shadow:0 2px 5px #152b4c05}
+.mobility-history-button>svg{flex:none}
+#root .local-business-hub.mobility-experience.rides-workspace>.mobility-mode-switch.mobility-mode-switch-extended{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(3rem,calc(20% - 6px))),1fr));gap:6px;padding:0;margin:0 0 14px;overflow:visible;scroll-snap-type:none;min-width:0}
+#root .local-business-hub.mobility-experience.rides-workspace>.mobility-mode-switch button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0!important;min-height:76px!important;padding:9px 3px;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-surface);color:var(--ui-ink);font-size:.75rem;line-height:1.35;font-weight:600;text-align:center;overflow-wrap:normal;word-break:normal;box-shadow:0 2px 5px #152b4c04}
+#root .local-business-hub.mobility-experience.rides-workspace>.mobility-mode-switch button[aria-pressed=true]{background:var(--rides-accent);border-color:var(--rides-accent);color:#fff;box-shadow:0 3px 5px #17285c10,0 8px 16px #17285c1c}
+#root .local-business-hub.mobility-experience.rides-workspace>.mobility-mode-switch .mobility-mode-icon{display:grid;place-items:center;width:27px;height:27px;background:transparent;border-radius:0}
+#root .local-business-hub.mobility-experience.rides-workspace>.mobility-mode-switch .mobility-mode-icon svg{width:24px;height:24px}
+#root .local-business-hub.mobility-experience.rides-workspace>.transport-map-discovery{border:1px solid var(--ui-line);border-radius:22px;box-shadow:var(--rides-shadow);background:var(--ui-surface)}
+.rides-workspace .mobility-pickup-map{--pickup-map-height:220px}
+.rides-workspace .mobility-map-introduction{min-height:210px;padding:18px;gap:7px;background:radial-gradient(ellipse at 50% 40%,#abc7ff35,transparent 70%),repeating-linear-gradient(32deg,transparent 0 48px,#6380aa09 49px 50px,transparent 51px 99px)}
+.rides-workspace .mobility-map-introduction>small{display:none}
+.rides-workspace .mobility-map-introduction>h3{font-size:1.0625rem!important;letter-spacing:-.025em}
+.rides-workspace .mobility-map-introduction>p{font-size:.8125rem!important}
+.rides-workspace .mobility-map-empty-pin{width:46px;height:46px;border-radius:15px;transform:none;box-shadow:0 3px 8px #14336a12}
+.rides-workspace .mobility-map-caption,.rides-workspace .mobility-map-legend{font-size:.6875rem;line-height:1.5}
+.rides-workspace .mobility-trip-sheet{margin-top:-12px;padding:16px 14px 12px;border-radius:22px 22px 0 0;box-shadow:0 -4px 12px #152b4c07}
+.rides-workspace .mobility-trip-planner{display:block;min-width:0}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-trip-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px;color:var(--ui-ink)}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-trip-heading h3{font-size:1.0625rem!important;font-weight:650;line-height:1.4;letter-spacing:-.025em;margin:0!important;color:var(--ui-ink)}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-route-start{min-width:0!important;min-height:76px;padding:13px 12px;border:1px solid var(--ui-line);border-radius:15px;background:var(--ui-subtle);color:var(--ui-ink);box-shadow:none}
+.rides-workspace .mobility-route-start strong{font-size:.875rem;line-height:1.4;font-weight:600}
+.rides-workspace .mobility-route-start small{font-size:.75rem;line-height:1.5}
+.rides-workspace .mobility-trip-assurance{font-size:.6875rem;line-height:1.6;margin:10px 0 14px;align-items:center}
+.rides-workspace .transport-availability-status{font-size:.6875rem;margin:0 0 8px;line-height:1.5}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-panel-toggle{font-size:.875rem;padding:6px 0;min-width:0!important}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-map-discovery .transport-card{flex-basis:230px;padding:14px;gap:6px;border:1px solid var(--ui-line);border-radius:16px;background:var(--ui-surface);box-shadow:0 3px 6px #152b4c05,0 8px 16px #152b4c07}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-card h3{font-size:.875rem;line-height:1.45;font-weight:650}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-card p{font-size:.75rem;line-height:1.5}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-card button{font-size:.75rem;min-height:44px!important;border-radius:11px}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-empty{min-height:0;padding:10px 0;gap:10px;background:transparent;border:0}
+#root .local-business-hub.mobility-experience.rides-workspace .mobility-mode-intro{padding:16px;border-radius:18px;box-shadow:var(--rides-shadow)}
+#root .mobility-booking-dialog{width:min(760px,calc(100% - 24px));max-width:760px;max-height:calc(100dvh - 24px);padding:18px;border:1px solid var(--ui-line);border-radius:22px;background:var(--ui-surface);color:var(--ui-ink);box-shadow:0 16px 64px #0a173538;overflow:auto}
+#root .mobility-booking-dialog>.app-modal-heading{margin-bottom:16px;align-items:center;gap:12px}
+#root .mobility-booking-dialog>.app-modal-heading h2{font-size:1.125rem;line-height:1.35;padding:0;margin:0;color:var(--ui-ink)}
+#root .mobility-booking-dialog>.app-modal-heading>button{min-width:44px;min-height:44px;width:44px;padding:10px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface);color:var(--ui-ink)}
+.mobility-history-dialog>.local-business-hub{padding:0;background:transparent}
+[data-theme=dark] .rides-workspace .mobility-map-introduction{background:radial-gradient(ellipse at 50% 40%,#34558445,transparent 70%),repeating-linear-gradient(32deg,transparent 0 48px,#a5bad410 49px 50px,transparent 51px 99px)}
+@media(min-width:900px){.rides-workspace .mobility-pickup-map{--pickup-map-height:280px}.rides-workspace .mobility-trip-sheet{padding:18px 20px 16px}#root .local-business-hub.mobility-experience.rides-workspace>.mobility-mode-switch button{flex-direction:row;min-height:64px!important;gap:9px}.rides-workspace .mobility-trip-planner{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 20px}.rides-workspace .mobility-trip-heading{grid-column:1;grid-row:1}.rides-workspace .mobility-route-start{grid-column:2;grid-row:1/3}.rides-workspace .mobility-trip-assurance{grid-column:1}}
+@media(prefers-reduced-motion:reduce){#root .local-business-hub.mobility-experience.rides-workspace :is(button,.mobility-mode-icon){animation:none!important;transition:none!important;transform:none!important}}
+html.reduce-motion #root .local-business-hub.mobility-experience.rides-workspace :is(button,.mobility-mode-icon){animation:none!important;transition:none!important;transform:none!important}
+/* Nearby choices keep the full route and quote behind one deliberate action. */
+#root .local-business-hub.mobility-experience.rides-workspace .transport-option-card{display:flex;flex-direction:column;align-items:stretch;flex-basis:264px;gap:10px;padding:14px;min-width:0}
+.transport-option-vehicle{display:flex;align-items:center;gap:10px;min-width:0}
+.transport-option-vehicle>div{min-width:0;flex:1}
+.transport-option-symbol{display:grid;place-items:center;flex:none;width:46px;height:46px;border:1px solid var(--ui-line);border-radius:14px;color:var(--ui-link);background:var(--ui-subtle);box-shadow:inset 0 1px #fff8,0 3px 6px #152b4c08}
+.transport-option-facts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--ui-muted);font-size:.75rem;line-height:1.5}
+.transport-option-facts>span{display:flex;align-items:center;gap:4px}
+.transport-option-facts svg{flex:none}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-option-card h3{margin:0 0 3px;font-size:.875rem;overflow-wrap:anywhere}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-option-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:8px;border-top:1px solid var(--ui-line)}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-option-footer .transport-price{display:grid;gap:1px;font-size:1.0625rem;font-weight:700;line-height:1.3}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-option-footer .transport-price small{font-size:.6875rem;font-weight:400;color:var(--ui-muted)}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-option-footer button{margin:0;width:auto;min-height:44px!important;padding:8px 10px;background:var(--ui-primary);border:1px solid var(--ui-primary);border-radius:12px;color:#fff;font-size:.75rem}
+#root .local-business-hub.mobility-experience.rides-workspace .transport-option-card .transport-option-note{font-size:.6875rem;line-height:1.5;margin:0;color:var(--ui-muted)}
+.transport-option-route{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+.transport-option-route>svg{transform:rotate(90deg);color:var(--ui-muted)}

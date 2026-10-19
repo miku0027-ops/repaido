@@ -5,10 +5,10 @@ import type {operation,currentPosition} from '../src/services/operations';
 import '../src/styles.css';
 import '../src/design-system.css';
 const params=new URLSearchParams(location.search);
-let availability={vehicle_id:'qa-bike',online:params.has('stale'),updated_at:Date.now()/1000-600,position:{lat:21.49,lng:86.91,accuracy:10,captured_at:Date.now()/1000-600,received_at:Date.now()/1000-600}};
+let availability={vehicle_id:'qa-bike',online:params.has('stale')||params.has('resume'),updated_at:Date.now()/1000-600,position:{lat:21.49,lng:86.91,accuracy:10,captured_at:Date.now()/1000-600,received_at:Date.now()/1000-600}};
 const records:BikeRiderRide[]=[{id:'local-qa-lifecycle',state:'offered',version:1,vehicle_name:'LOCAL QA · Test bike',pickup:{lat:21.49,lng:86.91},dropoff:{lat:21.50,lng:86.92},pickup_address:'LOCAL QA · College Road pickup',dropoff_address:'LOCAL QA · Hospital Road drop',pricing:{customer_total_paise:0,free:true},created_at:Date.now()/1000,allowed_actions:['accept','decline']}];
 const commands:Record<string,unknown>[]=[];
-const reads={payroll:0};
+const reads={payroll:0,olderDetails:0,presenceWrites:0};
 const companyCash:BikeCompanyCashSummary={driver_id:'qa-rider',version:1,collected_paise:1000,reported_remittance_paise:0,confirmed_remittance_paise:0,outstanding_held_paise:1000,available_to_report_paise:1000,currency:'INR'};
 const payroll:BikeDriverPayroll={driver_id:'qa-rider',period:'2026-10',compensation_model:'monthly_salary',monthly_salary_paise:700000,rostered:true,approved:true,obligations:[{id:'qa-salary',period:'2026-10',amount_paise:700000,status:'transfer_reported',version:2,transfer:{reference:'LOCAL-QA-TRANSFER',amount_paise:700000}}],server_time:Date.now()/1000,company_cash:companyCash};
 const deposits:object[]=[];
@@ -17,12 +17,14 @@ const response=<T,>(value:unknown)=>structuredClone(value) as T;
 const request:typeof operation=async<T,>(path:string,init:RequestInit={})=>{
  await new Promise(resolve=>setTimeout(resolve,35));
  if(path==='/bike-rides/driver/availability'){
-  if(init.method==='PUT'){const body=JSON.parse(String(init.body));availability={...availability,...body,updated_at:Date.now()/1000};if(body.position)availability.position.received_at=Date.now()/1000;}
+  if(init.method==='PUT'){const body=JSON.parse(String(init.body));if(body.position)reads.presenceWrites++;availability={...availability,...body,updated_at:Date.now()/1000};if(body.position)availability.position.received_at=Date.now()/1000;}
   return response<T>({vehicles:[{id:'qa-bike',name:'LOCAL QA · Test bike',active:true,status:'approved',vehicle_kind:'bike'}],availability,server_time:Date.now()/1000,dispatch_ready:!params.has('paused'),service_ready:!params.has('paused'),availability_reason:params.has('paused')?'Bike requests are currently paused.':null});
  }
+ if(path==='/bike-rides/driver/rides?after=qa-older')return response<T>({rides:[{...records[0],id:'qa-older-complete',state:'completed',allowed_actions:[],dropoff_address:'LOCAL QA · Older completed ride',created_at:Date.now()/1000-3600},{...records[0],id:'qa-older-obligation',state:'payment_reported',version:1,allowed_actions:['cash_received','dispute'],dropoff_address:'LOCAL QA · Older payment record',created_at:Date.now()/1000-7200}],next_cursor:null,server_time:Date.now()/1000});
+ if(path==='/bike-rides/bookings/qa-older-obligation'){reads.olderDetails++;return response<T>({...records[0],id:'qa-older-obligation',state:'completed',version:2,allowed_actions:[],dropoff_address:'LOCAL QA · Older payment record',created_at:Date.now()/1000-7200});}
  if(path==='/bike-rides/driver/rides'){
   if(failReads-->0)throw Error('LOCAL QA · connection lost');
-  return response<T>({rides:records,server_time:Date.now()/1000});
+  return response<T>({rides:records,next_cursor:params.has('pages')?'qa-older':null,server_time:Date.now()/1000});
  }
  if(path==='/bike-rides/driver/payroll'){reads.payroll++;return response<T>(payroll);}
  if(path==='/bike-rides/driver/payroll/2026-10/confirm'){

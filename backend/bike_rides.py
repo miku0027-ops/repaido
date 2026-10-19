@@ -28,6 +28,7 @@ INDIA = ZoneInfo('Asia/Kolkata')
 CLOSED = {'completed', 'cancelled', 'declined', 'expired', 'unavailable'}
 ACTIVE = ('dispatch_pending', 'offered', 'queued', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'completion_pending', 'payment_due', 'payment_reported', 'disputed')
 TRAVELLING = {'on_the_way', 'arrived', 'in_progress'}
+CONTACT_STATES = {'accepted', 'on_the_way', 'arrived', 'in_progress'}
 DEFAULT = dict(version=0, enabled=False, cash_enabled=False, base_paise=800, per_km_paise=500,
                per_minute_paise=0, minimum_paise=0, gst_bps=0,
                service_radius_metres=4000, pickup_radius_metres=4000, promo_enabled=False,
@@ -438,11 +439,11 @@ def allowed_actions(row, uid):
     return actions
 
 
-def view(row, uid, now=None):
+def view(row, uid, now=None, *, u=None):
     from mobility_journeys import stop_proximity
     now = time.time() if now is None else now
     if uid not in (row['customer_id'], row['driver_id']) or uid == row['driver_id'] and not row.get('assigned_at'): fail('NOT_FOUND', 'Bike ride unavailable.', 404)
-    result = {k: copy.deepcopy(v) for k, v in row.items() if k not in ('otp_value', 'request_hash', 'events', 'policy', 'promo_budget_closed', 'promo_reserved', 'quota_key', 'quota_key_version', 'compensation_offer', 'earning_fund_reserved_paise', 'earning_fund_allocations')}
+    result = {k: copy.deepcopy(v) for k, v in row.items() if k not in ('otp_value', 'request_hash', 'events', 'policy', 'promo_budget_closed', 'promo_reserved', 'quota_key', 'quota_key_version', 'compensation_offer', 'earning_fund_reserved_paise', 'earning_fund_allocations', 'rider_phone')}
     if uid == row['driver_id']:
         result['earnings_offer'] = copy.deepcopy(row.get('compensation_offer', {'model': 'monthly_salary', 'amount_paise': 0}))
     result['pricing'] = customer_pricing(row['pricing'])
@@ -450,6 +451,15 @@ def view(row, uid, now=None):
         result.pop('passenger_phone', None)
         result.pop('parent_ride_id', None)
         if row['state'] in ('offered', 'queued', 'accepted', 'on_the_way', 'arrived'): result['otp'] = row['otp_value']
+        # Contact is separate from the ride/event payload. Only the booked
+        # customer may call a rider who accepted this currently physical trip.
+        # Public quotes, queued requests, closed history and broker events never
+        # receive the verified token phone captured on acceptance.
+        if u and row.get('assigned_at') and row.get('accepted_by_driver') and not row.get('queued') and row['state'] in CONTACT_STATES:
+            contact = u.get('bike_ride_contacts', row['id']) or {}
+            phone = contact.get('rider_phone')
+            if contact.get('driver_id') == row['driver_id'] and contact.get('customer_id') == uid and contact.get('verified_auth_phone') is True and isinstance(phone, str) and re.fullmatch(r'\+[1-9][0-9]{9,14}', phone):
+                result['rider_phone'] = phone
     result['allowed_actions'] = allowed_actions(row, uid)
     result['server_time'] = now
     live = row.get('position') if row['state'] in TRAVELLING else None
@@ -793,7 +803,7 @@ def install(core):
             if not row: continue
             _expire(u, row, time.time())
             if driver and not row.get('assigned_at'): continue
-            result.append(view(row, uid))
+            result.append(view(row, uid, u=u))
         return {'rides': result, 'next_cursor': refs[49]['id'] if len(refs)>50 else None, 'server_time': time.time()}
 
     @r.get('/bookings')
@@ -811,7 +821,7 @@ def install(core):
             row = u.get('bike_rides', identifier)
             if not row: fail('NOT_FOUND', 'Bike ride unavailable.', 404)
             if user['id'] not in (row['customer_id'], row['driver_id']): fail('NOT_FOUND', 'Bike ride unavailable.', 404)
-            _expire(u, row, time.time()); return view(row, user['id'])
+            _expire(u, row, time.time()); return view(row, user['id'], u=u)
         return store.run(read)
 
     def update_position(u, row, position, throttle=True):
@@ -851,7 +861,7 @@ def install(core):
             if old:
                 if old['fingerprint'] != fingerprint(body) or old['ride_id'] != identifier: fail('IDEMPOTENCY_CONFLICT', 'Use a new key for a different action.', 409)
                 if old.get('error'): return {'_error': old['error']}
-                return view(row, user['id'])
+                return view(row, user['id'], u=u)
             if _expire(u, row, time.time()): return {'_error': ('BOOKING_EXPIRED', 'The rider reservation expired. Search again.', 409)}
             if row['version'] != body.expected_version: fail('STALE', 'Refresh this bike ride before acting.', 409)
             if body.action not in allowed_actions(row, user['id']): fail('INVALID_ACTION', 'This action is not available for the current bike ride state.', 409)
@@ -863,6 +873,9 @@ def install(core):
             if action == 'accept':
                 row['accepted_by_driver'] = True
                 if row['state'] != 'queued': row['state'] = 'accepted'; row['expires_at'] = now+600
+                phone = user.get('phone')
+                if user.get('phone_verified') is True and isinstance(phone, str) and re.fullmatch(r'\+[1-9][0-9]{9,14}', phone):
+                    u.put('bike_ride_contacts', row['id'], dict(ride_id=row['id'], driver_id=user['id'], customer_id=row['customer_id'], rider_phone=phone, verified_auth_phone=True, accepted_at=now))
             elif action in ('decline', 'cancel'):
                 row['state'] = 'declined' if action == 'decline' else 'cancelled'
                 _quota_release(u, row); _release_slot(u, row)
@@ -918,7 +931,7 @@ def install(core):
                 row.update(dispute_previous_state=row['state'], state='disputed', financial_hold=True, dispute_note=body.note)
             _save(u, row, action, user['id'])
             u.put('bike_booking_commands', key, dict(ride_id=identifier, fingerprint=fingerprint(body), created_at=now))
-            return view(row, user['id'])
+            return view(row, user['id'], u=u)
         result = store.run(change)
         if '_error' in result: fail(*result['_error'])
         return result

@@ -1,59 +1,30 @@
 import {useEffect,useId,useRef,useState} from 'react';
-import {ArrowRight,ChevronRight,KeyRound,MapPin,Pause,Play,LocalTaxi,Diversity3,EventAvailable} from '../icons';
-import {DiscoveryScene} from './DiscoveryScene';
+import {ArrowRight,ChevronLeft,ChevronRight,KeyRound,LocalTaxi,Diversity3,EventAvailable,TwoWheeler} from '../icons';
 import type {TravelMode} from './MobilityExperience';
-import type {TransportArea} from './TransportRail';
 import './mobility-more-ways.css';
 
 const ideas = [
- {mode:'shared',label:'Shared rides',title:'A seat on your next route.',body:'Explore published departures and available seats.',action:'Find a shared ride',Icon:Diversity3},
- {mode:'self_drive',label:'Self-drive',title:'Your plans. Your keys.',body:'Choose your dates and find a car to drive.',action:'Find a self-drive car',Icon:KeyRound},
- {mode:'rental',label:'Cab rental',title:'A driver for the whole plan.',body:'Plan a return trip with a car and driver.',action:'Plan a cab rental',Icon:EventAvailable},
- {mode:'cab',label:'Cab with driver',title:'From here to your next stop.',body:'Set your route and review the owner’s quote.',action:'Find a cab',Icon:LocalTaxi},
-] satisfies {mode:TravelMode;label:string;title:string;body:string;action:string;Icon:typeof Diversity3}[];
+ {mode:'bike',label:'Bike',body:'Short city trips',action:'Find a bike',Icon:TwoWheeler},
+ {mode:'shared',label:'Shared ride',body:'Seats on a route',action:'Find a shared ride',Icon:Diversity3},
+ {mode:'self_drive',label:'Self-drive',body:'Keep the keys',action:'Find a self-drive car',Icon:KeyRound},
+ {mode:'rental',label:'Cab rental',body:'Driver for the trip',action:'Plan a cab rental',Icon:EventAvailable},
+ {mode:'cab',label:'Cab',body:'Your own route',action:'Find a cab',Icon:LocalTaxi},
+] satisfies {mode:TravelMode;label:string;body:string;action:string;Icon:typeof Diversity3}[];
 
-function TravelIdea({idea,paused,onBook}:{idea:typeof ideas[number];paused:boolean;onBook:(mode:TravelMode)=>void}){
- const card=useRef<HTMLElement>(null);
- const {mode:service,label,title,body,action,Icon}=idea;
+/** Compact shortcuts open native booking flows without fetching or inventing availability. */
+export function MobilityMoreWays({mode,onBook}:{mode:TravelMode;onBook:(mode:TravelMode)=>void}){
+ const titleId=useId(),track=useRef<HTMLDivElement>(null),[edges,setEdges]=useState({previous:false,next:false});
  useEffect(()=>{
-  const node=card.current;if(!node)return;
-  let visible=false;
-  const media=matchMedia('(prefers-reduced-motion: reduce)');
-  const sync=()=>{
-   const reduced=media.matches||!!node.closest('.reduce-motion,[data-reduced-motion="true"]');
-   node.dataset.motion=reduced?'reduced':paused||document.hidden||!visible||!!node.closest('[hidden]')?'paused':'playing';
-  };
-  const intersection=new IntersectionObserver(entries=>{visible=!!entries[0]?.isIntersecting;sync();},{threshold:.1});
-  intersection.observe(node);
-  const preferences=new MutationObserver(sync);
-  for(let ancestor=node.parentElement;ancestor;ancestor=ancestor.parentElement)preferences.observe(ancestor,{attributes:true,attributeFilter:['class','hidden','data-reduced-motion']});
-  media.addEventListener('change',sync);document.addEventListener('visibilitychange',sync);sync();
-  return()=>{intersection.disconnect();preferences.disconnect();media.removeEventListener('change',sync);document.removeEventListener('visibilitychange',sync);};
- },[paused]);
- return <article ref={card} className="mobility-travel-banner" data-service={service} data-motion="paused">
-  <div className="mobility-banner-copy">
-   <span className="mobility-banner-label"><Icon size={14} aria-hidden="true"/>{label}</span>
-   <h4>{title}</h4><p>{body}</p>
-   <button type="button" className="mobility-banner-action" onClick={()=>onBook(service)}>{action}<ArrowRight size={16} aria-hidden="true"/></button>
-  </div>
-  <div className="mobility-banner-art" aria-hidden="true"><DiscoveryScene kind={service}/></div>
- </article>;
-}
-
-/** Service ideas use the existing booking flows; rendering them performs no reads. */
-export function MobilityMoreWays({mode,area,onBook,onLocation}:{mode:TravelMode;area?:TransportArea;onBook:(mode:TravelMode)=>void;onLocation:()=>void}){
- const titleId=useId();
- const [paused,setPaused]=useState(false);
- const hasPickup=area?.confirmed===true&&Number.isFinite(area.lat)&&Number.isFinite(area.lng);
+  const element=track.current;if(!element)return;
+  const measure=()=>setEdges({previous:element.scrollLeft>2,next:element.scrollLeft+element.clientWidth<element.scrollWidth-2});
+  const observer=new ResizeObserver(measure);observer.observe(element);element.addEventListener('scroll',measure,{passive:true});measure();
+  return()=>{observer.disconnect();element.removeEventListener('scroll',measure);};
+ },[mode]);
+ const move=(direction:number)=>track.current?.scrollBy({left:direction*track.current.clientWidth*.85,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
  return <section className="mobility-more-ways" aria-labelledby={titleId}>
-  <header className="mobility-more-heading"><div><span>REPAIDO MOVE</span><h3 id={titleId}>More ways to travel</h3></div><button type="button" className="mobility-banner-motion" aria-label={paused?'Play travel animations':'Pause travel animations'} onClick={()=>setPaused(value=>!value)}>{paused?<Play size={14} aria-hidden="true"/>:<Pause size={14} aria-hidden="true"/>}<span>{paused?'Play':'Pause'}</span></button></header>
-  <div className="mobility-banner-stack">
-   {ideas.filter(idea=>idea.mode!==mode).map(idea=><TravelIdea key={idea.mode} idea={idea} paused={paused} onBook={onBook}/>)}
+  <header className="mobility-more-heading"><h3 id={titleId}>More ways to travel</h3><div><button type="button" aria-label="Previous travel options" disabled={!edges.previous} onClick={()=>move(-1)}><ChevronLeft size={18} aria-hidden="true"/></button><button type="button" aria-label="Next travel options" disabled={!edges.next} onClick={()=>move(1)}><ChevronRight size={18} aria-hidden="true"/></button></div></header>
+  <div className="mobility-alternative-rail" ref={track} role="region" aria-label="Other ways to travel" tabIndex={0} onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();if(event.key==='Home'||event.key==='End')event.currentTarget.scrollTo({left:event.key==='Home'?0:event.currentTarget.scrollWidth,behavior:'instant'});else move(event.key==='ArrowLeft'?-1:1);}}}>
+   {ideas.filter(idea=>idea.mode!==mode).map(({mode:service,label,body,action,Icon})=><button key={service} className="mobility-alternative" data-service={service} aria-label={action} onClick={()=>onBook(service)}><span className="mobility-alternative-icon"><Icon size={24} aria-hidden="true"/></span><strong>{label}</strong><span>{body}</span><ArrowRight size={17} aria-hidden="true"/></button>)}
   </div>
-  <button type="button" className="mobility-pickup-shortcut" onClick={onLocation}>
-   <span className="mobility-pickup-icon" aria-hidden="true"><MapPin size={20}/></span>
-   <span><strong>{hasPickup?'Your pickup area':'Make pickup simple'}</strong><span>{hasPickup?(area.address||area.city||'View your pickup pin'):'Choose your area and a clear landmark.'}</span></span>
-   <ChevronRight size={18} aria-hidden="true"/>
-  </button>
  </section>;
 }

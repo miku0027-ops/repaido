@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+async function freezePreview(page){await page.route('**/@vite/client',async route=>{const response=await route.fetch();const body=(await response.text()).replace(/new WebSocket\(/g,'new PreviewSocket(');await route.fulfill({response,body:'class PreviewSocket { addEventListener(){} removeEventListener(){} send(){} close(){} }\n'+body});});}
 const base=process.env.REPAIDO_QA_URL||'http://127.0.0.1:5187';
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 const errors=[],apiRequests=[];
 try{
  const page=await browser.newPage({viewport:{width:390,height:900},reducedMotion:'reduce'});
+ await freezePreview(page);
  await page.addInitScript(()=>{window.bikeAudioStarts=0;class AudioContext {state='suspended';currentTime=1;destination={};async resume(){this.state='running';}async suspend(){this.state='suspended';}async close(){this.state='closed';}createGain(){return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}};}createOscillator(){return {frequency:{setValueAtTime(){}},connect(){},start(){window.bikeAudioStarts++;},stop(){}};}}window.AudioContext=AudioContext;});
  page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/api/**',route=>{apiRequests.push(route.request().url());return route.abort();});
@@ -16,6 +18,7 @@ try{
  assert.equal(await page.getByRole('switch').getAttribute('aria-checked'),'false');
  await page.getByRole('switch').click();
  await page.waitForFunction(()=>document.querySelector('[role=switch]')?.getAttribute('aria-checked')==='true');
+ await page.locator('.bike-rider-settings>summary').click();
  await page.getByRole('button',{name:'Enable sound',exact:true}).click();
  await page.getByRole('button',{name:'Accept ride',exact:true}).click();
  await page.getByRole('button',{name:'Go to pickup',exact:true}).click();
@@ -37,7 +40,20 @@ try{
  await page.waitForTimeout(1200);
  assert.equal(await page.evaluate(()=>window.bikeRiderFixture.reads.payroll),2,'explicit refresh rechecks salary status');
  assert.equal(await page.evaluate(()=>window.bikeAudioStarts),2,'fresh repeated renders never duplicate pickup/destination sounds');
+ await page.locator('.bike-rider-more-actions>summary').click();
+ await page.getByRole('button',{name:'Report a concern',exact:true}).click();
+ const concern=page.getByRole('dialog',{name:'Report a concern',exact:true});
+ await concern.getByLabel('What happened?',{exact:true}).fill('short');
+ assert.equal(await concern.getByRole('textbox').evaluate(input=>input.checkValidity()),false,'concern minimum matches the server requirement');
+ await concern.getByLabel('What happened?',{exact:true}).fill('A clear concern for support');
+ assert.equal(await concern.getByRole('textbox').evaluate(input=>input.checkValidity()),true);
+ await concern.getByRole('button',{name:'Back',exact:true}).click();
  await page.getByRole('button',{name:'Finish ride',exact:true}).click();
+ await page.getByRole('button',{name:'History 1',exact:true}).waitFor();
+ await page.evaluate(()=>{const row=window.bikeRiderFixture.records[0];row.state='accepted';row.version=1;row.allowed_actions=['depart','cancel'];});
+ await page.getByRole('button',{name:'Refresh bike rides',exact:true}).click();
+ await page.waitForTimeout(150);
+ assert.equal(await page.getByRole('button',{name:'Go to pickup',exact:true}).count(),0,'a late older snapshot never restores a finished ride action');
  await page.getByRole('button',{name:'History 1',exact:true}).click();
  await page.locator('.bike-rider-history summary').click();
  await page.getByText('No fare to collect',{exact:true}).waitFor();
@@ -74,9 +90,33 @@ try{
  await page.goto(`${base}/tests/bike-rider-workspace-preview.html?paused`,{waitUntil:'networkidle'});
  await page.getByText('Requests paused',{exact:true}).waitFor();
  assert.equal(await page.getByRole('switch').isDisabled(),true,'unhealthy dispatch cannot offer online availability');
+ await page.locator('.bike-rider-settings>summary').click();
  await page.getByRole('button',{name:'Enable sound',exact:true}).click();
  await page.getByRole('button',{name:'Share GPS',exact:true}).click();
  assert.equal(await page.evaluate(()=>window.bikeAudioStarts),0,'unhealthy dispatch cannot produce cached arrival audio');
+ await page.goto(`${base}/tests/bike-rider-workspace-preview.html?pages`,{waitUntil:'networkidle'});
+ await page.getByRole('heading',{name:'Bike rides',exact:true}).waitFor();
+ await page.getByRole('button',{name:'History 0',exact:true}).click();
+ await page.getByRole('button',{name:'Earlier rides',exact:true}).click();
+ await page.locator('.bike-rider-history>details>summary').filter({hasText:'LOCAL QA · Older completed ride'}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Earlier rides',exact:true}).count(),0,'last history page does not leave a dead load control');
+ await page.getByRole('button',{name:'Refresh bike rides',exact:true}).click();
+ await page.locator('.bike-rider-history>details>summary').filter({hasText:'LOCAL QA · Older payment record'}).waitFor();
+ assert.equal(await page.evaluate(()=>window.bikeRiderFixture.reads.olderDetails),1,'older loaded payment obligations are refreshed independently of the recent page');
+ await page.getByRole('button',{name:'Active 1',exact:true}).click();
+ await page.locator('.bike-rider-more-actions>summary').click();
+ await page.getByRole('button',{name:'Decline',exact:true}).click();
+ await page.getByRole('dialog',{name:'Decline',exact:true}).getByRole('button',{name:'Back',exact:true}).click();
+ await page.goto(`${base}/tests/bike-rider-workspace-preview.html?stale&imprecise`,{waitUntil:'networkidle'});
+ await page.getByRole('button',{name:'End previous session',exact:true}).click();
+ await page.getByRole('button',{name:'End previous session',exact:true}).waitFor({state:'hidden'});
+ assert.equal(await page.getByRole('switch').getAttribute('aria-checked'),'false','an expired previous session can be ended without fresh GPS');
+ const resumedContext=await browser.newContext({permissions:['geolocation'],geolocation:{latitude:21.49,longitude:86.91,accuracy:8},viewport:{width:390,height:900}});
+ const resumed=await resumedContext.newPage();await freezePreview(resumed);
+ await resumed.goto(`${base}/tests/bike-rider-workspace-preview.html?resume`,{waitUntil:'networkidle'});
+ await resumed.waitForFunction(()=>window.bikeRiderFixture.reads.presenceWrites>0&&document.querySelector('[role=switch]')?.getAttribute('aria-checked')==='true');
+ assert.equal(await resumed.getByRole('switch').getAttribute('aria-checked'),'true','a returning online rider resumes GPS only with an existing permission');
+ await resumedContext.close();
  assert.deepEqual(apiRequests,[]);assert.deepEqual(errors,[]);
  console.log('PASS: isolated rider lifecycle, reconnect, stable versioned retries, OTP rejection/recovery, fresh GPS gating, zero real API writes');
 }finally{await browser.close();}

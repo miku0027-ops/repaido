@@ -71,7 +71,7 @@ try{
   const icons=await page.locator('svg[data-icon]').count();assert(icons>5,name+' renders adapter icons');variants.push({scope:'App '+name,icons});
  }
  await actualNav.getByRole('button',{name:'Market',exact:true}).click();
- for(const name of ['Marketplace','B2B Wholesale','Contracts','Cabs & cars','Sell scrap']){
+ for(const name of ['Marketplace','B2B Wholesale','Contracts','Rides','Sell scrap']){
   await page.getByRole('tablist',{name:'Marketplace destination'}).getByRole('tab',{name,exact:true}).click();await pause(200);issues.push(...(await iconAudit(page)).map(issue=>({...issue,scope:'Market '+name})));variants.push({scope:'Market '+name});
  }
  for(const settings of [{width:320,scale:200,theme:'dark'},{width:480,gold:true},{width:1440,theme:'light'}]){await theme(page,settings);issues.push(...await iconAudit(page));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Actual App icon reflow');}

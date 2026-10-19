@@ -24,3 +24,205 @@
 .bike-sound-toggle{justify-self:start;min-height:44px;display:inline-flex;align-items:center;gap:6px;border:0;border-radius:10px;background:transparent;color:var(--bike-muted,#52637b);font-size:.72rem!important;padding:5px 3px}.bike-sound-toggle[aria-pressed=true]{color:var(--bike-green,#146147)}
 
 .bike-verify-phone{min-height:44px;flex-shrink:0;align-self:center;padding:5px 8px;border:1px solid #9ac3ac;border-radius:10px;background:#fff;color:#19533b;font:inherit;font-size:.7rem!important;font-weight:700!important}.bike-phone-modal{max-width:420px!important}.bike-phone-verification{--bike-ink:var(--ui-ink,#142c50);--bike-muted:var(--ui-muted,#52637b);--bike-line:var(--ui-line,#d5deed);--bike-surface:var(--ui-surface,#fff);display:grid;gap:13px;color:var(--ui-ink,#142c50);font-size:.83rem;line-height:1.5}.bike-phone-verification>p{margin:0}.bike-phone-verification>label{display:grid;gap:5px;font-size:.75rem;font-weight:650}.bike-phone-verification input{min-height:44px;width:100%;min-width:0;padding:9px 11px;border:1px solid var(--ui-line,#d5deed);border-radius:11px;background:var(--ui-surface,#fff);color:inherit;font:inherit;font-size:.9rem}.bike-phone-actions{display:flex;gap:8px;flex-wrap:wrap}.bike-phone-actions>button{flex:1;font-size:.72rem}.bike-phone-verification :is(button,input):focus-visible{outline:3px solid #3978e0;outline-offset:3px}[data-theme=dark] .bike-verify-phone{background:#214733;border-color:#668e76;color:#dcf5e4}@media(max-width:359px){.bike-promotion:has(.bike-verify-phone){flex-wrap:wrap}.bike-promotion>.bike-verify-phone{margin-left:26px}}
+
+/* Customer ride composer: a compact route, an explicit fare, then one request. */
+.bike-rides{gap:14px;background:transparent;font-size:.875rem;line-height:1.5}
+.bike-rides .bike-heading{gap:10px;padding:0 2px}
+.bike-rides .bike-heading>div>strong{display:block;font-size:.9375rem;letter-spacing:-.02em;line-height:1.35}
+.bike-rides .bike-heading small{font-size:.75rem;font-weight:500;letter-spacing:0;margin:2px 0 0}
+.bike-rides .bike-heading>.bike-soft-button{font-size:.8125rem;border:0;background:var(--bike-wash);padding:7px 10px}
+.bike-rides .bike-brand-icon{height:40px;width:40px;flex-basis:40px;border-radius:13px;background:var(--bike-wash);box-shadow:none}
+.bike-rides .bike-workspace{border-radius:22px;box-shadow:0 12px 30px #142c500b,0 2px 4px #142c5005}
+.bike-rides .bike-map{height:175px;background:var(--bike-wash)}
+.bike-rides .bike-map-label{font-size:.75rem;font-weight:600;bottom:22px;left:12px;padding:5px 8px;gap:4px;max-width:calc(100% - 24px)}
+.bike-rides .bike-route-sheet{margin-top:-12px;border-radius:20px 20px 0 0;padding:15px 14px 12px;box-shadow:0 -4px 14px #142c5006}
+.bike-rides .bike-composer-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.bike-rides .bike-composer-heading h3{font-size:1.125rem;letter-spacing:-.035em;line-height:1.25}
+.bike-rides .bike-route-stage{display:inline-flex;align-items:center;gap:4px;font-size:.75rem;color:var(--bike-muted);text-align:right}
+.bike-rides .bike-route-stage>svg{flex-shrink:0;color:var(--bike-green)}
+.bike-rides .bike-route-fields{position:relative;border:1px solid var(--bike-line);border-radius:15px;background:var(--bike-wash);padding:0 4px 0 9px;column-gap:2px}
+.bike-rides .bike-location{min-height:61px;gap:9px;padding:8px 2px;align-items:center;border-radius:10px}
+.bike-rides .bike-location>span{gap:2px;flex:1}
+.bike-rides .bike-location>svg{flex:0 0 20px;color:var(--bike-ink)}
+.bike-rides .bike-location small{font-size:.75rem}
+.bike-rides .bike-location strong{font-size:.875rem;line-height:1.4;font-weight:600}
+.bike-rides .bike-location-dropoff{margin:0;grid-column:1/-1;padding-right:11px}
+.bike-rides .bike-location-dropoff>svg:first-child{color:var(--bike-green)}
+.bike-rides .bike-location-dropoff>svg:last-child{color:var(--bike-muted);margin-left:5px;flex-basis:18px}
+.bike-rides .bike-route-swap{margin:0;background:var(--bike-surface);border:1px solid var(--bike-line);border-radius:12px;height:44px;width:44px;box-shadow:0 2px 5px #142c5005}
+.bike-rides .bike-route-footer{border:0;margin:11px 0 0;padding:0;gap:8px;flex-wrap:wrap}
+.bike-rides .bike-passenger-select{gap:5px;flex:0 1 auto;border:1px solid var(--bike-line);border-radius:12px;background:var(--bike-surface);padding:0 7px}
+.bike-rides .bike-passenger-select select{background:transparent;font-size:.8125rem;padding:5px 0;max-width:150px}
+.bike-rides .bike-passenger-select>svg{color:var(--bike-muted)}
+.bike-rides .bike-route-footer>.bike-primary{flex:1 1 140px;font-size:.875rem;padding:9px 13px;box-shadow:0 4px 10px #142c5019;min-height:46px}
+.bike-rides .bike-route-help{font-size:.75rem;line-height:1.5;margin-top:10px!important;text-align:left}
+.bike-rides .bike-primary{font-size:.875rem;min-height:46px;border-radius:13px}
+.bike-rides .bike-promotion{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:3px 9px;align-items:center;padding:12px;border:1px solid #d5e5da;background:linear-gradient(120deg,#f0f8f3,#f7fbf8);border-radius:16px;color:#174d39;box-shadow:0 4px 12px #174d3904}
+.bike-rides .bike-offer-icon{display:grid;place-items:center;align-self:start;width:34px;height:34px;border:1px solid #cbe1d2;background:#fff;border-radius:11px;color:#225f45}
+.bike-rides .bike-promotion>div{display:grid;gap:3px;align-self:center}
+.bike-rides .bike-promotion strong{font-size:.8125rem;line-height:1.4}
+.bike-rides .bike-promotion small{font-size:.75rem;line-height:1.45;color:#375d4c}
+.bike-rides .bike-promotion details,.bike-rides .bike-promotion details[open]{display:contents}
+.bike-rides .bike-promotion summary{grid-column:3;grid-row:1;align-self:start;gap:3px;min-height:44px;font-size:.75rem;text-decoration:none;padding:0 3px}
+.bike-rides .bike-promotion summary::-webkit-details-marker,.bike-rides .bike-trip-details summary::-webkit-details-marker{display:none}
+.bike-rides .bike-promotion details[open]>summary>svg{transform:rotate(180deg)}
+.bike-rides .bike-offer-details{grid-column:1/-1;font-size:.75rem;border-top:1px solid #cfe3d5;padding-top:8px;margin-top:6px}
+.bike-rides .bike-offer-details>p{font-size:inherit;line-height:1.55;margin:0 0 7px}
+.bike-rides .bike-verify-phone{grid-column:2/-1;justify-self:start;margin:5px 0 0;font-size:.8125rem!important;padding:6px 10px}
+.bike-rides .bike-results{gap:10px}
+.bike-rides .bike-results>header h4,.bike-rides .bike-my-rides>header h4{font-size:.9375rem;line-height:1.4}
+.bike-rides .bike-results-help{font-size:.75rem;line-height:1.45;color:var(--bike-muted);margin-top:3px}
+.bike-rides .bike-results>header>.bike-icon-button{align-self:start;background:var(--bike-surface)}
+.bike-rides .bike-rider-choice{grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:start;border-radius:17px;padding:13px;box-shadow:0 5px 16px #142c5008,0 2px 2px #142c5005}
+.bike-rides .bike-rider-avatar{background:var(--bike-wash);border-color:var(--bike-line);box-shadow:inset 0 1px 0 #ffffff4d;border-radius:13px}
+.bike-rides .bike-rider-copy{gap:3px;align-self:center}
+.bike-rides .bike-rider-copy>strong{font-size:.875rem;line-height:1.35;font-weight:700}
+.bike-rides .bike-rider-copy>small,.bike-rides .bike-live-rider small{font-size:.75rem;line-height:1.45;overflow-wrap:anywhere}
+.bike-rides .bike-rider-fare{max-width:100px;gap:3px;align-self:center}
+.bike-rides .bike-rider-fare>strong{font-size:1.0625rem;line-height:1.25;letter-spacing:-.035em}
+.bike-rides .bike-rider-fare>small{font-size:.6875rem;line-height:1.35;color:var(--bike-muted)}
+.bike-rides .bike-rider-choice.is-free .bike-rider-fare>small{color:var(--bike-green);font-weight:700}
+.bike-rides .bike-rider-facts{grid-column:1/3;display:flex;flex-wrap:wrap;align-self:center;gap:7px 12px;min-width:0;font-size:.75rem;color:var(--bike-muted);line-height:1.4}
+.bike-rides .bike-rider-facts>span{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.bike-rides .bike-rider-facts>span>svg{flex:0 0 17px}
+.bike-rides .bike-rider-eta{font-size:inherit;margin:0;color:var(--bike-ink);font-weight:600}
+.bike-rides .bike-queued-tag{font-size:.6875rem;border-radius:6px;border:1px solid var(--bike-line);padding:3px 6px;background:var(--bike-wash)}
+.bike-rides .bike-choice-action{grid-column:3;grid-row:2;align-self:center;min-width:80px;max-width:112px;min-height:44px;font-size:.8125rem!important;line-height:1.3;padding:7px 9px;background:var(--bike-ink);border-color:var(--bike-ink);color:var(--bike-surface);border-radius:11px;box-shadow:0 3px 8px #142c5010}
+.bike-rides .bike-choice-action>svg{flex:0 0 18px}
+.bike-rides .bike-next-note{font-size:.75rem;line-height:1.5;margin-top:0!important;padding-top:9px}
+.bike-rides .bike-empty{padding:20px 14px;gap:8px;border-style:solid;background:var(--bike-wash)}
+.bike-rides .bike-empty>strong{font-size:.875rem;line-height:1.45}
+.bike-rides .bike-empty>p{font-size:.8125rem;line-height:1.55}
+.bike-rides .bike-empty>.bike-soft-button{font-size:.8125rem;background:var(--bike-surface)}
+.bike-rides .bike-my-rides{padding-top:4px}
+.bike-rides .bike-history-switch{border:0;background:var(--bike-wash);border-radius:12px;padding:3px}
+.bike-rides .bike-history-switch button{font-size:.8125rem;min-height:44px}
+.bike-rides .bike-booking-link{min-height:66px;border-radius:15px;padding:10px 12px;box-shadow:0 2px 5px #142c5003}
+.bike-rides .bike-booking-link>span>strong{font-size:.875rem;font-weight:650}
+.bike-rides .bike-booking-link>span>small{font-size:.75rem;line-height:1.4}
+.bike-rides .bike-muted,.bike-rides .bike-notice,.bike-rides .bike-loading,.bike-rides .bike-payment-note{font-size:.8125rem;line-height:1.55}
+.bike-rides .bike-live-ride>header{align-items:center;flex-wrap:wrap;gap:8px}
+.bike-rides .bike-live-ride>header>.bike-soft-button{font-size:.8125rem;border:0;background:var(--bike-wash);padding:7px 10px}
+.bike-rides .bike-state{font-size:.75rem;padding:6px 9px;line-height:1.4}
+.bike-rides .bike-live-map{height:205px;border-radius:19px}
+.bike-rides .bike-live-map .bike-map-label{bottom:10px}
+.bike-rides .bike-live-sheet{border-radius:19px;padding:15px;gap:13px;box-shadow:0 10px 26px #142c5009}
+.bike-rides .bike-live-heading{display:grid;gap:5px}
+.bike-rides .bike-live-heading>h4{font-size:1.0625rem;line-height:1.35;letter-spacing:-.025em}
+.bike-rides .bike-location-status{font-size:.75rem;line-height:1.5;color:var(--bike-muted)}
+.bike-rides .bike-trip-progress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;list-style:none;padding:0;margin:0;min-width:0}
+.bike-rides .bike-trip-progress>li{position:relative;display:grid;gap:5px;justify-items:center;text-align:center;color:var(--bike-muted);font-size:.6875rem;min-width:0}
+.bike-rides .bike-trip-progress>li:before{content:'';position:absolute;top:11px;left:calc(-50% - 3px);right:50%;height:2px;background:var(--bike-line);z-index:0}
+.bike-rides .bike-trip-progress>li:first-child:before{display:none}
+.bike-rides .bike-trip-progress>li>span{position:relative;display:grid;place-items:center;min-width:24px;min-height:24px;padding:2px;border:1px solid var(--bike-line);background:var(--bike-surface);border-radius:50%;font-size:.6875rem;font-weight:700;z-index:1}
+.bike-rides .bike-trip-progress>li>small{font-size:.6875rem;line-height:1.4;overflow-wrap:anywhere}
+.bike-rides .bike-trip-progress>li.is-done>span{border-color:var(--bike-ink);background:var(--bike-ink);color:var(--bike-surface)}
+.bike-rides .bike-trip-progress>li.is-done:before{background:var(--bike-ink)}
+.bike-rides .bike-trip-progress>li.is-current{color:var(--bike-ink);font-weight:700}
+.bike-rides .bike-trip-progress>li.is-current>span{border-color:var(--bike-ink);box-shadow:0 0 0 3px var(--bike-wash)}
+.bike-rides .bike-live-rider{border-top:1px solid var(--bike-line);padding-top:12px;gap:10px}
+.bike-rides .bike-live-rider strong{font-size:.9375rem;line-height:1.4;overflow-wrap:anywhere}
+.bike-rides .bike-live-rider .bike-icon-button{border-color:var(--bike-line);color:var(--bike-ink);background:var(--bike-wash)}
+.bike-rides .bike-pickup-code{border-style:solid;padding:11px 12px;border-radius:14px;background:var(--bike-wash);gap:5px 9px}
+.bike-rides .bike-pickup-code>span{font-size:.8125rem;line-height:1.4}
+.bike-rides .bike-pickup-code>strong{font-size:1.375rem;letter-spacing:.14em}
+.bike-rides .bike-pickup-code>small{font-size:.75rem;line-height:1.45}
+.bike-rides .bike-fare-total-card{padding:11px 12px;border:0;background:var(--bike-wash);gap:10px}
+.bike-rides .bike-fare-total-card small{font-size:.75rem}
+.bike-rides .bike-fare-total-card strong{font-size:1.25rem;line-height:1.4}
+.bike-rides .bike-fare-benefit{font-size:.75rem;line-height:1.45;color:var(--bike-muted)}
+.bike-rides .bike-trip-details{min-width:0;border-block:1px solid var(--bike-line)}
+.bike-rides .bike-trip-details>summary{display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 0;list-style:none;cursor:pointer;font-size:.8125rem;font-weight:650}
+.bike-rides .bike-trip-details>summary>span{min-width:0;flex:1}
+.bike-rides .bike-trip-details>summary>span>small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.75rem;color:var(--bike-muted);font-weight:400;margin-top:2px}
+.bike-rides .bike-trip-details>summary>svg{flex-shrink:0}
+.bike-rides .bike-trip-details[open]>summary>svg:last-child{transform:rotate(180deg)}
+.bike-rides .bike-trip-details>.bike-review-route{margin:0 0 10px}
+.bike-rides .bike-review-route{padding:10px;gap:10px}
+.bike-rides .bike-review-route>span{font-size:.8125rem;line-height:1.5}
+.bike-rides .bike-review-route svg{flex-basis:18px;margin-top:2px}
+.bike-rides .bike-trip-details>.bike-muted{margin:0 0 10px}
+.bike-rides .bike-trip-terms{font-size:.75rem;line-height:1.55;color:var(--bike-muted)}
+.bike-rides .bike-trip-terms>p{margin:0 0 9px}
+.bike-rides .bike-sound-toggle{font-size:.8125rem!important;min-height:44px;padding:6px 2px}
+.bike-rides .bike-live-actions{gap:8px}
+.bike-rides .bike-live-actions>.bike-soft-button{font-size:.75rem;white-space:normal;min-width:0;line-height:1.4;background:var(--bike-surface);padding:7px 9px}
+.bike-rides .bike-live-actions>.bike-emergency{flex:1 1 125px;background:var(--bike-wash);border-color:transparent}
+.bike-review-modal .bike-review{gap:14px;line-height:1.5}
+.bike-review-modal .bike-review>header{padding:0 0 11px;border-bottom:1px solid var(--bike-line)}
+.bike-review-modal .bike-review>header strong{font-size:1rem;line-height:1.35}
+.bike-review-modal .bike-review>header small{font-size:.8125rem;line-height:1.5;overflow-wrap:anywhere}
+.bike-review-modal .bike-review-route>span,.bike-review-modal .bike-payment-note,.bike-review-modal .bike-consent{font-size:.8125rem;line-height:1.55}
+.bike-review-modal .bike-passenger-fields label{font-size:.8125rem}
+.bike-review-modal .bike-passenger-fields input{font-size:1rem}
+.bike-review-modal .bike-review>.bike-primary{font-size:.875rem;min-height:48px}
+.bike-review-modal .bike-fare-total-card{background:var(--bike-wash);border-color:var(--bike-line);padding:12px}
+.bike-review-modal .bike-fare-total-card small,.bike-review-modal .bike-fare-benefit{font-size:.75rem;line-height:1.45}
+.bike-review-modal .bike-fare-total-card strong{font-size:1.5rem;line-height:1.3}
+.bike-review-modal .bike-terms{font-size:.8125rem}
+.bike-review-modal .bike-consent{border:1px solid var(--bike-line);border-radius:13px;padding:11px;background:var(--bike-wash)}
+@media(hover:hover){.bike-rides .bike-location:hover{background:var(--bike-surface)}.bike-rides .bike-choice-action:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 12px #142c5020}.bike-rides .bike-booking-link:hover{background:var(--bike-wash)}}
+@media(min-width:680px){.bike-rides .bike-map{height:225px}.bike-rides .bike-live-map{height:280px}.bike-rides .bike-results{grid-template-columns:repeat(2,minmax(0,1fr))}.bike-rides .bike-results>header{grid-column:1/-1}.bike-rides .bike-rider-choice{grid-template-columns:36px minmax(0,1fr) auto;gap:9px;padding:12px}.bike-rides .bike-rider-choice .bike-rider-avatar{height:36px;width:36px;flex-basis:36px}.bike-rides .bike-choice-action{min-width:72px;max-width:100px}}
+@media(max-width:399px){.bike-rides .bike-heading{flex-wrap:nowrap;gap:8px}.bike-rides .bike-heading>.bike-soft-button{margin:0;font-size:.75rem;padding:6px 8px;flex:0 1 auto;line-height:1.4}.bike-rides .bike-heading>.bike-brand-icon{display:none}.bike-rides .bike-promotion{grid-template-columns:29px minmax(0,1fr) auto;gap:7px;padding:10px}.bike-rides .bike-offer-icon{height:29px;width:29px;border-radius:9px}.bike-rides .bike-promotion summary{padding:0}.bike-rides .bike-promotion summary>span{display:none}.bike-rides .bike-promotion summary{min-width:36px}.bike-rides .bike-route-stage{max-width:100px}.bike-rides .bike-rider-choice{grid-template-columns:34px minmax(0,1fr) auto;gap:8px;padding:11px}.bike-rides .bike-rider-choice>.bike-rider-avatar{width:34px;height:38px;flex-basis:34px;border-radius:11px}.bike-rides .bike-rider-fare{grid-column:3;grid-row:1;text-align:right;max-width:88px}.bike-rides .bike-rider-fare>strong{font-size:1rem}.bike-rides .bike-rider-facts{grid-row:2;grid-column:1/3;gap:6px}.bike-rides .bike-choice-action{grid-column:3;grid-row:2;min-width:72px;max-width:92px;padding:6px 7px}.bike-rides .bike-live-sheet{padding:12px}.bike-rides .bike-pickup-code{padding:10px}.bike-rides .bike-pickup-code>span>svg{display:none}.bike-rides .bike-passenger-select{flex-basis:auto}.bike-rides .bike-route-footer>.bike-primary{flex-basis:120px}.bike-rides .bike-notice{flex-wrap:wrap}}
+[data-theme=dark] .bike-rides .bike-promotion{background:linear-gradient(120deg,#172e26,#1b302a);border-color:#3e6352;color:#d3efdf}
+[data-theme=dark] .bike-rides .bike-offer-icon{background:#214534;border-color:#50765f;color:#d0eddb}
+[data-theme=dark] .bike-rides .bike-offer-details{border-color:#3e6352}
+[data-theme=dark] .bike-rides .bike-promotion small{color:#bedbc9}
+[data-theme=dark] .bike-rides .bike-choice-action{background:#dce8ff;border-color:#dce8ff;color:#183253}
+[data-theme=dark] .bike-rides .bike-rider-choice.is-next{background:linear-gradient(120deg,var(--bike-surface),var(--bike-wash));border-color:var(--bike-line)}
+[data-theme=dark] .bike-rides .bike-location>svg{color:#ceddf2}
+[data-theme=dark] .bike-rides .bike-location-dropoff>svg:first-child{color:#a3dbbd}
+[data-theme=dark] .bike-rides .bike-map-label{background:#1b2d45ed;color:#e0ebfb;border-color:#4a607e}
+@media(prefers-reduced-motion:reduce){.bike-rides *,.bike-review-modal *{animation:none!important;transition:none!important}}
+/* Keep map attribution and a recoverable tile error outside the route sheet. */
+.bike-rides{background:var(--bike-surface)}
+.bike-rides .bike-rider-choice .bike-rider-fare{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;padding:0;border:0;border-radius:0;background:transparent}
+.bike-rides .bike-rider-choice .bike-rider-fare>strong{grid-column:auto;grid-row:auto;color:var(--bike-ink);overflow-wrap:normal}
+.bike-rides .bike-map{--bike-map-height:175px}
+.bike-rides .bike-live-map{--bike-map-height:205px}
+.bike-rides .bike-route-sheet{margin-top:0;border-radius:0}
+.bike-rides :is(.bike-map,.bike-live-map):has(.journey-map-tile-error){height:auto}
+.bike-rides :is(.bike-map,.bike-live-map) .journey-map:has(.journey-map-tile-error):not(.is-fullscreen){display:grid;grid-template-rows:var(--bike-map-height) auto;height:auto}
+.bike-rides :is(.bike-map,.bike-live-map) .journey-map:not(.is-fullscreen) .journey-map-tile-error{position:static;border-width:1px 0 0;border-radius:0;box-shadow:none;padding:8px 10px;font-size:.75rem;line-height:1.45}
+.bike-rides :is(.bike-map,.bike-live-map):has(.journey-map-tile-error)>.bike-map-label{display:none}
+.bike-rides :is(.bike-map,.bike-live-map) .journey-map.is-fullscreen{height:100dvh;border-radius:0}
+@media(min-width:680px){.bike-rides .bike-map{--bike-map-height:225px}.bike-rides .bike-live-map{--bike-map-height:280px}}
+.bike-rides .bike-composer-heading h3{font-weight:700}
+.bike-rides .bike-promotion summary{min-width:44px}
+.bike-rides .journey-map-tools button{width:44px;height:44px;min-width:44px;min-height:44px}
+.bike-rides .leaflet-control-zoom a{width:44px;height:44px;line-height:44px}
+/* Embedded Market inherits a large legacy button reset; keep the composer intact. */
+#root .market-experience .bike-rides{background:transparent}
+#root .market-experience .bike-rides .bike-heading>.bike-brand-icon,#root .market-experience .bike-rides .bike-heading>div>strong{display:none}
+#root .market-experience .bike-rides .bike-heading small{margin:0;font-size:.75rem;line-height:1.5}
+#root .market-experience .bike-rides .bike-heading>.bike-soft-button{background:var(--bike-surface);color:var(--bike-ink);border:1px solid var(--bike-line);border-radius:12px;min-height:44px!important;padding:7px 10px;font-size:.75rem;box-shadow:0 2px 5px #142c5004}
+#root .market-experience .bike-rides .bike-map{height:150px;--bike-map-height:150px}
+#root .market-experience .bike-rides .bike-map:has(.journey-map-tile-error){height:auto}
+#root .market-experience .bike-rides .bike-location{display:flex;align-items:center;justify-content:flex-start;min-height:56px!important;padding:7px 2px;border:0;border-radius:0;background:transparent;color:var(--bike-ink);box-shadow:none;font-size:.875rem;text-align:left}
+#root .market-experience .bike-rides .bike-location-dropoff{border-top:1px solid var(--bike-line);padding-right:11px}
+#root .market-experience .bike-rides .bike-route-swap{display:grid;place-items:center;width:44px;min-width:44px;height:44px;min-height:44px!important;padding:0;border:1px solid var(--bike-line);border-radius:12px;background:var(--bike-surface);color:var(--bike-ink);box-shadow:0 2px 5px #142c5005}
+#root .market-experience .bike-rides .bike-primary{min-height:46px!important;padding:9px 13px;border:1px solid #173d82;border-radius:13px;background:linear-gradient(135deg,#173e86,#142d59);color:#fff;box-shadow:0 4px 10px #142c5019;font-size:.875rem;line-height:1.4}
+#root .market-experience .bike-rides .bike-history-switch button{min-height:44px!important;border:0;border-radius:9px;padding:5px 10px;background:transparent;color:var(--bike-muted);font-size:.8125rem}
+#root .market-experience .bike-rides .bike-history-switch button[aria-pressed=true]{background:var(--bike-surface);color:var(--bike-ink);box-shadow:0 2px 7px #17335c10;font-weight:700}
+#root .market-experience .bike-rides .bike-choice-action{min-height:44px!important;border:1px solid var(--bike-ink);border-radius:11px;background:var(--bike-ink);color:var(--bike-surface);font-size:.8125rem!important;line-height:1.4;padding:7px 9px}
+#root .market-experience .bike-rides .bike-icon-button{min-height:44px!important;width:44px;padding:0;border:1px solid var(--bike-line);border-radius:13px;background:var(--bike-surface);color:var(--bike-ink)}
+#root .market-experience .bike-rides .bike-booking-link{display:flex;justify-content:flex-start;min-height:66px!important;text-align:left;border:1px solid var(--bike-line);border-radius:15px;padding:10px 12px;background:var(--bike-surface);color:var(--bike-ink)}
+#root .market-experience .bike-rides .bike-sound-toggle{min-height:44px!important;border:0;background:transparent;color:var(--bike-muted);font-size:.8125rem!important;padding:6px 2px}
+#root .market-experience .bike-rides .bike-sound-toggle[aria-pressed=true]{color:var(--bike-green)}
+.bike-rides .leaflet-container{background:linear-gradient(90deg,#7085a00c 1px,transparent 1px),linear-gradient(#7085a00c 1px,transparent 1px),var(--bike-wash);background-size:32px 32px}
+@media(min-width:900px){#root .market-experience .bike-rides .bike-map{height:225px;--bike-map-height:225px}#root .market-experience .bike-rides .bike-map:has(.journey-map-tile-error){height:auto}}
+[data-theme=dark] #root .market-experience .bike-rides .bike-choice-action{background:#dce8ff;border-color:#dce8ff;color:#183253}
+#root .market-experience .bike-rides .bike-soft-button{min-height:44px!important;border-color:var(--bike-line);color:var(--bike-ink)}
+#root .market-experience .bike-rides .bike-verify-phone{min-height:44px!important}
+/* Contain Leaflet and composer layers so the application dock stays reachable. */
+.bike-rides .bike-workspace,.bike-rides .bike-live-ride{position:relative;isolation:isolate}
+.bike-rides .bike-route-sheet{z-index:1}
+/* Keep secondary information legible on both the surface and its soft wash. */
+.bike-rides,.bike-review{--bike-muted:#3f4d63}
+.bike-rides .bike-promotion small{color:#315441}
+[data-theme=dark] .bike-rides,[data-theme=dark] .bike-review{--bike-muted:#b7c7db}
+[data-theme=dark] .bike-rides .bike-promotion small{color:#bedbc9}
+@media(max-width:399px){#root .market-experience .bike-rides .bike-heading{flex-wrap:wrap}#root .market-experience .bike-rides .bike-heading>div{flex:1 1 9rem}#root .market-experience .bike-rides .bike-heading>.bike-soft-button{margin-left:auto}}
+.bike-rides .bike-my-rides>header{flex-wrap:wrap}
+.bike-rides .bike-history-switch{flex-shrink:0}
+.bike-rides .bike-history-switch button{flex:0 0 auto;white-space:nowrap;word-break:normal;overflow-wrap:normal}
