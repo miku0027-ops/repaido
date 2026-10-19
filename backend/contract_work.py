@@ -508,7 +508,10 @@ def install(core):
         mine=member(p,uid)
         if not mine:
             return {**{k:p[k] for k in ('id','title','scope','site','starts_at','ends_at','status','version','owner_id','owner_name','tender_id')},**state,'source_kind':p.get('source_kind','commercial_project'),'team':[m for m in p['team'] if m['worker_id']==uid],'goals':[],'attendance':[],'leave':[],'events':[]}
-        return {**p,**state,'budget_paise':None,'team':[{**m,'daily_rate_paise':m['daily_rate_paise'] if m['worker_id']==uid else None,'terms':m['terms'] if m['worker_id']==uid else ''} for m in p['team']],'attendance':[a for a in p['attendance'] if a['worker_id']==uid or mine['role']=='supervisor'],'leave':[a for a in p['leave'] if a['worker_id']==uid or mine['role']=='supervisor']}
+        # Team membership grants delivery access, not the customer's agreed
+        # price, creation receipts or future private fields on the owner record.
+        delivery={k:p[k] for k in ('id','title','scope','site','location','starts_at','ends_at','status','version','owner_id','owner_name','tender_id','source_kind','created_at','updated_at','awarded_at','work_trade','workforce_requirements','manpower_needed','hiring','goals','events') if k in p}
+        return {**delivery,**state,'budget_paise':None,'team':[{**m,'daily_rate_paise':m['daily_rate_paise'] if m['worker_id']==uid else None,'terms':m['terms'] if m['worker_id']==uid else ''} for m in p['team']],'attendance':[a for a in p['attendance'] if a['worker_id']==uid or mine['role']=='supervisor'],'leave':[a for a in p['leave'] if a['worker_id']==uid or mine['role']=='supervisor']}
     @r.get('/sectors')
     def sectors():
         return store.run(lambda u:dict(sectors=sector_catalog(u)))

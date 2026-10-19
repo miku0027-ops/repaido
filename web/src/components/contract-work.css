@@ -176,10 +176,97 @@
 .contract-desk .contractor-hiring .wn-project p{font-size:.8125rem}
 .contract-desk .contractor-hiring .wn-project small{font-size:.75rem}
 @media(max-width:600px){.contract-hiring-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
-/* A compact contractor overview shares the agent app's five-place navigation. */
-.contractor-app-desk{padding-bottom:calc(100px + env(safe-area-inset-bottom));font-size:.8125rem}.contractor-app-desk .business-page-header{margin-bottom:12px;padding-block:4px}.contractor-app-desk .business-page-header h1{font-size:1.0625rem;line-height:1.3}.contractor-app-desk .business-eyebrow{font-size:.625rem}.contractor-breadcrumb{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:.75rem;min-width:0}.contractor-breadcrumb>span{overflow-wrap:anywhere}.contractor-app-desk .contractor-breadcrumb button{padding:5px 8px;min-height:44px!important;font-size:.75rem}.contractor-overview{display:grid;gap:10px}.contractor-overview .contract-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:0}.contractor-overview .contract-metrics>div{padding:9px 7px;border-radius:12px;gap:4px}.contractor-overview .contract-metrics strong{font-size:1.25rem}.contractor-overview .contract-metrics span{font-size:.625rem;line-height:1.4}.contractor-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.contractor-app-desk .contractor-shortcut{display:flex;justify-content:flex-start;text-align:left;min-width:0;padding:10px!important;gap:8px;min-height:72px!important;border-radius:14px}.contractor-shortcut>span:nth-child(2){display:grid;gap:3px;min-width:0;flex:1}.contractor-shortcut strong{font-size:.8125rem;line-height:1.4}.contractor-shortcut small{font-size:.6875rem;line-height:1.4;color:var(--ui-muted)}.contractor-shortcut-icon{display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:10px;background:var(--ui-subtle);color:var(--ui-link)}.contractor-shortcut>svg{flex:none}.contractor-quick-create{display:flex;gap:7px}.contractor-app-desk .contractor-quick-create button{flex:1;min-width:0;font-size:.75rem;padding:8px}.contractor-deadline-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.contractor-deadline-heading h2{font-size:.875rem;margin:0}.contractor-app-desk .contractor-deadline-heading button{font-size:.6875rem;padding:5px 8px;background:transparent;border:0}.contractor-overview .contract-deadline{padding:10px!important;margin:0;font-size:.75rem}.contractor-empty-deadline{margin:0;padding:12px;background:var(--ui-subtle);border-radius:12px;font-size:.75rem;color:var(--ui-muted)}.contractor-app-desk .contract-card{padding:12px;gap:6px;border-radius:14px}.contractor-app-desk .contract-card h2{font-size:.9375rem}.contractor-app-desk .contract-card p,.contractor-app-desk .contract-card small{font-size:.75rem}.contractor-app-desk .contract-card>button{font-size:.75rem;padding:7px 9px}.contractor-pagination{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:12px 0;font-size:.6875rem}.contractor-pagination span{text-align:center}.contractor-app-desk .contractor-pagination button{font-size:.6875rem;padding:6px 9px}
-.contractor-bottom-nav .business-tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);display:flex;gap:4px;width:min(calc(100% - 16px),624px);margin:0;padding:8px 6px calc(8px + env(safe-area-inset-bottom));border:1px solid #23457f;border-radius:18px 18px 0 0;background:#10235a;color:#fff;z-index:40;overflow-x:auto;overscroll-behavior-x:contain}.contractor-app-desk .contractor-bottom-nav button{display:flex;flex:1 0 min-content;flex-direction:column;justify-content:center;align-items:center;gap:4px;min-width:min-content!important;min-height:52px!important;padding:6px 2px;font-size:.6875rem;line-height:1.35;white-space:normal;overflow-wrap:normal;word-break:normal;border:0;border-radius:12px;color:#fff;background:transparent}.contractor-app-desk .contractor-bottom-nav button[aria-selected=true]{background:#23457f;color:#fff}.contractor-bottom-nav button>svg{width:20px;height:20px;flex:none}.contractor-bottom-nav button:focus-visible{outline:3px solid #ffe0a8;outline-offset:-3px}.contractor-bottom-nav button>span{min-width:0;text-align:center}.contractor-app-desk .business-tabs:not(.contractor-bottom-nav .business-tabs){margin:8px 0}.contractor-app-desk .business-tabs:not(.contractor-bottom-nav .business-tabs) button{font-size:.6875rem;padding:7px 9px}
-@media(max-width:359px){.contractor-app-desk .contractor-shortcut{padding:8px!important;gap:5px}.contractor-shortcut-icon{width:25px;height:28px}.contractor-shortcut>svg{display:none}.contractor-overview .contract-metrics svg{display:none}}
-.contractor-app-desk .contractor-bottom-nav button:hover:not(:disabled),.contractor-app-desk .contractor-bottom-nav button:focus-visible{background:#23457f;color:#fff}
+/* Contractor home: useful counts and direct actions, without a welcome banner. */
+.contractor-app-desk{padding-bottom:calc(100px + env(safe-area-inset-bottom));font-size:.875rem}
+.contractor-page-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;min-width:0}
+.contractor-app-desk .contractor-page-toolbar h1{margin:0;font-size:1.25rem;line-height:1.3;letter-spacing:-.025em;overflow-wrap:normal;max-width:100%}
+.contractor-page-toolbar>div{display:flex;gap:6px;flex-shrink:0;margin-left:auto}
+.contractor-app-desk .contractor-page-toolbar button{min-height:44px!important;min-width:44px!important;padding:8px 12px;font-size:.8125rem;border-radius:12px}
+.contractor-app-desk .contractor-page-toolbar .contractor-refresh{padding:10px;background:transparent;border-color:transparent;color:var(--ui-muted)}
+.contractor-page-toolbar .contractor-refresh:hover:not(:disabled){background:var(--ui-surface)}
+.contractor-overview{display:grid;gap:14px}
+.contractor-stat-rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(3.75rem,calc(25% - 1px))),1fr));background:var(--ui-surface);border:1px solid var(--ui-line);border-radius:16px;padding:8px 4px;box-shadow:0 3px 10px #10235a04}
+.contractor-app-desk .contractor-stat-rail button{display:flex;flex-direction:column;gap:2px;border:0;border-radius:8px;padding:5px 4px;min-width:0!important;background:transparent;font-size:.75rem;color:var(--ui-muted)}
+.contractor-stat-rail button+button{box-shadow:-1px 0 var(--ui-line)}
+.contractor-stat-rail strong{font-size:1.5rem;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums;color:var(--ui-ink)}
+.contractor-app-desk .contractor-stat-rail button:hover{background:var(--ui-subtle)}
+.contractor-action-panel,.contractor-agenda-panel{min-width:0;border:1px solid var(--ui-line);border-radius:18px;background:var(--ui-surface);box-shadow:0 6px 18px #10235a06;overflow:hidden}
+.contractor-app-desk .contractor-action-panel>h2{font-size:.8125rem;font-weight:600;margin:14px 14px 6px;color:var(--ui-muted)}
+.contractor-shortcuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(8rem,calc(50% - 3px))),1fr));gap:6px;padding:6px 8px 10px}
+.contractor-app-desk .contractor-shortcuts .contractor-shortcut{display:flex;justify-content:flex-start;text-align:left;min-width:0!important;min-height:58px!important;padding:8px!important;gap:9px;border:1px solid transparent;border-radius:12px;background:var(--ui-surface);font-size:.8125rem;line-height:1.35}
+.contractor-shortcut>span:nth-child(2){min-width:0;flex:1;overflow-wrap:normal}
+.contractor-shortcut>svg{flex:none;color:var(--ui-muted);width:16px;height:16px}
+.contractor-shortcut-icon{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:11px;color:var(--ui-link);background:var(--ui-subtle)}
+.contractor-shortcut-icon[data-tone=green]{color:var(--ui-success);background:var(--ui-success-surface)}
+.contractor-shortcut-icon[data-tone=amber]{color:var(--ui-warning);background:var(--ui-warning-surface)}
+.contractor-app-desk .contractor-shortcut:hover:not(:disabled){background:var(--ui-subtle);border-color:var(--ui-line)}
+.contractor-access-note{font-size:.75rem;line-height:1.5;color:var(--ui-muted);margin:0;padding:0 16px 14px}
+.contractor-section-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;min-width:0}
+.contractor-app-desk .contractor-section-heading h2{font-size:.875rem;line-height:1.4;margin:0}
+.contractor-app-desk .contractor-section-heading button{font-size:.75rem;padding:6px;min-width:44px!important;min-height:44px!important;border:0;background:transparent;gap:5px;color:var(--ui-link);white-space:nowrap;margin-left:auto}
+.contractor-app-desk .contractor-agenda-row{display:flex;width:100%;min-width:0!important;text-align:left;justify-content:flex-start;border:0;border-top:1px solid var(--ui-line);border-radius:0;background:var(--ui-surface);padding:14px;gap:12px}
+.contractor-date-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex-shrink:0;width:52px;min-height:52px;border-radius:12px;background:var(--ui-subtle);color:var(--ui-link);font-size:.6875rem;font-weight:600}
+.contractor-row-copy{display:grid;gap:3px;flex:1;min-width:0;overflow-wrap:anywhere}
+.contractor-row-copy strong{font-size:.875rem;font-weight:600;line-height:1.4}
+.contractor-app-desk .contractor-row-copy small,.contractor-row-time{font-size:.75rem;line-height:1.5;font-weight:400;color:var(--ui-muted)}
+.contractor-row-time[data-overdue]{color:var(--ui-warning);font-weight:600}
+.contractor-agenda-row>svg{flex-shrink:0;color:var(--ui-muted)}
+.contractor-agenda-empty{display:flex;align-items:center;gap:9px;padding:14px 16px;border-top:1px solid var(--ui-line);color:var(--ui-muted)}
+.contractor-app-desk .contractor-agenda-empty p{font-size:.8125rem;margin:0}
+.contractor-agenda-empty>svg{flex-shrink:0}
+.contractor-app-desk .contractor-section-heading select{width:auto;max-width:100%;min-width:min(100%,11em);font-size:.75rem;padding:7px 28px 7px 9px;min-height:44px!important;border-radius:10px}
+.contractor-app-desk .contractor-schedule-zone{margin:0;padding:0 14px 10px;color:var(--ui-muted);font-size:.75rem}
+.contractor-full-agenda{margin:12px 0 20px}
+.contractor-app-desk .contract-card{padding:12px;gap:6px;border-radius:14px;margin-block:8px}
+.contractor-app-desk .contract-card h2{font-size:.9375rem}
+.contractor-app-desk .contract-card p,.contractor-app-desk .contract-card small{font-size:.75rem}
+.contractor-app-desk .contract-card>button{font-size:.75rem;padding:7px 9px}
+.contractor-pagination{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:12px 0;font-size:.75rem;padding-inline:8px}
+.contractor-pagination span{text-align:center}
+.contractor-app-desk .contractor-pagination button{font-size:.75rem;padding:6px 9px}
+.contractor-app-desk>.business-tabs{margin:8px 0;flex-wrap:wrap;overflow:visible}
+.contractor-app-desk>.business-tabs button{font-size:.75rem;padding:7px 9px;max-width:100%;overflow-wrap:normal}
+.contractor-bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(calc(100% - 16px),624px);z-index:40;container-type:inline-size;container-name:contractor-navigation}
+.contractor-app-desk .contractor-bottom-nav .business-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;width:100%;margin:0;padding:8px 6px calc(8px + env(safe-area-inset-bottom));border:1px solid #23457f;border-radius:18px 18px 0 0;background:#10235a;color:#fff;z-index:40;overflow-x:auto;overscroll-behavior-x:contain;box-shadow:0 -6px 24px #10235a12}
+.contractor-app-desk .contractor-bottom-nav .business-tabs button{display:flex;flex:1 1 0;flex-direction:column;justify-content:center;align-items:center;gap:4px;min-width:0!important;min-height:52px!important;padding:6px 2px;font-size:.6875rem;line-height:1.35;white-space:normal;overflow-wrap:normal;word-break:normal;border:0;border-radius:12px;color:#fff;background:transparent}
+.contractor-app-desk .contractor-bottom-nav button[aria-selected=true],.contractor-app-desk .contractor-bottom-nav button:hover:not(:disabled),.contractor-app-desk .contractor-bottom-nav button:focus-visible{background:#23457f;color:#fff}
+.contractor-bottom-nav button>svg{width:20px;height:20px;flex:none}
+.contractor-bottom-nav button:focus-visible{outline:3px solid #ffe0a8;outline-offset:-3px}
+.contractor-bottom-nav button>span{min-width:0;text-align:center}
+.contractor-create-dialog{max-width:420px!important}
+.contractor-create-options{display:grid;gap:8px}
+.contract-dialog .contractor-create-options>button{width:100%;text-align:left;justify-content:flex-start;gap:12px;padding:14px}
+.contractor-create-options>button>span{display:grid;gap:3px;flex:1;min-width:0}
+.contractor-create-options strong{font-size:.875rem}
+.contractor-create-options small{font-size:.75rem;line-height:1.5;font-weight:400;color:var(--ui-muted)}
+.contractor-create-options>button>svg{flex-shrink:0;color:var(--ui-link)}
+.contractor-app-desk :is(.contractor-page-toolbar button,.contractor-stat-rail button,.contractor-shortcut,.contractor-agenda-row):focus-visible{outline:3px solid var(--ui-link);outline-offset:-3px}
+@media(max-width:359px){.contractor-app-desk .contractor-shortcuts .contractor-shortcut{gap:6px;padding:6px!important}.contractor-shortcut-icon{width:28px;height:32px}.contractor-shortcut>svg{display:none}.contractor-page-toolbar{gap:8px}}
+@media(prefers-reduced-motion:no-preference){
+ .contractor-app-desk :is(.contractor-shortcut,.contractor-stat-rail button,.contractor-agenda-row){transition:background-color 160ms ease,border-color 160ms ease,transform 160ms ease}
+ .contractor-app-desk .contractor-shortcut:active:not(:disabled){transform:scale(.98)}
+ .contractor-refresh[aria-busy=true]>svg{animation:contractor-refresh 1s linear infinite}
+ @keyframes contractor-refresh{to{transform:rotate(360deg)}}
+}
+.reduce-motion .contractor-refresh>svg{animation:none}
 
-.contractor-app-desk .business-page-header{margin-bottom:8px}.contractor-app-desk .contract-card{margin-block:8px}.contractor-app-desk .contractor-breadcrumb{margin-bottom:4px}.contractor-app-desk .contractor-overview{gap:8px}
+/* Reflow with text size as well as viewport size; repeated date tiles are optional. */
+.contractor-agenda-panel{container-type:inline-size;container-name:contractor-agenda}
+@container contractor-agenda (max-width:20rem){
+ .contractor-agenda-row .contractor-date-tile{display:none}
+ .contractor-section-heading{align-items:flex-start}
+}
+.contractor-app-desk .contractor-page-toolbar .contract-primary{background:var(--ui-primary);border-color:var(--ui-primary);color:#fff}
+.contractor-app-desk .contractor-page-toolbar .contract-primary:hover:not(:disabled){background:var(--ui-primary-hover)}
+@media(prefers-reduced-motion:reduce){
+ .contractor-app-desk :is(.contractor-shortcut,.contractor-stat-rail button,.contractor-agenda-row,.contractor-page-toolbar button){transition:none;transform:none}
+}
+.reduce-motion .contractor-app-desk :is(.contractor-shortcut,.contractor-stat-rail button,.contractor-agenda-row,.contractor-page-toolbar button){transition:none;transform:none}
+
+.contractor-app-desk .contractor-bottom-nav .contractor-navigation-select{display:none}
+@container contractor-navigation (max-width:18rem){
+ .contractor-app-desk .contractor-bottom-nav .business-tabs{display:none}
+ .contractor-app-desk .contractor-bottom-nav .contractor-navigation-select{display:flex;align-items:center;gap:8px;margin:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#10235a;color:#fff;border:1px solid #23457f;border-radius:16px 16px 0 0;font-size:.625rem}
+ .contractor-navigation-select>span{flex:none}
+ .contractor-app-desk .contractor-navigation-select select{flex:1;min-width:0;width:100%;min-height:48px!important;font-size:.8125rem;background:var(--ui-surface);color:var(--ui-ink);padding:8px;border-radius:10px;margin:0}
+}

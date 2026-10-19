@@ -158,6 +158,48 @@ def test_canonical_award_finance_records_are_not_available_to_team_or_other_cust
         assert 'no-store' in pdf.headers['cache-control']
 
 
+@pytest.mark.parametrize('role', ['member', 'supervisor'])
+def test_awarded_team_workspace_and_command_responses_keep_contract_finance_private(api, monkeypatch, role):
+    p = awarded_project(api, monkeypatch)
+    # An accepted team grant permits delivery work, not the contractor's price or
+    # future private fields added to the stored project record.
+    p['team'][0]['role'] = role
+    p['internal_finance'] = {'margin_paise': 12345, 'review_note': 'PRIVATE internal finance review'}
+    put('contract_projects', p['id'], p)
+    monkeypatch.setattr(time, 'time', lambda: p['starts_at'] + 1)
+    p = cmd(api, p, 'start').json()
+    p = cmd(api, p, 'goal_add', title='Inspect installed circuits', note='Record the inspection result',
+            assignee_id='worker2', due_at=p['ends_at'] - 1).json()
+
+    def delivery_view(view):
+        assert view['id'] == p['id'] and view['scope'] == p['scope'] and view['site'] == p['site']
+        assert view['awarded_at'] == p['awarded_at'] and view['capacity']['accepted'] == 1
+        assert view.get('budget_paise') is None
+        assert not {'contract_value_paise', 'request_hash', 'owner_phone_verified', 'internal_finance'} & view.keys()
+        assert view['team'][0]['daily_rate_paise'] == p['team'][0]['daily_rate_paise']
+        assert view['team'][0]['terms'] == p['team'][0]['terms']
+        assert view['goals'][0]['assignee_id'] == 'worker2'
+
+    workspace = api.get('/operations/contractor/workspace', headers=auth('worker2'))
+    assert workspace.status_code == 200, workspace.text
+    delivery_view(workspace.json()['projects'][0])
+    checked_in = cmd(api, p, 'check_in', uid='worker2')
+    assert checked_in.status_code == 200, checked_in.text
+    delivery_view(checked_in.json())
+    assert checked_in.json()['attendance'][0]['worker_id'] == 'worker2'
+    submitted = cmd(api, checked_in.json(), 'goal_submit', uid='worker2', target_id=p['goals'][0]['id'],
+                    note='Inspected every agreed circuit and recorded the safety checks.')
+    assert submitted.status_code == 200, submitted.text
+    delivery_view(submitted.json())
+    assert submitted.json()['goals'][0]['status'] == 'submitted'
+
+    owner = api.get('/operations/contractor/workspace', headers=auth('worker')).json()['projects'][0]
+    assert owner['contract_value_paise'] == p['contract_value_paise']
+    for uid in ('worker', 'shop'):
+        assert record_state(api, p, uid)['financials']['agreed_deal_paise'] == p['contract_value_paise']
+    assert api.get('/operations/contracts/projects/' + p['id'] + '/records', headers=auth('worker2')).status_code == 404
+
+
 def test_parallel_payment_requests_and_pending_reservations_never_exceed_deal(finance_api, monkeypatch):
     p = awarded_project(finance_api, monkeypatch)
     version = record_state(finance_api, p)['version']
