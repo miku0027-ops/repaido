@@ -1,0 +1,81 @@
+# Private bike dispatch worker pool
+
+Reviewable configuration, **disabled and not provisioned**. A requested release
+must include a reviewed plan and real service integration checks. No CI job
+automatically applies this module.
+
+The enabled module prepares a regional Compute Engine managed instance group
+across two zones. Pub/Sub distributes different rider keys across subscribers;
+the native transaction enforces each rider's sequence and reservation. New
+riders do not require a VM, topic or subscription per rider.
+
+| Component | Prepared behavior |
+| --- | --- |
+| Capacity | 2 minimum private workers, 16 maximum by default; maximum configurable up to 64. |
+| Scaling | Subscription undelivered-message metric, target 32 events per worker; 120-second initialization period. |
+| Scale-in | At most one worker removed in 300 seconds; shutdown cancels the subscriber and drains callbacks. |
+| Recovery | systemd process restart; MIG health recovery after startup grace; SDK reconnection with bounded jitter. |
+| Liveness | `/livez` requires successful initial readiness, then a responsive watchdog; a temporary broker outage does not restart every established worker. |
+| Readiness | `/readyz` and independent database heartbeats require a connected, non-draining worker. |
+| Delivery | Ordered pull subscription, 7-day retention, retry backoff; no automatic dead-letter discard of reservation commands. |
+| Network | Private IP only, Private Google Access, no public SSH, health CIDRs limited to port 9118. |
+| Identity | Dedicated service account; scoped topic/subscription, Artifact Registry and secret grants; datastore and log-writer project roles. |
+| Runtime | COS stable, existing image pinned by SHA256, read-only container, no Linux capabilities, bounded memory/processes and ephemeral scratch space. |
+| Alerts | Oldest unacknowledged message over 60 seconds for 120 seconds; optional reviewed email recipient. |
+
+The metric target is a tuning input, not a measured throughput promise. A single
+busy rider remains serial. At the maximum, backlog grows instead of creating
+unbounded workers. Review quotas, spend and measured queue age before raising
+the ceiling. Two e2-small workers, disks, Pub/Sub, logs and Monitoring incur
+baseline charges; the source does not estimate a bill without current prices
+and actual usage. A rolling replacement may add two temporary surge workers
+beyond the autoscaler's steady-state ceiling.
+
+## Local verification
+
+Use official Terraform 1.7+ and the committed Google 6.50.0 provider lock:
+
+```sh
+terraform fmt -check -recursive
+terraform init -backend=false -input=false
+terraform validate
+terraform test
+```
+
+Tests use a mocked Google provider, including a mock apply. They make no cloud
+calls and create no resources. They verify default inactivity, two zones,
+private interfaces, hardening, scoped roles, bounded autoscaling and retention.
+They do not verify real quotas, IAM propagation, image pulls or GCP autoscaling.
+
+## Release preparation
+
+1. Inventory the existing topic, subscription, service accounts and networking
+   in `repaido/us-central1`. Adopt existing matching resources with reviewed
+   Terraform imports; never recreate or purge a live subscription. If another
+   tool manages a resource, choose one owner before applying this module.
+2. Use a protected remote Terraform state backend with locking, restricted IAM
+   and versioning. The example has no state bucket or backend auto-creation.
+   Local state and `.tfvars` are ignored and must never be committed.
+3. Select an existing reviewed backend image by digest. Use the same pinned
+   numeric Secret Manager quota-key version as the API. The worker obtains ADC
+   from its service account and loads the key into process memory. Never use a
+   public frontend variable, access token, downloaded key or `versions/latest`.
+4. Review the complete plan, baseline charges and project quotas. Enabling also
+   enables the required APIs and grants the documented roles. It creates a new
+   private VPC with subnet `10.73.0.0/24`; verify that this range does not conflict
+   with existing network policy. Firestore remains the existing shared database.
+5. Roll out two workers first. Confirm private image pulls, ADC access, secret
+   loading, both zone memberships, subscription ordering, real message delivery
+   and reconnect/draining behavior before enabling new bike bookings.
+6. Increase traffic gradually while observing queue age, denied/busy requests,
+   Firestore transaction retries, route quotas, instance counts and spend. Set a
+   reviewed alert recipient; a blank recipient leaves the alert in Monitoring
+   without delivering an email. Keep one clear human owner for incidents.
+
+This module does not change API traffic, API secrets, CORS, DNS, customer pricing,
+rider approvals or funding. See [the resilience release checklist](../../docs/BIKE_RESILIENCE.md).
+
+During rollback, pause new bookings, preserve the subscription and native
+outbox, and roll the MIG back to a compatible reviewed image. Do not destroy
+the module to roll back code. Events, quota claims, invoices and active rides
+must remain in the shared store.

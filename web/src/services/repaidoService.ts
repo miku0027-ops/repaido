@@ -392,7 +392,7 @@ export async function fetchLiveServices(): Promise<Service[]> {
   saveHireCategories('regular',categoryMetadata(data.categories,data.services));
   return data.services.map((s:any) => {
     const art = seededServices.find(item => item.id === s.id) || seededServices.find(item => item.category === s.category);
-    return {id:s.id,name:s.name,category:s.category,description:s.description,price:s.price_paise,duration:s.duration_minutes,rating:s.rating??undefined,reviewCount:s.review_count||0,included:s.included,excluded:s.excluded,image:art?.image||'',imageTile:art?.imageTile,imageAlt:art?.imageAlt||s.name};
+    return {id:s.id,name:s.name,category:s.category,description:s.description,price:s.price_paise,duration:s.duration_minutes,rating:s.rating??undefined,reviewCount:s.review_count||0,ratingsPending:!!data.ratings_indexing,included:s.included,excluded:s.excluded,image:art?.image||'',imageTile:art?.imageTile,imageAlt:art?.imageAlt||s.name};
   });
 }
 

@@ -340,8 +340,17 @@ def _empty_cash(driver_id=None):
 
 
 def company_cash_totals(u):
-    """Constant-size global ledger; never sums a partial ride history page."""
-    return u.get('bike_company_cash_totals', 'current') or _empty_cash()
+    """Exact 16-shard total plus the immutable pre-sharding ledger baseline."""
+    value = u.get('bike_company_cash_totals', 'current') or _empty_cash()
+    u.prefetch([('bike_company_cash_total_shards', str(i)) for i in range(16)])
+    for identifier in range(16):
+        row = u.get('bike_company_cash_total_shards', str(identifier)) or {}
+        for key in ('collected_paise', 'reported_remittance_paise', 'confirmed_remittance_paise', 'version'):
+            value[key] += row.get(key, 0)
+    value['outstanding_held_paise'] = value['collected_paise']-value['confirmed_remittance_paise']
+    value['available_to_report_paise'] = value['outstanding_held_paise']-value['reported_remittance_paise']
+    value['outstanding'] = value['outstanding_held_paise'] > 0
+    return value
 
 
 def _cash_account(u, driver_id):
@@ -349,8 +358,9 @@ def _cash_account(u, driver_id):
 
 
 def _cash_change(u, driver_id, now, *, collected=0, reported=0, confirmed=0, months=None):
+    shard = str(int(digest(driver_id)[:8], 16) % 16)
     pairs = [('bike_company_cash_accounts', digest(driver_id), _cash_account(u, driver_id)),
-             ('bike_company_cash_totals', 'current', company_cash_totals(u))]
+             ('bike_company_cash_total_shards', shard, u.get('bike_company_cash_total_shards', shard) or _empty_cash())]
     for period, changes in (months or {}).items():
         key = digest(driver_id + ':' + period)
         existing = u.get('bike_company_cash_monthly', key) or {**_empty_cash(driver_id), 'period':period}
@@ -363,7 +373,10 @@ def _cash_change(u, driver_id, now, *, collected=0, reported=0, confirmed=0, mon
         row['confirmed_remittance_paise'] += delta.get('confirmed', 0)
         row['outstanding_held_paise'] = row['collected_paise']-row['confirmed_remittance_paise']
         row['available_to_report_paise'] = row['outstanding_held_paise']-row['reported_remittance_paise']
-        if min(row['collected_paise'], row['reported_remittance_paise'], row['confirmed_remittance_paise'],
+        # Shards are signed deltas against the immutable historical total.
+        # A pre-migration cash receipt can legitimately create a negative delta
+        # here. Each rider and month still enforces the full cash invariants.
+        if collection != 'bike_company_cash_total_shards' and min(row['collected_paise'], row['reported_remittance_paise'], row['confirmed_remittance_paise'],
                row['outstanding_held_paise'], row['available_to_report_paise']) < 0:
             fail('CASH_LEDGER_REVIEW', 'Company fare collections need an accounting review.', 409)
         row.update(id=key, version=row['version']+1, updated_at=now, outstanding=row['outstanding_held_paise']>0)
@@ -501,6 +514,8 @@ def install(core):
                     ride.update(company_cash_held_paise=0, company_collection_status='company_received',
                                 company_remittance_id=identifier, company_cash_received_at=now)
                     u.put('bike_rides', ride['id'], ride)
+                    from bike_earnings import cash_received_by_company
+                    cash_received_by_company(u, ride)
             receipt = dict(reference=body.receipt_reference.strip(), evidence=body.evidence.strip(),
                            confirmed_by=admin['id'], confirmed_at=now,
                            source='company_confirmed_receipt')
@@ -522,6 +537,10 @@ def install(core):
         current = period_at(now)
         def save(u):
             old = policy(u)
+            for member in body.roster:
+                independent = u.get('bike_independent_riders', member.driver_id) or {}
+                if member.active and independent.get('status') == 'approved':
+                    fail('COMPENSATION_CONFLICT', 'Suspend this rider’s per-ride agreement before assigning a salary.', 409)
             if old['version'] != body.expected_version:
                 fail('STALE', 'Refresh the company payroll before changing its roster or funding.', 409)
             if body.monthly_funding_paise and body.funding_period != current:

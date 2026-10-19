@@ -304,7 +304,25 @@ class Unit:
         if fields is not None:return [{field:row[field] for field in fields if field in row} for row in rows.values()]
         return list(rows.values())
 
+    def page(self, kind, *, limit=64, after=""):
+        """Bounded document-ID migration page; never a request-wide scan."""
+        if kind != "jobs" or not 1 <= limit <= 100:
+            raise ValueError("Unsupported migration page")
+        if self.tx is not None:
+            from google.cloud.firestore_v1.field_path import FieldPath
+            query = self.core.fs_collection("ops_"+kind).order_by(FieldPath.document_id()).limit(limit)
+            if after: query = query.start_after({FieldPath.document_id(): self.core.fs_doc("ops_"+kind, after)})
+            rows = {snap.id: snap.to_dict() for snap in query.stream(transaction=self.tx)}
+        else:
+            rows = {row["id"]: json.loads(row["body"]) for row in self.conn.execute("SELECT id,body FROM operation_records WHERE kind=? AND id>? ORDER BY id LIMIT ?", (kind, after, limit))}
+        for (pending_kind, key), value in self.pending.items():
+            if pending_kind == kind and key > after: rows[key] = copy.deepcopy(value)
+        return [{**rows[key], "id": key} for key in sorted(rows)[:limit]]
+
     def put(self, kind, key, value):
+        if kind == "jobs":
+            from catalog_ratings import project_job
+            project_job(self, key, value)
         self.pending[kind, key] = copy.deepcopy(value)
         if kind in ('rp_work_project_queue', 'rp_work_member_share_queue', 'rp_work_push_queue', 'commerce_projection_queue') and value.get('active'):
             self.work_events = True

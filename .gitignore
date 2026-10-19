@@ -45,3 +45,10 @@ local.properties
 deployment/releases/
 .openai/
 *.tsbuildinfo
+
+# Reviewed infrastructure plans may contain sensitive deployment values.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+**/terraform.tfvars

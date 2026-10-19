@@ -12,7 +12,7 @@ try{
  await page.goto(`${base}/tests/bike-rider-workspace-preview.html?offline&retry`,{waitUntil:'networkidle'});
  await page.getByText('LOCAL QA · connection lost',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Retry',exact:true}).click();
- await page.getByRole('heading',{name:'Your bike, your next ride'}).waitFor();
+ await page.getByRole('heading',{name:'Bike rides',exact:true}).waitFor();
  assert.equal(await page.getByRole('switch').getAttribute('aria-checked'),'false');
  await page.getByRole('switch').click();
  await page.waitForFunction(()=>document.querySelector('[role=switch]')?.getAttribute('aria-checked')==='true');
@@ -66,7 +66,7 @@ try{
  assert.ok(commands.filter(command=>['depart','arrive','start','complete'].includes(command.action)).every(command=>command.position?.accuracy===8),'ride actions use fresh precise GPS');
  assert.equal(commands.filter(command=>command.action==='start')[0].expected_version+1,commands.filter(command=>command.action==='start')[1].expected_version,'OTP retry uses the latest server version after the rejected attempt');
  await page.goto(`${base}/tests/bike-rider-workspace-preview.html?stale&imprecise`,{waitUntil:'networkidle'});
- await page.getByRole('heading',{name:'Your bike, your next ride'}).waitFor();
+ await page.getByRole('heading',{name:'Bike rides',exact:true}).waitFor();
  assert.equal(await page.getByRole('switch').getAttribute('aria-checked'),'false','stale GPS never shows online');
  await page.getByRole('switch').click();
  await page.getByText('Precise GPS is needed. Move to an open area and retry.',{exact:true}).waitFor();

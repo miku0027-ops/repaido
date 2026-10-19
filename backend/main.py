@@ -434,22 +434,15 @@ def catalog(include_ratings: bool = True):
         with db() as c: services = [dict(row) for row in c.execute('SELECT * FROM services ORDER BY rowid')]
         for s in services:
             s['included'] = json.loads(s['included']); s['excluded'] = json.loads(s['excluded'])
-    # Only customer reviews tied to completed work contribute to public ratings.
-    def aggregates(u):
-        values = {}
-        for job in u.all('jobs'):
-            review = job.get('review') or {}
-            rating = review.get('rating')
-            if job.get('state') != 'completed' or not review.get('verified_booking') or review.get('customer_id') != job.get('customer_id') or type(rating) is not int or not 1 <= rating <= 5: continue
-            total, count = values.get(job['service_id'], (0, 0))
-            values[job['service_id']] = (total + rating, count + 1)
-        return values
-    ratings = operations_store.run(aggregates) if include_ratings else {}
+    # The bounded migration preserves verified facts and reports incomplete data.
+    from catalog_ratings import advance, read as read_ratings
+    projection = advance(sys.modules[__name__]) if include_ratings else {'ready': True}
+    ratings = operations_store.run(lambda u: read_ratings(u, [service['id'] for service in services])) if include_ratings and projection['ready'] else {}
     for service in services:
         total, count = ratings.get(service['id'], (0, 0))
         service['rating'] = round(total/count, 2) if count else None
         service['review_count'] = count
-    return {'cities': CITIES, 'categories': [{'id':x[0], 'name':x[1], 'description':x[2]} for x in CATEGORIES], 'services':services, 'currency':'INR', 'booking_horizon_days':7}
+    return {'cities': CITIES, 'categories': [{'id':x[0], 'name':x[1], 'description':x[2]} for x in CATEGORIES], 'services':services, 'currency':'INR', 'booking_horizon_days':7, 'ratings_indexing':not projection['ready']}
 
 
 def service_by_id(c, service_id):
@@ -1311,6 +1304,9 @@ bike_rides.install(sys.modules[__name__])
 
 import bike_payroll
 bike_payroll.install(sys.modules[__name__])
+
+import bike_earnings
+bike_earnings.install(sys.modules[__name__])
 
 import housing
 housing.install(sys.modules[__name__])

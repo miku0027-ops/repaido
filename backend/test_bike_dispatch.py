@@ -10,6 +10,7 @@ import h3
 import pytest
 
 import bike_dispatch as dispatch
+import bike_runtime as runtime
 from operations import Store
 
 PIN = {'lat': 21.4934, 'lng': 86.9135}
@@ -164,8 +165,8 @@ def test_relay_order_lease_and_delivery_failure_leave_durable_work(store):
     second = store.run(lambda u: dispatch.enqueue(u, ride('ride-b'), 'booking_requested'))
     adapter = Adapter()
     adapter.fail = True
-    with pytest.raises(dispatch.RetryDispatch):
-        dispatch.relay_once(store, adapter, owner='worker-1', now=1000)
+    assert dispatch.relay_once(store, adapter, owner='worker-1', now=1000) == 0
+    assert store.run(lambda u: runtime.rider_blocked(u, 'rider-a'))
     assert not store.run(lambda u: u.get('bike_dispatch_outbox', first['id']))['published']
     assert dispatch.relay_once(store, adapter, owner='worker-2', now=1001) == 0
     adapter.fail = False
@@ -298,9 +299,7 @@ def test_worker_health_requires_recent_real_broker_heartbeat(store, monkeypatch)
     health = store.run(lambda u: dispatch.engine_health(u, 1000))
     assert health['configured'] and not health['ready'] and health['reason'] == 'worker_stale'
     config = dispatch.configuration()
-    store.run(lambda u: u.put('bike_dispatch_health', 'engine', {'id': 'engine', 'mode': 'kafka',
-        'configuration_fingerprint': dispatch._configuration_fingerprint(config), 'updated_at': 1000,
-        'broker_connected': True, 'outbox_backlog': 2}))
+    store.run(lambda u: runtime.heartbeat(u, 'worker-a', config, connected=True, now=1000, backlog=2))
     assert store.run(lambda u: dispatch.engine_health(u, 1060))['ready']
     assert not store.run(lambda u: dispatch.engine_health(u, 1061))['ready']
     assert 'broker.example.com' not in json.dumps(health)
@@ -436,19 +435,17 @@ def test_actual_pubsub_client_ordering_options_region_iam_and_replay_resume(monk
 def test_pubsub_cannot_reuse_recent_kafka_or_other_resource_heartbeat(store, monkeypatch):
     kafka_env(monkeypatch)
     old = dispatch.configuration()
-    store.run(lambda u: u.put('bike_dispatch_health', 'engine', {'id': 'engine', 'mode': 'kafka',
-        'configuration_fingerprint': dispatch._configuration_fingerprint(old), 'updated_at': 1000, 'broker_connected': True}))
+    store.run(lambda u: runtime.heartbeat(u, 'worker-a', old, connected=True, now=1000))
     pubsub_env(monkeypatch)
     assert not store.run(lambda u: dispatch.engine_health(u, 1001))['ready']
     config = dispatch.configuration()
-    store.run(lambda u: u.put('bike_dispatch_health', 'engine', {'id': 'engine', 'mode': 'pubsub',
-        'configuration_fingerprint': dispatch._configuration_fingerprint(config), 'updated_at': 1000, 'broker_connected': True}))
+    store.run(lambda u: runtime.heartbeat(u, 'worker-b', config, connected=True, now=1000))
     assert store.run(lambda u: dispatch.engine_health(u, 1001))['ready']
     monkeypatch.setenv('REPAIDO_BIKE_PUBSUB_TOPIC', 'projects/repaido/topics/different-topic')
     assert not store.run(lambda u: dispatch.engine_health(u, 1001))['ready']
 
 
-def test_continuous_worker_cannot_mask_failed_rider_with_other_riders_success(store, monkeypatch):
+def test_continuous_worker_isolates_failed_rider_until_that_event_recovers(store, monkeypatch):
     import bike_dispatch_worker as worker
     pubsub_env(monkeypatch)
     first = store.run(lambda u: dispatch.enqueue(u, ride(), 'booking_requested'))
@@ -459,8 +456,10 @@ def test_continuous_worker_cannot_mask_failed_rider_with_other_riders_success(st
     original = store.run
     def tracked(callback):
         result = original(callback)
-        if callback.__name__ == 'heartbeat':
-            heartbeats.append(original(lambda u: u.get('bike_dispatch_health', 'engine')))
+        if callback.__name__ == 'write_health':
+            health=original(lambda u: dispatch.engine_health(u, clock['now']))
+            health['rider_blocked']=original(lambda u: runtime.rider_blocked(u, 'rider-a'))
+            heartbeats.append(health)
         return result
     monkeypatch.setattr(store, 'run', tracked)
     monkeypatch.setattr(worker.time, 'time', lambda: clock['now'])
@@ -499,10 +498,11 @@ def test_continuous_worker_cannot_mask_failed_rider_with_other_riders_success(st
             raise RuntimeError('Transient transaction failure')
         return {'processed': True}
     worker.run_pubsub(store, reserve, adapter=adapter, stop=Stop())
-    assert [item['broker_connected'] for item in heartbeats] == [True, False, True]
+    assert [item['broker_connected'] for item in heartbeats] == [True, True, True]
+    assert [item['rider_blocked'] for item in heartbeats] == [False, True, False]
     assert all(item['mode'] == 'pubsub' for item in heartbeats)
     assert adapter.closed
-    assert not original(lambda u: u.get('bike_dispatch_health', 'engine'))['broker_connected']
+    assert not original(lambda u: dispatch.engine_health(u, clock['now']))['ready']
 
 
 def test_explicit_direct_development_drains_actual_reservation_callback_and_followups(store, monkeypatch):

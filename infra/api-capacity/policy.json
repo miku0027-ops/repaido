@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "region": "us-central1",
+  "services": {
+    "repaido-api": {"min_instances": 1, "max_instances": 64, "concurrency": 24, "cpu": 1, "memory": "1Gi", "max_inflight": 24, "max_waiting": 16},
+    "repaido-work-api": {"min_instances": 1, "max_instances": 40, "concurrency": 24, "cpu": 1, "memory": "1Gi", "max_inflight": 24, "max_waiting": 16}
+  }
+}

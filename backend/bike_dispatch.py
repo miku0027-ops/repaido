@@ -15,7 +15,6 @@ import threading
 import time
 import urllib.request
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
 
 import h3
 
@@ -30,6 +29,8 @@ CACHE_SECONDS = 15
 SCHEMA_VERSION = 1
 _CACHE = OrderedDict()
 _CACHE_LOCK = threading.Lock()
+_RELAY_CURSORS = OrderedDict()
+_RELAY_LOCK = threading.Lock()
 
 
 def initialize(core):
@@ -88,8 +89,12 @@ def index_availability(u, vehicle_id, position, online, available_at, now, *, dr
                                        'driver_id': driver_id, 'native_version': version})
     if current_cells:
         u.put('bike_dispatch_refs', vehicle_id, {'id': vehicle_id, 'cell': hexagon,
-                                               'cells': sorted(current_cells), 'active': active})
-    for item in sorted(previous_cells | current_cells):
+                                               'cells': sorted(current_cells), 'active': active, 'seen_at': now})
+    changed = (previous_cells != current_cells or not previous or bool(previous.get('active')) != active
+               or now-previous.get('seen_at', 0) > POSITION_MAX_AGE)
+    # A stationary GPS heartbeat does not change cell membership. Native GPS is
+    # still rechecked at every quote; avoid a shared document write per heartbeat.
+    for item in sorted(previous_cells | current_cells) if changed else []:
         row = u.get('bike_dispatch_cell_versions', item) or {'version': 0}
         u.put('bike_dispatch_cell_versions', item, {'id': item, 'version': row['version'] + 1})
 
@@ -113,7 +118,12 @@ def candidate_ids(u, pickup, radius_metres, now, *, policy_version=1):
     for item, version in versions:
         if not version:
             continue  # Empty cells need no second query after the batch metadata read.
-        refs = active_query(u, _lane(item), CELL_LIMIT)
+        # Rotate a bounded sample rather than permanently favoring the first
+        # vehicle IDs in a crowded cell. This does not grant booking priority.
+        after = hashlib.sha256(f'{item}:{int(now//CACHE_SECONDS)}'.encode()).hexdigest()[:16]
+        refs = active_query(u, _lane(item), CELL_LIMIT, after)
+        if len(refs) < CELL_LIMIT:
+            refs = list({row['id']: row for row in refs+active_query(u, _lane(item), CELL_LIMIT-len(refs))}.values())[:CELL_LIMIT]
         identifiers.extend(row['vehicle_id'] for row in refs
                            if -10 <= now - row.get('seen_at', 0) <= POSITION_MAX_AGE)
     identifiers = tuple(sorted(set(identifiers))[:MAX_CANDIDATES])
@@ -175,9 +185,9 @@ def rank_candidates(candidates, pickup, now, *, route_provider=None):
             continue
     ranked.sort(key=lambda row: (row['total_eta_seconds'], row['pickup_distance_metres'], row['id']))
     provider = route_provider or (google_pickup_route if os.getenv('GOOGLE_ROUTES_API_KEY', '').strip() else None)
-    def rerank(row):
+    def rerank(row, future):
         try:
-            road = provider(row['_dispatch_origin'], pickup)
+            road = future.result(timeout=max(.001, deadline-time.monotonic()))
             duration, distance = float(road['duration_seconds']), float(road['distance_metres'])
             if road['provider'] != 'google_routes' or not math.isfinite(duration) or not math.isfinite(distance) or not 0 <= duration <= 7200 or not 0 <= distance <= 100000:
                 raise ValueError('Invalid road provider result')
@@ -188,9 +198,19 @@ def rank_candidates(candidates, pickup, now, *, route_provider=None):
             # require a confirmed customer journey route and current price.
             row['route_source'] = 'distance_estimate'
     if provider and ranked:
-        # Independent 4 s route requests run together, not a 20 s serial chain.
-        with ThreadPoolExecutor(max_workers=5, thread_name_prefix='bike-pickup-route') as pool:
-            list(pool.map(rerank, ranked[:5]))
+        from routing_cache import PICKUPS, cache_key, RoutingBusy
+        deadline = time.monotonic()+4.5
+        futures = []
+        for row in ranked[:5]:
+            try:
+                key = cache_key('pickup', row['_dispatch_origin'], pickup,
+                                str(id(provider))+hashlib.sha256(os.getenv('GOOGLE_ROUTES_API_KEY', '').encode()).hexdigest())
+                origin = row['_dispatch_origin']
+                futures.append((row, PICKUPS.submit(key, lambda origin=origin: provider(origin, pickup))))
+            except RoutingBusy:
+                continue  # Optional ETA work falls back to its labeled estimate.
+        for row, future in futures:
+            rerank(row, future)
     for row in ranked:
         row.pop('_dispatch_origin', None)
         # Explicit, explainable weights; no protected traits or fabricated demand.
@@ -245,6 +265,8 @@ def apply_event(store, event, callback):
             raise ValueError('Bike dispatch does not match its committed outbox event')
         consumed = u.get('bike_dispatch_consumed', event['id'])
         if consumed:
+            from bike_runtime import clear_failure
+            clear_failure(u, event['rider_id'], event['id'])
             return {'duplicate': True, 'result': consumed.get('result')}
         stream = u.get('bike_dispatch_applied', event['rider_id']) or {'sequence': 0}
         if event['sequence'] != stream['sequence'] + 1:
@@ -254,6 +276,8 @@ def apply_event(store, event, callback):
         u.put('bike_dispatch_applied', event['rider_id'], {'id': event['rider_id'], 'sequence': event['sequence']})
         u.put('bike_dispatch_consumed', event['id'], {'id': event['id'], 'rider_id': event['rider_id'],
                                                    'sequence': event['sequence'], 'result': result})
+        from bike_runtime import clear_failure
+        clear_failure(u, event['rider_id'], event['id'])
         return {'duplicate': False, 'result': result}
     return store.run(transaction)
 
@@ -428,18 +452,8 @@ def engine_health(u, now=None):
         return {'ready': True, 'mode': 'direct', 'production_ready': False, 'configured': True,
                 'worker_online': False, 'heartbeat_age_seconds': None, 'broker_connected': False,
                 'outbox_backlog': 0, 'consumer_lag': 0, 'reason': 'explicit_local_development'}
-    heartbeat = u.get('bike_dispatch_health', 'engine') or {}
-    age = max(0, stamp - heartbeat.get('updated_at', 0))
-    matches = heartbeat.get('mode') == config['mode'] and heartbeat.get('configuration_fingerprint') == _configuration_fingerprint(config)
-    worker_online = bool(heartbeat and matches and -10 <= stamp - heartbeat.get('updated_at', 0) <= 60)
-    broker_connected = bool(worker_online and heartbeat.get('broker_connected'))
-    return {'ready': broker_connected, 'mode': config['mode'], 'production_ready': broker_connected,
-            'configured': True, 'worker_online': worker_online,
-            'heartbeat_age_seconds': round(age) if heartbeat else None,
-            'broker_connected': broker_connected, 'outbox_backlog': heartbeat.get('outbox_backlog'),
-            'outbox_backlog_is_lower_bound': heartbeat.get('outbox_backlog_is_lower_bound', False),
-            'consumer_lag': heartbeat.get('consumer_lag'),
-            'reason': 'ready' if broker_connected else 'worker_stale' if not worker_online else 'broker_unavailable'}
+    from bike_runtime import pool_health
+    return pool_health(u, config, stamp)
 
 
 def drain_direct(store, callback, rider_id, *, limit=32):
@@ -477,21 +491,27 @@ def drain_direct(store, callback, rider_id, *, limit=32):
     return applied
 
 
-def relay_once(store, adapter, *, owner, now=None, limit=16):
+def relay_once(store, adapter, *, owner, now=None, limit=16, cursor=None, time_budget=2):
     """Lease rider streams, send in sequence; restart/replay cannot lose an event."""
-    from repaidians_work import active_query
+    from bike_runtime import RelayCursor, clear_failure, record_failure
     stamp = time.time() if now is None else now
-    def next_streams(u):
-        cursor = u.get('bike_dispatch_relay_cursor', 'global') or {}
-        rows = active_query(u, 'bike_dispatch_streams', min(32, max(1, limit)), cursor.get('after', ''))
-        if not rows and cursor.get('after'):
-            rows = active_query(u, 'bike_dispatch_streams', min(32, max(1, limit)))
-        if rows:
-            u.put('bike_dispatch_relay_cursor', 'global', {'id': 'global', 'after': rows[-1]['id']})
-        return rows
-    streams = store.run(next_streams)
+    if cursor is None:
+        scope = (id(store.core), str(getattr(store.core, 'DB_PATH', '')), owner)
+        with _RELAY_LOCK:
+            cursor = _RELAY_CURSORS.setdefault(scope, RelayCursor(owner))
+            _RELAY_CURSORS.move_to_end(scope)
+            while len(_RELAY_CURSORS) > 128:
+                _RELAY_CURSORS.popitem(last=False)
+    streams = store.run(lambda u: cursor.references(u, limit))
+    deadline = time.monotonic()+time_budget
     sent = 0
     for reference in streams:
+        if time.monotonic() >= deadline:
+            break
+        # Advance only through attempted keys. Advancing to the end of the
+        # prefetched page would starve its tail whenever slow I/O exhausts the
+        # pass budget while the first rider keeps adding events.
+        cursor.after = reference['id']
         rider = reference['id']
         def claim(u):
             stream = u.get('bike_dispatch_streams', rider)
@@ -508,10 +528,21 @@ def relay_once(store, adapter, *, owner, now=None, limit=16):
             stream.update(lease_owner=owner, lease_until=stamp + 30)
             u.put('bike_dispatch_streams', rider, stream)
             return {key: value for key, value in outbox.items() if key not in {'active', 'published'}}
-        event = store.run(claim)
+        event = None
+        try:
+            event = store.run(claim)
+        except RetryDispatch:
+            record_failure(store, rider, 'stream:'+rider, 'stream_incomplete', stamp)
+            continue
         if event is None:
             continue
-        adapter.publish(event)  # External I/O is always outside Store.run.
+        try:
+            adapter.publish(event)  # External I/O is always outside Store.run.
+        except Exception:
+            # Keep the lease/outbox and continue other rider keys. The SDK's
+            # ordered publisher resumes this same event on its next retry.
+            record_failure(store, rider, event['id'], 'publish_deferred', stamp)
+            continue
         def acknowledge(u):
             stream = u.get('bike_dispatch_streams', rider)
             if stream.get('lease_owner') != owner or stream['published_sequence'] >= event['sequence']:
@@ -521,6 +552,9 @@ def relay_once(store, adapter, *, owner, now=None, limit=16):
             outbox.update(active=False, published=True)
             u.put('bike_dispatch_outbox', event['id'], outbox)
             u.put('bike_dispatch_streams', rider, stream)
+            incident = u.get('bike_dispatch_key_health', hashlib.sha256(rider.encode()).hexdigest()) or {}
+            if incident.get('error_code') in ('publish_deferred', 'stream_incomplete'):
+                clear_failure(u, rider, incident['event_id'], stamp)
             return True
         sent += int(store.run(acknowledge))
     return sent
@@ -550,13 +584,23 @@ def consume_once(store, consumer, callback, *, timeout=1):
 
 def consume_pubsub_message(store, message, callback):
     """Commit the actual reservation transaction before acknowledging delivery."""
+    event = None
     try:
+        if len(message.data) > 8192:
+            raise ValueError('Dispatch envelope exceeds its bounded size')
         event = json.loads(message.data)
         if message.ordering_key != str(event.get('rider_id', '')):
             raise ValueError('Pub/Sub ordering key does not match the rider')
         result = apply_event(store, event, callback)
         message.ack()
         return result
-    except Exception:
+    except Exception as error:
         message.nack()
+        from bike_runtime import record_failure
+        try:
+            event_id = event.get('id') if isinstance(event, dict) else hashlib.sha256(message.data).hexdigest()
+            record_failure(store, message.ordering_key, str(event_id)[:128],
+                           'sequence_wait' if isinstance(error, RetryDispatch) else 'delivery_retry')
+        except Exception:
+            pass  # An unavailable database must never cause acknowledgment.
         raise

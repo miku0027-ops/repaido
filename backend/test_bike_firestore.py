@@ -19,9 +19,38 @@ import main
 import bike_dispatch as dispatch
 import bike_payroll as payroll
 import bike_rides as bikes
+import bike_earnings as earnings
 from test_operations import api as local_api, auth, ADMIN, PIN
 from test_bike_rides import (BASE, DROP, setup_bike, search, book, start, command,
                              latest, gps, quota_key)
+from test_bike_earnings import independent, quote as independent_quote, finish as independent_finish
+
+
+def test_firestore_independent_free_funding_and_exact_earning_credit(api, setup_bike):
+    vehicle_id = independent(api)
+    row, body = book(api, independent_quote(api, vehicle_id))
+    assert row['state'] == 'offered' and row['pricing']['free']
+    assert 'earning_fund_allocations' not in row and 'compensation_offer' not in row
+    value = main.operations_store.run(earnings.fund)
+    assert value['funded_paise'] == 1200 and value['reserved_paise'] == 1200
+    row = independent_finish(api, row)
+    own = api.get(BASE+'/driver/earnings', headers=auth('worker2')).json()
+    assert row['state'] == 'completed' and len(own['credits']) == 1
+    assert own['account']['payable_paise'] == 1200
+    main.operations_store.run(lambda u: earnings.sync_earning(u, u.get('bike_rides', row['id'])))
+    assert main.operations_store.run(earnings.fund)['committed_paise'] == 1200
+    assert api.get(BASE+'/driver/earnings', headers=auth('worker2')).json()['account']['earned_paise'] == 1200
+
+
+def test_firestore_competing_independent_riders_cannot_overspend_promo_funds(api, setup_bike):
+    first = independent(api); other = independent(api, 'shop', funding=0)
+    quotes = [(independent_quote(api, first), 'customer'), (independent_quote(api, other, 'stranger'), 'stranger')]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        rows = list(pool.map(lambda pair: book(api, pair[0], pair[1])[0], quotes))
+    assert sorted(row['state'] for row in rows) == ['offered', 'unavailable']
+    assert all(row['pricing']['customer_total_paise'] == 0 for row in rows)
+    value = main.operations_store.run(earnings.fund)
+    assert value['reserved_paise'] == 1200 and earnings.available_fund(value) == 0
 
 
 def loopback_emulator():

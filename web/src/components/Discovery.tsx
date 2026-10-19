@@ -51,7 +51,7 @@ export function ServiceCard({
     <div className="compact-service-main">
       <span className="compact-service-category">{categoryName}</span>
       <h2 id={`service-title-${service.id}`} className="uc-service-title">{service.name}</h2>
-      <div className="compact-service-meta"><span><Clock3 size={14} aria-hidden="true"/>{formatDuration(service.duration)}</span>{service.rating!==undefined&&!!service.reviewCount?<span><Star size={14} aria-hidden="true"/>{service.rating.toFixed(1)} ({service.reviewCount})</span>:<span>New · no reviews</span>}</div>
+      <div className="compact-service-meta"><span><Clock3 size={14} aria-hidden="true"/>{formatDuration(service.duration)}</span>{service.ratingsPending?<span>Reviews updating</span>:service.rating!==undefined&&!!service.reviewCount?<span><Star size={14} aria-hidden="true"/>{service.rating.toFixed(1)} ({service.reviewCount})</span>:<span>New · no reviews</span>}</div>
       <strong className="compact-service-price">{formatMoney(service.price)}</strong>
     </div>
     <div className="compact-service-actions"><button className="compact-details" onClick={onDetails} aria-label={`View details for ${service.name}`}>View details <ArrowRight size={14} aria-hidden="true"/></button>{item?<QuantityControl item={item} onChange={onChange}/>:<button className="compact-choose" onClick={onAdd} aria-label={`Choose ${service.name} for ${formatMoney(service.price)}`}>Choose <Plus size={16} aria-hidden="true"/></button>}</div>

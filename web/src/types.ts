@@ -14,6 +14,7 @@ export interface Service {
   excluded: string[];
   rating?: number;
   reviewCount?: number;
+  ratingsPending?: boolean;
   originalPrice?: number;
 }
 

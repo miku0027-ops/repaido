@@ -15,7 +15,7 @@ single Benefits entry. It has not been deployed or activated in production.
 | Paid fare | Internal ₹8 base + ₹5/km, integer paise. No per-minute launch charge. Customers and riders see the accepted total, applicable surge and settlement terms. |
 | Promotion | Eligible road trips up to 2 km, up to three rides per ISO week in India time, 36 hours between free uses, six calendar months from the locked launch date. |
 | Identity | Free allowances belong to the authenticated booker's verified mobile, including bookings for another passenger. Passenger contact fields never establish entitlement. |
-| Rider model | Up to three approved company riders, ₹7,000 per rider per earned month. No per-trip pay or per-free-ride compensation. |
+| Rider model | Up to three approved company riders at ₹7,000 per earned month, plus separately approved independent riders on a reviewed per-ride agreement. The independent plan defaults to disabled with zero amounts until configured. |
 | Collection | Initial paid flow is cash after the journey. A customer's report remains pending until the assigned rider confirms the exact amount. |
 | Cancellation | No charge before pickup. Started-ride or collection disputes require review; a reported collection is not silently erased. |
 
@@ -83,7 +83,15 @@ road ETA reranking. Demand surcharge uses aggregate candidate occupancy, capped 
 fixed. These calculations do not claim to reproduce a competitor's proprietary
 algorithm or guarantee a global optimum. See [dispatch details](BIKE_DISPATCH.md).
 
-## Salary and company cash
+## Salary, independent earnings and company cash
+
+Additional riders use the separate paid-fare percentage / fixed funded launch
+earning model in [BIKE_RESILIENCE.md](BIKE_RESILIENCE.md). The company must enter
+the actual reviewed amounts, collect explicit consent and approve profiles.
+Those amounts have not been specified or activated by this development batch.
+Free-trip funds are reserved atomically; paid-trip earnings await company cash
+receipt. Exact external earning transfers and rider receipt are recorded
+separately from salary. These interfaces do not initiate bank payments.
 
 The admin roster requires current partner/vehicle approvals and reviewed salary
 funding. Monthly salary obligations remain payable after offboarding. Replacement
@@ -124,7 +132,7 @@ or production policy changes are created by this development work.
 4. Confirm Google Routes two-wheeler service and the real production Firebase
    phone linking/SMS flow. Local tests use deterministic provider responses;
    they do not send a real SMS or charge a route provider.
-5. Approve actual riders and bikes, record current monthly funding, review the
+5. Approve actual riders and bikes, record current salary or independent launch funding and earning agreements, review the
    operating circle, tax, fare, cancellation and promotion terms, and save the
    fixed launch date. Check admin readiness before activating new bookings.
 6. Exercise actual Pub/Sub redelivery, worker restart/recovery, concurrent free

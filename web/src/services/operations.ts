@@ -79,7 +79,7 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
     return body as T;
   };
   try {
-    const result=read&&!init.signal?await operationCache.read(scope+':'+path,load,{freshMs:cached?(path==='/local-business/shared'?5000:path==='/local-business/scrap'?3000:10000):0,force:options.force}):await load();
+    const result=read&&!init.signal?await operationCache.read(scope+':'+path,load,{freshMs:path.startsWith('/bike-rides/')?1000:cached?(path==='/local-business/shared'?5000:path==='/local-business/scrap'?3000:10000):0,force:options.force}):await load();
     if(accountScope()!==scope)throw new Error('Your account changed. Reopen this view.');
     if(!read&&/^\/notifications\/(?:[^/]+\/read|read-all)$/.test(path))operationCache.invalidate(scope+':/notifications');
     if(changesAccountData(path,init))invalidateOperationReads();

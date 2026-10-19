@@ -1,3 +1,4 @@
+import {resilientRead} from './resilientReads.mjs';
 import {beginLoading} from './loading';
 import {withActionFeedback} from './actionFeedback';
 import {quietRequest} from './actionMessages.mjs';
@@ -31,7 +32,7 @@ export async function apiFetch(path: string, init?: RequestInit, options?: {back
     const upload = typeof Blob !== 'undefined' && init?.body instanceof Blob || typeof FormData !== 'undefined' && init?.body instanceof FormData;
     const deadline=AbortSignal.timeout(upload?120000:20000);
     const signal=init?.signal?AbortSignal.any([init.signal,deadline]):deadline;
-    const send=()=>fetch(`${originFor(path)}${path}`, {...init,signal});
+    const send=()=>resilientRead(`${originFor(path)}${path}`, {...init,signal});
     if(options?.feedback===false||options?.background&&options?.feedback!==true)return await send();
     let response:Response|undefined;
     try{await withActionFeedback(path,init||{},async()=>{

@@ -157,7 +157,10 @@ def main():
                 import urllib.request
                 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
                 base = f'http://127.0.0.1:{port}'
-                for _ in range(100):
+                startup = time.perf_counter()
+                # Firebase/ADC discovery on a fresh development machine can take
+                # more than ten seconds. This remains loopback-only and bounded.
+                for _ in range(300):
                     if server.poll() is not None:
                         raise RuntimeError('Standalone API startup failed: ' + (temporary / 'server.log').read_text()[-3000:])
                     try:
@@ -168,10 +171,11 @@ def main():
                     except (OSError, ValueError):
                         time.sleep(.1)
                 else:
-                    raise RuntimeError('Standalone API did not become healthy within ten seconds.')
+                    raise RuntimeError('Standalone API did not become healthy within thirty seconds. ' + (temporary / 'server.log').read_text()[-2000:])
                 result = asyncio.run(exercise(base, accounts, args.concurrency, args.duration_seconds, args.maximum_requests))
                 report = {'scope': 'local temporary SQLite fixture; real HTTP and real local session authentication',
                           'production_capacity_claim': False, 'python': platform.python_version(),
+                          'startup_seconds': round(time.perf_counter()-startup-result['elapsed_seconds'],3),
                           'platform': platform.platform(), 'cpu_count': os.cpu_count(),
                           'workload': {'concurrency': args.concurrency, 'accounts': args.accounts,
                                        'catalog_size': args.catalog_size, 'target_duration_seconds': args.duration_seconds,

@@ -6,6 +6,10 @@ IAM grant. New bike bookings stay unavailable until an operator activates the
 bike policy and the matching continuous worker is healthy. Existing rides remain
 readable when dispatch is unavailable.
 
+The prepared autoscaling two-zone worker pool and independent earnings workflow
+are documented in [BIKE_RESILIENCE.md](BIKE_RESILIENCE.md). Their Terraform module
+is disabled by default; none of that infrastructure has been applied.
+
 ## Runtime contract
 
 The backend image includes `h3==4.3.1` and `google-cloud-pubsub==2.43.0`.
@@ -130,21 +134,28 @@ must be investigated and repaired against its native record; moving it to a
 dead-letter topic or acknowledging it without a matching native outcome would
 break the sequence. The source does not silently discard poison events.
 
-The relay polls every 0.5 seconds, with bounded per-pass work and a persisted
-round-robin cursor to avoid starving later rider streams. Subscription flow
+The relay adaptively polls every 0.25–2 seconds, with bounded per-pass work and a
+process-local cursor that advances through attempted keys. Durable rider leases
+and sequences, rather than the cursor, prevent duplicate effects. Subscription flow
 control limits outstanding messages to 32 and outstanding bytes to 1 MiB.
 Provider/database retries and real traffic affect actual latency; these are not
 a guaranteed dispatch SLA.
 
 ## Health and rollout checks
 
-The worker writes a heartbeat every 20 seconds. API readiness requires a matching
+Each worker writes its own sharded membership every 20 seconds. API readiness requires a matching
 transport/resource fingerprint, a heartbeat no older than 60 seconds and actual
 healthy relay/subscriber status. A hostname or a historic Kafka heartbeat cannot
 enable Pub/Sub bookings. Health exposes mode, configured/ready status, heartbeat
 age and available queue measurements only. Outbox backlog is marked as a lower
 bound if its bounded sample is full. Consumer lag remains `null` until measured;
 it is not presented as zero.
+
+A healthy peer keeps the pool available when another worker drains or fails.
+Poisoned rider keys are isolated, retained and retried. Admin recovery records
+show the affected riders; a successful matching replay clears the hold. Private
+liveness/readiness probes and a supervised SDK reconnect loop support the
+prepared process/MIG recovery lifecycle.
 
 Before enabling a launch policy, verify an actual broker round trip with the
 deployed worker, duplicate delivery, worker restart between database commit and

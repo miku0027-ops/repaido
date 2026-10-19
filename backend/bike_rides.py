@@ -165,18 +165,18 @@ def public_policy(p, u):
     fields = ('version', 'enabled', 'service_radius_metres', 'pickup_radius_metres', 'promo_enabled',
               'promo_started_at', 'free_distance_metres', 'weekly_free_limit', 'terms', 'demand_surcharge_cap_bps', 'service_center', 'service_area_radius_metres')
     from bike_dispatch import engine_health
-    from bike_payroll import policy_readiness
-    runtime = readiness(p); staffing = policy_readiness(u, p, time.time()); dispatch = engine_health(u)
+    from bike_earnings import operations_readiness as policy_readiness
+    runtime = readiness(p); staffing = policy_readiness(u, p, time.time(), funding_detail=True); dispatch = engine_health(u)
     runtime['paid_ready'] = bool(runtime['paid_ready'] and staffing.get('payroll_ready') and staffing.get('funding_ready'))
-    runtime['promo_ready'] = bool(runtime['promo_ready'] and staffing.get('payroll_ready') and staffing.get('funding_ready'))
+    runtime['promo_ready'] = bool(runtime['promo_ready'] and staffing.get('promo_pool_ready'))
     runtime['bookings_available'] = bool(p['enabled'] and runtime['geography_ready'] and p['tax_reviewed'] and runtime['routing_ready'] and dispatch['ready'] and runtime['paid_ready'])
     return {**{k: copy.deepcopy(p[k]) for k in fields}, **runtime, 'dispatch_ready': dispatch['ready'], 'dispatch_mode': dispatch['mode']}
 
 
 def admin_policy_view(u, p):
     from bike_dispatch import engine_health
-    from bike_payroll import policy_readiness
-    return {**copy.deepcopy(p), **readiness(p), **policy_readiness(u, p, time.time()), 'dispatch_ready': engine_health(u)['ready']}
+    from bike_earnings import operations_readiness as policy_readiness
+    return {**copy.deepcopy(p), **readiness(p), **policy_readiness(u, p, time.time(), funding_detail=True), 'dispatch_ready': engine_health(u)['ready']}
 
 
 def customer_pricing(pricing):
@@ -193,10 +193,10 @@ def promotion(u, uid, distance, p, now=None, ignore=None, quota_key=None):
     recent = max((v.get('used_at', v.get('planned_at', v['reserved_at'])) for v in entries), default=0)
     next_at = recent + p['cooldown_hours'] * 3600 if recent else now
     ready = readiness(p, now)
-    from bike_payroll import policy_readiness
+    from bike_earnings import operations_readiness as policy_readiness
     ready.update(policy_readiness(u, p, now))
     reason = 'available'
-    if not ready['promo_ready'] or not ready.get('funding_ready') or not ready.get('payroll_ready'): reason = 'promotion_unavailable'
+    if not ready['promo_ready'] or not ready.get('promo_pool_ready'): reason = 'promotion_unavailable'
     elif not quota_key: reason = 'phone_verification_required'
     elif distance > p['free_distance_metres']: reason = 'distance_outside_free_offer'
     elif weekly >= p['weekly_free_limit']: reason = 'weekly_limit_reached'
@@ -221,6 +221,17 @@ def fare(p, distance, duration, surcharge_bps=0, free=False):
 
 
 def verified_route(origin, destination):
+    from routing_cache import JOURNEYS, cache_key
+    secret = os.getenv('GOOGLE_ROUTES_API_KEY', '').strip()
+    if not secret: fail('ROUTING_UNAVAILABLE', 'Bike routes are temporarily unavailable.', 503)
+    key = cache_key('bike-journey', origin, destination, hashlib.sha256(secret.encode()).hexdigest())
+    try:
+        return JOURNEYS.read(key, lambda: _provider_route(origin, destination))
+    except Exception:
+        fail('ROUTING_UNAVAILABLE', 'Bike routes are busy or unavailable. Please retry shortly.', 503)
+
+
+def _provider_route(origin, destination):
     """Both distance and time come from the server's TWO_WHEELER provider quote."""
     key = os.getenv('GOOGLE_ROUTES_API_KEY', '').strip()
     if not key: fail('ROUTING_UNAVAILABLE', 'Bike routes are temporarily unavailable.', 503)
@@ -231,13 +242,15 @@ def verified_route(origin, destination):
         headers={'Content-Type': 'application/json', 'X-Goog-Api-Key': key,
                  'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration,routes.polyline.geoJsonLinestring'})
     try:
-        with urllib.request.urlopen(request, timeout=12) as response: row = json.load(response)['routes'][0]
+        with urllib.request.urlopen(request, timeout=8) as response: row = json.load(response)['routes'][0]
         distance = row['distanceMeters']; duration = math.ceil(float(row['duration'].removesuffix('s')))
         points = [{'lat': float(p[1]), 'lng': float(p[0])} for p in row['polyline']['geoJsonLinestring']['coordinates']]
         if type(distance) is not int or not 100 <= distance <= 100000 or not 30 <= duration <= 14400 or not 2 <= len(points) <= 10000: raise ValueError()
         if any(not math.isfinite(p['lat']) or not math.isfinite(p['lng']) or not -90 <= p['lat'] <= 90 or not -180 <= p['lng'] <= 180 for p in points): raise ValueError()
         if metres(origin, points[0]) > 300 or metres(destination, points[-1]) > 300: raise ValueError()
         return dict(distance_metres=distance, duration_seconds=duration, points=points, provider='google_routes_two_wheeler')
+    except OSError:
+        raise
     except Exception: fail('ROUTE_FAILED', 'This bike route could not be confirmed. Check both pins and retry.', 503)
 
 
@@ -248,14 +261,16 @@ def fresh_position(position, now=None):
     return {**position, 'received_at': now}
 
 
-def authorized_vehicle(u, vehicle_id, driver_id=None, until=None):
+def authorized_vehicle(u, vehicle_id, driver_id=None, until=None, committed_ride=None):
     now = time.time(); until = until or now + 1800
     v = u.get('mobility_vehicles', vehicle_id)
     if not v or v.get('vehicle_kind') != 'bike' or v.get('seats') != 1 or v.get('mode') not in ('cab', 'both') or not v.get('active') or v.get('status') != 'approved' or v.get('valid_until', 0) <= until:
         fail('APPROVED_BIKE_REQUIRED', 'Choose an active bike with current approval.', 403)
     operator = v.get('driver_id') or v['owner_id']
-    from bike_payroll import approved_salaried_driver
-    if not approved_salaried_driver(u, operator, now): fail('SALARIED_RIDER_REQUIRED', 'This bike needs an active company rider assignment.', 403)
+    from bike_earnings import compensated_driver
+    existing = bool(committed_ride and committed_ride.get('accepted_by_driver') and committed_ride.get('assigned_at')
+                    and committed_ride['driver_id'] == operator and committed_ride['vehicle_id'] == vehicle_id)
+    if not existing and not compensated_driver(u, operator, now): fail('RIDER_AGREEMENT_REQUIRED', 'This bike needs an approved salary or per-ride earning agreement.', 403)
     if driver_id and driver_id != operator: fail('NOT_ASSIGNED', 'Only this bike’s assigned rider can go online.', 403)
     owner = partner_profile(u, v['owner_id'], 'cab_owner') or {}
     driver = partner_profile(u, operator, 'driver') if v.get('driver_id') else owner
@@ -296,6 +311,8 @@ def _candidate(u, vehicle_id, pickup, p, now, duration):
         from fastapi import HTTPException
         if isinstance(error, HTTPException): return None
         raise
+    from bike_runtime import rider_blocked
+    if rider_blocked(u, operator): return None
     presence = u.get('bike_rider_presence', vehicle_id)
     if not _presence_live(presence, now) or presence['driver_id'] != operator: return None
     slot = _slot(u, operator)
@@ -378,6 +395,8 @@ def _refresh_index(u, vehicle_id):
 
 def _save(u, row, action, actor):
     from bike_dispatch import enqueue
+    from bike_earnings import sync_earning
+    sync_earning(u, row)
     row['version'] += 1; row['updated_at'] = time.time()
     row.setdefault('events', []).append(dict(action=action, actor=actor, at=time.time(), version=row['version']))
     # Domain history is bounded; immutable dispatch sequence preserves event IDs.
@@ -423,7 +442,9 @@ def view(row, uid, now=None):
     from mobility_journeys import stop_proximity
     now = time.time() if now is None else now
     if uid not in (row['customer_id'], row['driver_id']) or uid == row['driver_id'] and not row.get('assigned_at'): fail('NOT_FOUND', 'Bike ride unavailable.', 404)
-    result = {k: copy.deepcopy(v) for k, v in row.items() if k not in ('otp_value', 'request_hash', 'events', 'policy', 'promo_budget_closed', 'promo_reserved', 'quota_key', 'quota_key_version')}
+    result = {k: copy.deepcopy(v) for k, v in row.items() if k not in ('otp_value', 'request_hash', 'events', 'policy', 'promo_budget_closed', 'promo_reserved', 'quota_key', 'quota_key_version', 'compensation_offer', 'earning_fund_reserved_paise', 'earning_fund_allocations')}
+    if uid == row['driver_id']:
+        result['earnings_offer'] = copy.deepcopy(row.get('compensation_offer', {'model': 'monthly_salary', 'amount_paise': 0}))
     result['pricing'] = customer_pricing(row['pricing'])
     if uid == row['customer_id']:
         result.pop('passenger_phone', None)
@@ -492,7 +513,7 @@ def consume_dispatch_event(u, event):
             fail('QUOTE_EXPIRED', 'The bike quote expired before dispatch could reserve it.', 409)
         if not p['enabled'] or p['version'] != quote['policy_version']:
             fail('POLICY_CHANGED', 'Bike availability changed. Search again.', 409)
-        from bike_payroll import policy_readiness
+        from bike_earnings import operations_readiness as policy_readiness
         if not all(policy_readiness(u, p, now).get(k) for k in ('payroll_ready', 'funding_ready')):
             fail('SERVICE_UNAVAILABLE', 'Company bike operations are temporarily unavailable.', 409)
         v, operator, _ = authorized_vehicle(u, row['vehicle_id'], until=now+row['route_duration_seconds']+2400)
@@ -520,6 +541,8 @@ def consume_dispatch_event(u, event):
                                 if e.get('used_at', e['reserved_at']) > now-60*86400 or e['state'] == 'reserved'}
         elif not readiness(p, now)['paid_ready']:
             fail('PAID_RIDES_UNAVAILABLE', 'Paid bike rides are unavailable.', 409)
+        from bike_earnings import reserve
+        reserve(u, row)
         # All business validation precedes the actual allocation writes.
         if quota is not None:
             quota['entries'][row['id']] = dict(state='reserved', reserved_at=now, planned_at=planned_start, week=iso_week(planned_start))
@@ -587,7 +610,7 @@ def install(core):
             if old.get('promo_started_at') is not None and body.promo_started_at != old['promo_started_at']:
                 fail('PROMO_WINDOW_LOCKED', 'The launch window cannot restart after it is configured.', 409)
             ready = readiness(p)
-            from bike_payroll import policy_readiness
+            from bike_earnings import operations_readiness as policy_readiness
             ready.update(policy_readiness(u, p, time.time()))
             if p['enabled'] and (not ready.get('payroll_ready') or not ready.get('funding_ready')): fail('PAYROLL_REQUIRED', 'Approve the company rider roster and operating funding before activation.', 422)
             if p['enabled'] and not ready['geography_ready']: fail('SERVICE_AREA_REQUIRED', 'Review and confirm the operating centre and service-area circle before activation.', 422)
@@ -609,8 +632,9 @@ def install(core):
         from bike_dispatch import engine_health
         health = engine_health(u)
         runtime = public_policy(policy(u), u)
+        from bike_earnings import compensated_driver
         return {'dispatch_ready': health['ready'], 'service_ready': runtime['bookings_available'], 'availability_reason': None if runtime['bookings_available'] else 'Bike requests are currently paused.', 'vehicles': [{k: v.get(k) for k in ('id', 'name', 'status', 'active', 'vehicle_kind', 'valid_until')} for v in vehicles],
-                'availability': presence, 'server_time': time.time()}
+                'availability': presence, 'rider_approved': bool(compensated_driver(u, uid)), 'server_time': time.time()}
 
     @r.get('/driver/availability')
     def driver_availability(response: Response, user=Depends(core.current_user)):
@@ -698,8 +722,18 @@ def install(core):
                        'quota_key_version': promo_key_version() if planned_offer['eligible'] else None,
                        'terms': p['terms'], 'cancellation_terms': 'Cancel before pickup at no charge. Started-ride disputes require support review.',
                        'policy_version': p['version'], 'created_at': now, 'expires_at': now+90}
+                from bike_earnings import quote_earnings
+                compensation = quote_earnings(u, row['driver_id'], row['pricing'])
+                if compensation is None and row['pricing']['free']:
+                    row['pricing'] = fare(p, route['distance_metres'], route['duration_seconds'], surcharge, False)
+                    row['promotion'] = {**planned_offer, 'eligible': False, 'reason': 'rider_offer_unavailable',
+                                        'message': 'The launch offer is unavailable for this rider. Review the paid fare.'}
+                    compensation = quote_earnings(u, row['driver_id'], row['pricing'])
+                if compensation is None:
+                    continue
+                row['compensation_offer'] = compensation
                 u.put('bike_quotes', identifier, row)
-                quote = {k: copy.deepcopy(v) for k, v in row.items() if k not in ('location', 'driver_id', 'owner_id', 'customer_id', 'position_version', 'route', 'parent_ride_id', 'quota_key', 'quota_key_version')}
+                quote = {k: copy.deepcopy(v) for k, v in row.items() if k not in ('location', 'driver_id', 'owner_id', 'customer_id', 'position_version', 'route', 'parent_ride_id', 'quota_key', 'quota_key_version', 'compensation_offer')}
                 quote['pricing'] = customer_pricing(row['pricing']); quotes.append(quote)
             return {'quotes': quotes, 'reason': None if quotes else 'no_riders', 'promotion': offer, 'route': {'points': route['points']}, 'server_time': now}
         return store.run(build)
@@ -716,7 +750,7 @@ def install(core):
             quote = u.get('bike_quotes', body.quote_id); now = time.time(); p = policy(u)
             if not quote or quote['customer_id'] != user['id'] or quote['expires_at'] <= now: fail('QUOTE_EXPIRED', 'Search again for a fresh bike quote.', 409)
             if not p['enabled'] or p['version'] != quote['policy_version']: fail('POLICY_CHANGED', 'Bike fares changed. Search again.', 409)
-            from bike_payroll import policy_readiness
+            from bike_earnings import operations_readiness as policy_readiness
             if not all(policy_readiness(u, p, time.time()).get(k) for k in ('payroll_ready', 'funding_ready')): fail('SERVICE_UNAVAILABLE', 'Company bike operations are temporarily unavailable.', 503)
             if quote['pricing']['free']:
                 identity = promo_identity(user)
@@ -729,6 +763,7 @@ def install(core):
             if existing and existing['state'] not in CLOSED and not _expire(u, existing, now):
                 fail('ACTIVE_RIDE_EXISTS', 'Finish or cancel your current bike request first.', 409)
             row = {**{k: copy.deepcopy(quote[k]) for k in ('vehicle_id', 'vehicle_name', 'driver_id', 'owner_id', 'rider_name', 'pickup', 'dropoff', 'pricing', 'distance_metres', 'route_duration_seconds', 'route', 'terms', 'cancellation_terms', 'quota_key', 'quota_key_version')},
+                   'compensation_offer': copy.deepcopy(quote.get('compensation_offer', {'model': 'monthly_salary', 'amount_paise': 0})),
                    'id': identifier, 'customer_id': user['id'], 'quote_id': body.quote_id, 'request_id': body.request_id,
                    'request_hash': fingerprint(body), 'passenger_name': body.rider_name, 'passenger_phone': body.rider_phone,
                    'for_someone_else': body.for_someone_else, 'pickup_address': body.pickup_address, 'dropoff_address': body.dropoff_address,
@@ -823,7 +858,8 @@ def install(core):
             v = u.get('mobility_vehicles', row['vehicle_id']); reservation_guard(u, v)
             action = body.action; now = time.time(); driver = user['id'] == row['driver_id']
             if driver and action in ('accept', 'depart', 'arrive', 'start'):
-                authorized_vehicle(u, row['vehicle_id'], user['id'], now+row['route_duration_seconds']+600)
+                authorized_vehicle(u, row['vehicle_id'], user['id'], now+row['route_duration_seconds']+600,
+                                   committed_ride=row if action != 'accept' else None)
             if action == 'accept':
                 row['accepted_by_driver'] = True
                 if row['state'] != 'queued': row['state'] = 'accepted'; row['expires_at'] = now+600
@@ -911,6 +947,16 @@ def install(core):
     def admin_bookings(response: Response, after: str | None=Query(default=None, max_length=100), admin=Depends(core.operator)):
         response.headers.update(HEADERS)
         return store.run(lambda u: admin_history(u, 50, after))
+
+    @r.get('/admin/dispatch/incidents')
+    def dispatch_incidents(response: Response, cursor: str | None=Query(default=None, max_length=64), admin=Depends(core.operator)):
+        from repaidians_work import active_query
+        response.headers.update(HEADERS)
+        def read(u):
+            rows = active_query(u, 'bike_dispatch_key_health', 51, cursor or '')
+            return {'items': rows[:50], 'next_cursor': rows[49]['id'] if len(rows)>50 else None,
+                    'recovery': 'automatic_redelivery', 'scope': 'currently_blocked_riders'}
+        return store.run(read)
 
     @r.post('/admin/bookings/{identifier}/resolve')
     def resolve(identifier: str, body: Resolve, admin=Depends(core.operator)):

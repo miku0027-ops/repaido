@@ -12,6 +12,7 @@ import time
 import uuid
 
 from bike_dispatch import KafkaAdapter, _configuration_fingerprint, consume_once, relay_once
+from bike_runtime import RelayCursor, heartbeat as record_heartbeat
 
 LOG = logging.getLogger('repaido.bike.dispatch')
 
@@ -21,6 +22,7 @@ def run(store, callback, *, adapter=None, stop=None):
     stop = stop or threading.Event()
     consumer = adapter.consumer()
     owner = str(uuid.uuid4())
+    cursor = RelayCursor(owner)
     status = {'relay_ok': False, 'consumer_ok': True, 'broker_connected': False}
     lock = threading.Lock()
 
@@ -32,7 +34,7 @@ def run(store, callback, *, adapter=None, stop=None):
                     connected = adapter.ready()
                     last_check = time.monotonic()
                 if connected:
-                    relay_once(store, adapter, owner=owner)
+                    relay_once(store, adapter, owner=owner, cursor=cursor)
                 with lock:
                     status.update(relay_ok=connected, broker_connected=connected)
             except Exception:
@@ -66,11 +68,8 @@ def run(store, callback, *, adapter=None, stop=None):
                 def heartbeat(u):
                     streams = active_query(u, 'bike_dispatch_streams', 64)
                     lower_bound = sum(max(0, row['next_sequence'] - row['published_sequence']) for row in streams)
-                    u.put('bike_dispatch_health', 'engine', {'id': 'engine', 'worker_id': owner,
-                          'mode': 'kafka', 'configuration_fingerprint': _configuration_fingerprint(adapter.config),
-                          'updated_at': now, 'broker_connected': connected,
-                          'outbox_backlog': lower_bound, 'outbox_backlog_is_lower_bound': len(streams) == 64,
-                          'consumer_lag': None})
+                    record_heartbeat(u, owner, adapter.config, connected=connected, now=now,
+                                     backlog=lower_bound, partial=len(streams) == 64)
                 store.run(heartbeat)
                 last_heartbeat = now
     finally:
@@ -78,11 +77,7 @@ def run(store, callback, *, adapter=None, stop=None):
         consumer.close()
         thread.join(timeout=15)
         def offline(u):
-            health = u.get('bike_dispatch_health', 'engine') or {}
-            # A previous worker must not mark a newer healthy instance offline.
-            if health.get('worker_id') == owner:
-                health.update(updated_at=time.time(), broker_connected=False)
-                u.put('bike_dispatch_health', 'engine', health)
+            record_heartbeat(u, owner, adapter.config, connected=False, draining=True)
         store.run(offline)
 
 

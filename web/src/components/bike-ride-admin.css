@@ -45,3 +45,12 @@
 @media(max-width:900px) {.bike-admin-fields {grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px) {.bike-admin-metrics {grid-template-columns:repeat(2,minmax(0,1fr))}.bike-admin-status>small {margin-left:0}.bike-admin-save button,.bike-admin-activation>button {max-width:100%}}
 @media(max-width:400px) {.bike-admin-fields,.bike-admin-ledger,.bike-admin-rules {grid-template-columns:minmax(0,1fr)}}
+.bike-independent-admin .bike-earning-subpanel {border:1px solid var(--op-line,#d6deea);border-radius:8px;padding:10px;margin:10px 0;background:var(--crm-surface)}
+.bike-independent-admin .bike-earning-subpanel>summary {display:flex;align-items:center;gap:8px;min-height:24px;cursor:pointer;font-weight:600}
+.bike-independent-admin .bike-earning-subpanel>summary>small {margin-left:auto;color:var(--op-muted,#364b63)}
+.bike-independent-admin .bike-earning-subpanel[open]>summary {margin-bottom:12px}
+.bike-independent-admin .bike-earning-pages {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0}
+.bike-independent-admin .bike-earning-pages>span {font-size:.78rem;color:var(--op-muted,#364b63);margin-right:auto}
+.bike-independent-admin .bike-earning-credit-picker {max-height:280px;overflow:auto;border:1px solid var(--op-line,#d6deea);border-radius:8px;padding:0 8px}
+.bike-independent-admin .bike-earning-credit-picker strong {margin-left:auto;font-variant-numeric:tabular-nums}
+.bike-independent-ledger {border-top:1px solid var(--op-line,#d6deea);padding-top:12px;margin-top:16px;min-width:0}

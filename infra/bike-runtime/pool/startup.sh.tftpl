@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+install -d -m 700 /var/lib/repaido/docker
+export DOCKER_CONFIG=/var/lib/repaido/docker
+docker-credential-gcr configure-docker --registries='${registry}'
+docker pull '${image}'
+cat > /etc/systemd/system/repaido-bike.service <<'UNIT'
+[Unit]
+Description=Repaido ordered bike dispatch
+After=docker.service network-online.target
+Requires=docker.service
+StartLimitIntervalSec=0
+[Service]
+Environment=DOCKER_CONFIG=/var/lib/repaido/docker
+ExecStartPre=-/usr/bin/docker rm -f repaido-bike-worker
+ExecStart=/usr/bin/docker run --name repaido-bike-worker --network host --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 --memory 1g --tmpfs /tmp:rw,noexec,nosuid,size=96m --tmpfs /data:rw,noexec,nosuid,size=32m --log-driver gcplogs --log-opt gcp-project=${project} --env GOOGLE_CLOUD_PROJECT=${project} --env REPAIDO_STORAGE=firestore --env REPAIDO_ENV=production --env REPAIDO_BIKE_DISPATCH_WORKER_ENABLED=true --env REPAIDO_BIKE_DISPATCH_MODE=pubsub --env REPAIDO_BIKE_PUBSUB_TOPIC=${topic} --env REPAIDO_BIKE_PUBSUB_SUBSCRIPTION=${subscription} --env REPAIDO_BIKE_PUBSUB_REGION=${region} --env REPAIDO_BIKE_PROMO_QUOTA_SECRET_RESOURCE=${quota_secret_version} --env REPAIDO_BIKE_HEALTH_PORT=9118 ${image} python -m bike_dispatch_worker
+ExecStop=/usr/bin/docker stop --time 60 repaido-bike-worker
+Restart=always
+RestartSec=5
+TimeoutStopSec=75
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now repaido-bike.service

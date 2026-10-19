@@ -1,0 +1,15 @@
+# Review all inputs at release time. Do not put credentials or secret values here.
+# Enabling creates billable resources. The committed default stays disabled.
+enabled = false
+project_id = "repaido"
+region = "us-central1"
+zones = ["us-central1-a", "us-central1-b"]
+
+# Existing reviewed API image and the same stable quota key used by the API.
+image = "us-central1-docker.pkg.dev/repaido/backend/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+quota_secret_version = "projects/repaido/secrets/REPLACE_WITH_EXISTING_QUOTA_SECRET/versions/1"
+
+minimum_workers = 2
+maximum_workers = 16
+events_per_worker = 32
+alert_email = ""

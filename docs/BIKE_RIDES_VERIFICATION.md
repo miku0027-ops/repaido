@@ -4,6 +4,11 @@ This records local verification of the bike pilot and compact Market highlights.
 It is not a production activation record. Tests use isolated databases, demo
 identities and provider doubles unless specifically stated otherwise.
 
+The later growth/independent-earnings batch is recorded in
+[BIKE_RESILIENCE.md](BIKE_RESILIENCE.md), including the latest regression counts,
+native funding tests, browser evidence and bounded local load results. The
+table below retains the earlier pilot verification record.
+
 | Check | Result |
 | --- | --- |
 | Full backend regression: `backend/.venv/bin/python -m pytest -q --tb=short backend` | 1,668 passed, 25 skipped. Skips include optional emulator/provider configurations. |
