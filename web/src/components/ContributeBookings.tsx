@@ -6,10 +6,13 @@ import {CaptainClub} from './CaptainClub';
 import './customer-management.css';
 export type BookingService='visits'|'home'|'hiring'|'contracts'|'rides'|'contribute';
 const services=[{id:'visits',label:'Visits',Icon:HomeRepair},{id:'home',label:'Home plans',Icon:EventAvailable},{id:'hiring',label:'Hiring',Icon:PersonSearch},{id:'contracts',label:'Contracts',Icon:ReceiptLong},{id:'rides',label:'Rides',Icon:Car},{id:'contribute',label:'Contribute',Icon:Leaf}] as const;
+function revealBookingService(container:HTMLDivElement,item:HTMLElement|null){
+ if(!item)return;const parent=container.getBoundingClientRect(),child=item.getBoundingClientRect();if(child.left<parent.left+5)container.scrollBy({left:child.left-parent.left-5,behavior:'instant'});else if(child.right>parent.right-5)container.scrollBy({left:child.right-parent.right+5,behavior:'instant'});
+}
 export function CustomerBookingNavigation({value,onChange}:{value:BookingService;onChange:(value:BookingService)=>void}){
  const ref=useRef<HTMLDivElement>(null);
- useEffect(()=>{const el=ref.current;if(!el)return;const ensure=()=>{const item=el.querySelector<HTMLElement>('[aria-pressed=true]');if(!item)return;const parent=el.getBoundingClientRect(),child=item.getBoundingClientRect();if(child.left<parent.left+5)el.scrollBy({left:child.left-parent.left-5,behavior:'instant'});else if(child.right>parent.right-5)el.scrollBy({left:child.right-parent.right+5,behavior:'instant'});};ensure();const resize=new ResizeObserver(ensure);resize.observe(el);return()=>resize.disconnect();},[value]);
- return <div ref={ref} className="customer-home-plans-switch customer-booking-navigation" role="group" aria-label="Booking service type">{services.map(({id,label,Icon})=><button type="button" key={id} aria-pressed={value===id} data-service={id} onClick={()=>onChange(id)}><Icon size={20} aria-hidden="true"/>{label}</button>)}</div>;
+ useEffect(()=>{const el=ref.current;if(!el)return;const ensure=()=>revealBookingService(el,el.querySelector<HTMLElement>('[aria-pressed=true]'));ensure();const resize=new ResizeObserver(ensure);resize.observe(el);el.querySelectorAll('button').forEach(button=>resize.observe(button));return()=>resize.disconnect();},[value]);
+ return <div ref={ref} className="customer-home-plans-switch customer-booking-navigation" role="group" aria-label="Booking service type" onFocusCapture={event=>revealBookingService(event.currentTarget,(event.target as HTMLElement).closest('button'))}>{services.map(({id,label,Icon})=><button type="button" key={id} aria-pressed={value===id} data-service={id} onClick={()=>onChange(id)}><Icon size={20} aria-hidden="true"/><span className="booking-navigation-label">{label}</span></button>)}</div>;
 }
 export function ContributeBookings({onSignIn,onArrangePickup}:{onSignIn:()=>void;onArrangePickup:()=>void}){
  const [tab,setTab]=useState(()=>{const value=new URLSearchParams(location.search).get('contribution');return value==='reports'||value==='rewards'?value:'collections';});

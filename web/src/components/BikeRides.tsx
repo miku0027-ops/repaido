@@ -11,6 +11,7 @@ import {JourneyMap} from './JourneyTracking';
 import {LocationPickerModal} from './LocationPickerModal';
 import {Modal} from './ui';
 import type {TransportArea} from './TransportRail';
+import type {TransportBookingSummary} from '../services/transport-booking-state';
 import './bike-rides.css';
 
 const time=(epoch:number)=>new Date(epoch*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
@@ -24,7 +25,7 @@ const resumeRide=(rides:BikeRide[])=>rides.reduce<BikeRide|undefined>((best,ride
 
 /** Participant records are kept only in this mounted account scope. Discovery
  * contains no other passenger's locations and never invents available riders. */
-export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onSharedBike,bookingsOnly=false,initialRideId=''}:{onSignIn:()=>void;initialLocation?:TransportArea;active?:boolean;onSearch?:()=>void;onSharedBike?:()=>void;bookingsOnly?:boolean;initialRideId?:string}){
+export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onSharedBike,bookingsOnly=false,initialRideId='',embedded=false,historyView,onHistoryChange,onSummary}:{onSignIn:()=>void;initialLocation?:TransportArea;active?:boolean;onSearch?:()=>void;onSharedBike?:()=>void;bookingsOnly?:boolean;initialRideId?:string;embedded?:boolean;historyView?:boolean;onHistoryChange?:(history:boolean)=>void;onSummary?:(summary:TransportBookingSummary)=>void}){
  const [uid,setUid]=useState(auth.currentUser?.uid||''),[policy,setPolicy]=useState<BikePolicy|null>(null),[policyError,setPolicyError]=useState(''),[policyRevision,setPolicyRevision]=useState(0);
  const [pickup,setPickup]=useState<BusinessLocation|null>(confirmedArea(initialLocation)),[dropoff,setDropoff]=useState<BusinessLocation|null>(null),[picking,setPicking]=useState<'pickup'|'dropoff'|null>(null);
  const [verifyPhone,setVerifyPhone]=useState(false);
@@ -32,12 +33,16 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
  const [route,setRoute]=useState<BikePoint[]>([]);
  const [quotes,setQuotes]=useState<BikeQuote[]>([]),[promotion,setPromotion]=useState<BikePromotion|null>(null),[searched,setSearched]=useState(false),[searchReason,setSearchReason]=useState(''),[selectedQuote,setSelectedQuote]=useState<BikeQuote|null>(null),[consent,setConsent]=useState(false);
  const [recordsLoaded,setRecordsLoaded]=useState(false),[nextCursor,setNextCursor]=useState<string|null>(null),[pageBusy,setPageBusy]=useState(false),[pageError,setPageError]=useState(''),[openingRide,setOpeningRide]=useState(false);
- const [rides,setRides]=useState<BikeRide[]>([]),[selectedId,setSelectedId]=useState(''),[history,setHistory]=useState(false),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[readError,setReadError]=useState(''),[notice,setNotice]=useState(''),[online,setOnline]=useState(navigator.onLine),[clock,setClock]=useState(Date.now());
+ const [rides,setRides]=useState<BikeRide[]>([]),[selectedId,setSelectedId]=useState(''),[localHistory,setLocalHistory]=useState(false),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[readError,setReadError]=useState(''),[notice,setNotice]=useState(''),[online,setOnline]=useState(navigator.onLine),[clock,setClock]=useState(Date.now());
  const expandedHistory=useRef(false),pinnedIds=useRef(new Set<string>()),openedInitial=useRef(''),resumeHandled=useRef(false),resumeIntent=useRef({bookingsOnly,initialRideId});resumeIntent.current={bookingsOnly,initialRideId};
  const scope=useRef(uid),revision=useRef(0),mutationRevision=useRef(0),requestKey=useRef(crypto.randomUUID()),commandKeys=useRef(new Map<string,string>()),serverClock=useRef({at:Date.now(),seconds:Date.now()/1000}),searchRunning=useRef(false),searchEpoch=useRef(0);
  const syncClock=(seconds?:number)=>{if(Number.isFinite(seconds))serverClock.current={at:Date.now(),seconds:seconds!};};
  const serverNow=serverClock.current.seconds+(clock-serverClock.current.at)/1000;
  const selected=rides.find(ride=>ride.id===selectedId),selection=useRef<BikeRide|undefined>(selected);selection.current=selected;
+ const history=historyView??localHistory;
+ const setHistory=(value:boolean)=>{setLocalHistory(value);onHistoryChange?.(value);};
+ useEffect(()=>{const current=selection.current;if(historyView!==undefined&&current&&bikeFinished(current.state)!==historyView)setSelectedId('');},[historyView]);
+
  useEffect(()=>onIdTokenChanged(auth,user=>{
   const next=user?.uid||'';if(scope.current!==next){scope.current=next;setPickup(confirmedArea(initialLocation));setDropoff(null);setRoute([]);revision.current++;searchEpoch.current++;setRides([]);setRecordsLoaded(false);setNextCursor(null);setPageBusy(false);setPageError('');setOpeningRide(false);setVerifyPhone(false);expandedHistory.current=false;pinnedIds.current.clear();openedInitial.current='';resumeHandled.current=false;setSelectedId('');setQuotes([]);setSelectedQuote(null);setPromotion(null);setSearched(false);setError('');setReadError('');setNotice('');setOther(false);setName(user?.displayName||'');setPhone(user?.phoneNumber||'');setConsent(false);setBusy(false);setLoading(false);requestKey.current=crypto.randomUUID();commandKeys.current.clear();}setUid(next);
  }),[]);
@@ -70,7 +75,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
   if(!initialRideId){openedInitial.current='';return;}if(!uid||!active)return;
   const key=uid+':'+initialRideId;if(openedInitial.current===key)return;openedInitial.current=key;
   let stopped=false;const abort=new AbortController(),epoch=revision.current;setOpeningRide(true);setSelectedId('');setError('');
-  void getBikeRide(initialRideId,abort.signal).then(ride=>{if(!stopped&&scope.current===uid&&revision.current===epoch)saveRide(ride);}).catch(e=>{if(!stopped&&scope.current===uid&&revision.current===epoch)setError(message(e));}).finally(()=>{if(!stopped&&revision.current===epoch)setOpeningRide(false);});
+  void getBikeRide(initialRideId,abort.signal).then(ride=>{if(!stopped&&scope.current===uid&&revision.current===epoch){saveRide(ride);if(embedded)onHistoryChange?.(bikeFinished(ride.state));}}).catch(e=>{if(!stopped&&scope.current===uid&&revision.current===epoch)setError(message(e));}).finally(()=>{if(!stopped&&revision.current===epoch)setOpeningRide(false);});
   return()=>{stopped=true;abort.abort();};
  },[uid,active,initialRideId]);
  const loadOlder=async()=>{
@@ -91,14 +96,17 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
   catch(e){if(scope.current===uid&&revision.current===epoch){setError(message(e));window.dispatchEvent(new Event('repaido:bike-rides-updated'));}return false;}finally{if(revision.current===epoch)setBusy(false);}
  };
  const activeRides=rides.filter(ride=>!bikeFinished(ride.state)),visibleRides=history?rides.filter(ride=>bikeFinished(ride.state)):activeRides;
+ useEffect(()=>{onSummary?.({uid,loaded:recordsLoaded,busy:!recordsLoaded&&!readError||openingRide||pageBusy,error:readError||error,active:activeRides.length,history:rides.length-activeRides.length,focused:!!selected||openingRide});},[uid,recordsLoaded,readError,error,openingRide,pageBusy,activeRides.length,rides.length,!!selected,onSummary]);
+ if(bookingsOnly&&embedded&&!selected&&!visibleRides.length&&!readError&&!error&&!notice&&!pageError&&!(history&&nextCursor))return null;
+
  return <section className="bike-rides" aria-label="Bike rides">
   {!bookingsOnly&&!selected&&<header className="bike-heading"><span className="bike-brand-icon" aria-hidden="true"><TwoWheeler size={24}/></span><div><strong>Bike</strong><small>One passenger · helmet required</small></div>{onSharedBike&&<button className="bike-soft-button" onClick={onSharedBike}>Shared bike<ArrowRight size={18} aria-hidden="true"/></button>}</header>}
-  {bookingsOnly&&!uid&&<button className="bike-soft-button" onClick={onSignIn}>Sign in to see your bike rides</button>}
+  {bookingsOnly&&!embedded&&!uid&&<button className="bike-soft-button" onClick={onSignIn}>Sign in to see your bike rides</button>}
   {!online&&<p className="bike-notice bike-notice-warning" role="status">You’re offline. Reconnect for current riders, fares and location.</p>}
   {policyError&&<div className="bike-notice bike-notice-warning" role="alert"><span>{policyError}</span><button onClick={()=>setPolicyRevision(value=>value+1)}>Retry</button></div>}
   {!bookingsOnly&&!policy&&!policyError&&<p className="bike-loading" role="status">Loading bike availability…</p>}
-  {openingRide&&<p className="bike-loading" role="status">Opening your bike ride…</p>}
-  {selected?<BikeRideDetail ride={selected} serverNow={serverNow} online={online} busy={busy} onBack={()=>{resumeHandled.current=true;setSelectedId('');}} onAction={run}/>:<>
+  {openingRide&&!embedded&&<p className="bike-loading" role="status">Opening your bike ride…</p>}
+  {selected?<BikeRideDetail ride={selected} serverNow={serverNow} online={online} busy={busy} onBack={()=>{resumeHandled.current=true;if(embedded)setHistory(bikeFinished(selected.state));setSelectedId('');}} onAction={run}/>:<>
    {!bookingsOnly&&<>
    {policy&&!policy.bookings_available&&<p className="bike-notice" role="status">Bike bookings are not open yet. Shared journeys remain separate.</p>}
    <div className="bike-workspace">
@@ -120,7 +128,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
    </section>}
    {searched&&<section className="bike-results" aria-label="Available bike riders"><header><div><h4>{quotes.length?'Choose your rider':'No bike match yet'}</h4>{quotes.length>0&&<p className="bike-results-help">Pickup estimates · fare confirmed before booking</p>}</div><button className="bike-icon-button" aria-label="Refresh available bike riders" disabled={loading||!online} onClick={()=>void search()}><RefreshCw size={17} aria-hidden="true"/></button></header>{quotes.length===0&&<div className="bike-empty"><TwoWheeler size={28} aria-hidden="true"/><strong>{searchReason==='service_not_enabled'?'Bike bookings are not open yet':searchReason==='dispatch_unavailable'?'Matching is temporarily unavailable':searchReason==='paid_rides_unavailable'?'Paid rides are currently unavailable':'No rider is available for this route'}</strong><p>Try again shortly or explore a shared bike journey. No ride has been reserved.</p>{onSharedBike&&<button className="bike-soft-button" onClick={onSharedBike}>Find shared bikes<ArrowRight size={15} aria-hidden="true"/></button>}</div>}{quotes.map(quote=><BikeRiderChoice key={quote.id} quote={quote} expired={bikeQuoteExpired(quote,serverNow)} disabled={loading||!online||busy||(!quote.pricing.free&&!policy?.paid_ready)||!!quote.pricing.free&&!policy?.promo_ready} onRefresh={()=>void search()} onChoose={()=>{setSelectedQuote(quote);setConsent(false);setError('');requestKey.current=crypto.randomUUID();}}/>)}</section>}
    </>}
-   {uid&&<section className="bike-my-rides" aria-label="Your bike bookings"><header><h4>Your rides{activeRides.length>0&&<span>{activeRides.length}</span>}</h4><div className="bike-history-switch" role="group" aria-label="Bike ride history"><button aria-pressed={!history} onClick={()=>setHistory(false)}>Active</button><button aria-pressed={history} onClick={()=>setHistory(true)}>Past</button></div></header>{visibleRides.map(ride=><button className="bike-booking-link" key={ride.id} onClick={()=>setSelectedId(ride.id)}><TwoWheeler size={19} aria-hidden="true"/><span><strong>{ride.dropoff_address}</strong><small>{bikeRideLabel(ride.state)} · {ride.vehicle_name}</small></span><ArrowRight size={16} aria-hidden="true"/></button>)}{!visibleRides.length&&<p className="bike-muted" role={!recordsLoaded?'status':undefined}>{!recordsLoaded?'Loading your rides…':history?'Your completed rides will appear here.':'No active bike rides.'}</p>}{history&&nextCursor&&<button className="bike-soft-button bike-load-older" disabled={pageBusy||!online} aria-busy={pageBusy} onClick={()=>void loadOlder()}>{pageBusy?'Loading older rides…':'Load older rides'}</button>}{pageError&&<p className="bike-notice bike-notice-warning" role="alert">{pageError}</p>}</section>}
+   {uid&&<section className="bike-my-rides" aria-label="Your bike bookings">{!embedded&&<header><h4>Your rides{activeRides.length>0&&<span>{activeRides.length}</span>}</h4><div className="bike-history-switch" role="group" aria-label="Bike ride history"><button aria-pressed={!history} onClick={()=>setHistory(false)}>Active</button><button aria-pressed={history} onClick={()=>setHistory(true)}>Past</button></div></header>}{visibleRides.map(ride=><button className="bike-booking-link" key={ride.id} onClick={()=>setSelectedId(ride.id)}><TwoWheeler size={19} aria-hidden="true"/><span><strong>{ride.dropoff_address}</strong><small>{bikeRideLabel(ride.state)} · {ride.vehicle_name}</small></span><ArrowRight size={16} aria-hidden="true"/></button>)}{!embedded&&!visibleRides.length&&<p className="bike-muted" role={!recordsLoaded?'status':undefined}>{!recordsLoaded?'Loading your rides…':history?'Your completed rides will appear here.':'No active bike rides.'}</p>}{history&&nextCursor&&<button className="bike-soft-button bike-load-older" disabled={pageBusy||!online} aria-busy={pageBusy} onClick={()=>void loadOlder()}>{pageBusy?'Loading older rides…':'Load older rides'}</button>}{pageError&&<p className="bike-notice bike-notice-warning" role="alert">{pageError}</p>}</section>}
   </>}
   {readError&&<p className="bike-notice bike-notice-warning" role="status">{readError} Your last update may be out of date.</p>}{error&&!selectedQuote&&<p className="bike-notice bike-notice-warning" role="alert">{error}</p>}{notice&&<p className="bike-notice bike-notice-success" role="status"><CheckCircle2 size={17} aria-hidden="true"/>{notice}</p>}
   {verifyPhone&&uid&&<BikePhoneVerification accountId={uid} onClose={()=>setVerifyPhone(false)} onSignIn={onSignIn} onVerified={()=>{setVerifyPhone(false);setQuotes([]);setPromotion(null);setSelectedQuote(null);setSearched(false);if(!other)setPhone(auth.currentUser?.phoneNumber||phone);void search();}}/>}
@@ -129,7 +137,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
  </section>;
 }
 
-export function BikeRideBookings({onSignIn,active=true,initialRideId}:{onSignIn:()=>void;active?:boolean;initialRideId?:string}){return <BikeRides onSignIn={onSignIn} active={active} initialRideId={initialRideId} bookingsOnly/>;}
+export function BikeRideBookings({onSignIn,active=true,initialRideId,embedded,historyView,onHistoryChange,onSummary}:{onSignIn:()=>void;active?:boolean;initialRideId?:string;embedded?:boolean;historyView?:boolean;onHistoryChange?:(history:boolean)=>void;onSummary?:(summary:TransportBookingSummary)=>void}){return <BikeRides onSignIn={onSignIn} active={active} initialRideId={initialRideId} bookingsOnly embedded={embedded} historyView={historyView} onHistoryChange={onHistoryChange} onSummary={onSummary}/>;}
 
 function BikeRiderChoice({quote,expired,disabled,onChoose,onRefresh}:{quote:BikeQuote;expired:boolean;disabled:boolean;onChoose:()=>void;onRefresh:()=>void}){
  return <article className={'bike-rider-choice'+(quote.queued?' is-next':'')+(quote.pricing.free?' is-free':'')}>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {spawn} from 'node:child_process';
-import {mkdtemp,writeFile} from 'node:fs/promises';
+import {mkdtemp,readFile,writeFile} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -43,6 +43,7 @@ try{
  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));page.setDefaultTimeout(20000);
  await page.goto(origin+'/tests/icon-system-preview.html');await page.locator('#all-application-icons .icon-lab-cell').first().waitFor();await page.evaluate(()=>document.fonts.ready);
  const count=await page.locator('#all-application-icons .icon-lab-cell').count();assert(count>=211,'All legacy and semantic icon exports render');
+ for(const [name,symbol] of [['ShoppingCart','shopping_cart'],['Bell','notifications'],['User','person']]){const svg=page.locator('[data-export-name="'+name+'"] svg'),source=await readFile(resolve(web,'src/icons/material-symbols-rounded/'+symbol+'.svg'),'utf8');assert.equal(await svg.getAttribute('data-icon-fill'),'0','Header symbols preserve their outlined default');assert.deepEqual(await svg.locator('path').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('d'))),[...source.matchAll(/\bd="([^"]+)"/g)].map(match=>match[1]));}
  issues.push(...await iconAudit(page));
  const sizes=await page.locator('[data-expected-size]').evaluateAll(nodes=>nodes.map(svg=>({expected:Number(svg.getAttribute('data-expected-size')),actual:svg.getBoundingClientRect().width,height:svg.getBoundingClientRect().height})));
  assert.deepEqual(sizes.filter(s=>Math.abs(s.expected-s.actual)>.5||Math.abs(s.expected-s.height)>.5),[],'Explicit and utility-inferred icon sizes');

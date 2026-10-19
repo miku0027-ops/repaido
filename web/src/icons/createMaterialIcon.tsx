@@ -4,7 +4,7 @@ import '../icon-system.css'
 /** Material Symbols use filled outline geometry; stroke props are retained only for API compatibility. */
 export interface MaterialIconProps extends SVGProps<SVGSVGElement> {
   size?: number | string
-  /** Official filled variant for favorite/bookmark/star; preserves selected-action state. */
+  /** Official filled variant for selected actions and the customer header. */
   filled?: boolean
   absoluteStrokeWidth?: boolean
   title?: string

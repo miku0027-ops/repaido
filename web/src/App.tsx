@@ -1,4 +1,5 @@
 import {CustomerActivityHub,type ActivityLaunch} from './components/CustomerActivityHub';
+import {CustomerLiveActivity,type LiveActivityTarget} from './components/CustomerLiveActivity';
 import {publicProfessionalDetails} from './services/hireProfileCache';
 import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
 import {HomeDiscoveryLayout} from './components/HomeDiscoveryLayout';
@@ -230,6 +231,7 @@ export default function App() {
   const [rideBookings,updateRideBookings]=useState(new URLSearchParams(location.search).get('view')==='rides');
   const [sharedRideId,setSharedRideId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
   const [bikeRideId,setBikeRideId]=useState(()=>new URLSearchParams(location.search).get('bike-ride')||'');
+  const [cabRideId,setCabRideId]=useState(()=>new URLSearchParams(location.search).get('ride-booking')||'');
   const [hireBookings,updateHireBookings]=useState(new URLSearchParams(location.search).has('hiring'));
   const [homeHub,setHomeHub]=useState<string|null>(null),[homePlans,updateHomePlans]=useState(new URLSearchParams(location.search).has('home-plan'));
   const [contributeBookings,setContributeBookings]=useState(()=>new URLSearchParams(location.search).get('view')==='contribute');
@@ -555,7 +557,7 @@ export default function App() {
 
   useEffect(() => {
     let alive=true;
-    setUnreadNotificationCount(0);setShowNotificationDrawer(false);if(bookingAccount.current&&bookingAccount.current!==user?.id){setNotificationJob(undefined);setSharedRideId('');}bookingAccount.current=user?.id;bindTransportBell(auth.currentUser?.uid||user?.id||'guest');
+    setUnreadNotificationCount(0);setShowNotificationDrawer(false);if(bookingAccount.current&&bookingAccount.current!==user?.id){setNotificationJob(undefined);setSharedRideId('');setBikeRideId('');setCabRideId('');}bookingAccount.current=user?.id;bindTransportBell(auth.currentUser?.uid||user?.id||'guest');
     const fetchUnread=async()=>{
       if(!user){if(alive)setUnreadNotificationCount(0);return;}
       try{const res=await operation<{notifications:any[]}>('/notifications',{}, {background:true});if(alive){setUnreadNotificationCount(res.notifications.filter(n=>!n.read_at).length);receiveTransportNotes(res.notifications,auth.currentUser?.uid||user.id||'guest');}}catch{/* Keep the last confirmed count while offline. */}
@@ -689,6 +691,17 @@ export default function App() {
     setTab(next);
     setError('');
     window.scrollTo(0, 0);
+  }
+
+  function openLiveActivity(target:LiveActivityTarget) {
+    setFocusedHire(undefined);setError('');setActivityRecord(undefined);
+    updateContractBookings(false);updateHomePlans(false);setContributeBookings(false);
+    updateRideBookings(target.kind!=='job');updateHireBookings(target.kind==='job'&&target.bookingKind==='hiring');
+    setBikeRideId(target.kind==='bike'?target.id:'');
+    setSharedRideId(target.kind==='shared'?target.id:'');
+    setCabRideId(target.kind==='ride'?target.id:'');
+    setNotificationJob(target.kind==='job'?target.id:undefined);
+    setTab('Bookings');window.scrollTo(0,0);
   }
 
   function handleCategoryClick(catId: CategoryId) {
@@ -874,7 +887,7 @@ export default function App() {
                 aria-label={`Shopping cart with ${cartCount} items`}
                 title="Parts & Equipment Store Cart"
               >
-                <ShoppingCart size={24} aria-hidden="true" />
+                <ShoppingCart size={24} filled aria-hidden="true" />
                 {cartCount > 0 && (
                   <span className="repaido-cart-badge-pill" aria-label={`${cartCount} items in cart`}>
                     {cartCount > 99 ? '99+' : cartCount}
@@ -889,7 +902,7 @@ export default function App() {
                 aria-label={notificationCount > 0 ? `Notifications (${notificationCount} new)` : 'Notifications'}
                 title="Service updates and notifications"
               >
-                <Bell size={24} aria-hidden="true" />
+                <Bell size={24} filled aria-hidden="true" />
                 {notificationCount > 0 && (
                   <span className="repaido-bell-badge" aria-label={`${notificationCount} notifications`}>
                     {notificationCount > 99 ? '99+' : notificationCount}
@@ -900,7 +913,7 @@ export default function App() {
               {/* User / Profile Button */}
               {user ? (
                 <button onClick={() => setTab('You')} className="repaido-user-avatar-pill relative" title="My Profile" aria-label="My profile">
-                  <User size={24} aria-hidden="true" />
+                  <User size={24} filled aria-hidden="true" />
                   {(customerIdentity.agentLabel?.includes('pending') || Boolean(partnerApplicationId)) && (
                     <span className="repaido-header-badge repaido-user-badge" aria-label="1 pending application">
                       1
@@ -912,7 +925,7 @@ export default function App() {
                   onClick={() => { setAuthMode('signin'); setSheet('auth'); setError(''); setOtpStep('phone'); setOtpCode(''); }}
                   className="repaido-header-signin-btn relative" aria-label="Sign in" title="Sign in"
                 >
-                  <User size={24} aria-hidden="true"/>
+                  <User size={24} filled aria-hidden="true"/>
                 </button>
               )}
             </div>
@@ -1040,6 +1053,7 @@ export default function App() {
                 </div>
               </div>
 
+              <CustomerLiveActivity key={user?.id||auth.currentUser?.uid||'guest'} accountId={user?.id||auth.currentUser?.uid||''} onOpen={openLiveActivity}/>
               {!query && (
                 <>
                   <HomeDiscoveryLayout
@@ -1196,7 +1210,7 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'Bookings' && <div className="customer-bookings-page">{(user||auth.currentUser)&&<CustomerActivityHub key={user?.id||auth.currentUser?.uid} launch={activityLaunch}/>}{(user||auth.currentUser)&&<><button type="button" className="customer-business-access" aria-haspopup="dialog" onClick={()=>setBusinessAccountsOpen(true)}>Business accounts</button>{businessAccountsOpen&&<Modal title="Business & apartment accounts" className="customer-business-dialog" onClose={()=>setBusinessAccountsOpen(false)}><Suspense fallback={<p role="status">Opening business accounts…</p>}><BusinessAccounts key={user?.id||auth.currentUser?.uid} onSignIn={()=>setSheet('auth')}/></Suspense></Modal>}</>}<CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings key={activityRecord?.kind+':'+activityRecord?.token} onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialSharedRideId={sharedRideId} initialBikeRideId={bikeRideId} key={(user?.id||'guest')+sharedRideId+bikeRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests initialRequestId={activityRecord?.kind==='hires'?activityRecord.id:undefined} onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans key={activityRecord?.kind==='home_plans'?activityRecord.token:undefined} onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
+            {tab === 'Bookings' && <div className="customer-bookings-page">{(user||auth.currentUser)&&<div className="customer-booking-quick-actions" role="group" aria-label="Booking shortcuts"><CustomerActivityHub key={user?.id||auth.currentUser?.uid} launch={activityLaunch}/><button type="button" className="customer-business-access" aria-haspopup="dialog" onClick={()=>setBusinessAccountsOpen(true)}>Business accounts</button></div>}{(user||auth.currentUser)&&businessAccountsOpen&&<Modal title="Business & apartment accounts" className="customer-business-dialog" onClose={()=>setBusinessAccountsOpen(false)}><Suspense fallback={<p role="status">Opening business accounts…</p>}><BusinessAccounts key={user?.id||auth.currentUser?.uid} onSignIn={()=>setSheet('auth')}/></Suspense></Modal>}<CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings key={activityRecord?.kind+':'+activityRecord?.token} onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialRideId={cabRideId} initialSharedRideId={sharedRideId} initialBikeRideId={bikeRideId} key={(user?.id||'guest')+sharedRideId+bikeRideId+cabRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests initialRequestId={activityRecord?.kind==='hires'?activityRecord.id:undefined} onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans key={activityRecord?.kind==='home_plans'?activityRecord.token:undefined} onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (

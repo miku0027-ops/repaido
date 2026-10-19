@@ -1,0 +1,31 @@
+/* One record view across bike, cab, rental and shared bookings. */
+.local-business-hub.transport-bookings{max-width:none;padding:0;display:grid;gap:14px;min-width:0}
+.transport-bookings-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.transport-bookings-view{display:inline-flex;align-items:center;padding:3px;gap:3px;border:1px solid var(--ui-line,#dce4ef);border-radius:14px;background:var(--ui-subtle,#eff3f8)}
+.transport-bookings .transport-bookings-view>button{min-height:44px!important;min-width:82px;padding:8px 14px;background:transparent;border:0;border-radius:10px;color:var(--ui-muted,#53647b);font-size:.8125rem;font-weight:600;transition:background .16s ease,color .16s ease,box-shadow .16s ease}
+.transport-bookings .transport-bookings-view>button[aria-pressed=true]{background:var(--ui-surface,#fff);color:var(--ui-ink,#142b4b);box-shadow:0 2px 7px #142b4b10}
+.transport-bookings .transport-bookings-refresh{display:grid;place-items:center;width:44px;height:44px;min-height:44px!important;padding:0;border:1px solid var(--ui-line,#dce4ef);border-radius:13px;background:var(--ui-surface,#fff);color:var(--ui-ink,#142b4b)}
+.transport-bookings button{min-height:44px!important}
+.transport-bookings :is(button,summary,a,[tabindex]):focus-visible{outline:3px solid var(--ui-link,#295cad);outline-offset:3px}
+.transport-bookings-records{display:grid;gap:12px;min-width:0}
+.transport-bookings-records:empty{display:none}
+.transport-bookings-records>.business-records{display:grid;gap:12px;min-width:0}
+.transport-bookings-records>.bike-rides{padding:0;margin:0;min-width:0}
+.transport-bookings .bike-my-rides{padding:0}
+.transport-bookings .bike-booking-link{display:flex;justify-content:flex-start;width:100%;min-height:66px!important;text-align:left;padding:10px 12px;border:1px solid var(--ui-line,#dce4ef);border-radius:15px;box-shadow:0 3px 10px #16325105}
+.transport-bookings .bike-booking-link>span>strong{white-space:normal;overflow-wrap:anywhere;font-size:.875rem;line-height:1.5}
+.transport-bookings .bike-booking-link>span>small{font-size:.75rem;line-height:1.5}
+.transport-bookings .business-records>.business-record{margin:0;padding:14px;border-color:var(--ui-line,#dce4ef);border-radius:18px;box-shadow:0 3px 0 #102b4e04,0 9px 24px #102b4e05;scroll-margin-top:100px}
+.transport-bookings .business-records>.business-record>header{flex-wrap:wrap;gap:7px}
+.transport-bookings .business-state{font-size:.75rem;font-weight:600;letter-spacing:0;text-transform:none;border-radius:7px;background:var(--ui-subtle,#eff3f8);padding:5px 8px;line-height:1.45;color:var(--ui-ink,#142b4b)}
+.transport-bookings .business-records>.business-record>header>small{font-size:.75rem;color:var(--ui-muted,#53647b)}
+.transport-bookings .business-records>.business-record>h4{font-size:1rem;line-height:1.5;margin:12px 0;font-weight:650}
+.transport-bookings-loading{font-size:.8125rem;line-height:1.6;color:var(--ui-muted,#53647b);margin:0;padding:5px 1px}
+.transport-bookings-empty{display:grid;justify-items:center;gap:8px;padding:30px 18px;border:1px solid var(--ui-line,#dce4ef);border-radius:18px;background:var(--ui-surface,#fff);text-align:center}
+.transport-bookings-empty>svg{color:var(--ui-muted,#53647b);margin-bottom:3px}
+.transport-bookings-empty>strong{font-size:.9375rem;font-weight:650;color:var(--ui-ink,#142b4b)}
+.transport-bookings-empty>p{max-width:36ch;margin:0;color:var(--ui-muted,#53647b);font-size:.8125rem;line-height:1.6}
+.transport-bookings .transport-bookings-sign-in{justify-self:start;padding:10px 14px;background:var(--ui-primary,#172e55);border-color:var(--ui-primary,#172e55);color:#fff;border-radius:12px;font-size:.875rem}
+@media(max-width:360px){.local-business-hub.transport-bookings{gap:12px}.transport-bookings .business-records>.business-record{padding:12px}.transport-bookings .transport-bookings-view>button{min-width:76px;padding-inline:12px}}
+@media(prefers-reduced-motion:reduce){.transport-bookings *{transition:none!important;animation:none!important}}
+.transport-bookings-target-warning{padding:10px 12px;margin:0;border:1px solid var(--ui-line,#dce4ef);border-radius:12px;background:var(--ui-subtle,#eff3f8);color:var(--ui-muted,#53647b);font-size:.8125rem;line-height:1.6}

@@ -21,7 +21,7 @@ LICENSE_COPIES = (
     ROOT / 'web/public/licenses/material-symbols.txt',
     ROOT / 'engineering/web/public/licenses/material-symbols.txt',
 )
-FILLED_SYMBOLS = {'favorite', 'bookmark', 'star'}
+FILLED_SYMBOLS = {'favorite', 'bookmark', 'star', 'shopping_cart', 'notifications', 'person'}
 STATIC_SYMBOLS = {'directionsCarSvg': 'directions_car', 'twoWheelerSvg': 'two_wheeler', 'storefrontSvg': 'storefront', 'homeSvg': 'home', 'handymanSvg': 'handyman', 'phoneSvg': 'call'}
 
 def asset_keys(mapping: dict[str, str]) -> list[tuple[str, int]]:

@@ -2132,6 +2132,19 @@
       "bytes": 454
     },
     {
+      "symbol": "notifications",
+      "axes": {
+        "FILL": 1,
+        "wght": 400,
+        "GRAD": 0,
+        "opsz": 24
+      },
+      "path": "material-symbols-rounded/notifications_fill1.svg",
+      "upstream_path": "symbols/web/notifications/materialsymbolsrounded/notifications_fill1_24px.svg",
+      "sha256": "d6a01ce75c567d75c1dc41f30b41fb7239a86a793aa8c3bdad15aa1025c07acb",
+      "bytes": 383
+    },
+    {
       "symbol": "notifications_off",
       "axes": {
         "FILL": 0,
@@ -2247,6 +2260,19 @@
       "upstream_path": "symbols/web/person/materialsymbolsrounded/person_24px.svg",
       "sha256": "b60e9574bc2566ea0e72710cd40e4f61a00449130bdc258c0a1006af6857d727",
       "bytes": 573
+    },
+    {
+      "symbol": "person",
+      "axes": {
+        "FILL": 1,
+        "wght": 400,
+        "GRAD": 0,
+        "opsz": 24
+      },
+      "path": "material-symbols-rounded/person_fill1.svg",
+      "upstream_path": "symbols/web/person/materialsymbolsrounded/person_fill1_24px.svg",
+      "sha256": "8f47dcdc1937ad3c1292750c6cf00dec1bb326176c73b9a2f5259321d3cf72e8",
+      "bytes": 353
     },
     {
       "symbol": "person_add",
@@ -2741,6 +2767,19 @@
       "upstream_path": "symbols/web/shopping_cart/materialsymbolsrounded/shopping_cart_24px.svg",
       "sha256": "aa70db8571dce433f335b79399c9a53225943b0bf42eac1c42d7982e3255bd91",
       "bytes": 591
+    },
+    {
+      "symbol": "shopping_cart",
+      "axes": {
+        "FILL": 1,
+        "wght": 400,
+        "GRAD": 0,
+        "opsz": 24
+      },
+      "path": "material-symbols-rounded/shopping_cart_fill1.svg",
+      "upstream_path": "symbols/web/shopping_cart/materialsymbolsrounded/shopping_cart_fill1_24px.svg",
+      "sha256": "6c30a8f242422626aff151755502ca0ac447436c8a66988039a25ab163fbbf00",
+      "bytes": 543
     },
     {
       "symbol": "smartphone",
