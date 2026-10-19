@@ -34,3 +34,35 @@ test('publishing waits for a connected media transport after the SDP answer',asy
  let settled=false;const session=connectStream('https://customer-test.cloudflarestream.com/secret/webRTC/publish').then(value=>{settled=true;return value;});
  await new Promise(resolve=>setTimeout(resolve,5));assert.equal(settled,false);const result=await session;assert.equal(result.peer.connectionState,'connected');await result.close();
 });
+
+test('a cancelled offer still releases a session learned from a late response',async()=>{
+ const controller=new AbortController();
+ response=(_url,init)=>{
+  if(init.method==='POST')controller.abort();
+  return new Response('valid-test-sdp-answer',{status:201,headers:{Location:'/session/late'}});
+ };
+ await assert.rejects(connectStream('https://customer-test.cloudflarestream.com/token/webRTC/publish',{signal:controller.signal}),/cancelled/);
+ assert.equal(peers[0].closed,true);assert.equal(peers[0].remoteDescription,undefined);
+ assert.deepEqual(calls.map(call=>call.init.method),['POST','DELETE']);
+ assert.equal(calls[1].url,'https://customer-test.cloudflarestream.com/session/late');
+ assert.equal(calls[1].init.signal.aborted,false,'Session cleanup has its own deadline after the caller cancels');
+});
+
+test('cancellation during offer creation exits before waiting for ICE gathering',async()=>{
+ const controller=new AbortController(),original=globalThis.RTCPeerConnection;
+ globalThis.RTCPeerConnection=class extends original{
+  constructor(){super();this.iceGatheringState='gathering';}
+  async setLocalDescription(value){await super.setLocalDescription(value);controller.abort();}
+ };
+ await assert.rejects(connectStream('https://customer-test.cloudflarestream.com/token/webRTC/play',{signal:controller.signal}),/cancelled/);
+ assert.equal(peers[0].closed,true);assert.equal(calls.length,0);
+});
+
+test('closing a connected session is idempotent and silences late peer events',async()=>{
+ const tracks=[],failures=[],session=await connectStream('https://customer-test.cloudflarestream.com/token/webRTC/play',{onTrack:stream=>tracks.push(stream),onFailure:message=>failures.push(message)});
+ await Promise.all([session.close(),session.close()]);
+ peers[0].connectionState='disconnected';peers[0].onconnectionstatechange();
+ peers[0].ontrack({track:{id:'late',kind:'video'},streams:[]});
+ assert.equal(calls.filter(call=>call.init.method==='DELETE').length,1);
+ assert.deepEqual(failures,[]);assert.deepEqual(tracks,[]);
+});

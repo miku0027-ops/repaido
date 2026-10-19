@@ -26,6 +26,23 @@ def audit(u, action, actor, **fields):
     u.put('audit', key, dict(id=key, action=action, actor_id=actor, at=time.time(), **fields))
 
 
+def attach_saved_order(u, kind, key, order_id):
+    """Attach an already-created provider order without reverting payment state.
+
+    Reconciliation can finish while the provider's original POST is still in
+    flight. Read the current record in this transaction, never its stale copy.
+    """
+    saved=u.get(kind,key)
+    if not saved or not isinstance(order_id,str) or not order_id:
+        fail('ORDER_MISMATCH','Payment order needs reconciliation.')
+    if saved.get('order_id') and saved['order_id']!=order_id:
+        fail('ORDER_CONFLICT','Multiple provider orders need payment review.')
+    saved['order_id']=order_id
+    if saved['status']=='creating':saved['status']='created'
+    u.put(kind,key,saved)
+    return saved
+
+
 def razorpay(path, body=None, payout=False, key=None):
     prefix = 'RAZORPAYX' if payout else 'RAZORPAY'
     if not configured(prefix+'_KEY_ID', prefix+'_KEY_SECRET'):
@@ -560,7 +577,7 @@ def install(core):
             # Ambiguous order creation stays creating; reconcile by unique receipt. Never blindly POST again.
             result=razorpay('orders',dict(amount=a['amount_paise'],currency='INR',receipt=a['receipt'],notes={'repaido_job':job_id}))
             def finish(u):
-                saved=u.get('payments',job_id);saved.update(order_id=result['id'],status='created');u.put('payments',job_id,saved);return saved
+                return attach_saved_order(u,'payments',job_id,result['id'])
             a=store.run(finish)
         if not a.get('order_id'): fail('ORDER_RECONCILING','Payment setup is being checked. Retry status shortly; do not create another payment.',409)
         return {'key_id':os.environ['RAZORPAY_KEY_ID'],'order_id':a['order_id'],'amount':a['amount_paise'],'currency':'INR','status':a['status']}

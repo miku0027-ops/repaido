@@ -35,3 +35,7 @@
 @media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){.rp-shell .transport-mini-card{transition:transform 180ms ease,box-shadow 180ms ease}.rp-shell .transport-mini-card:hover{transform:translateY(-2px) rotateX(2deg) rotateY(-1deg);--card-shadow:0 4px 0 color-mix(in srgb,var(--ui-line) 70%,var(--ui-surface)),0 11px 20px #17285c23;z-index:1}}
 @media(prefers-reduced-motion:reduce){.rp-shell .transport-mini-card{transform:none!important;transition:none!important}}
 html.reduce-motion .rp-shell .transport-mini-card{transform:none!important;transition:none!important}
+
+/* A location prompt should not displace the social feed before a pickup is set. */
+.rp-shell .transport-discovery-small .transport-rail-controls .transport-area-shortcut{width:auto;height:auto;min-width:44px!important;padding:7px 8px;border:1px solid var(--ui-line);background:var(--ui-surface);font-size:.6875rem;line-height:1.4;gap:5px}
+.rp-shell .transport-discovery-small .transport-area-shortcut svg{flex:none}

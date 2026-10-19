@@ -508,8 +508,14 @@ def install(core):
     @r.post('/rides/{identifier}/payment-order')
     def payment_order(identifier:str,kind:Literal['advance','balance']='advance',user=Depends(core.current_user)):
         if not payments_ready():fail('PAYMENTS_UNAVAILABLE','Online transport payments are not connected. No charge was made.',503)
-        from integrations import razorpay
+        from integrations import razorpay,attach_saved_order
         payid=digest(identifier+':'+kind)
+        def attach(u,order):
+            link=u.get('business_orders',order['id'])
+            if link and link.get('payment_id')!=payid:fail('ORDER_CONFLICT','The provider order belongs to another payment. Contact support.',409)
+            saved=attach_saved_order(u,'business_payments',payid,order['id'])
+            u.put('business_orders',order['id'],{'payment_id':payid})
+            return saved
         def reserve(u):
             row=u.get('mobility_rides',identifier)
             if not row or row['customer_id']!=user['id']:fail('NOT_FOUND','Ride unavailable.',404)
@@ -525,16 +531,14 @@ def install(core):
             order=razorpay('orders',{'amount':pay['amount_paise'],'currency':'INR','receipt':pay['receipt'],'notes':{'business_payment_id':payid}})
             if not order.get('id') or order.get('amount')!=pay['amount_paise'] or order.get('currency')!='INR':fail('ORDER_RECONCILING','The payment order needs reconciliation. Do not retry a new payment.',409)
             def save(u):
-                current_pay=u.get('business_payments',payid);current_pay.update(order_id=order['id'],status='created');u.put('business_payments',payid,current_pay);u.put('business_orders',order['id'],{'payment_id':payid});return current_pay
+                return attach(u,order)
             pay=store.run(save)
         elif not pay.get('order_id'):
             orders=razorpay('orders?receipt='+pay['receipt']).get('items',[])
             matching=[o for o in orders if o.get('receipt')==pay['receipt'] and o.get('amount')==pay['amount_paise'] and o.get('currency')=='INR']
             if len(matching)==1:
                 def recover(u):
-                    item=u.get('business_payments',payid)
-                    if not item.get('order_id'):item.update(order_id=matching[0]['id'],status='created');u.put('business_payments',payid,item);u.put('business_orders',matching[0]['id'],{'payment_id':payid})
-                    return item
+                    return attach(u,matching[0])
                 pay=store.run(recover)
         if not pay.get('order_id'):fail('ORDER_RECONCILING','Payment setup is being reconciled. No second order will be created.',409)
         return {'key_id':os.environ['RAZORPAY_KEY_ID'],'order_id':pay['order_id'],'amount':pay['amount_paise'],'currency':'INR'}

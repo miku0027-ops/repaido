@@ -9,7 +9,7 @@ const evidence=await mkdtemp(tmpdir()+'/repaido-booking-cache-'),calls=[],errors
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let holdReads=false,offline=false,deny=false,version=1;
-const hired=(account)=>({id:'hire-'+account,version,state:'quoted',worker_id:'professional',worker_name:account+' professional',category:'Cleaning',starts_at:new Date(Date.now()+86400000).toISOString(),notes:'A saved private request',bonus_paise:0,quote:{base_paise:49900,travel_paise:2000,gst_paise:0,total_paise:51900,outbound_metres:1000,return_metres:1000}});
+const hired=(account)=>({id:'hire-'+account,version,state:'quoted',worker_id:'professional',worker_name:account+' professional',category:'Cleaning',starts_at:new Date(Date.now()+86400000).toISOString(),notes:'A saved private request',bonus_paise:0,policy:{billing_model:'day-v1'},quote:{base_paise:49900,travel_paise:2000,gst_paise:0,total_paise:51900,outbound_metres:1000,return_metres:1000}});
 const worker=account=>({id:account,name:'Fixture worker',status:'approved',role:'technician',city:'Balasore',categories:['cleaning'],skills:[],tools:[],online:true,points:0,completed_tasks:0,rating_count:0,rating_sum:0});
 const count=(path,method='GET')=>calls.filter(call=>call.path===path&&call.method===method).length;
 try{

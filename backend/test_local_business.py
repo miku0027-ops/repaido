@@ -154,6 +154,32 @@ def test_payment_order_timeout_recovers_without_second_order(api,route,gateway,m
     r=api.post(f'{BASE}/rides/{row["id"]}/payment-order',headers=auth('customer'))
     assert r.status_code==200 and len(gateway[0])==1
 
+
+@pytest.mark.parametrize('refunded', [False, True])
+def test_transport_order_return_preserves_payment_recovered_in_flight(api,route,gateway,monkeypatch,refunded):
+    import integrations
+    row,_=request(api,[quote(api,vehicle(api))]);row=act(api,row,'accept','worker')
+    provider=integrations.razorpay;url=f'{BASE}/rides/{row["id"]}'
+    def delayed(path,body=None,**kwargs):
+        result=provider(path,body,**kwargs)
+        if path=='orders':
+            recovered=api.post(url+'/payment-order',headers=auth('customer'))
+            assert recovered.status_code==200,recovered.text
+            assert recovered.json()['order_id']==result['id']
+            gateway[1]['pay_inflight']=dict(id='pay_inflight',order_id=result['id'],amount=result['amount'],
+                currency='INR',status='refunded' if refunded else 'captured',captured=True,
+                amount_refunded=result['amount'] if refunded else 0)
+            checked=api.post(url+'/payment-check',headers=auth('customer'),json={'payment_id':'pay_inflight'})
+            assert checked.status_code==200,checked.text
+        return result
+    monkeypatch.setattr(integrations,'razorpay',delayed)
+    response=api.post(url+'/payment-order',headers=auth('customer'));assert response.status_code==200,response.text
+    payid=local_business.digest(row['id']+':advance')
+    saved=main.operations_store.run(lambda u:u.get('business_payments',payid))
+    assert saved['status']==('refunded' if refunded else 'captured')
+    assert saved['net_paise']==(0 if refunded else local_business.ADVANCE)
+    assert len(gateway[0])==1
+
 def test_day_offer_is_funded_and_frozen_in_accepted_quote(api,monkeypatch):
     from test_hiring_records import setup_hire,request as hire_request,decide
     from integrations import settlement

@@ -38,7 +38,7 @@
 .home-boutique-art .home-entry-invitation svg{transition:transform 160ms ease}
 @media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){.home-boutique-art .home-entry:hover .home-entry-invitation svg{transform:translateX(3px)}.home-boutique-art:has(.home-entry:focus-visible){box-shadow:0 0 0 3px color-mix(in srgb,var(--home-accent) 15%,transparent)}}
 @media(prefers-reduced-motion:reduce){.home-boutique-art .home-photo-window img,.home-boutique-art .home-photo-frame::before,.home-boutique-art .home-photo-frame::after,.home-boutique-art .home-entry-art-orbit{transform:none!important}.home-boutique-art .home-entry-invitation svg{transition:none}}
-html.reduce-motion .home-boutique-art :is(.home-photo-window img,.home-photo-frame::before,.home-photo-frame::after,.home-entry-art-orbit){transform:none!important}
+html.reduce-motion .home-boutique-art .home-photo-window img,html.reduce-motion .home-boutique-art .home-photo-frame::before,html.reduce-motion .home-boutique-art .home-photo-frame::after,html.reduce-motion .home-boutique-art .home-entry-art-orbit{transform:none!important}
 .home-hub-dialog.home-hub-dialog{width:calc(100% - 24px);max-width:780px;max-height:90dvh;padding:20px;border:1px solid var(--home-line);border-radius:22px;overflow:auto;box-shadow:0 18px 80px #091b2b38}
 .home-hub-dialog::backdrop{background:#081d2999;backdrop-filter:blur(3px)}
 .home-hub-dialog>.app-modal-heading{margin-bottom:16px;align-items:center;border-bottom:1px solid var(--home-line);padding-bottom:12px;gap:8px}
@@ -74,6 +74,12 @@ html.reduce-motion .home-boutique-art :is(.home-photo-window img,.home-photo-fra
 .home-hub-dialog .home-small-job-list small{font-size:.5625rem;line-height:1.5}
 .home-published-price{display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:.875rem;font-weight:600;letter-spacing:-.03em;color:var(--home-accent)}
 .home-hub-dialog .home-small-jobs>p,.home-hub-dialog .home-rated-people>p{font-size:.625rem;line-height:1.65;margin:10px 0}
+.home-profile-criteria{border-top:1px solid var(--home-line);margin-top:10px;color:var(--home-accent)}
+.home-profile-criteria summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;list-style:none;cursor:pointer;font-size:.625rem;border-radius:8px}
+.home-profile-criteria summary::-webkit-details-marker{display:none}
+.home-profile-criteria[open] summary>svg{transform:rotate(90deg)}
+.home-profile-criteria summary:focus-visible{outline:3px solid var(--home-accent);outline-offset:2px}
+.home-hub-dialog .home-profile-criteria>p{font-size:.625rem;line-height:1.65;margin:0 0 10px}
 .home-people-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .home-hub-dialog .home-people-service-filter{font-size:.625rem;font-weight:500;margin-bottom:12px;max-width:100%;display:grid;gap:6px}
 .home-hub-dialog .home-people-service-filter select{font-size:.6875rem;width:100%;min-width:0;background:var(--home-paper)}

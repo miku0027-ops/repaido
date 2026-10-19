@@ -80,12 +80,13 @@ try{
   await context.route('**/api/**',async route=>{const url=new URL(route.request().url());const response=await route.fetch({url:apiOrigin+url.pathname+url.search});await route.fulfill({response});});
   const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
   await page.goto(origin+'/tests/repaidians-preview.html');await shell(page).locator('.rp-post').first().waitFor();
-  assert.deepEqual(await shell(page).getByRole('tablist',{name:'Feed source'}).getByRole('tab').allTextContents(),['For you','Saved']);
+  assert.deepEqual(await shell(page).getByRole('tablist',{name:'Feed source'}).getByRole('tab').allTextContents(),['For you','Saved','Liked']);
+  await nav(page,'Videos');assert.equal(await shell(page).locator('.rp-bottom-nav').getByRole('button',{name:'Videos',exact:true}).getAttribute('aria-current'),'page');await shell(page).getByRole('heading',{name:'The craft behind the result',exact:true}).waitFor();await nav(page,'Home');await shell(page).locator('.rp-post').first().waitFor();
   assert.equal(await shell(page).locator('main .rp-work-entry').count(),0,'Work tools do not displace the feed.');
   assert.equal(await shell(page).getByRole('button',{name:'Your activity',exact:true}).count(),0);
   await page.waitForFunction(()=>document.querySelectorAll('.rp-genres button[aria-pressed]')[1]?.textContent==='Electrical');
   await shell(page).getByRole('button',{name:'Like post',exact:true}).click();await shell(page).getByRole('button',{name:'Unlike post',exact:true}).waitFor();
-  await shell(page).getByRole('button',{name:'Your interests',exact:true}).click();await shell(page).locator('.rp-post').first().waitFor();
+  await shell(page).getByRole('tab',{name:'Liked',exact:true}).click();await shell(page).locator('.rp-post').first().waitFor();
   const liked=await api('/repaidians/feed?kind=post&mode=liked',alice);assert.deepEqual(liked.items.map(item=>item.id),[publication.item.id]);
   for(const width of [320,390,473])for(const theme of ['light','dark'])for(const text of [100,200]){
     await page.setViewportSize({width,height:850});await page.evaluate(({theme,text})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=text+'%';},{theme,text});

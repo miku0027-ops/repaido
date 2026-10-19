@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter,Depends
 from pydantic import Field, model_validator
 from operations import Input,Pin,Position,fail,metres,event
-from integrations import audit,razorpay,enabled,configured,snapshot_policy
+from integrations import audit,razorpay,enabled,configured,snapshot_policy,attach_saved_order
 from worker_records import public_profile
 
 DEFAULT={'version':'hire-v1','enabled':False,'base_paise':49900,'gst_bps':None,'travel_paise_per_km':1000,'minimum_travel_paise':2000,'day_hours':None,'membership_paise':None,'membership_days':30,'radius_buffer_bps':1500,'response_seconds':300,'rematch_bonus_bps':1000,'terms':'','missed_response_policy':'Review required; no automatic monetary deduction.'}
@@ -240,7 +240,7 @@ def install(core):
         if new:
             result=razorpay('orders',{'amount':fee['amount'],'currency':'INR','receipt':fee['receipt'],'notes':{'hire_membership':user['id']}})
             def attach(u):
-                f=u.get('hire_fees',fee['id']);f.update(order_id=result['id'],status='created');u.put('hire_fees',f['id'],f);return f
+                return attach_saved_order(u,'hire_fees',fee['id'],result['id'])
             fee=store.run(attach)
         if not fee.get('order_id'):fail('RECONCILING','The previous payment order is being checked. Use Check payment; no duplicate will be created.')
         return dict(key_id=os.environ['RAZORPAY_KEY_ID'],order_id=fee['order_id'],amount=fee['amount'],currency='INR')
@@ -248,7 +248,7 @@ def install(core):
         if not fee.get('order_id'):
             orders=[o for o in razorpay('orders?receipt='+fee['receipt']).get('items',[]) if o.get('receipt')==fee['receipt'] and o.get('amount')==fee['amount'] and o.get('currency')=='INR']
             if len(orders)!=1:return
-            fee['order_id']=orders[0]['id'];store.run(lambda u:u.put('hire_fees',fee['id'],fee))
+            fee=store.run(lambda u:attach_saved_order(u,'hire_fees',fee['id'],orders[0]['id']))
         payments=razorpay('orders/'+fee['order_id']+'/payments').get('items',[])
         for pay in payments:
             if pay.get('order_id')!=fee['order_id'] or pay.get('amount')!=fee['amount'] or pay.get('currency')!='INR':continue

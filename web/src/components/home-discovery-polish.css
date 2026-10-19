@@ -2,7 +2,12 @@
 #root .home-discovery-hub.discovery-polished{padding:14px;border-radius:22px;background:var(--discovery-photo-surface,#fff);box-shadow:0 12px 28px #132d5010,0 1px 2px #132d5008;border-color:var(--ui-line)}
 #root .home-discovery-hub.discovery-polished .home-discovery-heading{margin-bottom:12px}
 #root .home-discovery-hub.discovery-polished .discovery-settings-button{border-color:var(--ui-line);background:var(--discovery-photo-wash)}
-#root .home-discovery-hub.discovery-polished .home-discovery-switch{border:0;padding:4px;border-radius:14px}
+#root .home-discovery-hub.discovery-polished .home-discovery-navigation{flex-wrap:wrap}
+#root .home-discovery-hub.discovery-polished .home-discovery-switch{flex:1 1 15rem;flex-wrap:wrap;border:0;padding:4px;border-radius:14px}
+#root .home-discovery-hub.discovery-polished .home-discovery-switch button{flex:1 1 auto;flex-wrap:nowrap;min-inline-size:max-content;white-space:nowrap;word-break:normal;overflow-wrap:normal}
+#root .home-discovery-hub.discovery-polished :is(.market-discovery-modes,.mobility-mode-switch){display:flex;flex-wrap:wrap}
+#root .home-discovery-hub.discovery-polished :is(.market-discovery-modes,.mobility-mode-switch) button{flex:1 1 auto;flex-wrap:nowrap;min-inline-size:max-content;white-space:nowrap;word-break:normal;overflow-wrap:normal}
+#root .home-discovery-hub.discovery-polished :is(.market-discovery-modes,.mobility-mode-switch) button>span{white-space:nowrap;word-break:normal;overflow-wrap:normal}
 #root .home-discovery-hub.discovery-polished .home-discovery-switch button[aria-pressed=true]{box-shadow:0 3px 8px #122e5026}
 #root .home-discovery-hub.discovery-polished .quick-repair-finder{display:flex;flex-direction:column;gap:8px}
 #root .home-discovery-hub.discovery-polished .quick-repair-intro{margin:2px 0 -2px}
@@ -15,20 +20,30 @@
 #root .home-discovery-hub.discovery-polished .quick-repair-categories button[aria-pressed=true]{border-color:var(--discovery-photo-ink);background:var(--discovery-photo-wash);box-shadow:0 0 0 1px var(--discovery-photo-ink)}
 #root .home-discovery-hub.discovery-polished .quick-repair-input{border-color:var(--discovery-photo-line);border-radius:14px;box-shadow:0 4px 12px #132d5008}
 #root .home-discovery-hub.discovery-polished .quick-repair-ideas{margin:0}
-#root .home-discovery-hub.discovery-polished .quick-repair-ideas summary{min-height:36px;padding:2px 0}
+#root .home-discovery-hub.discovery-polished .quick-repair-ideas summary{min-height:44px;padding:2px 0}
 #root .home-discovery-hub.discovery-polished .quick-repair-result-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:0;padding-top:10px;border-top:1px solid var(--ui-line)}
 #root .home-discovery-hub.discovery-polished .quick-repair-result-header h3{margin:0;font-size:.8125rem}
 .quick-repair-filter{display:block;max-width:100%;min-width:0}
 #root .home-discovery-hub.discovery-polished .quick-repair-filter select{width:auto;max-width:100%;min-width:0;min-height:44px;padding:7px 25px 7px 9px;font-size:.75rem;border:1px solid var(--discovery-photo-line);border-radius:10px;background:var(--discovery-photo-surface);color:var(--discovery-photo-ink)}
 #root .home-discovery-hub.discovery-polished .quick-repair-results .quick-repair-result-count{margin:0 0 6px;font-size:.6875rem}
 #root .home-discovery-hub.discovery-polished .quick-repair-empty{padding:9px 11px;margin:0 0 8px;background:var(--discovery-photo-wash);border-radius:10px;font-size:.75rem;line-height:1.5}
-#root .home-discovery-hub.discovery-polished .quick-repair-service{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:44px;width:100%;font-size:.75rem;text-align:left;border:0;border-bottom:1px solid var(--ui-line);border-radius:0;background:transparent;color:var(--discovery-photo-ink);padding:10px 2px;box-shadow:none}
+#root .home-discovery-hub.discovery-polished .quick-repair-service{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:9px;min-height:44px;width:100%;font-size:.75rem;text-align:left;border:0;border-bottom:1px solid var(--ui-line);border-radius:0;background:transparent;color:var(--discovery-photo-ink);padding:10px 2px;box-shadow:none}
 #root .home-discovery-hub.discovery-polished .quick-repair-service svg{flex:none}
+#root .home-discovery-hub.discovery-polished .quick-repair-service strong{font-size:inherit;font-weight:600;white-space:nowrap}
 #root .home-discovery-hub.discovery-polished .quick-professional-card{border-color:var(--ui-line);border-radius:15px;box-shadow:0 4px 12px #142b4909}
+#root .home-discovery-hub.discovery-polished .quick-professional-offering{display:flex;align-items:baseline;justify-content:space-between;gap:5px 10px;flex-wrap:wrap;margin:0 0 5px;padding:7px 0;border-top:1px solid var(--ui-line);font-size:.6875rem;line-height:1.5;color:var(--discovery-photo-ink)}
+#root .home-discovery-hub.discovery-polished .quick-professional-offering>span{flex:1 1 9rem;min-width:0;overflow-wrap:anywhere}
+#root .home-discovery-hub.discovery-polished .quick-professional-offering>strong{font-size:inherit;font-weight:600;white-space:nowrap}
+#root .home-discovery-hub.discovery-polished .quick-professional-service-choice summary{min-height:44px}
+#root .home-discovery-hub.discovery-polished .quick-professional-service-choice[open] .quick-professional-skills{margin:6px 0 10px;font-size:.6875rem;line-height:1.5;color:var(--discovery-photo-muted)}
 
 /* Greeting and sticky search share one surface, with a static blur for low GPU cost. */
 #root .android-explore-screen{--home-glass-start:#eaf2ff;--home-glass:#eef3faff;--home-glass-tint:#eef3fad9}
 #root .android-explore-screen>.home-greeting.home-welcome-banner{border-bottom:0;margin-bottom:calc(-1 * var(--app-section-gap,var(--ui-section-gap)));padding-bottom:12px}
+#root .home-welcome-banner:has(.home-season-signature){flex-wrap:wrap}
+#root .home-welcome-banner:has(.home-season-signature) .home-welcome-copy{flex:1 1 9rem}
+#root .home-welcome-banner .home-season-signature{max-width:100%;width:max-content;margin-inline-start:auto}
+#root .home-welcome-banner .home-season-signature strong{white-space:normal;word-break:normal;overflow-wrap:normal}
 #root .android-explore-screen>.repaido-search-container{background:var(--home-glass-tint);backdrop-filter:blur(16px) saturate(125%);-webkit-backdrop-filter:blur(16px) saturate(125%);border:0;padding-block:8px 12px;isolation:isolate}
 #root .android-explore-screen>.repaido-search-container::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 10% 0%,#c6ddff44,transparent 65%);opacity:.6}
 #root .android-explore-screen .repaido-search-bar{background:var(--ui-surface);border-radius:16px;box-shadow:0 3px 12px #1428580a}

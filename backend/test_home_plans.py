@@ -136,7 +136,8 @@ def test_day_change_rechecks_future_time_and_same_day_working_hours(api,monkeypa
     assert next(v for v in stored['visits'] if v['id']==visit['id'])['starts_epoch']==visit['starts_epoch']
 
 
-def test_complete_visit_monthly_capture_and_no_duplicate_charge(api,monkeypatch):
+@pytest.mark.parametrize('during_create', ['none', 'capture', 'refund'])
+def test_complete_visit_monthly_capture_and_no_duplicate_charge(api,monkeypatch,during_create):
     p=active(api);v=p['visits'][0];clock=[v['starts_epoch']-3600]
     monkeypatch.setattr(home_plans.time,'time',lambda:clock[0]);monkeypatch.setattr(home_plans,'iso_today',lambda:datetime.fromtimestamp(clock[0],home_plans.IST).date())
     assert main.home_plans_tick()['visits_created']==1
@@ -157,12 +158,34 @@ def test_complete_visit_monthly_capture_and_no_duplicate_charge(api,monkeypatch)
     clock[0]=home_plans.epoch(p['periods'][0]['end'],'23:59')+120
     main.home_plans_tick();p=view(api)[0];inv=p['invoices'][0];assert inv['status']=='ready' and inv['total_paise']==11800 and len(inv['rows'])==1
     monkeypatch.setenv('REPAIDO_PAYMENTS_ENABLED','true');monkeypatch.setenv('RAZORPAY_KEY_ID','test_key');monkeypatch.setenv('RAZORPAY_KEY_SECRET','test-secret');monkeypatch.setenv('RAZORPAY_WEBHOOK_SECRET','test-webhook')
-    calls=[]
-    def provider(path,body=None):calls.append((path,body));return {'id':'order_home_test'}
+    calls=[];order={};inflight_payment={}
+    def provider(path,body=None):
+        calls.append((path,body))
+        if path=='orders':
+            order.update(id='order_home_test',**body)
+            if during_create!='none':
+                inflight_payment.update(id='pay_home_inflight',order_id=order['id'],currency='INR',
+                    amount=body['amount'],status='refunded' if during_create=='refund' else 'captured',
+                    captured=True,amount_refunded=body['amount'] if during_create=='refund' else 0)
+                assert main.integrations_reconcile()['errors']==0
+            return order
+        if path.startswith('orders?receipt='):return {'items':[order]}
+        if path=='orders/order_home_test/payments':return {'items':[inflight_payment]}
+        raise AssertionError(path)
     monkeypatch.setattr(home_plans,'razorpay',provider)
+    monkeypatch.setattr(integrations,'razorpay',provider)
     orderurl='/operations/home/plans/'+p['id']+'/invoices/0/order'
     with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:api.post(orderurl,headers=auth('customer')),range(2)))
-    assert len(calls)==1 and any(r.status_code==200 for r in results)
+    assert sum(path=='orders' for path,_ in calls)==1
+    if during_create!='none':
+        assert all(r.status_code==409 for r in results)
+        saved=main.operations_store.run(lambda u:u.get('payments','home-'+p['id']+':0'))
+        assert saved['status']==('refunded' if during_create=='refund' else 'captured')
+        if during_create=='refund':
+            main.operations_store.run(lambda u:integrations.apply_payment(u,{**inflight_payment,'status':'captured','amount_refunded':0}))
+            assert main.operations_store.run(lambda u:u.get('payments',saved['id']))['status']=='refunded'
+        return
+    assert any(r.status_code==200 for r in results)
     assert api.post(url+'/payment-order',headers=auth('customer')).status_code==409
     payment=dict(id='pay_home_test',order_id='order_home_test',currency='INR',amount=11800,status='failed',captured=False)
     assert main.operations_store.run(lambda u:integrations.apply_payment(u,payment))['status']=='created'

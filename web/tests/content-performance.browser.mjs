@@ -105,11 +105,11 @@ try{
   metrics.cold={apiRequests:counts(stage).length,feedRequests:counts(stage,feedPath).length,stateRequests:counts(stage,row=>row.path==='/api/repaidians/state').length,avatarDownloads:counts(stage,row=>row.path===photo.url).length,videoDownloads:counts(stage,row=>row.path===video.url).length,bytes:counts(stage).reduce((sum,row)=>sum+row.bytes,0)};
   assert.equal(metrics.cold.videoDownloads,0,'An offscreen feed video does not fetch its bytes.');
   if(!baseline){assert.equal(metrics.cold.avatarDownloads,1,'Concurrent author/story/media uses coalesce the protected asset request.');assert.ok(counts('cold',row=>row.path==='/api/repaidians/state').every(row=>new URLSearchParams(row.search).get('content')==='compact'));checks.push('Cold real feed retains twelve publications, coalesces duplicate protected assets and leaves offscreen video unfetched');}
-  stage='first-works';await nav(page,'Works');await shell(page).getByLabel('Work videos',{exact:true}).waitFor();
+  stage='first-works';await nav(page,baseline?'Works':'Videos');await shell(page).getByLabel('Work videos',{exact:true}).waitFor();
   metrics.hiddenVideoDownloads=counts(stage,row=>row.path===hiddenVideo.url).length;assert.equal(metrics.hiddenVideoDownloads,0,'An offscreen mounted reel never fetches its video bytes.');await nav(page,'Home');
-  stage='warm-tabs';for(let index=0;index<3;index++){await nav(page,'Works');await nav(page,'Home');}
+  stage='warm-tabs';for(let index=0;index<3;index++){await nav(page,baseline?'Works':'Videos');await nav(page,'Home');}
   metrics.warmTabs={cycles:3,feedRequests:counts(stage,feedPath).length,mediaDownloads:counts(stage,mediaPath).length,bytes:counts(stage).reduce((sum,row)=>sum+row.bytes,0)};
-  if(!baseline){assert.equal(metrics.warmTabs.feedRequests,0);assert.equal(metrics.warmTabs.mediaDownloads,0);checks.push('Three actual warm Home/Works round trips request no repeated feed or protected media bytes');}
+  if(!baseline){assert.equal(metrics.warmTabs.feedRequests,0);assert.equal(metrics.warmTabs.mediaDownloads,0);checks.push('Three actual warm Home/Videos round trips request no repeated feed or protected media bytes');}
   stage='story-reopen';for(let index=0;index<2;index++){await shell(page).getByRole('button',{name:'View '+bob.user.name+' stories',exact:true}).click();const story=page.getByRole('dialog',{name:'Story by '+bob.user.name,exact:true});await story.locator('img.rp-media').waitFor();await story.getByRole('button',{name:'Close story',exact:true}).click();await settle(page);}
   metrics.storyReopen={opens:2,mediaDownloads:counts(stage,mediaPath).length};if(!baseline)assert.equal(metrics.storyReopen.mediaDownloads,0);
   stage='idle';await page.waitForTimeout(31000);await settle(page);

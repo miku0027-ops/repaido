@@ -68,7 +68,7 @@ def install(core):
         if create:
             result=gateway.razorpay('orders',dict(amount=a['amount_paise'],currency='INR',receipt=a['receipt'],notes={'repaido_job':job_id,'parts_quote':quote_id}))
             def save(u):
-                row=u.get('payments',quote_id);row.update(order_id=result['id'],status='created');u.put('payments',quote_id,row);return row
+                return gateway.attach_saved_order(u,'payments',quote_id,result['id'])
             a=store.run(save)
         if not a.get('order_id'):fail('ORDER_RECONCILING','Payment setup is being reconciled. Do not start another payment.',409)
         return dict(key_id=os.environ['RAZORPAY_KEY_ID'],order_id=a['order_id'],amount=a['amount_paise'],currency='INR')

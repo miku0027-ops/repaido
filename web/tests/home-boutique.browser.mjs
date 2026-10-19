@@ -16,12 +16,13 @@ await page.addScriptTag({path:'node_modules/axe-core/axe.min.js'});
 assert.match(await page.locator('.home-entry-footnote').innerText(),/₹599(?:\.00)?\b/);
 assert(!(await page.locator('.home-entry-footnote').innerText()).includes('₹5.99'));
 await page.locator('.home-entry').click();await page.locator('.home-person-card').waitFor();assert.equal(await page.locator('.home-person-card').count(),1);
+const criteria=page.locator('.home-profile-criteria');assert.equal(await criteria.getAttribute('open'),null);await criteria.locator('summary').click();await page.getByText('Ratings include work across services.',{exact:false}).waitFor();assert.match(await criteria.innerText(),/4.5 or above/);await criteria.locator('summary').click();
 const checks=[];
 async function audit(name){for(const width of [320,390,768])for(const theme of ['light','dark'])for(const size of ['100%','200%']){
  await page.setViewportSize({width,height:900});await page.evaluate(({theme,size})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=size;},{theme,size});
  const metrics=await page.locator('.home-hub-dialog').evaluate(el=>({client:el.clientWidth,scroll:el.scrollWidth}));assert(metrics.scroll<=metrics.client+1,`${name} ${width} ${theme} ${size}: dialog overflow ${JSON.stringify(metrics)}`);
  const violations=await page.evaluate(async()=>{const report=await window.axe.run('.home-hub-dialog',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}});return report.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}));});assert.deepEqual(violations,[],`${name} ${width} ${theme} ${size} accessibility`);
- const small=await page.locator('.home-hub-dialog button').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>({label:el.getAttribute('aria-label')||el.textContent,w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height})).filter(m=>m.w<43.9||m.h<43.9));assert.deepEqual(small,[],`${name} hit targets`);
+ const small=await page.locator('.home-hub-dialog button,.home-hub-dialog summary').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>({label:el.getAttribute('aria-label')||el.textContent,w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height})).filter(m=>m.w<43.9||m.h<43.9));assert.deepEqual(small,[],`${name} hit targets`);
  }checks.push(name+' responsive +200% + light/dark AAA +44px targets');await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%'});await page.setViewportSize({width:390,height:844});}
 await audit('catalogue');
 assert((await page.locator('.home-small-job-list').innerText()).includes('₹599'));

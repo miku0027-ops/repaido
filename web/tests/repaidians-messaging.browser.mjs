@@ -125,7 +125,7 @@ try{
   await shell(alicePage).locator('.rp-profile-title').getByText(retired.user.name,{exact:true}).waitFor();
   assert.equal(await shell(alicePage).getByRole('button',{name:'Message',exact:true}).count(),0,'An unapproved public peer profile cannot offer a broken messaging action.');
   await shell(alicePage).getByRole('button',{name:'Back to community',exact:true}).click();
-  await openInbox(alicePage);await alicePage.waitForLoadState('networkidle');
+  await openInbox(alicePage);await threadRows(alicePage).first().waitFor();await alicePage.waitForLoadState('networkidle');
   assert.equal(await threadRows(alicePage).count(),30);assert.equal(await inbox(alicePage).getByText(retired.user.name,{exact:true}).count(),0);assert.equal(await inbox(alicePage).getByText(bob.user.name,{exact:true}).count(),0);
   await inbox(alicePage).getByRole('button',{name:'Earlier conversations',exact:true}).click();await inbox(alicePage).getByText(bob.user.name,{exact:true}).waitFor();assert.equal(await threadRows(alicePage).count(),31);
   // An expanded inbox must refresh its complete loaded window authoritatively.

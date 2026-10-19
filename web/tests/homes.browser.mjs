@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdir,writeFile} from 'node:fs/promises';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const origin='http://127.0.0.1:5192',out='/tmp/repaido-homes-browser';await mkdir(out,{recursive:true});
+const origin=process.env.HOMES_PREVIEW_ORIGIN||'http://127.0.0.1:5192',out='/tmp/repaido-homes-browser';await mkdir(out,{recursive:true});
 const home={id:'00000000-0000-4000-8000-000000000001',version:1,title:'Sunny two bedroom apartment',city:'Balasore',locality:'Station Road',property_type:'apartment',bedrooms:2,furnishing:'unfurnished',rent_paise:1200000,deposit_paise:2400000,description:'Two bedrooms with balcony, parking and separate maintenance charges.',available_from:'2026-11-01',photo_id:'fixture-photo',image_url:'/images/home-fixture.jpg',status:'published'};
 const authFixture=`const listeners=new Set();const user=uid=>uid?{uid,getIdToken:async()=>uid}:null;export const auth={currentUser:user('buyer'),authStateReady:async()=>{},onIdTokenChanged(next){const fn=typeof next==='function'?next:next.next.bind(next);listeners.add(fn);queueMicrotask(()=>fn(auth.currentUser));return()=>listeners.delete(fn);}};window.__homesSwitchAccount=uid=>{auth.currentUser=user(uid);listeners.forEach(fn=>fn(auth.currentUser));};export const db={};export const app={};export const analytics=null;export const firebaseConfig={};export default app;`;
 const requests=[],errors=[],checks=[];let enquiry=null,failSave=false,failPhoto=false,photoUnavailable=true,reviewed=false,holdMine=null,catalogPaging=false;
@@ -33,10 +33,22 @@ try{
  });
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/tests/homes-preview.html');await page.getByRole('button',{name:'Homes',exact:true}).click();await page.getByRole('heading',{name:home.title,exact:true}).waitFor();
- for(const width of [320,467]){await page.setViewportSize({width,height:850});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:`${out}/browse-${width}.png`,fullPage:true});}
  await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
+ let lightSurface='';
+ for(const width of [300,390,1280])for(const theme of ['light','dark'])for(const scale of [100,200]){
+  await page.setViewportSize({width,height:850});await page.evaluate(({theme,scale})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=scale+'%';},{theme,scale});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Homes overflow: ${width}/${theme}/${scale}`);
+  const surface=await page.locator('.homes-panel').evaluate(node=>getComputedStyle(node).backgroundColor);if(theme==='light')lightSurface=surface;else assert.notEqual(surface,lightSurface,'Homes must apply the dark palette');
+  const controls=await page.locator('.homes-panel button,.rental-destination button').evaluateAll(elements=>elements.filter(node=>node.getClientRects().length).map(node=>{const rect=node.getBoundingClientRect();const ranges=[...node.childNodes].filter(child=>child.nodeType===Node.TEXT_NODE&&child.textContent.trim()).flatMap(child=>child.textContent.trim().split(/\s+/).map(word=>{const range=document.createRange(),start=child.textContent.indexOf(word);range.setStart(child,start);range.setEnd(child,start+word.length);return {word,lines:range.getClientRects().length};}));return {text:node.textContent,width:rect.width,height:rect.height,scroll:node.scrollWidth,client:node.clientWidth,ranges};}));
+  for(const control of controls){assert(control.height>=43.9,JSON.stringify(control));assert(control.scroll<=control.client+1,JSON.stringify(control));assert(!control.ranges.some(range=>range.lines>1),`Button words must stay whole: ${JSON.stringify(control)}`);}
+  const violations=await page.evaluate(async()=>(await window.axe.run('.homes-panel',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}})).violations.map(issue=>({id:issue.id,nodes:issue.nodes.map(node=>({target:node.target,summary:node.failureSummary}))})));assert.deepEqual(violations,[],`Homes ${width}/${theme}/${scale}`);
+  await page.screenshot({path:`${out}/browse-${width}-${theme}-${scale}.png`,fullPage:true});
+ }
+ await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});await page.setViewportSize({width:390,height:850});
  const accessibility=await page.evaluate(async()=>{const result=await window.axe.run(document.querySelector('.homes-panel'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}});return result.violations.map(x=>({id:x.id,nodes:x.nodes.map(n=>n.target)}));});assert.deepEqual(accessibility,[]);
- checks.push('Rental type switch and home catalogue fit 320px and 467px screens; catalogue passes WCAG A/AA checks');
+ checks.push('Rental type switch and home catalogue fit300/390/1280px, light/dark and200% text; catalogue passes WCAG A/AA checks');
+ await page.getByRole('button',{name:'Equipment',exact:true}).focus();await page.keyboard.press('Enter');assert.equal(await page.getByRole('button',{name:'Equipment',exact:true}).getAttribute('aria-pressed'),'true');await page.keyboard.press('Tab');assert.equal(await page.getByRole('button',{name:'Homes',exact:true}).evaluate(node=>node===document.activeElement),true);await page.keyboard.press('Enter');await page.getByRole('heading',{name:home.title,exact:true}).waitFor();
+ assert.equal(await page.locator('.homes-tabs button').first().evaluate(node=>getComputedStyle(node).transitionDuration),'0s');checks.push('Rental destinations work by keyboard; reduced motion removes control transitions');
  await Promise.all([page.waitForRequest(r=>r.url().endsWith('/customer-hub/saved')&&r.method()==='POST'),page.getByRole('button',{name:'Save home',exact:true}).click()]);assert(requests.some(x=>x.payload?.kind==='home'));
  await page.getByRole('button',{name:'Details & viewing',exact:true}).click();const dialog=page.getByRole('dialog');
  await dialog.getByLabel('Propose a viewing (your local time)').fill('2026-12-01T14:00');

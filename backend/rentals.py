@@ -350,14 +350,29 @@ def install(core):
             u.put('rentals',rid,r);notify(u,r,'Resolved',admin['id']);return rental_view(u,r,admin['id'],True)
         return store.run(save)
 
+    def attach_order(p,order):
+        """Bind the provider order without rolling back a concurrent check."""
+        if (not isinstance(order.get('id'),str) or not order['id'] or
+                type(order.get('amount')) is not int or order['amount']!=p['amount_paise'] or
+                order.get('currency')!='INR' or order.get('receipt')!=p['receipt']):
+            fail('ORDER_MISMATCH','Provider order needs review.')
+        def save(u):
+            saved=u.get('rental_payments',p['id'])
+            if saved.get('order_id') and saved['order_id']!=order['id']:
+                fail('ORDER_MISMATCH','A different provider order is already attached. Payment needs review.')
+            saved['order_id']=order['id']
+            # A second request may recover this receipt and verify payment
+            # while the original provider POST is still returning.
+            if saved['status']=='creating':saved['status']='created'
+            u.put('rental_payments',saved['id'],saved)
+            return saved
+        return store.run(save)
+
     def reconcile_payment(p):
         if not p.get('order_id'):
             rows=[x for x in razorpay('orders?receipt='+p['receipt']).get('items',[]) if x.get('receipt')==p['receipt']]
             if len(rows)!=1: return {'status':'reconciling','message':'Order outcome unknown. No duplicate order was created.'}
-            if rows[0].get('amount')!=p['amount_paise'] or rows[0].get('currency')!='INR':fail('ORDER_MISMATCH','Provider order needs review.')
-            def attach(u):
-                saved=u.get('rental_payments',p['id']);saved.update(order_id=rows[0]['id'],status='created');u.put('rental_payments',p['id'],saved);return saved
-            p=store.run(attach)
+            p=attach_order(p,rows[0])
         for payment in razorpay('orders/'+p['order_id']+'/payments').get('items',[]):store.run(lambda u:apply_payment(u,payment))
         return store.run(lambda u:u.get('rental_payments',p['id']))
 
@@ -386,9 +401,7 @@ def install(core):
         p,new=store.run(reserve)
         if new:
             result=razorpay('orders',{'amount':p['amount_paise'],'currency':'INR','receipt':p['receipt'],'notes':{'rental_id':rid,'kind':kind}})
-            def attach(u):
-                saved=u.get('rental_payments',p['id']);saved.update(order_id=result['id'],status='created');u.put('rental_payments',p['id'],saved);return saved
-            p=store.run(attach)
+            p=attach_order(p,result)
         if not p.get('order_id'):fail('RECONCILING','Order creation is being checked. Use Check payment; do not create another order.')
         return {'key_id':os.environ['RAZORPAY_KEY_ID'],'order_id':p['order_id'],'amount':p['amount_paise'],'currency':'INR'}
 

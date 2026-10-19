@@ -9,7 +9,7 @@ const base=process.env.FEEDBACK_PREVIEW||'http://127.0.0.1:5187/tests/feedback-p
 const checks=[],errors=[];
 let photoCalls=0,listingCalls=0,decisionCalls=0,profileFails=false,profileGate=null;
 let rows=[];
-let hire={id:'hire-one',version:1,state:'quoted',worker_id:'professional',worker_name:'Test professional',category:'Cleaning',starts_at:new Date(Date.now()+86400000).toISOString(),notes:'Fixture cleaning request',bonus_paise:0,quote:{base_paise:49900,travel_paise:2000,gst_paise:0,total_paise:51900,outbound_metres:1000,return_metres:1000}};
+let hire={id:'hire-one',version:1,state:'quoted',worker_id:'professional',worker_name:'Test professional',category:'Cleaning',starts_at:new Date(Date.now()+86400000).toISOString(),notes:'Fixture cleaning request',bonus_paise:0,policy:{billing_model:'day-v1'},quote:{base_paise:49900,travel_paise:2000,gst_paise:0,total_paise:51900,outbound_metres:1000,return_metres:1000}};
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try{
  const page=await browser.newPage({viewport:{width:465,height:850},reducedMotion:'reduce'});page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));

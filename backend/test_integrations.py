@@ -78,6 +78,41 @@ def test_order_timeout_not_duplicated(api,monkeypatch):
     assert len(calls)==1
     assert api.post(url,headers=auth('stranger')).status_code==404
 
+
+@pytest.mark.parametrize('kind', ['service', 'parts'])
+@pytest.mark.parametrize('refunded', [False, True])
+def test_order_response_preserves_concurrent_capture_or_refund(api,monkeypatch,kind,refunded):
+    """The real reconciler can recover a receipt before order creation returns."""
+    for name in ('RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET','RAZORPAY_WEBHOOK_SECRET'):monkeypatch.setenv(name,'test')
+    monkeypatch.setenv('REPAIDO_PAYMENTS_ENABLED','true')
+    if kind=='parts':
+        from test_parts_advances import setup
+        j=setup(api);key=j['proposal']['id']
+        url=f"/operations/jobs/{j['id']}/parts/{key}/payment-order"
+    else:
+        j=completed(api);key=j['id'];url=f"/operations/jobs/{j['id']}/payment-order"
+    order={};payment={}
+    def provider(path,body=None,**kwargs):
+        if path=='orders':
+            order.update(id='order_race',**body)
+            payment.update(id='pay_race',order_id=order['id'],amount=body['amount'],currency='INR',
+                status='refunded' if refunded else 'captured',captured=True,
+                amount_refunded=body['amount'] if refunded else 0)
+            assert main.integrations_reconcile()['errors']==0
+            return order
+        if path.startswith('orders?receipt='):return {'items':[order]}
+        if path=='orders/order_race/payments':return {'items':[payment]}
+        raise AssertionError(path)
+    monkeypatch.setattr(integration,'razorpay',provider)
+    response=api.post(url,headers=auth('customer'));assert response.status_code==200,response.text
+    saved=main.operations_store.run(lambda u:u.get('payments',key))
+    assert saved['status']==('refunded' if refunded else 'captured')
+    assert saved['payment_id']=='pay_race'
+    # A delayed capture observation cannot restore credit after a refund.
+    if refunded:
+        main.operations_store.run(lambda u:integration.apply_payment(u,{**payment,'status':'captured','amount_refunded':0}))
+        assert main.operations_store.run(lambda u:u.get('payments',key))['status']=='refunded'
+
 def test_bank_reference_binding(api,monkeypatch):
     onboard(api,approve=False)
     def provider(path,**kwargs):

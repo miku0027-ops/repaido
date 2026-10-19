@@ -90,6 +90,7 @@ import CatalogApp from './CatalogApp';
 import { Brand, Modal, Field } from './components/ui';
 import {MarketWorkspace} from './components/MarketWorkspace';
 import {BookingSignIn} from './components/BookingSignIn';
+import {AsyncWorkspace} from './components/AsyncWorkspace';
 import RepaidoBrand from './components/RepaidoBrand';
 import ServiceImage from './components/ServiceImage';
 import { cities, formatMoney, formatDuration, getTechnicianProgress } from './data';
@@ -113,16 +114,11 @@ import {
   createWorkerFromOnboarding,
   type WorkerOnboardingDraft
 } from './services/repaidoService';
-import { WorkerPortal } from './components/WorkerPortal';
-import LiveWorkerPortal from './components/LiveWorkerPortal';
 import LiveBooking from './components/LiveBooking';
 import { OperationalJobs } from './components/OperationalJobs';
-import OperationsAdmin from './components/OperationsAdmin';
 import { SparePartsShop } from './components/SparePartsShop';
-import { ShopAdminPortal } from './components/ShopAdminPortal';
 import { B2BMarketplace } from './components/B2BMarketplace';
 import { LocationPickerModal } from './components/LocationPickerModal';
-import PartnerRegistration from './components/PartnerRegistration';
 import BrandTabTransition from './components/BrandTabTransition';
 import { listenCustomerVisits } from './services/customerBrowseTracker';
 import './reference.css';
@@ -134,9 +130,20 @@ const PublicSellerProfile=lazy(()=>import('./components/PublicSellerProfile'));
 const ShopStorefront=lazy(()=>import('./components/ShopStorefront'));
 const MarketInbox=lazy(()=>import('./components/MarketInbox').then(module=>({default:module.MarketInbox})));
 const MarketAccessModal=lazy(()=>import('./components/MarketAccessPanel').then(module=>({default:module.MarketAccessModal})));
+const LiveWorkerPortal=lazy(()=>import('./components/LiveWorkerPortal'));
+const OperationsAdmin=lazy(()=>import('./components/OperationsAdmin'));
+const PartnerRegistration=lazy(()=>import('./components/PartnerRegistration'));
 
 type Tab = 'Explore' | 'Services' | 'Bookings' | 'ShopSpares' | 'You' | 'Hire';
 type Place = { city: string; address: string; landmark: string; label: string; lat?: number; lng?: number; accuracy?: number; confirmed: boolean };
+
+function revealBottomDestination(links:HTMLDivElement,button:HTMLElement|null){
+  if(!button)return;
+  const frame=links.getBoundingClientRect(),item=button.getBoundingClientRect();
+  const left=frame.left+2,right=frame.right-2;
+  if(item.left<left)links.scrollLeft+=item.left-left;
+  else if(item.right>right)links.scrollLeft+=item.right-right;
+}
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -332,6 +339,18 @@ export default function App() {
     }
     return 'customer';
   });
+  const bottomNavLinks=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const links=bottomNavLinks.current;if(!links)return;
+    const reveal=(preferFocus=false)=>{
+      const focused=preferFocus&&links.contains(document.activeElement)?document.activeElement?.closest<HTMLElement>('.android-nav-item'):null;
+      revealBottomDestination(links,focused||links.querySelector<HTMLElement>('[aria-current="page"]'));
+    };
+    reveal();const observer=new ResizeObserver(()=>reveal(true));observer.observe(links);
+    // Text can change the buttons' intrinsic widths without resizing the row.
+    links.querySelectorAll('.android-nav-item').forEach(button=>observer.observe(button));
+    return()=>observer.disconnect();
+  },[tab,portal]);
 
   const navigatePortal = (target: 'customer' | 'worker' | 'shop-admin' | 'company-admin') => {
     setPortal(target);
@@ -772,21 +791,21 @@ export default function App() {
   const closeCommunity=()=>{setRepaidiansOpen(false);setCommunityProfileId(undefined);setCommunityJobId(undefined);if(communityContractReturn){setCommunityContractReturn(false);setRideBookings(false);setContractBookings(true);setTab('Bookings');}};
   if (portal === 'worker') {
     return (
-      <LiveWorkerPortal
+      <AsyncWorkspace label="Worker workspace" onBack={()=>communityReturn?backToCommunity():navigatePortal('customer')}><LiveWorkerPortal
         onBack={() => communityReturn?backToCommunity():navigatePortal('customer')}
         onOpenB2BMarket={() => {
           navigatePortal('customer');
           setTab('ShopSpares');
           setMarketSubTab('b2b');
         }}
-      />
+      /></AsyncWorkspace>
     );
   }
   if (portal === 'shop-admin') {
-    return <><AccountEmailNotice account={accountProfile} onOpen={()=>setEmailProfileOpen(true)}/><OperationsAdmin shop onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} />{emailProfileOpen&&<AccountEmailAccess key={user?.id||'guest'} account={accountProfile} onClose={()=>setEmailProfileOpen(false)} onSignIn={()=>{setEmailProfileOpen(false);navigatePortal('customer');setSheet('auth');}}/>}</>;
+    return <><AccountEmailNotice account={accountProfile} onOpen={()=>setEmailProfileOpen(true)}/><AsyncWorkspace label="Shop workspace" onBack={()=>communityReturn?backToCommunity():navigatePortal('customer')}><OperationsAdmin shop onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} /></AsyncWorkspace>{emailProfileOpen&&<AccountEmailAccess key={user?.id||'guest'} account={accountProfile} onClose={()=>setEmailProfileOpen(false)} onSignIn={()=>{setEmailProfileOpen(false);navigatePortal('customer');setSheet('auth');}}/>}</>;
   }
   if (portal === 'company-admin') {
-    return <OperationsAdmin onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} />;
+    return <AsyncWorkspace label="Company workspace" onBack={()=>communityReturn?backToCommunity():navigatePortal('customer')}><OperationsAdmin onBack={() => communityReturn?backToCommunity():navigatePortal('customer')} /></AsyncWorkspace>;
   }
 
   return (
@@ -1255,6 +1274,7 @@ export default function App() {
           {/* Mobile Bottom Navigation Bar */}
           <nav data-captain-gold={captainMembership.gold} className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
             <SupportQuickButton onOpen={()=>{setSupportCaseId('');setSheet('support_ticket');}}/>
+            <div className="android-nav-links" ref={bottomNavLinks} onFocusCapture={event=>revealBottomDestination(event.currentTarget,(event.target as HTMLElement).closest<HTMLElement>('.android-nav-item'))}>
             <button
               className={`android-nav-item ${tab === 'Explore' ? 'active' : ''}`}
               onClick={() => navigate('Explore')}
@@ -1292,6 +1312,7 @@ export default function App() {
             </button>
 
             <button className={`android-nav-item ${tab === 'Hire' ? 'active' : ''}`} onClick={() => navigate('Hire')} aria-current={tab === 'Hire' ? 'page' : undefined}><PersonSearch size={24} aria-hidden="true"/><span>Hire</span></button>
+            </div>
           </nav>
         </div>
 
@@ -1424,7 +1445,7 @@ export default function App() {
 
       {/* Partner Registration Modal (Specialist & Technician) */}
       {sheet === 'partner_registration' && (
-        <PartnerRegistration onClose={() => setSheet('')} />
+        <AsyncWorkspace label="Partner registration" dialog onBack={()=>setSheet('')}><PartnerRegistration onClose={() => setSheet('')} /></AsyncWorkspace>
       )}
 
       {sheet === 'Register as specialist/technician' && (

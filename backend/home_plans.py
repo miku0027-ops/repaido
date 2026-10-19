@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Response
 import home_briefs
 from pydantic import Field, model_validator
 from operations import Input, Pin, fail, metres, event, at_site
-from integrations import audit, snapshot_policy, razorpay, enabled, configured
+from integrations import audit, snapshot_policy, razorpay, enabled, configured, attach_saved_order
 
 IST=ZoneInfo('Asia/Kolkata')
 OFFERINGS=[
@@ -474,7 +474,7 @@ def install(core):
         if create:
             result=razorpay('orders',dict(amount=a['amount_paise'],currency='INR',receipt=a['receipt'],notes={'repaido_home_invoice':key}))
             def finish(u):
-                a=u.get('payments',key);a.update(order_id=result['id'],status='created');u.put('payments',key,a);return a
+                return attach_saved_order(u,'payments',key,result['id'])
             a=store.run(finish)
         if a['status'] in ('captured','refunded','partially_refunded'):fail('NOT_DUE','This invoice cannot take another payment.')
         if not a.get('order_id'):fail('ORDER_RECONCILING','Payment setup is being reconciled. Retry status later; no second order will be created.')

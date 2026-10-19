@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Query
 from pydantic import Field
 from operations import Input, fail
-from integrations import audit, enabled, configured, razorpay
+from integrations import audit, enabled, configured, razorpay, attach_saved_order
 from contract_work import public_hiring
 from worker_records import public_profile
 
@@ -304,7 +304,7 @@ def install(core):
             result=razorpay('orders',{'amount':fee['amount'],'currency':'INR','receipt':fee['receipt'],'notes':{'network_annual':fee['worker_id'],'role':fee['role']}})
             if result.get('amount')!=fee['amount'] or result.get('currency')!='INR' or result.get('receipt')!=fee['receipt']:fail('PROVIDER_MISMATCH','Payment order needs reconciliation.',503)
             def attach(u):
-                f=u.get('network_fees',fee['id']);f.update(order_id=result['id'],status='created');u.put('network_fees',f['id'],f);return f
+                return attach_saved_order(u,'network_fees',fee['id'],result['id'])
             fee=store.run(attach)
         if not fee.get('order_id'):fail('RECONCILING','Check payment before retrying. A previous order is being reconciled.',409)
         if fee.get('status')=='refunded':fail('REFUNDED','This payment was refunded. Contact support before purchasing again.',409)
@@ -314,7 +314,7 @@ def install(core):
             rows=[o for o in razorpay('orders?receipt='+fee['receipt']).get('items',[]) if o.get('receipt')==fee['receipt'] and o.get('amount')==fee['amount'] and o.get('currency')=='INR']
             if len(rows)!=1:return
             def recover(u):
-                f=u.get('network_fees',fee['id']);f['order_id']=rows[0]['id'];u.put('network_fees',f['id'],f);return f
+                return attach_saved_order(u,'network_fees',fee['id'],rows[0]['id'])
             fee=store.run(recover)
         for pay in razorpay('orders/'+fee['order_id']+'/payments').get('items',[]):
             if pay.get('order_id')!=fee['order_id'] or pay.get('amount')!=fee['amount'] or pay.get('currency')!='INR':continue

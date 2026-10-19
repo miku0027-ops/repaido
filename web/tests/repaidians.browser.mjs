@@ -120,10 +120,22 @@ async function delayedRealRead(page,path){
   releaseReads.push(release);
   const pattern='**/api'+path+'*';
   const handler=async route=>{
-    const url=new URL(route.request().url());
-    const response=await route.fetch({url:apiOrigin+url.pathname+url.search});
-    captured(await response.json());await barrier;
-    await route.fulfill({response});finished();
+    const request=route.request(),url=new URL(request.url());
+    // Track this held response only. The community keeps live metadata/usage
+    // requests running, so a global network-idle wait is not a delivery signal.
+    let delivered;
+    const delivery=new Promise(resolve=>{delivered=resolve;});
+    const settled=completed=>{if(completed!==request)return;page.off('requestfinished',settled);page.off('requestfailed',settled);delivered();};
+    page.on('requestfinished',settled);page.on('requestfailed',settled);
+    try{
+      const response=await route.fetch({url:apiOrigin+url.pathname+url.search});
+      captured(await response.json());await barrier;
+      await route.fulfill({response});await delivery;
+      // Let the exact fetch consumer and React's resulting frame settle before
+      // checking that old private data never replaced the current account view.
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      finished();
+    }finally{page.off('requestfinished',settled);page.off('requestfailed',settled);}
   };
   await page.context().route(pattern,handler);
   return {reached,release,done,remove:()=>page.context().unroute(pattern,handler)};
@@ -138,7 +150,7 @@ const shell=page=>page.getByRole('dialog',{name:'Repaidians community',exact:tru
 async function nav(page,label){
   if(label==='Tenders')return shell(page).locator('.rp-toolbar').getByRole('button',{name:label,exact:true}).click();
   const mobile=shell(page).locator('.rp-bottom-nav').getByRole('button',{name:label,exact:true});
-  if(page.viewportSize().width<1100&&['Home','Search','Works','Work & market','My profile'].includes(label))return mobile.click();
+  if(page.viewportSize().width<1100&&['Home','Search','Videos','Work & market','My profile'].includes(label))return mobile.click();
   return shell(page).locator('.rp-desktop-sidebar').getByRole('button',{name:label,exact:true}).click();
 }
 async function openWork(page){
@@ -254,6 +266,21 @@ try{
   await shell(page).getByText('Shared cleaning work from a real API.',{exact:false}).waitFor();
   assert.equal(await shell(page).getByText('OLD MOCK MUST NOT APPEAR',{exact:false}).count(),0);
   assert.equal(await shell(page).locator('.rp-post').count(),1);
+  assert.equal(await shell(page).locator('.rp-post .rp-caption-author').count(),0,'The caption does not repeat the author name already available in its profile header.');
+  const cleanup=shell(page).locator('.rp-cleanup-compact');
+  assert.equal(await cleanup.getAttribute('open'),null,'Secondary city actions start as a compact disclosure.');
+  assert.equal(await cleanup.getByRole('link',{name:'Sell scrap',exact:true}).count(),0,'Secondary links do not occupy the feed until requested.');
+  await cleanup.locator('summary').focus();await page.keyboard.press('Enter');
+  await cleanup.getByRole('link',{name:'Sell scrap',exact:true}).waitFor();
+  assert.equal(await cleanup.getByRole('link',{name:'Report a spot',exact:true}).getAttribute('href'),'/?tab=market&sub=scrap&scrap-view=report');
+  await cleanup.locator('summary').focus();await page.keyboard.press('Enter');
+  assert.equal(await cleanup.getAttribute('open'),null,'City actions close through the keyboard.');
+  const compactRides=shell(page).getByRole('region',{name:'Rides near you',exact:true});
+  assert(await compactRides.evaluate(el=>el.getBoundingClientRect().height<=90),'An unset pickup area does not displace the social feed.');
+  await compactRides.getByRole('button',{name:'Set pickup area',exact:true}).click();
+  const pickupDialog=page.getByRole('dialog',{name:'Your pickup area',exact:true});await pickupDialog.waitFor();
+  await pickupDialog.getByRole('button',{name:'Close dialog',exact:true}).click();
+
   const trialBadge=shell(page).getByRole('button',{name:/^Free trial:/});await trialBadge.waitFor();
   assert.match(await trialBadge.getAttribute('aria-label'),/Browsing access included/);
   assert.ok((await trialBadge.getAttribute('aria-label')).includes(new Date(trialEnd).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})+' IST'),'The trial badge names the exact server-owned expiry in India time.');
@@ -279,6 +306,12 @@ try{
   assert.equal(await options.getAttribute('aria-expanded'),'false','Post tools dismiss when focus moves outside their menu.');
   await shell(page).getByRole('button',{name:'Like post',exact:true}).click();await shell(page).getByRole('button',{name:'Unlike post',exact:true}).waitFor();
   assert.equal((await api('/repaidians/feed?kind=post',bob)).items.find(p=>p.id===bobPost.id).likeCount,1);
+  await shell(page).getByRole('tab',{name:'Liked',exact:true}).click();
+  await shell(page).locator('.rp-post').filter({hasText:bobPost.caption}).waitFor();
+  assert.equal(await shell(page).getByRole('tab',{name:'Liked',exact:true}).getAttribute('aria-selected'),'true','Liked posts remain one tap away after removing the repeated header shortcut.');
+  await shell(page).getByRole('tab',{name:'For you',exact:true}).click();
+  await shell(page).locator('.rp-post').filter({hasText:bobPost.caption}).waitFor();
+
   await shell(page).getByRole('button',{name:'Save post',exact:true}).click();
   await shell(page).getByRole('button',{name:'Open comments',exact:true}).click();
   const comments=page.getByRole('dialog',{name:'Comments',exact:true});
@@ -336,7 +369,7 @@ try{
   assert.equal(await shell(page).locator('.rp-reel video').evaluate(video=>video.paused),true,'Reduced motion starts reels paused.');
   await shell(page).getByRole('button',{name:'Play work video',exact:true}).click();await shell(page).getByRole('button',{name:'Pause work video',exact:true}).waitFor();
   await shell(page).getByRole('button',{name:'Pause work video',exact:true}).click();
-  await page.reload();await nav(page,'Works');await shell(page).locator('.rp-reel video').waitFor();
+  await page.reload();await nav(page,'Videos');await shell(page).locator('.rp-reel video').waitFor();
   await page.waitForFunction(()=>document.querySelector('.rp-reel video')?.readyState>=2);
   assert.equal((await api('/repaidians/feed?kind=reel',bob)).items[0].caption,'A work reel stored on the server.');
   await shell(page).getByRole('button',{name:'Book a service',exact:true}).click();await page.getByLabel('Home search',{exact:true}).waitFor();
@@ -422,6 +455,17 @@ try{
     if(width===1280)await page.screenshot({path:resolve(web,'test-results/repaidians-desktop.png')});
     await page.evaluate(()=>document.documentElement.dataset.theme='dark');await layout(page);await mediaLayout(page);
     await page.evaluate(()=>document.documentElement.dataset.theme='light');
+  }
+
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:850});
+    await page.evaluate(()=>document.documentElement.style.fontSize='200%');await layout(page);
+    assert(await shell(page).locator('.rp-header').evaluate(header=>{const title=header.querySelector('.rp-wordmark').getBoundingClientRect(),actions=header.querySelector('.rp-header-actions').getBoundingClientRect();return title.right<=actions.left+1||title.bottom<=actions.top+1;}),'Brand and header actions remain separate at 200% text.');
+    for(const button of await shell(page).locator('.rp-bottom-nav button').all()){
+      assert(await button.locator('span').isVisible(),'Each social navigation icon has a short visible label.');
+      assert(await button.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Navigation labels reflow within their targets.');
+    }
+    await page.evaluate(()=>document.documentElement.style.fontSize='100%');
   }
   await page.setViewportSize({width:390,height:850});await audit(page);
   await page.screenshot({path:resolve(web,'test-results/repaidians-phone.png')});
@@ -661,7 +705,6 @@ try{
   await shell(switching).locator('.rp-profile-title h2').waitFor();
   assert.equal(await shell(switching).locator('.rp-profile-title h2').textContent(),bob.user.name);
   oldDetail.release();await oldDetail.done;await oldDetail.remove();
-  await switching.waitForLoadState('networkidle');
   assert.equal(await switching.getByText(privateCaption,{exact:false}).count(),0,'An old authorized publication response cannot open after the account has switched.');
   assert.equal(await shell(switching).locator('.rp-profile-title h2').textContent(),bob.user.name,'An account change clears the previous private profile/portfolio data.');
   await switchPreviewAccount(switching,alice);await nav(switching,'Home');
@@ -677,7 +720,6 @@ try{
   const newComments=switching.getByRole('dialog',{name:'Comments',exact:true});
   await newComments.getByText(bobPrivateComment,{exact:true}).waitFor();
   oldComments.release();await oldComments.done;await oldComments.remove();
-  await switching.waitForLoadState('networkidle');
   await newComments.getByText(bobPrivateComment,{exact:true}).waitFor();
   assert.equal(await switching.getByText(privateComment,{exact:true}).count(),0);
   assert.equal(await shell(switching).getByText(privateCaption,{exact:false}).count(),0);

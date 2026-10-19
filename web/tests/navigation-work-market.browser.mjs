@@ -72,7 +72,7 @@ async function assertNavigation(page,role){
   assert.equal(navState.overflow,false,role+' bottom navigation does not overflow.');
   assert.ok(Math.max(...navState.buttons.map(button=>button.top))-Math.min(...navState.buttons.map(button=>button.top))<=1,role+' bottom buttons remain on one horizontal row: '+JSON.stringify(navState));
   assert.equal(navState.buttons.some(button=>/create|publication|upload/i.test(button.label)),false,'Creation does not occupy a bottom navigation slot.');
-  assert.deepEqual(navState.buttons.map(button=>button.label),['Home','Search','Works','Work & market',role==='professional'?'My profile':'Account']);
+  assert.deepEqual(navState.buttons.map(button=>button.label),['Home','Search','Videos','Work & market',role==='professional'?'My profile':'Account']);
   for(const button of navState.buttons)assert.ok(button.width>=44&&button.height>=44,'Navigation remains touchable: '+JSON.stringify(button));
   const layout=await shell(page).evaluate(root=>({shellOverflow:root.scrollWidth>root.clientWidth+1,contentOverflow:root.querySelector('.rp-content').scrollWidth>root.querySelector('.rp-content').clientWidth+1,headerOverflow:root.querySelector('.rp-header').scrollWidth>root.querySelector('.rp-header').clientWidth+1}));
   assert.deepEqual(layout,{shellOverflow:false,contentOverflow:false,headerOverflow:false},role+' has no horizontal overflow.');

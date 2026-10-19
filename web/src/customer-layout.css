@@ -20,10 +20,23 @@
   overflow:visible;
   isolation:isolate;
 }
+#root .android-nav-links {
+  display:flex;
+  flex:1;
+  min-width:0;
+  gap:4px;
+  padding:2px;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  scroll-padding-inline:2px;
+  scrollbar-width:thin;
+  scrollbar-color:#92a9d8 transparent;
+}
 #root .android-bottom-nav .android-nav-item {
   position:relative;
-  flex:1 1 0;
-  min-width:0;
+  flex:1 0 max-content;
+  min-width:44px;
+  max-width:none;
   min-height:56px;
   border:1px solid transparent;
   border-radius:14px;
@@ -54,7 +67,7 @@
   pointer-events:none;
 }
 #root .android-bottom-nav .android-nav-item svg {color:inherit;transition:transform 160ms ease;}
-#root .android-bottom-nav .android-nav-item span {min-width:0;max-width:100%;overflow-wrap:anywhere;white-space:normal;overflow:visible;text-overflow:clip;}
+#root .android-bottom-nav .android-nav-item span {max-width:none;overflow-wrap:normal;word-break:normal;white-space:nowrap;overflow:visible;text-overflow:clip;}
 #root .android-bottom-nav .android-nav-item:focus-visible {outline:2px solid #f4cf82;outline-offset:-3px;}
 #root .android-bottom-nav .android-nav-item.active:focus-visible {outline-color:#174fb5;}
 #root .android-bottom-nav .android-nav-item:active {transform:translateY(1px) scale(.97);}

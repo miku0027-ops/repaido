@@ -243,3 +243,31 @@ def test_dispute_requires_custody_and_can_resume(api,gateway):
     r=returned(api,r);r=act(api,r,'inspect','shop',note='All accessories returned')
     assert api.post('/operations/rentals/'+r['id']+'/refund-deposit',headers=auth('customer')).status_code==200
     act(api,r,'dispute',status=409,note='Must use support after financial settlement')
+
+
+@pytest.mark.parametrize('refunded', [False, True])
+def test_order_creation_return_cannot_downgrade_reconciled_payment(api,gateway,monkeypatch,refunded):
+    """A second request can recover an order while its first POST is in flight."""
+    listing(api);r,_=request(api);r=act(api,r,'accept','shop')
+    provider=rentals.razorpay
+    def delayed_order(path,body=None,**kwargs):
+        result=provider(path,body,**kwargs)
+        if path=='orders':
+            gateway[1]['pay_during_create']=dict(id='pay_during_create',order_id=result['id'],
+                currency='INR',amount=result['amount'],status='refunded' if refunded else 'captured',
+                captured=True,amount_refunded=result['amount'] if refunded else 0)
+            check=api.post('/operations/rentals/'+r['id']+'/payment-check?kind=deposit',headers=auth('customer'))
+            assert check.status_code==200,check.text
+            assert check.json()['status']==('refunded' if refunded else 'captured')
+        return result
+    monkeypatch.setattr(rentals,'razorpay',delayed_order)
+    response=api.post('/operations/rentals/'+r['id']+'/payment-order?kind=deposit',headers=auth('customer'))
+    assert response.status_code==200,response.text
+    saved=main.operations_store.run(lambda u:u.get('rental_payments',r['id']+':deposit'))
+    assert saved['status']==('refunded' if refunded else 'captured')
+    assert saved['order_id']==response.json()['order_id']
+    assert gateway[3]['orders']==1
+    if not refunded:
+        assert api.get('/operations/rentals/'+r['id']+'/code?kind=handover',headers=auth('customer')).status_code==200
+    else:
+        assert api.get('/operations/rentals/'+r['id']+'/code?kind=handover',headers=auth('customer')).status_code==409
