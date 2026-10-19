@@ -34,6 +34,7 @@ def setup_bike(api, monkeypatch):
     monkeypatch.setenv('REPAIDO_ENV', 'test')
     monkeypatch.setenv('REPAIDO_BIKE_DISPATCH_MODE', 'direct')
     monkeypatch.setenv('REPAIDO_BIKE_DIRECT_DEV_ENABLED', 'true')
+    monkeypatch.setenv('GOOGLE_ROUTES_API_KEY', 'test-only-routes')
     monkeypatch.setattr(bikes, 'verified_route', lambda a,b: dict(distance_metres=1500, duration_seconds=360, points=[a,b], provider='fixture'))
     monkeypatch.setattr(dispatch, 'google_pickup_route', lambda a,b: dict(distance_metres=10, duration_seconds=60, provider='google_routes'))
     identifier = vehicle(api, vehicle_kind='bike', seats=1, name='Fixture bike')
@@ -96,6 +97,60 @@ def test_default_closed_and_no_private_public_policy(api):
     assert not ({'promo_planning_budget_paise','evidence_reference','promo_compensation_paise','base_paise','per_km_paise','platform_fee_bps'} & p.keys())
     assert api.get(BASE+'/admin/policy',headers=auth('customer')).status_code == 403
     assert api.post(BASE+'/search',headers=auth('customer'),json={'pickup':PIN,'dropoff':DROP}).json()['reason'] == 'service_not_enabled'
+
+
+@pytest.mark.parametrize('missing,expected', [
+    ('launch','service_not_enabled'), ('area','service_area_unavailable'),
+    ('routing','routing_unavailable'), ('dispatch','dispatch_unavailable'),
+    ('tax','paid_rides_unavailable'), ('cash','paid_rides_unavailable'),
+    ('terms','paid_rides_unavailable'), ('funding','operations_unavailable'),
+    ('rider','operations_unavailable'),
+])
+def test_policy_and_search_share_readiness_before_any_route_call(api,setup_bike,monkeypatch,missing,expected):
+    assert api.get(BASE+'/policy').json()['bookings_available'] is True
+    if missing in ('launch','area','tax','cash','terms'):
+        field,value={'launch':('enabled',False),'area':('service_area_reviewed',False),
+                     'tax':('tax_reviewed',False),'cash':('cash_enabled',False),'terms':('terms','')}[missing]
+        main.operations_store.run(lambda u:u.put('bike_policy','current',{**bikes.policy(u),field:value}))
+    elif missing=='routing':monkeypatch.delenv('GOOGLE_ROUTES_API_KEY')
+    elif missing=='dispatch':monkeypatch.delenv('REPAIDO_BIKE_DIRECT_DEV_ENABLED')
+    elif missing=='funding':
+        def unfund(u):
+            p=u.get('bike_payroll_policy','current');p['funding_acknowledged']=False;u.put('bike_payroll_policy','current',p)
+        main.operations_store.run(unfund)
+    else:
+        def suspend(u):
+            p=u.get('business_partners','worker');p['status']='rejected';u.put('business_partners','worker',p)
+        main.operations_store.run(suspend)
+    calls=[]
+    def route(*args):calls.append(args);raise AssertionError('Unavailable booking must not request a route.')
+    monkeypatch.setattr(bikes,'verified_route',route)
+    monkeypatch.setattr(dispatch,'google_pickup_route',route)
+    public=api.get(BASE+'/policy').json();result=search(api)
+    assert public['bookings_available'] is False
+    assert public['availability']==result['availability']
+    assert result['availability']['code']==expected and result['availability']['message']
+    assert result['availability']['retryable']==(expected in ('dispatch_unavailable','routing_unavailable','operations_unavailable'))
+    assert result['reason']==expected and result['quotes']==[] and 'route' not in result
+    assert result['promotion']['eligible'] is False
+    assert calls==[] and main.operations_store.run(lambda u:u.all('bike_quotes'))==[]
+    private=('monthly_funding_paise','monthly_salary_liability_paise','approved_rider_count',
+             'funding_reference','funding_evidence','payroll_ready','funding_ready','blockers')
+    assert not (set(private)&public.keys())
+    assert set(public['availability'])=={'code','message','retryable'}
+
+
+def test_readiness_loss_during_route_work_cannot_publish_a_bookable_quote(api,setup_bike,monkeypatch):
+    def route(a,b):
+        def pause(u):
+            p=u.get('bike_payroll_policy','current');p['enabled']=False;u.put('bike_payroll_policy','current',p)
+        main.operations_store.run(pause)
+        return dict(distance_metres=1500,duration_seconds=360,points=[a,b],provider='fixture')
+    monkeypatch.setattr(bikes,'verified_route',route)
+    result=search(api)
+    assert result['quotes']==[] and result['reason']=='operations_unavailable'
+    assert result['promotion']['eligible'] is False and 'route' not in result
+    assert main.operations_store.run(lambda u:u.all('bike_quotes'))==[]
 
 
 def test_offer_reservation_privacy_otp_and_complete(api, setup_bike):
@@ -438,6 +493,28 @@ def test_active_tracking_completion_and_offline_survive_payroll_pause(api,setup_
     offline=api.put(BASE+'/driver/availability',headers=auth('worker'),json={'vehicle_id':setup_bike,'online':False})
     assert offline.status_code==200,offline.text
     assert offline.json()['availability']['online'] is False
+
+
+def test_new_booking_readiness_does_not_block_accepted_tracking_or_cash_receipt(api,setup_bike,monkeypatch):
+    main.operations_store.run(lambda u:u.put('bike_policy','current',{**bikes.policy(u),'promo_enabled':False}))
+    row,_=book(api,search(api)['quotes'][0]);row=start(api,row)
+    def pause(u):
+        u.put('bike_policy','current',{**bikes.policy(u),'enabled':False,'cash_enabled':False,
+              'tax_reviewed':False,'service_area_reviewed':False})
+        p=u.get('bike_payroll_policy','current');p['enabled']=False;u.put('bike_payroll_policy','current',p)
+    main.operations_store.run(pause)
+    monkeypatch.delenv('GOOGLE_ROUTES_API_KEY');monkeypatch.delenv('REPAIDO_BIKE_DIRECT_DEV_ENABLED')
+    assert api.get(BASE+'/policy').json()['bookings_available'] is False
+    assert search(api)['quotes']==[]
+    with patch('time.time',return_value=time.time()+15):
+        response=api.post(BASE+'/bookings/'+row['id']+'/position',headers=auth('worker'),json=gps(DROP))
+        assert response.status_code==200,response.text
+        assert latest(api,row)['position']['lat']==DROP['lat']
+        row=command(api,row,'complete',position={**gps(DROP),'captured_at':time.time()+.1})
+    row=command(api,row,'confirm','customer');assert row['state']=='payment_due'
+    row=command(api,row,'cash_reported','customer');row=command(api,row,'cash_received')
+    assert row['state']=='completed' and row['collected_paise']==1550
+    assert row['payment_status']=='rider_confirmed_cash'
 
 
 def test_capacity_and_personal_history_never_scan_historical_bike_rows(api,setup_bike,monkeypatch):

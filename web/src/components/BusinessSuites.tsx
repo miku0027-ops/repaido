@@ -112,7 +112,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
    {!vehicles.length&&<Empty title="Add your first vehicle" description="Set your services, rates and vehicle documents." action="Set up fleet" onClick={()=>setPanel('fleet')}/>}
   </>}
   {panel==='shared'&&<>{!vehicles.length&&<Empty title="A vehicle comes first" description="Add an approved vehicle for shared departures." action="Open fleet" onClick={()=>setPanel('fleet')}/>}<SharedRideBookings owner managementRole="cab_owner" vehicles={vehicles} initialRecordId={recordId}/></>}
-  {panel==='bikes'&&<BikeRiderWorkspace/>}
+  {panel==='bikes'&&<BikeRiderWorkspace vehicleRole="owner" onManageVehicles={()=>setPanel('fleet')}/>}
   {panel==='cabs'&&<><BusinessRecords kind="rides" records={cabs} owner managementRole="cab_owner" initialRecordId={recordId} heading="Cab bookings"/></>}
   {panel==='rentals'&&<><BusinessRecords kind="rides" records={rentals} owner managementRole="cab_owner" initialRecordId={recordId} heading="Self-drive rentals"/></>}
   {panel==='fleet'&&<>{vehicles.map(v=><article className="suite-card" key={v.id}><header className="suite-vehicle-heading"><h3>{v.name}</h3><span className="business-state">{v.status==='approved'&&v.valid_until<=Date.now()/1000?'Approval expired':v.status}</span></header><p>{v.registration} · {v.seats} passenger seats · {v.vehicle_kind==='bike'?'Bike rides & shared departures':v.mode==='both'?'Cab & self-drive':v.mode==='rental'?'Self-drive':'Cab'}</p><dl className="suite-facts">{v.vehicle_kind==='bike'?<><dt>Company bike fares</dt><dd>Set by Repaido</dd><dt>Shared departure fare</dt><dd>Set per published ride</dd></>:<><dt>Cab rate</dt><dd>{v.mode==='rental'?'Not offered':money(v.per_km_paise)+'/km'}</dd><dt>Rental rate</dt><dd>{v.mode==='cab'?'Not offered':money(v.daily_paise)+'/day'}</dd></>}<dt>Availability</dt><dd>{v.active?'Listed when approved and available':'Not listed'}</dd></dl><button onClick={()=>setEditing(v)}>{v.vehicle_kind==='bike'?'Edit bike & documents':'Edit vehicle & rates'}</button><VehicleConnections vehicle={v}/></article>)}{!vehicles.length&&<Empty title="Your fleet starts here" description="Add vehicle details and documents. Vehicles are reviewed before customers can book them."/>}</>}
@@ -140,7 +140,7 @@ export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;v
   </>}
   {panel==='journeys'&&<><BusinessRecords kind="rides" records={records} owner managementRole="driver" initialRecordId={recordId} heading="Assigned cab journeys"/></>}
   {panel==='shared'&&<><SharedRideBookings owner managementRole="driver" vehicles={vehicles} initialRecordId={recordId}/></>}
-  {panel==='bikes'&&<BikeRiderWorkspace/>}
+  {panel==='bikes'&&<BikeRiderWorkspace vehicleRole="driver" onManageVehicles={()=>setPanel('vehicles')}/>}
   {panel==='vehicles'&&<DriverInvitations/>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
   <PublicCabAvailability accountKey={source.uid}/>

@@ -162,16 +162,33 @@ def readiness(p, now=None):
                 geography_ready=bool(p.get('service_area_reviewed') and p.get('service_center')), city='Balasore')
 
 
+def customer_availability(p, runtime, staffing, dispatch):
+    """Safe booking state; internal roster, fund and broker details stay private."""
+    checks = (
+        (p['enabled'], 'service_not_enabled', 'Bike booking is not open in Balasore yet.', False),
+        (runtime['geography_ready'], 'service_area_unavailable', 'The bike service area is not available yet.', False),
+        (runtime['routing_ready'], 'routing_unavailable', 'Bike routes are temporarily unavailable. Please check again.', True),
+        (dispatch['ready'], 'dispatch_unavailable', 'Bike booking is temporarily unavailable. Please check again.', True),
+        (runtime['paid_ready'], 'paid_rides_unavailable', 'Bike fares are being prepared. Booking is unavailable.', False),
+        (staffing.get('payroll_ready') and staffing.get('funding_ready'), 'operations_unavailable', 'Bike booking is temporarily paused. Please check again.', True),
+    )
+    for ready, code, message, retryable in checks:
+        if not ready:
+            return {'code': code, 'message': message, 'retryable': retryable}
+    return {'code': 'available', 'message': 'Search your route for available bikes.', 'retryable': False}
+
+
 def public_policy(p, u):
     fields = ('version', 'enabled', 'service_radius_metres', 'pickup_radius_metres', 'promo_enabled',
               'promo_started_at', 'free_distance_metres', 'weekly_free_limit', 'terms', 'demand_surcharge_cap_bps', 'service_center', 'service_area_radius_metres')
     from bike_dispatch import engine_health
     from bike_earnings import operations_readiness as policy_readiness
     runtime = readiness(p); staffing = policy_readiness(u, p, time.time(), funding_detail=True); dispatch = engine_health(u)
+    availability = customer_availability(p, runtime, staffing, dispatch)
     runtime['paid_ready'] = bool(runtime['paid_ready'] and staffing.get('payroll_ready') and staffing.get('funding_ready'))
     runtime['promo_ready'] = bool(runtime['promo_ready'] and staffing.get('promo_pool_ready'))
-    runtime['bookings_available'] = bool(p['enabled'] and runtime['geography_ready'] and p['tax_reviewed'] and runtime['routing_ready'] and dispatch['ready'] and runtime['paid_ready'])
-    return {**{k: copy.deepcopy(p[k]) for k in fields}, **runtime, 'dispatch_ready': dispatch['ready'], 'dispatch_mode': dispatch['mode']}
+    runtime['bookings_available'] = availability['code'] == 'available'
+    return {**{k: copy.deepcopy(p[k]) for k in fields}, **runtime, 'dispatch_ready': dispatch['ready'], 'dispatch_mode': dispatch['mode'], 'availability': availability}
 
 
 def admin_policy_view(u, p):
@@ -691,12 +708,19 @@ def install(core):
     def search(body: Search, response: Response, user=Depends(core.current_user)):
         from bike_dispatch import candidate_ids, rank_candidates, engine_health
         response.headers.update(HEADERS)
-        p, health = store.run(lambda u: (policy(u), engine_health(u))); now = time.time()
+        def snapshot(u):
+            p = policy(u)
+            return p, public_policy(p, u)
+        p, runtime = store.run(snapshot); now = time.time()
         identity = promo_identity(user)
-        if not p['enabled'] or not health['ready']:
-            return {'quotes': [], 'reason': 'service_not_enabled' if not p['enabled'] else 'dispatch_unavailable',
-                    'promotion': store.run(lambda u: promotion(u, user['id'], 0, p, quota_key=identity)), 'server_time': now}
-        if not readiness(p)['geography_ready'] or any(metres(pin, p['service_center']) > p['service_area_radius_metres'] for pin in (body.pickup.model_dump(), body.dropoff.model_dump())):
+        def unavailable(u, p, runtime, now):
+            offer = promotion(u, user['id'], 0, p, now, quota_key=identity)
+            offer.update(eligible=False, reason='service_unavailable', message='Bike offers are unavailable while booking is paused.')
+            return {'quotes': [], 'reason': runtime['availability']['code'], 'availability': runtime['availability'],
+                    'promotion': offer, 'server_time': now}
+        if not runtime['bookings_available']:
+            return store.run(lambda u: unavailable(u, p, runtime, now))
+        if any(metres(pin, p['service_center']) > p['service_area_radius_metres'] for pin in (body.pickup.model_dump(), body.dropoff.model_dump())):
             fail('OUTSIDE_SERVICE_AREA', 'Both stops must be inside the reviewed Balasore operating area.', 422)
         route = verified_route(body.pickup.model_dump(), body.dropoff.model_dump())
         if route['distance_metres'] > p['service_radius_metres']:
@@ -714,6 +738,9 @@ def install(core):
             current_policy = policy(u)
             if current_policy['version'] != p['version'] or not current_policy['enabled'] or not engine_health(u)['ready']:
                 fail('POLICY_CHANGED', 'Bike availability changed. Search again.', 409)
+            current_runtime = public_policy(current_policy, u)
+            if not current_runtime['bookings_available']:
+                return unavailable(u, current_policy, current_runtime, now)
             offer = promotion(u, user['id'], route['distance_metres'], current_policy, now, quota_key=identity)
             free = offer['eligible']
             if not free and not readiness(p, now)['paid_ready']:
@@ -745,7 +772,7 @@ def install(core):
                 u.put('bike_quotes', identifier, row)
                 quote = {k: copy.deepcopy(v) for k, v in row.items() if k not in ('location', 'driver_id', 'owner_id', 'customer_id', 'position_version', 'route', 'parent_ride_id', 'quota_key', 'quota_key_version', 'compensation_offer')}
                 quote['pricing'] = customer_pricing(row['pricing']); quotes.append(quote)
-            return {'quotes': quotes, 'reason': None if quotes else 'no_riders', 'promotion': offer, 'route': {'points': route['points']}, 'server_time': now}
+            return {'quotes': quotes, 'reason': None if quotes else 'no_riders', 'availability': current_runtime['availability'], 'promotion': offer, 'route': {'points': route['points']}, 'server_time': now}
         return store.run(build)
 
     @r.post('/bookings', status_code=201)

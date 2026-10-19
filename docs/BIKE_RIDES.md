@@ -1,9 +1,10 @@
 # Bike pilot: business rules and activation
 
-This development batch adds company-operated bike booking to Market → Rides →
-Bike, customer ride history, approved rider workspaces and company transport
-administration. It also reduces Market highlights to a compact carousel with a
-single Benefits entry. It has not been deployed or activated in production.
+Company-operated bike booking lives in Market → Rides → Bike, with customer
+history, approved rider workspaces and company transport administration.
+Deploying the application and opening bookings are separate steps. Check the
+live policy and company launch checklist, then follow the
+[controlled launch runbook](BIKE_LAUNCH.md) to complete dispatch and operator setup.
 
 ## Launch contract
 

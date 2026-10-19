@@ -37,6 +37,32 @@
 .bike-admin .bike-admin-retained {display:flex;align-items:flex-start;gap:5px}
 .bike-admin-retained>svg {flex:none;margin-top:3px}
 .bike-admin .bike-admin-success {color:var(--op-ink,#142a43);border-left:3px solid var(--op-blue,#173f77);padding-left:10px}
+#root .portal-company .bike-launch-checklist {margin:12px 0 16px;padding:0 14px;border:1px solid var(--op-line);border-radius:10px;background:var(--crm-surface)}
+#root .portal-company .bike-launch-checklist>summary {display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;padding:12px 0}
+.bike-launch-checklist>summary>svg {flex:none}
+.bike-launch-checklist>summary>span {margin-left:auto;font-size:.75rem;color:var(--op-muted);text-align:right}
+.bike-launch-checklist>summary::after {content:'+';font-size:1.1rem}
+.bike-launch-checklist[open]>summary::after {content:'−'}
+.bike-launch-intro {padding:10px 12px;background:var(--crm-subtle);border:1px solid var(--op-line);border-radius:8px}
+#root .portal-company .bike-launch-intro p {font-size:.75rem;margin:3px 0}
+.bike-launch-steps {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;list-style:none;padding:0;margin:4px 0}
+.bike-launch-steps>li {display:grid;grid-template-columns:18px minmax(0,1fr);align-content:start;gap:6px 8px;padding:12px 0;border-bottom:1px solid var(--op-line);min-width:0}
+.bike-launch-steps>li>svg {margin-top:3px;flex:none;color:var(--op-muted)}
+.bike-launch-steps>li[data-ready=true]>svg {color:var(--op-blue)}
+.bike-launch-steps>li>div>strong {display:flex;align-items:baseline;justify-content:space-between;gap:5px;flex-wrap:wrap}
+.bike-launch-steps small,.bike-launch-offer small {font-size:.6875rem;font-weight:500;color:var(--op-muted)}
+#root .portal-company .bike-launch-steps p {font-size:.75rem;margin:4px 0}
+#root .portal-company .bike-launch-steps>li[data-ready=true] p {display:none}
+.bike-launch-steps>li>button {grid-column:2;justify-self:start;max-width:100%;background:var(--crm-subtle);color:var(--op-ink);border:1px solid var(--op-line)}
+.bike-launch-offer {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--op-line);flex-wrap:wrap}
+.bike-launch-offer>div {flex:1;min-width:min(240px,100%)}
+.bike-launch-offer small {margin-left:7px}
+#root .portal-company .bike-launch-offer p {font-size:.75rem;margin:4px 0}
+.bike-launch-footer {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0}
+.bike-launch-footer>span {font-size:.75rem;color:var(--op-muted)}
+.bike-admin-route-status {padding:10px 12px;margin-top:8px;border:1px solid var(--op-line);background:var(--crm-subtle);border-radius:8px}
+#root .portal-company .bike-admin-route-status p {font-size:.75rem;margin:4px 0}
+@media(max-width:640px) {.bike-launch-steps {grid-template-columns:minmax(0,1fr)}}
 .bike-economics-scroll {max-width:100%;overflow-x:auto;border:1px solid var(--op-line,#c7d3e1);border-radius:8px}
 .bike-economics-table {width:100%;border-collapse:collapse;text-align:left;font-size:.75rem}
 .bike-economics-table caption {text-align:left;font-weight:600;padding:10px;background:var(--crm-subtle,#f3f6fb)}

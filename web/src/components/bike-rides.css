@@ -226,3 +226,51 @@
 .bike-rides .bike-my-rides>header{flex-wrap:wrap}
 .bike-rides .bike-history-switch{flex-shrink:0}
 .bike-rides .bike-history-switch button{flex:0 0 auto;white-space:nowrap;word-break:normal;overflow-wrap:normal}
+
+/* The planner uses colour for route controls and reports actual service readiness. */
+.bike-rides .bike-workspace{border-color:#bbd2df;background:var(--bike-surface);box-shadow:0 3px 7px #103f5906,0 14px 30px #103f590c}
+.bike-rides .bike-workspace:before{content:'';position:absolute;top:0;left:0;right:0;height:4px;z-index:2;pointer-events:none;background:linear-gradient(100deg,#0e6961,#165d88 58%,#244786)}
+.bike-rides .bike-service-state{display:flex;align-items:center;gap:14px;padding:21px 16px 17px;background:radial-gradient(ellipse at 5% 0%,#d8f3ec 0,transparent 64%),linear-gradient(115deg,#f0f8fa,#ecf2ff);border-bottom:1px solid #c4dce6;min-width:0}
+.bike-rides .bike-service-state>div{flex:1;min-width:0}
+.bike-rides .bike-service-symbol{display:grid;place-items:center;flex:0 0 62px;width:62px;height:62px;border:1px solid #b8d9d6;border-radius:21px;background:linear-gradient(140deg,#fff,#e4f3f4);color:#125553;box-shadow:inset 0 1px #fff,0 5px 12px #104e5810}
+.bike-rides .bike-service-eyebrow{display:block;font-size:.625rem;letter-spacing:.1em;line-height:1.5;font-weight:750;color:#31516a;margin-bottom:4px}
+.bike-rides .bike-service-state h4{font-size:1.0625rem;font-weight:750;line-height:1.35;letter-spacing:-.025em;color:#12364d;margin:0}
+.bike-rides .bike-service-state p{font-size:.8125rem;line-height:1.55;color:#304d61;margin:6px 0 0}
+.bike-rides .bike-service-state.is-error{background:linear-gradient(115deg,#fff7ed,#f3f6ff);border-color:#dfcfb8}
+.bike-rides .bike-service-state.is-offline{background:linear-gradient(115deg,#eef3f8,#f0f4fb)}
+.bike-rides .bike-service-state.is-checking .bike-service-symbol>svg{animation:bike-service-check 1.3s linear infinite}
+.bike-rides .bike-route-sheet{background:linear-gradient(130deg,#f4fbf9 0, var(--bike-surface) 44%,#f4f7ff)}
+.bike-rides .bike-route-fields{background:var(--bike-surface);border-color:#bbd0de;box-shadow:0 2px 6px #164c6d04}
+.bike-rides .bike-location>svg:first-child{color:#164d85}
+.bike-rides .bike-location-dropoff>svg:first-child{color:#0b5f52}
+.bike-rides .bike-route-stage{font-size:.6875rem;line-height:1.45;max-width:48%;border:1px solid var(--bike-line);border-radius:99px;padding:4px 7px;background:var(--bike-surface);color:var(--bike-muted);text-align:left;min-width:0}
+.bike-rides .bike-route-stage>svg{flex:0 0 15px;color:inherit}
+.bike-rides .bike-route-stage.is-checked{background:#e9f7ef;border-color:#b7d6c4;color:#14513b}
+.bike-rides .bike-primary,#root .market-experience .bike-rides .bike-primary{background:linear-gradient(110deg,#07534e,#154487 85%);border-color:#154969;box-shadow:0 4px 10px #11536620;color:#fff}
+.bike-rides .bike-route-footer>.bike-primary{flex-basis:150px}
+.bike-rides[data-service-state=paused] .bike-route-stage,.bike-rides[data-service-state=error] .bike-route-stage{background:#fff6e7;border-color:#dbc699;color:#63461a}
+.bike-rides[data-service-state=offline] .bike-route-stage{background:var(--bike-wash)}
+.bike-rides .bike-route-footer>.bike-primary:disabled{opacity:.7;box-shadow:none}
+@keyframes bike-service-check{to{transform:rotate(360deg)}}
+@media(max-width:399px){.bike-rides .bike-service-state{gap:10px;padding:18px 12px 15px}.bike-rides .bike-service-symbol{flex-basis:48px;width:48px;height:48px;border-radius:16px}.bike-rides .bike-service-state h4{font-size:1rem}.bike-rides .bike-composer-heading{align-items:flex-start}.bike-rides .bike-route-stage{border-radius:10px;max-width:48%}.bike-rides .bike-route-footer>.bike-primary{flex-basis:145px}}
+[data-theme=dark] .bike-rides .bike-workspace{border-color:#3d6679}
+[data-theme=dark] .bike-rides .bike-service-state{background:radial-gradient(ellipse at 5% 0%,#1c4a43 0,transparent 64%),linear-gradient(115deg,#1b3442,#1b2d4a);border-color:#3c6371}
+[data-theme=dark] .bike-rides .bike-service-symbol{background:linear-gradient(140deg,#244d4a,#213d57);border-color:#527e81;color:#c4efdf;box-shadow:inset 0 1px #ffffff10,0 5px 12px #08172324}
+[data-theme=dark] .bike-rides .bike-service-state h4{color:#e0f1f5}
+[data-theme=dark] .bike-rides .bike-service-state p,[data-theme=dark] .bike-rides .bike-service-eyebrow{color:#c2d8e6}
+[data-theme=dark] .bike-rides .bike-service-state.is-error{background:linear-gradient(115deg,#403225,#21314b);border-color:#806c4d}
+[data-theme=dark] .bike-rides .bike-service-state.is-offline{background:linear-gradient(115deg,#273647,#1b2d42)}
+[data-theme=dark] .bike-rides .bike-route-sheet{background:linear-gradient(130deg,#1a3434,var(--bike-surface) 44%,#1b2c47)}
+[data-theme=dark] .bike-rides .bike-route-fields{border-color:#46627a;background:var(--bike-surface)}
+[data-theme=dark] .bike-rides .bike-location>svg:first-child{color:#b6d7fb}
+[data-theme=dark] .bike-rides .bike-location-dropoff>svg:first-child{color:#ade7cc}
+[data-theme=dark] .bike-rides .bike-route-stage.is-checked{background:#224734;border-color:#5f8e70;color:#d4f1df}
+[data-theme=dark] .bike-rides[data-service-state=paused] .bike-route-stage,[data-theme=dark] .bike-rides[data-service-state=error] .bike-route-stage{background:#3f331e;border-color:#876f45;color:#ffe5b6}
+@media(prefers-reduced-motion:reduce){.bike-rides .bike-service-state.is-checking .bike-service-symbol>svg{animation:none}}
+html.reduce-motion .bike-rides .bike-service-state.is-checking .bike-service-symbol>svg{animation:none}
+/* Let increased text size move the fallback action rather than split words. */
+.bike-rides .bike-heading{flex-wrap:wrap}
+.bike-rides .bike-heading>div{flex:1 1 9rem}
+.bike-rides .bike-heading>.bike-soft-button{margin-left:auto}
+.bike-rides .bike-service-state{flex-wrap:wrap}
+.bike-rides .bike-service-state>div{flex:1 1 10rem}

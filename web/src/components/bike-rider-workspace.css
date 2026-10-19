@@ -79,7 +79,6 @@
 .bike-independent-earnings{display:grid;gap:14px;min-width:0}.bike-independent-earnings>header{display:flex;align-items:center;gap:10px}.bike-independent-earnings>header p{color:var(--bike-muted);font-size:.75rem;margin-top:4px}.bike-earnings-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}.bike-earnings-totals>div{background:var(--bike-surface);border:1px solid var(--bike-line);border-radius:13px;padding:10px;min-width:0}.bike-earnings-totals dt{font-size:.625rem;line-height:1.6;color:var(--bike-muted)}.bike-earnings-totals dd{font-size:1rem;font-weight:750;font-variant-numeric:tabular-nums;margin:5px 0 0;overflow-wrap:anywhere}
 .bike-earning-agreement{border:1px solid var(--bike-line);border-radius:14px;overflow:hidden}.bike-earning-agreement>summary{display:flex;align-items:center;gap:7px;padding:10px;min-height:44px;box-sizing:border-box;cursor:pointer;font-size:.75rem;font-weight:650}.bike-earning-agreement>summary span{margin-left:auto;font-size:.625rem;color:var(--bike-muted)}.bike-earning-agreement>div{display:grid;gap:10px;padding:12px;border-top:1px solid var(--bike-line);font-size:.75rem;line-height:1.65}.bike-earning-agreement form{display:grid;gap:10px}.bike-earning-agreement form label{display:flex;align-items:flex-start;gap:8px}.bike-earning-agreement input[type=checkbox]{width:20px;height:20px;flex:none;accent-color:var(--bike-blue)}
 .bike-earnings-records{display:grid;gap:7px}.bike-earnings-records h4{font-size:.8125rem}.bike-earnings-records article{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--bike-line);border-radius:12px;background:var(--bike-surface)}.bike-earnings-records article>span{display:grid;gap:4px;flex:1;min-width:0}.bike-earnings-records article strong,.bike-earnings-records article b{font-size:.8125rem}.bike-earnings-records article small{font-size:.625rem;line-height:1.6;color:var(--bike-muted);overflow-wrap:anywhere}.bike-earnings-records>p{font-size:.75rem;color:var(--bike-muted)}.bike-earning-receipt{border:1px solid #82b8a0;padding:12px;border-radius:13px;display:grid;gap:10px;font-size:.75rem}.bike-earning-receipt>div{display:flex;gap:8px;flex-wrap:wrap}
-.bike-rider-enrollment-nudge{display:flex;align-items:center;gap:8px;padding:9px;border:1px solid var(--bike-line);border-radius:13px;background:var(--bike-surface);font-size:.75rem}.bike-rider-enrollment-nudge>span{flex:1}.bike-rider-enrollment-nudge svg{flex:none}.bike-rider-workspace .bike-rider-enrollment-nudge button{font-size:.6875rem}
 @media(max-width:360px){.bike-rider-live-map{height:170px}.bike-earnings-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Rider cockpit: destination first; setup and route metadata stay one tap away. */
@@ -198,3 +197,17 @@
 .bike-rider-title{flex:1 1 90px}
 .bike-rider-control-actions{margin-left:auto}
 .business-suite .bike-rider-workspace{gap:10px}
+
+/* Actionable setup stays below live journeys and opens the existing owner/driver tools. */
+.bike-rider-workspace .bike-rider-setup{display:grid;gap:0;border:1px solid #d7e2ee;border-radius:17px;background:var(--bike-surface);padding:13px;min-width:0}
+.bike-rider-setup>header{display:flex;align-items:center;gap:8px;padding-bottom:9px;color:var(--bike-ink)}
+.bike-rider-setup>header>svg{color:#956a24;flex:none}.bike-rider-setup>header>h4{font-size:.875rem;font-weight:700;flex:1;min-width:0}
+.bike-rider-setup-step{display:grid;grid-template-columns:32px minmax(0,1fr);align-items:start;column-gap:8px;row-gap:8px;padding:11px 0;border-top:1px solid var(--bike-line);min-width:0}
+.bike-rider-setup-step:last-child{padding-bottom:0}.bike-rider-setup-icon{display:grid;place-items:center;background:#eff4fa;color:#375674;width:32px;height:32px;border-radius:10px}
+.bike-rider-setup-step>div{min-width:0}.bike-rider-setup-step h4{font-size:.875rem;line-height:1.5;font-weight:650}.bike-rider-setup-step p{color:var(--bike-muted);font-size:.8125rem;line-height:1.6;margin-top:2px;overflow-wrap:anywhere}
+.bike-rider-workspace .bike-rider-setup-step>button{grid-column:2;display:flex;align-items:center;justify-content:space-between;gap:8px;justify-self:start;font-size:.8125rem;background:#edf3fb;border-color:#dce6f1;color:#193d69;max-width:100%;line-height:1.5;text-align:left}
+.bike-rider-setup-step>button>svg{flex:none}
+[data-theme=dark] .bike-rider-workspace .bike-rider-setup{background:#192c43;border-color:#3c506a}
+[data-theme=dark] .bike-rider-setup>header>svg{color:#f1ce89}
+[data-theme=dark] .bike-rider-setup-icon{background:#253c55;color:#c5d3e6}
+[data-theme=dark] .bike-rider-workspace .bike-rider-setup-step>button{background:#29476b;border-color:#486486;color:#e0edff}
