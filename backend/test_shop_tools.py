@@ -11,6 +11,14 @@ from test_operations import api,auth,ADMIN
 from test_procurement import setup_shop,STOCK
 
 
+@pytest.fixture(autouse=True)
+def quiet_scheduler(monkeypatch):
+    # These HTTP tests compare complete database snapshots around owner-tool
+    # actions. Unrelated lifespan maintenance must not race those assertions.
+    # Autouse runs before the api fixture starts its TestClient/lifespan.
+    monkeypatch.setattr(main, 'operations_tick', lambda: None)
+
+
 @pytest.fixture
 def shop_api(api):
     if not any(getattr(route,'path','')=='/operations/shop/tools/statement' for route in main.app.routes):
