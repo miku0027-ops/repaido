@@ -15,6 +15,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -46,11 +47,22 @@ class SetupError(RuntimeError):
 
 def write_json(path, value):
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, 'w') as stream:
-        json.dump(value, stream, indent=2, sort_keys=True)
-        stream.write('\n')
+    path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=path.name+'.', suffix='.tmp', dir=path.parent)
+    try:
+        with os.fdopen(descriptor, 'w') as stream:
+            json.dump(value, stream, indent=2, sort_keys=True, allow_nan=False)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def fingerprint(value):
@@ -432,7 +444,7 @@ def prepare(runner, args):
     directory.mkdir(mode=0o700, parents=True)
     terraform = directory/'terraform'
     shutil.copytree(ROOT, terraform, ignore=shutil.ignore_patterns('.terraform', '__pycache__', '*.py', '*.md', 'test*'))
-    (terraform/'backend.tf').write_text('terraform { backend "gcs" {} }\n')
+    (terraform/'backend.tf').write_text('terraform {\n  backend "gcs" {}\n}\n')
     inputs = {'enabled': True, 'project_id': PROJECT, 'region': REGION, 'zones': ['us-central1-a', 'us-central1-b'],
               'image': value['baseline']['image'], 'quota_secret_version': version,
               'minimum_workers': 2, 'maximum_workers': args.maximum_workers, 'events_per_worker': 32, 'alert_email': args.alert_email,

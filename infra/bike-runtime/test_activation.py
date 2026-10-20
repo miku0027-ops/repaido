@@ -3,7 +3,9 @@ import copy
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -56,6 +58,82 @@ def test_exact_serving_revision_selects_existing_digest_and_identity(activation,
     assert selected['build_id'] == 'fixture-reviewed-build'
     assert selected['url'] == service['status']['url']
     assert selected['environment_fingerprint']
+
+
+def test_metadata_receipt_replacement_is_private_complete_and_leaves_no_partial_file(activation,tmp_path):
+    path=tmp_path/'nested'/'manifest.json'
+    activation.write_json(path,{'phase':'first'})
+    activation.write_json(path,{'phase':'complete','key_reference':SECRET})
+    assert json.loads(path.read_text())=={'phase':'complete','key_reference':SECRET}
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert list(path.parent.glob('*.tmp'))==[]
+
+
+def test_interrupted_metadata_replacement_preserves_previous_valid_receipt(activation,tmp_path,monkeypatch):
+    path=tmp_path/'manifest.json'
+    activation.write_json(path,{'phase':'previous'})
+    def interrupt(*args): raise OSError('simulated interrupted replacement')
+    monkeypatch.setattr(activation.os,'replace',interrupt)
+    with pytest.raises(OSError):activation.write_json(path,{'phase':'next'})
+    assert json.loads(path.read_text())=={'phase':'previous'}
+    assert list(tmp_path.glob('*.tmp'))==[]
+
+
+def test_invalid_metadata_cannot_truncate_previous_checkpoint(activation,tmp_path):
+    path=tmp_path/'manifest.json'
+    activation.write_json(path,{'phase':'previous'})
+    with pytest.raises(ValueError):activation.write_json(path,{'invalid':float('nan')})
+    assert json.loads(path.read_text())=={'phase':'previous'}
+
+
+@pytest.fixture
+def prepared_configuration(activation, tmp_path, monkeypatch):
+    inventory = {'baseline': {'image': DIGEST}, 'quota_secret_version': None,
+                 'existing': dict.fromkeys(activation.IMPORTS), 'quota_headroom': {}}
+    monkeypatch.setattr(activation, 'inventory', lambda runner: copy.deepcopy(inventory))
+    monkeypatch.setattr(activation, 'verified_bucket', lambda runner, bucket: None)
+    monkeypatch.setattr(activation, 'owned_addresses', lambda *args: set())
+    monkeypatch.setattr(activation, 'save_plan', lambda *args: None)
+    calls = []
+
+    class Provider:
+        def cloud(self, *args, **kwargs):
+            assert args == ('secrets', 'versions', 'describe', SECRET)
+            return {'state': 'ENABLED'}
+
+        def tf(self, directory, *args, **kwargs):
+            # Only initialization is authorized during this preparation fixture.
+            assert args == ('init', '-input=false', '-lockfile=readonly',
+                            '-backend-config=bucket=repaido-fixture-state',
+                            '-backend-config=prefix=bike-runtime/v1')
+            calls.append(Path(directory))
+            return ''
+
+    directory = tmp_path/'release'
+    activation.prepare(Provider(), SimpleNamespace(
+        directory=str(directory), state_bucket='repaido-fixture-state',
+        quota_secret_version=SECRET, maximum_workers=2, alert_email=''))
+    assert calls == [directory/'terraform']
+    return directory/'terraform'
+
+
+def test_prepare_preserves_reviewed_image_key_and_provider_lock(prepared_configuration):
+    inputs = json.loads((prepared_configuration/'launch.auto.tfvars.json').read_text())
+    assert inputs['image'] == DIGEST
+    assert inputs['quota_secret_version'] == SECRET
+    assert (inputs['minimum_workers'], inputs['maximum_workers']) == (2, 2)
+    assert (prepared_configuration/'.terraform.lock.hcl').read_bytes() == (ROOT/'.terraform.lock.hcl').read_bytes()
+
+
+def test_generated_backend_is_accepted_by_real_terraform_parser(prepared_configuration):
+    binary = os.environ.get('REPAIDO_TEST_TERRAFORM')
+    if not binary:
+        pytest.skip('Set REPAIDO_TEST_TERRAFORM to run the generated HCL through Terraform')
+    # fmt parses the actual file produced by prepare, without accessing a cloud
+    # backend or installing providers. It rejects nested blocks on one line.
+    result = subprocess.run([binary, 'fmt', '-check', '-no-color', 'backend.tf'],
+                            cwd=prepared_configuration, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout+result.stderr
 
 
 @pytest.mark.parametrize('traffic', [

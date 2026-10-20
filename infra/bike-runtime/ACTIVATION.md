@@ -91,6 +91,15 @@ existing release/plan directory. It repeats prerequisite verification with the
 reviewed existing key, then prepares a fresh plan; it never creates a replacement
 key simply because an earlier bootstrap did not finish printing its receipt.
 
+If `bootstrap-progress.json` already records `prerequisites_verified` and a
+later `prepare` failed before writing `manifest.json`, preserve that failed
+directory. After correcting the reported error, use `prepare` directly with a
+new directory and the same bucket and numeric secret version. There is no need
+to repeat default writes or bootstrap. A one-line nested backend block is
+invalid HCL; generated backend configuration must use separate lines for the
+outer `terraform` block and its `backend` block. Initialization and validation
+of the generated configuration are checked locally before resuming cloud setup.
+
 From the release repository root, use official Terraform 1.7+ compatible with
 the committed provider lock. Confirm the selected account belongs to this
 release operator. Do not paste OAuth output or secret bytes into chat.
