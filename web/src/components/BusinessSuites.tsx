@@ -1,7 +1,8 @@
 import {ScrapLocationProvider} from './ScrapLocation';
 import {CaptainClub,useCaptain} from './CaptainClub';
 import {CleanupWorkspace} from './CleanupWorkspace';
-import {useEffect,useRef,useState,type ReactNode} from 'react';
+import {createContext,useContext,useEffect,useRef,useState,type ReactNode} from 'react';
+import {createPortal} from 'react-dom';
 import {ArrowRight,Building2,CalendarDays,Car,ClipboardList,Home,MoreHorizontal,Recycle,Route,Scale,ShieldCheck,Truck,UserRound,Users,Wallet,Wrench,Trophy,type LucideIcon,DriverBadge,LocalTaxi,KeyRound,TwoWheeler} from '../icons';
 import {BusinessCalendar,BusinessRecords,VehicleEditor,useBusinessRecords} from './LocalBusiness';
 import {DriverInvitations,SharedRideBookings,useSharedRecords,VehicleConnections} from './SharedRides';
@@ -12,6 +13,8 @@ import {SharedRideRequestAlerts} from './SharedRideRequestAlerts';
 import {PublicCabAvailability} from './PublicCabAvailability';
 import {BikeRiderWorkspace} from './BikeRiderWorkspace';
 import './business-suites.css';
+
+export const BusinessHeaderTarget=createContext<HTMLElement|null>(null);
 
 type BusinessRole='cab_owner'|'driver'|'scrap_owner';
 type Panel={id:string;label:string;icon:LucideIcon};
@@ -42,6 +45,7 @@ export function BusinessAppLauncher({currentRole,registeredRoles,onClose}:{curre
  return <Modal title="Your business apps" onClose={onClose}><p className="suite-launcher-note">One mobile number, separate business profiles. Each new business is reviewed before you receive work.</p><div className="suite-launcher">{apps.map(({role,label,description,icon:Icon})=><a key={role} href={'/worker?mode='+role} aria-current={currentRole===role?'page':undefined}><Icon size={24} aria-hidden="true"/><span><strong>{label}</strong><small>{description}</small><b>{currentRole===role?'Current app':registeredRoles.includes(role)?'Open your app':'Register this business'}</b></span><ArrowRight size={20} aria-hidden="true"/></a>)}</div></Modal>;
 }
 function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,children}:{role:BusinessRole;title:string;description:string;partner:any;panels:Panel[];panel:string;onPanel:(p:string)=>void;action?:ReactNode;children:ReactNode}){
+ const headerTarget=useContext(BusinessHeaderTarget);
  const heading=useRef<HTMLHeadingElement>(null),frame=useRef<HTMLElement>(null),navigation=useRef<HTMLElement>(null),panelHeader=useRef<HTMLDivElement>(null),first=useRef(true);
  const mobility=role!=='scrap_owner',owner=role==='cab_owner',scrap=role==='scrap_owner';
  const bookingPanels=panels.filter(p=>(owner?['cabs','shared','rentals','bikes']:['journeys','shared','bikes']).includes(p.id));
@@ -95,7 +99,7 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   heading.current?.focus({preventScroll:true});
  },[panel,mobility]);
  return <section ref={frame} data-panel={panel} className={'local-business-hub business-suite suite-workspace suite-'+role+(mobility?' suite-mobility':'')} aria-label={title}>
-  <header className="suite-hero"><span className="suite-emblem" aria-hidden="true">{role==='cab_owner'?<Car/>:role==='driver'?<DriverBadge/>:<Recycle/>}</span><div><small>REPAIDO BUSINESS</small><h1>{title}</h1><span className="suite-business-name"><ShieldCheck size={16} aria-hidden="true"/>{partner.name} · {partner.city}</span></div></header>
+  {headerTarget?createPortal(<div className="worker-suite-identity"><h1>{role==='driver'?'Driver':role==='cab_owner'?'Cab owner':'Scrap collector'}</h1><span>{partner.name}</span><small><ShieldCheck size={12} aria-hidden="true"/>{partner.city}</small></div>,headerTarget):<header className="suite-hero"><span className="suite-emblem" aria-hidden="true">{role==='cab_owner'?<Car/>:role==='driver'?<DriverBadge/>:<Recycle/>}</span><div><small>REPAIDO BUSINESS</small><h1>{title}</h1><span className="suite-business-name"><ShieldCheck size={16} aria-hidden="true"/>{partner.name} · {partner.city}</span></div></header>}
   <div className="suite-layout">
     <nav ref={navigation} className="suite-navigation" aria-label={title+' navigation'}>{primary.map(({id,label,icon:Icon})=><button key={id} aria-label={scrap&&id==='requests'?'Collections':scrap&&id==='weighing'?'Inspection':role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label} aria-current={group===id?'page':undefined} onClick={()=>select(id)}><Icon size={24} aria-hidden="true"/><span>{role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label}</span></button>)}</nav>
    <div className="suite-content">

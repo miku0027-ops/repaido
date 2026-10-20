@@ -1,6 +1,6 @@
 import {Modal} from './ui';
 import {LocalBusinessDesk} from './LocalBusiness';
-import {BusinessAppLauncher} from './BusinessSuites';
+import {BusinessAppLauncher,BusinessHeaderTarget} from './BusinessSuites';
 import {useSavedTab} from '../services/navigation';
 import {PartnerAgreement} from './PartnerProgram';
 import {HomePlans} from './HomePlans';
@@ -49,6 +49,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
   const explicitRole=useRef(['technician','contractor','cab_owner','driver','scrap_owner'].includes(new URLSearchParams(location.search).get('mode')||''));
   const chooseRole=(role:typeof loginRole)=>{explicitRole.current=true;setLoginRole(role);try{localStorage.setItem('repaido.agent_login_role',role);}catch{}};
   const [businessApps,setBusinessApps]=useState(false);
+  const [businessHeader,setBusinessHeader]=useState<HTMLDivElement|null>(null);
   const [registeredRoles,setRegisteredRoles]=useState<string[]>([]);
   const [accountConflict,setAccountConflict]=useState(false);
   const [editing,setEditing]=useState(false);
@@ -123,10 +124,10 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
   const readPresenceLocation=async()=>{try{const position=await currentPosition(true);if(position.accuracy>1000)throw new Error('Enable precise location and retry near a window.');setLocationError('');return position;}catch(e){setLocationError((e as Error).message);return null;}};
   const toggleAvailability=()=>submit(async()=>{if(!worker)return;const position=worker.online?undefined:await readPresenceLocation();if(!worker.online&&!position)return;const result=await operation<{worker:LiveWorker}>('/worker/availability',{method:'POST',body:JSON.stringify({online:!worker.online,position})});lastLocationAttempt.current=Date.now();setWorker(result.worker);setLocationError('');window.dispatchEvent(new Event('repaido:job-updated'));});
   const accountTools=<WorkerAccountTools busy={busy} onSignOut={()=>void submit(async()=>{await stopNativeSession();await logoutUser();setWorker(null);setSignedIn(false);})} onNotifications={()=>void submit(()=>enableNativePush())}/>;
-  return <main className={`operations ops-worker${!signedIn?' worker-signin-shell':''}${signedIn&&['cab_owner','driver','scrap_owner'].includes(loginRole)?' ops-cab-workspace':''}`}>
+  return <BusinessHeaderTarget.Provider value={businessHeader}><main className={`operations ops-worker${!signedIn?' worker-signin-shell':''}${signedIn&&['cab_owner','driver','scrap_owner'].includes(loginRole)?' ops-cab-workspace':''}`}>
     {signedIn&&businessApps&&<BusinessAppLauncher currentRole={loginRole} registeredRoles={registeredRoles} onClose={()=>setBusinessApps(false)}/>}
     {signedIn&&loginRole==='contractor'&&worker&&profileSection&&<Modal title="Professional profile" onClose={()=>setProfileSection(null)}><WorkerProfileEditor account={account} worker={worker} initialSection={profileSection} onSectionClose={()=>setProfileSection(null)} onEditPrivate={()=>setProfileSection('verification')} onRefresh={()=>{void load();void loadProgress();}}/></Modal>}
-    {!signedIn?<><a className="worker-signin-skip" href="#worker-signin-form">Skip to sign-in</a><header className="worker-signin-topbar"><RepaidoBrand size="md"/><button type="button" className="worker-signin-back" onClick={onBack}><ArrowLeft size={20} aria-hidden="true"/><span>Customer app</span></button></header></>:<header className="ops-heading"><RepaidoBrand size="sm"/><div className="worker-header-actions"><button onClick={onBack}>Customer app</button><button onClick={()=>setBusinessApps(true)}>Business apps</button>{loginRole==='technician'&&worker?.status==='approved'&&<button className={`worker-presence ${worker.online?'is-online':''}`} role="switch" aria-checked={worker.online} aria-label="Available for new task requests" disabled={busy} onClick={()=>void toggleAvailability()}><span aria-hidden="true" className="presence-dot"/>{busy?'Updating…':worker.online?'Online':'Go online'}</button>}</div></header>}
+    {!signedIn?<><a className="worker-signin-skip" href="#worker-signin-form">Skip to sign-in</a><header className="worker-signin-topbar"><RepaidoBrand size="md"/><button type="button" className="worker-signin-back" onClick={onBack}><ArrowLeft size={20} aria-hidden="true"/><span>Customer app</span></button></header></>:<header className="ops-heading"><RepaidoBrand size="sm"/>{['cab_owner','driver','scrap_owner'].includes(loginRole)&&<div className="worker-business-heading" ref={setBusinessHeader}/>}<div className="worker-header-actions"><button onClick={onBack}>Customer app</button><button onClick={()=>setBusinessApps(true)}>Business apps</button>{loginRole==='technician'&&worker?.status==='approved'&&<button className={`worker-presence ${worker.online?'is-online':''}`} role="switch" aria-checked={worker.online} aria-label="Available for new task requests" disabled={busy} onClick={()=>void toggleAvailability()}><span aria-hidden="true" className="presence-dot"/>{busy?'Updating…':worker.online?'Online':'Go online'}</button>}</div></header>}
     {signedIn&&worker?.status==='approved'&&loginRole==='technician'&&tab==='Profile'&&<WorkNetworkEntry/>}
     {error&&signedIn&&<div className="ops-error" role="alert">{error}{!checked&&<button onClick={()=>void load()}>Retry connection</button>}</div>}
     {signedIn&&!checked&&<button onClick={()=>void submit(()=>logoutUser())}>Use another phone number</button>}
@@ -238,7 +239,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
       {tab==='Profile'&&<><section className="worker-completion"><strong>{profileProgress?.percent??'—'}% profile complete</strong><progress max={100} value={profileProgress?.percent||0} aria-label="Profile completion"/>{profileProgress?.missing.map(item=><button key={item.id} onClick={()=>{if(item.target==='application'&&worker.status!=='approved')setEditing(true);else setProfileSection(item.target==='application'?'verification':item.target);}}>{item.label}<ArrowRight size={16}/></button>)}{profileProgress?.verified&&<span className="worker-verified"><ShieldCheck size={16}/>Verified profile</span>}</section><WorkerProfileEditor account={account} worker={worker} initialSection={profileSection==='application'?'verification':profileSection} onSectionClose={()=>setProfileSection(null)} onEditPrivate={()=>setEditing(true)} onRefresh={()=>{void load();void loadProgress();}}/><AgentProjectDesk initialProjectId={projectIntent} onInitialProjectHandled={projectIntentHandled}/>{accountTools}</>}
       <WorkerNavigation tab={tab} onChange={setTab}/>
     </>}
-  </main>;
+  </main></BusinessHeaderTarget.Provider>;
 }
 function WorkerSignInIllustration(){return <div className="worker-signin-art" aria-hidden="true">
   <svg viewBox="0 0 520 300" fill="none" focusable="false">

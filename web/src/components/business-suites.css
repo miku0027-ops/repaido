@@ -76,3 +76,18 @@
  .suite-workspace .suite-navigation{grid-template-columns:repeat(5,minmax(min-content,1fr));overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding-inline:6px}
  .business-suite.suite-workspace .suite-navigation button{min-width:44px;overflow-wrap:normal;word-break:normal}
 }
+
+/* Keep the approved business identity alongside the brand, above the workspace. */
+.worker-business-heading:empty{display:none}
+.ops-cab-workspace>.ops-heading:has(.worker-suite-identity){display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;margin-bottom:10px}
+.worker-business-heading{min-width:0;padding-left:12px;border-left:1px solid var(--ui-line)}
+.worker-suite-identity{display:grid;gap:2px;min-width:0;color:var(--ui-ink)}
+.ops-heading .worker-suite-identity h1{font-size:.8125rem;line-height:1.3;font-weight:700;margin:0}
+.worker-suite-identity>span{font-size:.75rem;line-height:1.4;overflow-wrap:anywhere}
+.worker-suite-identity>small{display:flex;align-items:center;gap:4px;font-size:.75rem;line-height:1.3;color:var(--ui-muted)}
+.worker-suite-identity>small svg{flex:none}
+@media(max-width:600px){
+ .ops-cab-workspace>.ops-heading:has(.worker-suite-identity){grid-template-columns:auto minmax(0,1fr);gap:8px 12px}
+ .ops-cab-workspace>.ops-heading:has(.worker-suite-identity)>.worker-header-actions{grid-column:1/-1;justify-content:flex-end;gap:6px}
+ .ops-cab-workspace>.ops-heading:has(.worker-suite-identity)>.worker-header-actions>button{padding:6px 10px}
+}
