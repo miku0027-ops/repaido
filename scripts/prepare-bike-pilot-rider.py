@@ -295,6 +295,103 @@ VEHICLE_FIELDS = ['id', 'owner_id', 'driver_id', 'vehicle_kind', 'status', 'vers
                   'valid_until', 'registration', 'name', 'mode', 'seats', 'document_ids']
 
 
+KNOWN_PROVIDERS = frozenset({'password', 'phone', 'google.com', 'facebook.com', 'apple.com',
+                             'microsoft.com', 'github.com', 'twitter.com', 'yahoo.com',
+                             'playgames.google.com', 'anonymous', 'custom'})
+
+
+def auth_summary(auth, email):
+    providers = auth.get('providerUserInfo', []) if auth else []
+    providers = providers if isinstance(providers, list) else []
+    names = set()
+    for provider in providers:
+        name = provider.get('providerId') if isinstance(provider, dict) else None
+        if isinstance(name, str) and name in KNOWN_PROVIDERS:
+            names.add(name)
+        elif isinstance(name, str):
+            names.add('oidc' if name.startswith('oidc.') else 'saml' if name.startswith('saml.') else 'other')
+    return {'exists': bool(auth), 'disabled': bool(auth and auth.get('disabled')),
+            'phone_linked': bool(auth and auth.get('phoneNumber')),
+            'email_matches_target': bool(auth and str(auth.get('email', '')).casefold() == email),
+            'email_verified': bool(auth and auth.get('emailVerified') is True),
+            'provider_email_matches_target': any(isinstance(row, dict) and str(row.get('email', '')).casefold() == email for row in providers),
+            'providers': sorted(names)}
+
+
+def candidate_inventory(reader, uid, auth, contact, email_match, registration, plate_rows, now, email):
+    sources = (['firebase_email'] if email_match else []) + (['app_saved_email'] if contact else [])
+    candidate = {'uid': uid, 'sources': sources, 'auth': auth_summary(auth, email),
+                 'app_saved_email': {'matches_target': bool(contact), 'verified': bool(contact and contact.get('email_verified') is True)},
+                 'profiles': [], 'bikes': [], 'plate_matches': [], 'blockers': []}
+    auth_state = candidate['auth']
+    if not auth_state['exists'] or auth_state['disabled'] or not auth_state['phone_linked']:
+        candidate['blockers'].append('This account needs its real verified-mobile sign-in before business registration; no phone or identity will be invented.')
+    if not email_match and contact and not candidate['app_saved_email']['verified']:
+        candidate['blockers'].append('This UID saved the target email without verifying it. Saving an address does not link or prove ownership of a Firebase account.')
+    rows = [reader.document('ops_business_partners', identifier) for identifier in (uid, uid + ':cab_owner', uid + ':driver')]
+    profiles = {row['_document_id']: row for row in rows if row and row.get('role') in ('cab_owner', 'driver')}
+    candidate['profiles'] = [profile_summary(reader, row, uid, now) for row in profiles.values()]
+    if not profiles:
+        candidate['blockers'].append('No rider/owner business profile exists on this UID. Complete the real application and private supporting documents first.')
+    elif not any(row['status'] == 'approved' and row['review_current'] and row['account_matches_target'] and
+                 row['balasore'] and row['documents'] and row['documents']['metadata_complete'] and
+                 row['documents']['owner_matches'] and row['documents']['no_recorded_expiry_violation'] for row in candidate['profiles']):
+        candidate['blockers'].append('The business profile needs a current evidence-based company review or corrected documents/city.')
+    vehicles = reader.query('ops_mobility_vehicles', 'owner_id', uid, VEHICLE_FIELDS)
+    assigned = reader.query('ops_mobility_vehicles', 'driver_id', uid, VEHICLE_FIELDS)
+    candidate['vehicle_lists_complete'] = len(vehicles) < 21 and len(assigned) < 21
+    for row in {row['_document_id']: row for row in vehicles + assigned + plate_rows}.values():
+        target_owned = row.get('owner_id') == uid
+        target_assigned = row.get('driver_id') == uid
+        matches_plate = row.get('registration') == registration
+        summary = {'vehicle_id': row['_document_id'], 'registration_matches_requested': matches_plate,
+                   'owner_matches_target': target_owned, 'assigned_to_target': target_assigned,
+                   'vehicle_kind': row.get('vehicle_kind', 'car'), 'status': row.get('status'),
+                   'version': row.get('version'), 'active': row.get('active') is True,
+                   'one_passenger': row.get('seats') == 1, 'cab_mode': row.get('mode') in ('cab', 'both'),
+                   'review_valid_until': timestamp(row.get('valid_until')),
+                   'review_current': (finite_epoch(row.get('valid_until')) or 0) > now + 1800}
+        if target_owned or target_assigned:
+            summary['model'] = row.get('name')
+            summary['documents'] = document_checks(reader, row, row.get('owner_id'), now)
+            candidate['bikes'].append(summary)
+        if matches_plate:
+            candidate['plate_matches'].append({key: value for key, value in summary.items() if key not in ('documents', 'model')})
+    matching = [row for row in candidate['bikes'] if row['registration_matches_requested']]
+    if not matching:
+        candidate['blockers'].append("The confirmed bike is not registered to or assigned to this UID. Do not transfer another account's bike or invent vehicle data.")
+    elif len(plate_rows) != 1:
+        candidate['blockers'].append('The confirmed registration is not unique. Resolve duplicate vehicle records before approval.')
+    elif not any(row['vehicle_kind'] == 'bike' and row['status'] == 'approved' and row['active'] and row['one_passenger'] and
+                 row['cab_mode'] and row['review_current'] and row['documents']['metadata_complete'] and
+                 row['documents']['owner_matches'] and row['documents']['no_recorded_expiry_violation'] for row in matching):
+        candidate['blockers'].append('The bike requires valid owned documents, one passenger, active cab mode and a current company vehicle review.')
+    return candidate
+
+
+def canonical_recommendation(candidates):
+    # account_profile.py intentionally separates a UID's saved contact from its
+    # Firebase provider identity. Even a verified contact must not merge UIDs.
+    matches = [row for row in candidates if 'firebase_email' in row['sources'] and row['auth']['email_matches_target']]
+    recommendation = {'status': 'review_required', 'informational_only': True, 'allows_mutation': False,
+                      'scope': 'email_auth_account_only', 'business_account_selection_required': len(candidates) != 1}
+    if len(matches) != 1:
+        recommendation['reason'] = 'No single Firebase email account was established. Compare the candidate sources; no account was selected.'
+        return recommendation
+    primary = matches[0]
+    alternatives = [row for row in candidates if row['uid'] != primary['uid']]
+    conflict = any(row['app_saved_email']['verified'] or row['auth']['email_matches_target'] or
+                   row['auth']['provider_email_matches_target'] for row in alternatives)
+    if conflict:
+        recommendation['reason'] = 'Another UID has a verified saved-contact or Firebase/provider email claim. Account ownership needs operator review.'
+    elif not primary['auth']['exists'] or primary['auth']['disabled'] or not primary['auth']['email_verified']:
+        recommendation['reason'] = 'The Firebase email UID exists, but active verified email ownership has not been established. No canonical account was selected.'
+    else:
+        recommendation.update(status='verified_firebase_email_uid', uid=primary['uid'],
+                              reason="One active Firebase UID has the verified target email; other matches are unverified saved contacts without the same Firebase/provider email claim. This identifies the email sign-in account only, not ownership of another UID's business or bike.")
+    return recommendation
+
+
 def inventory(reader, *, email, registration, now=None):
     email = validate_email(email)
     registration = validate_registration(registration)
@@ -304,78 +401,53 @@ def inventory(reader, *, email, registration, now=None):
     contacts = reader.query('ops_account_contacts', 'email', email, ['email_verified'], limit=3)
     identities = {user.get('localId') for user in users} | {row['_document_id'] for row in contacts}
     identities.discard(None)
-    if any(not valid_identifier(uid) for uid in identities):
-        raise InventoryError('Account lookup returned an invalid UID; inspect this account through company administration.')
+    if len(identities) > 4 or any(not valid_identifier(uid) for uid in identities):
+        raise InventoryError('Account lookup returned invalid or excessive UID matches; inspect through company administration.')
     plate_rows = reader.query('ops_mobility_vehicles', 'registration', registration, VEHICLE_FIELDS, limit=3)
     result = {'mode': 'inventory', 'project': PROJECT, 'target_email': email,
               'confirmed_registration': registration, 'mutations_performed': False,
               'identity': {'firebase_email_matches': len(users), 'app_email_matches': len(contacts),
                            'uids': sorted(identities), 'unique': len(identities) == 1,
-                           'app_email_verified': any(row.get('email_verified') is True for row in contacts)},
+                           'contact_lookup_complete': len(contacts) < 3,
+                           'app_email_verified': any(row.get('email_verified') is True for row in contacts),
+                           'candidates': [], 'contract': 'App saved email and Firebase sign-in identity are separate. An unverified saved email does not prove ownership or link accounts.'},
               'profiles': [], 'bikes': [], 'plate_matches': [], 'blockers': [],
-              'next_actions': {'rider_onboarding': '/worker?mode=cab_owner&tab=bikes',
+              'next_actions': {'rider_onboarding': '/worker?mode=cab_owner&tab=fleet',
                                'company_review': '/company-admin → Transport & scrap → Reviews',
-                               'vehicle_onboarding': 'Bikes → Open fleet → Add vehicle → Bike',
+                               'vehicle_onboarding': 'Fleet → Add vehicle → Bike',
                                'salary_setup': '/company-admin → Transport & scrap → Salaried rider team',
                                'launch_setup': '/company-admin → Transport & scrap → Launch & pricing policy'}}
+    for uid in sorted(identities):
+        # Confirm every candidate independently by UID, including contact-only
+        # matches. Emit only booleans and provider labels, never provider emails.
+        matches = reader.auth_uid(uid)
+        auth = next((row for row in matches if row.get('localId') == uid), None)
+        contact = next((row for row in contacts if row['_document_id'] == uid), None)
+        email_match = any(row.get('localId') == uid for row in users)
+        candidate = candidate_inventory(reader, uid, auth, contact, email_match, registration, plate_rows, now, email)
+        candidate['auth']['uid_lookup_exists'] = bool(auth)
+        result['identity']['candidates'].append(candidate)
+    result['identity']['canonical_recommendation'] = canonical_recommendation(result['identity']['candidates'])
+    if not result['identity']['contact_lookup_complete']:
+        result['identity']['canonical_recommendation'] = {
+            'status': 'review_required', 'informational_only': True, 'allows_mutation': False,
+            'scope': 'email_auth_account_only', 'business_account_selection_required': True,
+            'reason': 'The bounded contact lookup is incomplete. Resolve all matching contacts before selecting an account.'}
     uid = next(iter(identities)) if len(identities) == 1 else None
-    if not uid:
-        result['blockers'].append('No unique existing account. Resolve the exact-email account before creating or approving any profile.')
+    if uid:
+        candidate = result['identity']['candidates'][0]
+        auth = candidate['auth']
+        result['identity'].update(uid=uid, auth_account_exists=auth['exists'], disabled=auth['disabled'],
+                                  phone_linked=auth['phone_linked'], firebase_email_matches_target=auth['email_matches_target'])
+        result.update(profiles=candidate['profiles'], bikes=candidate['bikes'], plate_matches=candidate['plate_matches'],
+                      blockers=list(candidate['blockers']), vehicle_lists_complete=candidate['vehicle_lists_complete'])
     else:
-        auth = next((user for user in users if user.get('localId') == uid), None)
-        if auth is None:
-            matches = reader.auth_uid(uid)
-            auth = next((user for user in matches if user.get('localId') == uid), None)
-        result['identity'].update(uid=uid, auth_account_exists=bool(auth),
-                                  disabled=bool(auth and auth.get('disabled')),
-                                  phone_linked=bool(auth and auth.get('phoneNumber')),
-                                  firebase_email_matches_target=bool(auth and str(auth.get('email', '')).casefold() == email))
-        if not auth or auth.get('disabled') or not auth.get('phoneNumber'):
-            result['blockers'].append('The rider must sign in with their real verified mobile account before business registration; no phone or identity will be invented.')
-        if not users and not any(row.get('email_verified') is True for row in contacts):
-            result['blockers'].append('The target email is only an unverified app contact. Confirm account ownership before approving it.')
-        rows = [reader.document('ops_business_partners', identifier) for identifier in (uid, uid + ':cab_owner', uid + ':driver')]
-        profiles = {row['_document_id']: row for row in rows if row and row.get('role') in ('cab_owner', 'driver')}
-        result['profiles'] = [profile_summary(reader, row, uid, now) for row in profiles.values()]
-        if not profiles:
-            result['blockers'].append('No rider/owner business profile exists. Complete the real owner-rider application and private supporting documents first.')
-        elif not any(row['status'] == 'approved' and row['review_current'] and row['account_matches_target'] and
-                     row['balasore'] and row['documents'] and row['documents']['metadata_complete'] and
-                     row['documents']['owner_matches'] and row['documents']['no_recorded_expiry_violation'] for row in result['profiles']):
-            result['blockers'].append('The business profile needs a current evidence-based company review or corrected documents/city.')
-        vehicles = reader.query('ops_mobility_vehicles', 'owner_id', uid, VEHICLE_FIELDS)
-        assigned = reader.query('ops_mobility_vehicles', 'driver_id', uid, VEHICLE_FIELDS)
-        result['vehicle_lists_complete'] = len(vehicles) < 21 and len(assigned) < 21
-        for row in {row['_document_id']: row for row in vehicles + assigned + plate_rows}.values():
-            target_owned = row.get('owner_id') == uid
-            target_assigned = row.get('driver_id') == uid
-            matches_plate = row.get('registration') == registration
-            summary = {'vehicle_id': row['_document_id'], 'registration_matches_requested': matches_plate,
-                       'owner_matches_target': target_owned, 'assigned_to_target': target_assigned,
-                       'vehicle_kind': row.get('vehicle_kind', 'car'), 'status': row.get('status'),
-                       'version': row.get('version'), 'active': row.get('active') is True,
-                       'one_passenger': row.get('seats') == 1, 'cab_mode': row.get('mode') in ('cab', 'both'),
-                       'review_valid_until': timestamp(row.get('valid_until')),
-                       'review_current': (finite_epoch(row.get('valid_until')) or 0) > now + 1800}
-            if target_owned or target_assigned:
-                summary['model'] = row.get('name')
-                summary['documents'] = document_checks(reader, row, row.get('owner_id'), now)
-                result['bikes'].append(summary)
-            if matches_plate:
-                result['plate_matches'].append({key: value for key, value in summary.items() if key not in ('documents', 'model')})
-    if not uid:
+        result['blockers'].append('No unique existing account. Compare the per-UID candidates before choosing the business account. No account merge, contact change, creation or approval is permitted across this conflict.')
         result['plate_matches'] = [{'vehicle_id': row['_document_id'], 'vehicle_kind': row.get('vehicle_kind', 'car'),
                                    'status': row.get('status'), 'version': row.get('version'),
-                                   'registration_matches_requested': True, 'target_account_unresolved': True} for row in plate_rows]
-    matching = [row for row in result['bikes'] if row['registration_matches_requested']]
-    if not matching:
-        result['blockers'].append('The confirmed bike is not registered to or assigned to this account. Supply its real model and private vehicle documents through Fleet; do not invent registration data or change another owner.')
-    elif len(plate_rows) != 1:
-        result['blockers'].append('The confirmed registration is not unique. Resolve duplicate vehicle records before approval.')
-    elif not any(row['vehicle_kind'] == 'bike' and row['status'] == 'approved' and row['active'] and row['one_passenger'] and
-                 row['cab_mode'] and row['review_current'] and row['documents']['metadata_complete'] and
-                 row['documents']['owner_matches'] and row['documents']['no_recorded_expiry_violation'] for row in matching):
-        result['blockers'].append('The bike requires valid owned documents, one passenger, active cab mode and a current company vehicle review.')
+                                   'registration_matches_requested': True,
+                                   'owner_candidate_uids': [uid for uid in sorted(identities) if row.get('owner_id') == uid],
+                                   'assigned_candidate_uids': [uid for uid in sorted(identities) if row.get('driver_id') == uid]} for row in plate_rows]
     result['operational_note'] = ('This checks account and registration only. One real approved rider can start; the salaried team is capped at three at ₹7,000/month each. '
                                   'Real salary funding, reviewed geography/tax/cash/terms, routing, dispatch and fresh rider GPS remain separate launch checks. '
                                   'No account, role, profile, vehicle, approval or funding was changed. Document metadata does not replace a human licence/vehicle-evidence review.')

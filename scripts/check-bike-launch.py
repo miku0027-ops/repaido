@@ -22,32 +22,86 @@ PUBLIC_FIELDS = ('version', 'enabled', 'bookings_available', 'dispatch_ready', '
                  'geography_ready', 'paid_ready', 'promo_ready', 'routing_ready',
                  'promo_identity_ready', 'promo_enabled', 'service_radius_metres',
                  'pickup_radius_metres', 'free_distance_metres', 'weekly_free_limit')
+GOOGLE_REASONS = frozenset({'SERVICE_DISABLED', 'USER_PROJECT_DENIED', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT',
+    'IAM_PERMISSION_DENIED', 'BILLING_DISABLED', 'CONSUMER_INVALID', 'CONSUMER_SUSPENDED',
+    'CREDENTIALS_MISSING', 'ACCESS_TOKEN_EXPIRED', 'ACCESS_TOKEN_TYPE_UNSUPPORTED',
+    'SECURITY_POLICY_VIOLATED', 'RATE_LIMIT_EXCEEDED', 'RESOURCE_QUOTA_EXCEEDED', 'QUOTA_EXCEEDED'})
+PUBLIC_FAILURE_REASONS = frozenset({'http_error', 'http_redirect', 'network_error', 'invalid_json',
+                                  'response_too_large', 'invalid_response'})
+READ_STATUSES = frozenset({'gcloud_missing', 'timeout', 'permission_denied', 'authentication_failed',
+                          'api_disabled', 'not_found', 'read_failed', 'invalid_response'})
+OPERATIONS = {
+    ('run', 'services', 'describe'): ('run.services.get', 'run.services.get'),
+    ('pubsub', 'topics', 'describe'): ('pubsub.topics.get', 'pubsub.topics.get'),
+    ('pubsub', 'subscriptions', 'describe'): ('pubsub.subscriptions.get', 'pubsub.subscriptions.get'),
+    ('compute', 'instance-groups', 'managed', 'describe'): ('compute.instanceGroupManagers.get', 'compute.instanceGroupManagers.get'),
+}
+
+
+def operation_name(args):
+    return next((value[0] for prefix, value in OPERATIONS.items() if tuple(args[:len(prefix)]) == prefix), None)
+
+
+def failure(status, *, operation=None, reasons=()):
+    """Only reviewed constants enter a shareable provider error diagnostic."""
+    status = status if isinstance(status, str) and status in READ_STATUSES else 'invalid_response'
+    allowed = sorted({reason for reason in reasons if isinstance(reason, str) and reason in GOOGLE_REASONS}) if isinstance(reasons, (list, tuple, set, frozenset)) else []
+    diagnostic = {'read_status': status, 'quota_project': PROJECT, 'quota_project_explicit': True,
+                  'google_reasons': allowed, 'required_quota_permission': 'serviceusage.services.use'}
+    if isinstance(operation, str) and operation in {value[0] for value in OPERATIONS.values()}:
+        diagnostic['operation'] = operation
+        diagnostic['required_resource_permissions'] = [operation]
+    if 'USER_PROJECT_DENIED' in allowed:
+        note = 'Verify the current Cloud Shell account can use repaido as its quota project with serviceusage.services.use.'
+    elif 'SERVICE_DISABLED' in allowed or status == 'api_disabled':
+        note = 'Verify that the API for this read operation is enabled in repaido. This probe does not enable services.'
+    elif 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' in allowed:
+        note = 'Verify the Cloud Shell OAuth session has cloud-platform scope. Keep access tokens out of chat.'
+    elif set(allowed) & {'BILLING_DISABLED', 'CONSUMER_INVALID', 'CONSUMER_SUSPENDED'}:
+        note = 'Review the quota project billing/service-consumer status with the project operator. This probe does not change billing.'
+    elif status == 'authentication_failed':
+        note = 'Verify the active Cloud Shell OAuth account. This probe does not change authentication.'
+    elif status == 'permission_denied':
+        note = 'Verify the listed read permission and serviceusage.services.use for the active Cloud Shell account; a denied read does not establish resource absence.'
+    elif status == 'not_found':
+        note = 'The requested metadata resource was not found; preserve any existing differently named runtime.'
+    else:
+        note = 'The provider did not establish a more specific allowed cause. Check the active account and listed read permissions.'
+    diagnostic['next_check'] = note
+    return diagnostic
+
+
+def safe_failure(value):
+    return failure(value.get('read_status', 'invalid_response'), operation=value.get('operation'),
+                   reasons=value.get('google_reasons') or [])
 
 
 def gcloud(*args):
-    command = ['gcloud', *args]
+    command = ['gcloud', *args, '--billing-project='+PROJECT]
+    operation = operation_name(args)
     if not any(value.startswith('--format=') for value in args):
         command.append('--format=json')
     try:
         result = subprocess.run(command, text=True,
                                 capture_output=True, stdin=subprocess.DEVNULL, timeout=45)
     except FileNotFoundError:
-        return {'read_status': 'gcloud_missing'}
+        return failure('gcloud_missing', operation=operation)
     except subprocess.TimeoutExpired:
-        return {'read_status': 'timeout'}
+        return failure('timeout', operation=operation)
     if result.returncode:
         # Never echo stderr: providers can include request/configuration details.
         message = result.stderr.upper()
-        status = ('permission_denied' if 'PERMISSION_DENIED' in message or 'PERMISSION DENIED' in message else
-                  'authentication_failed' if any(value in message for value in ('UNAUTHENTICATED', 'INVALID_GRANT', 'ACCESS_TOKEN_TYPE_UNSUPPORTED', '401')) else
-                  'api_disabled' if 'SERVICE_DISABLED' in message or 'HAS NOT BEEN USED' in message else
+        reasons = {reason for reason in GOOGLE_REASONS if re.search(r'(?<![A-Z0-9_])'+re.escape(reason)+r'(?![A-Z0-9_])', message)}
+        status = ('authentication_failed' if any(value in message for value in ('UNAUTHENTICATED', 'INVALID_GRANT', '401')) or reasons & {'ACCESS_TOKEN_TYPE_UNSUPPORTED', 'ACCESS_TOKEN_EXPIRED', 'CREDENTIALS_MISSING'} else
+                  'api_disabled' if 'SERVICE_DISABLED' in reasons or 'HAS NOT BEEN USED' in message else
+                  'permission_denied' if 'PERMISSION_DENIED' in message or 'PERMISSION DENIED' in message or reasons & {'USER_PROJECT_DENIED', 'IAM_PERMISSION_DENIED', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT', 'SECURITY_POLICY_VIOLATED'} else
                   'not_found' if 'NOT_FOUND' in message or 'NOT FOUND' in message else
                   'read_failed')
-        return {'read_status': status}
+        return failure(status, operation=operation, reasons=reasons)
     try:
         return json.loads(result.stdout)
     except (ValueError, TypeError):
-        return {'read_status': 'invalid_response'}
+        return failure('invalid_response', operation=operation)
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -59,7 +113,12 @@ def policy_summary(value):
     if not isinstance(value, dict):
         return {'read_status': 'invalid_response'}
     if value.get('read_status'):
-        return {'read_status': value['read_status'] if value['read_status'] in ('read_failed', 'invalid_response') else 'read_failed'}
+        result = {'read_status': value['read_status'] if value['read_status'] in ('read_failed', 'invalid_response') else 'read_failed'}
+        if type(value.get('http_status')) is int and 100 <= value['http_status'] <= 599:
+            result['http_status'] = value['http_status']
+        if isinstance(value.get('reason'), str) and value['reason'] in PUBLIC_FAILURE_REASONS:
+            result['reason'] = value['reason']
+        return result
     result = {key: value[key] for key in PUBLIC_FIELDS if key in value and
               (type(value[key]) is bool or type(value[key]) in (int, float) and math.isfinite(value[key]) or
                key == 'dispatch_mode' and value[key] in ('pubsub', 'kafka', 'direct'))}
@@ -73,12 +132,17 @@ def public_policy():
         with urllib.request.build_opener(NoRedirect()).open(request, timeout=20) as response:
             raw = response.read(65537)
         if len(raw) > 65536:
-            return {'read_status': 'invalid_response'}
+            return {'read_status': 'invalid_response', 'reason': 'response_too_large'}
         value = json.loads(raw)
         # Only numbers, booleans and known enum values can enter shared output.
         return policy_summary(value)
-    except (OSError, ValueError, TypeError):
-        return {'read_status': 'read_failed'}
+    except urllib.error.HTTPError as error:
+        return {'read_status': 'read_failed', 'http_status': error.code,
+                'reason': 'http_redirect' if 300 <= error.code < 400 else 'http_error'}
+    except OSError:
+        return {'read_status': 'read_failed', 'reason': 'network_error'}
+    except (ValueError, TypeError):
+        return {'read_status': 'invalid_response', 'reason': 'invalid_json'}
 
 
 def allowed_resource(value, kind):
@@ -88,7 +152,7 @@ def allowed_resource(value, kind):
 
 def service_summary(service):
     if not isinstance(service, dict) or service.get('read_status'):
-        return {'read_status': service.get('read_status', 'invalid_response') if isinstance(service, dict) else 'invalid_response'}
+        return safe_failure(service) if isinstance(service, dict) else {'read_status': 'invalid_response'}
     spec = service.get('spec', {}).get('template', {}).get('spec')
     v2 = not isinstance(spec, dict)
     if v2:
@@ -130,14 +194,14 @@ def service_summary(service):
 
 def topic_summary(value):
     if not isinstance(value, dict) or value.get('read_status'):
-        return {'read_status': value.get('read_status', 'invalid_response') if isinstance(value, dict) else 'invalid_response'}
+        return safe_failure(value) if isinstance(value, dict) else {'read_status': 'invalid_response'}
     return {'read_status': 'ok', 'name': allowed_resource(value.get('name'), 'topics'),
             'allowed_persistence_regions': value.get('messageStoragePolicy', {}).get('allowedPersistenceRegions', [])}
 
 
 def subscription_summary(value):
     if not isinstance(value, dict) or value.get('read_status'):
-        return {'read_status': value.get('read_status', 'invalid_response') if isinstance(value, dict) else 'invalid_response'}
+        return safe_failure(value) if isinstance(value, dict) else {'read_status': 'invalid_response'}
     return {'read_status': 'ok', 'name': allowed_resource(value.get('name'), 'subscriptions'),
             'topic': allowed_resource(value.get('topic'), 'topics'),
             'message_ordering': value.get('enableMessageOrdering') is True,
@@ -150,8 +214,14 @@ def subscription_summary(value):
 
 
 def worker_summary(value):
+    if isinstance(value, dict):
+        if value.get('read_status'):
+            return safe_failure(value)
+        if value.get('name') != 'repaido-bike-dispatch':
+            return {'read_status': 'invalid_response'}
+        value = [value]
     if not isinstance(value, list):
-        return {'read_status': value.get('read_status', 'invalid_response') if isinstance(value, dict) else 'invalid_response'}
+        return {'read_status': 'invalid_response'}
     rows = [row for row in value if row.get('name') == 'repaido-bike-dispatch']
     return {'read_status': 'ok', 'managed_groups': [
         {'name': row.get('name'), 'target_size': row.get('targetSize'),
@@ -162,13 +232,19 @@ def worker_summary(value):
 def report(*, service, topic, subscription, workers, policy):
     api = service_summary(service)
     broker_topic, broker_subscription = topic_summary(topic), subscription_summary(subscription)
+    worker = worker_summary(workers)
     findings = []
     policy = policy_summary(policy)
     if policy['read_status'] != 'ok':
         findings.append('Public policy readiness could not be verified.')
+        if policy.get('http_status'):
+            findings.append('The public policy endpoint returned HTTP '+str(policy['http_status'])+'; this does not establish booking availability.')
     for name, value in [('API configuration', api), ('Pub/Sub topic', broker_topic), ('Pub/Sub subscription', broker_subscription)]:
         if value['read_status'] != 'ok':
             findings.append(name + ': ' + value['read_status'] + '; this does not prove the resource is absent.')
+    if worker['read_status'] != 'ok':
+        reasons = ', '.join(worker.get('google_reasons') or [])
+        findings.append('Continuous worker inventory: '+worker['read_status']+(' ('+reasons+')' if reasons else '')+'. '+worker.get('next_check', 'The worker runtime could not be verified.'))
     if api.get('read_status') == 'ok':
         if not api['topic'] or not api['subscription']:
             findings.append('The API has no valid project-local Pub/Sub topic/subscription configuration.')
@@ -198,7 +274,7 @@ def report(*, service, topic, subscription, workers, policy):
             findings.append(label)
     return {'read_only': True, 'cloud_mutations': False, 'project': PROJECT, 'region': REGION,
             'api': api, 'topic': broker_topic, 'subscription': broker_subscription,
-            'worker_runtime': worker_summary(workers), 'public_policy': policy,
+            'worker_runtime': worker, 'public_policy': policy,
             'findings': findings,
             'bookings_available_reported_by_server': policy.get('bookings_available') if policy['read_status'] == 'ok' else None,
             'admin_review_still_required': ['Current approved rider and bike documents.',
@@ -228,8 +304,8 @@ def main():
             '--format=json(name,messageStoragePolicy.allowedPersistenceRegions)')
         subscription_result = pool.submit(gcloud, 'pubsub', 'subscriptions', 'describe', subscription, '--project='+PROJECT,
             '--format=json(name,topic,enableMessageOrdering,ackDeadlineSeconds,messageRetentionDuration,expirationPolicy,deadLetterPolicy,retryPolicy)')
-        workers_result = pool.submit(gcloud, 'compute', 'instance-groups', 'managed', 'list', '--project='+PROJECT,
-            '--filter=name=repaido-bike-dispatch', '--format=json(name,region,targetSize)')
+        workers_result = pool.submit(gcloud, 'compute', 'instance-groups', 'managed', 'describe', 'repaido-bike-dispatch',
+            '--project='+PROJECT, '--region='+REGION, '--format=json(name,region,targetSize)')
         policy_result = pool.submit(public_policy)
         value = report(service=service, topic=topic_result.result(), subscription=subscription_result.result(),
             workers=workers_result.result(), policy=policy_result.result())

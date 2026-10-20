@@ -115,18 +115,103 @@ class PilotInventoryTests(unittest.TestCase):
         self.assertTrue(result['blockers'])
         self.assertFalse(any(call[0] == 'document' for call in reader.calls))
 
-    def test_ambiguous_contact_prevents_target_scope_reads(self):
+    def test_ambiguous_contact_is_inspected_per_uid_without_selecting_an_account(self):
         reader = FakeReader(contacts=[{'_document_id': 'a-different-uid', 'email_verified': False}])
         result = pilot.inventory(reader, email=EMAIL, registration=REGISTRATION, now=NOW)
         self.assertFalse(result['identity']['unique'])
-        self.assertFalse(any(call[0] == 'document' for call in reader.calls))
+        self.assertTrue(any(call[0] == 'document' for call in reader.calls))
         self.assertEqual(result['identity']['uids'], ['a-different-uid', UID])
+        self.assertEqual(result['profiles'], [])
+        self.assertEqual(result['bikes'], [])
+        self.assertEqual(len(result['identity']['candidates']), 2)
+        self.assertFalse(result['identity']['canonical_recommendation']['allows_mutation'])
 
     def test_unverified_contact_is_not_treated_as_verified_account(self):
         reader = FakeReader(users=[], contacts=[{'_document_id': UID, 'email_verified': False}])
         result = pilot.inventory(reader, email=EMAIL, registration=REGISTRATION, now=NOW)
         self.assertFalse(result['identity']['auth_account_exists'])
-        self.assertTrue(any('unverified app contact' in blocker for blocker in result['blockers']))
+        self.assertTrue(any('without verifying' in blocker for blocker in result['blockers']))
+
+    def test_split_uid_inventory_identifies_sources_profiles_and_bike_without_merging(self):
+        alternate = 'separate-phone-account'
+        alternate_profile = {**partner(), '_document_id': alternate, 'id': alternate, 'user_id': alternate}
+        users = [{'localId': UID, 'email': EMAIL, 'emailVerified': True, 'displayName': 'PRIVATE AUTH NAME',
+                  'providerUserInfo': [{'providerId': 'google.com', 'email': EMAIL}]},
+                 {'localId': alternate, 'phoneNumber': '+919999999999', 'email': 'private-other@example.test',
+                  'providerUserInfo': [{'providerId': 'phone', 'phoneNumber': '+919999999999'}]}]
+        reader = FakeReader(users=users, contacts=[{'_document_id': alternate, 'email_verified': False}],
+                            documents={('ops_business_partners', alternate): alternate_profile,
+                                       ('ops_business_documents', 'private-document-id'): {'owner_id': alternate, 'object': 'PRIVATE PHOTO'}},
+                            vehicles=[vehicle(owner_id=alternate)])
+        result = pilot.inventory(reader, email=EMAIL, registration=REGISTRATION, now=NOW)
+        candidates = {row['uid']: row for row in result['identity']['candidates']}
+        self.assertEqual(candidates[UID]['sources'], ['firebase_email'])
+        self.assertEqual(candidates[alternate]['sources'], ['app_saved_email'])
+        self.assertTrue(candidates[UID]['auth']['uid_lookup_exists'])
+        self.assertEqual(candidates[UID]['auth']['providers'], ['google.com'])
+        self.assertTrue(candidates[alternate]['auth']['phone_linked'])
+        self.assertFalse(candidates[alternate]['auth']['email_matches_target'])
+        self.assertEqual(candidates[alternate]['auth']['providers'], ['phone'])
+        self.assertEqual(candidates[UID]['profiles'], [])
+        self.assertEqual(candidates[alternate]['profiles'][0]['record_id'], alternate)
+        self.assertEqual(candidates[alternate]['bikes'][0]['vehicle_id'], 'real-bike-id')
+        self.assertEqual(result['plate_matches'][0]['owner_candidate_uids'], [alternate])
+        recommendation = result['identity']['canonical_recommendation']
+        self.assertEqual(recommendation['uid'], UID)
+        self.assertTrue(recommendation['informational_only'])
+        self.assertFalse(recommendation['allows_mutation'])
+        self.assertTrue(recommendation['business_account_selection_required'])
+        self.assertFalse(result['identity']['unique'])
+        self.assertEqual(result['profiles'], [])
+        self.assertEqual(result['bikes'], [])
+        self.assertEqual(result['next_actions']['rider_onboarding'], '/worker?mode=cab_owner&tab=fleet')
+        output = json.dumps(result)
+        for private in ('PRIVATE AUTH NAME', 'private-other@example.test', '+919999999999', 'PRIVATE PHOTO', 'private-document-id'):
+            self.assertNotIn(private, output)
+        self.assertTrue(all(('auth_uid', uid) in reader.calls for uid in (UID, alternate)))
+        with self.assertRaises(pilot.InventoryError):
+            pilot.create_account_if_missing(reader, email=EMAIL, registration=REGISTRATION, now=NOW)
+
+    def test_verified_conflicting_contact_blocks_canonical_recommendation(self):
+        reader = FakeReader(users=[{'localId': UID, 'email': EMAIL, 'emailVerified': True}],
+                            contacts=[{'_document_id': 'verified-contact-uid', 'email_verified': True}])
+        result = pilot.inventory(reader, email=EMAIL, registration=REGISTRATION, now=NOW)
+        recommendation = result['identity']['canonical_recommendation']
+        self.assertEqual(recommendation['status'], 'review_required')
+        self.assertNotIn('uid', recommendation)
+
+    def test_provider_claim_on_alternate_uid_blocks_canonical_recommendation(self):
+        reader = FakeReader(users=[{'localId': UID, 'email': EMAIL, 'emailVerified': True},
+                                  {'localId': 'other-provider-uid', 'providerUserInfo': [{'providerId': 'google.com', 'email': EMAIL}]}],
+                            contacts=[{'_document_id': 'other-provider-uid', 'email_verified': False}])
+        result = pilot.inventory(reader, email=EMAIL, registration=REGISTRATION, now=NOW)
+        self.assertEqual(result['identity']['canonical_recommendation']['status'], 'review_required')
+        alternate = next(row for row in result['identity']['candidates'] if row['uid'] == 'other-provider-uid')
+        self.assertTrue(alternate['auth']['provider_email_matches_target'])
+
+    def test_unverified_or_disabled_firebase_email_does_not_prove_canonical_ownership(self):
+        for changes in ({'emailVerified': False}, {'emailVerified': True, 'disabled': True}):
+            result = pilot.inventory(FakeReader(users=[{'localId': UID, 'email': EMAIL, **changes}]),
+                                     email=EMAIL, registration=REGISTRATION, now=NOW)
+            self.assertEqual(result['identity']['canonical_recommendation']['status'], 'review_required')
+            self.assertNotIn('uid', result['identity']['canonical_recommendation'])
+
+    def test_provider_labels_never_echo_custom_ids_or_provider_personal_data(self):
+        auth = {'localId': UID, 'email': EMAIL, 'providerUserInfo': [
+            {'providerId': 'oidc.private-company', 'email': 'private-provider@example.test'},
+            {'providerId': 'saml.private-tenant'}, {'providerId': 'PRIVATE PROVIDER'}, {'providerId': ['malformed']} ]}
+        summary = pilot.auth_summary(auth, EMAIL)
+        self.assertEqual(summary['providers'], ['oidc', 'other', 'saml'])
+        self.assertFalse(summary['provider_email_matches_target'])
+        self.assertNotIn('private', json.dumps(summary))
+        self.assertNotIn('PRIVATE', json.dumps(summary))
+
+    def test_bounded_contact_lookup_never_recommends_canonical_with_unseen_matches(self):
+        contacts = [{'_document_id': 'contact-' + str(index), 'email_verified': False} for index in range(3)]
+        result = pilot.inventory(FakeReader(users=[{'localId': UID, 'email': EMAIL, 'emailVerified': True}], contacts=contacts),
+                                 email=EMAIL, registration=REGISTRATION, now=NOW)
+        self.assertFalse(result['identity']['contact_lookup_complete'])
+        self.assertEqual(result['identity']['canonical_recommendation']['status'], 'review_required')
 
     def test_wrong_owner_or_expired_metadata_does_not_pass_document_checks(self):
         reader = FakeReader(documents={('ops_business_documents', 'private-document-id'):

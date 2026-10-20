@@ -3,6 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 from types import SimpleNamespace
+import urllib.error
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -96,6 +97,14 @@ def test_failed_public_policy_read_is_unknown_not_a_server_reported_booking_paus
     assert 'Bike bookings are paused in company policy.' not in result['findings']
 
 
+@pytest.mark.parametrize('reason', [[], {}, ['http_error'], {'private': 'must-never-print'}])
+def test_malformed_public_failure_reason_is_ignored_without_crashing_or_exposure(reason):
+    result = check.report(**value(policy={'read_status': 'read_failed', 'http_status': 403, 'reason': reason}))
+    assert result['public_policy'] == {'read_status': 'read_failed', 'http_status': 403}
+    assert result['bookings_available_reported_by_server'] is None
+    assert 'must-never-print' not in json.dumps(result)
+
+
 @pytest.mark.parametrize('key,expected', [('1', True), ('latest', False), ('0', False), ('01', False)])
 def test_quota_key_reports_binding_pinning_without_reading_the_secret(key, expected):
     result = check.service_summary(service([{'name': 'REPAIDO_BIKE_PROMO_QUOTA_SECRET',
@@ -109,11 +118,20 @@ def test_quota_key_reports_binding_pinning_without_reading_the_secret(key, expec
     ('PERMISSION_DENIED: private-response-do-not-print', 'permission_denied'),
     ('PERMISSION_DENIED: resource not found or permission is missing', 'permission_denied'),
     ('SERVICE_DISABLED: API has not been used in this project', 'api_disabled'),
+    ('PERMISSION_DENIED: reason SERVICE_DISABLED API has not been used', 'api_disabled'),
     ('HTTP 401 ACCESS_TOKEN_TYPE_UNSUPPORTED private-response-do-not-print', 'authentication_failed'),
     ('Unexpected private-response-do-not-print', 'read_failed')])
 def test_gcloud_failures_are_classified_without_echoing_provider_output(monkeypatch, message, status, capsys):
     monkeypatch.setattr(check.subprocess, 'run', lambda *a, **kw: SimpleNamespace(returncode=1, stdout='', stderr=message))
-    assert check.gcloud('pubsub', 'topics', 'describe', check.TOPIC) == {'read_status': status}
+    result = check.gcloud('pubsub', 'topics', 'describe', check.TOPIC)
+    assert result['read_status'] == status
+    assert result['quota_project'] == 'repaido'
+    assert result['quota_project_explicit'] is True
+    assert result['required_resource_permissions'] == ['pubsub.topics.get']
+    assert result['required_quota_permission'] == 'serviceusage.services.use'
+    assert isinstance(result['google_reasons'], list)
+    assert isinstance(result['next_check'], str) and result['next_check']
+    assert 'private-response-do-not-print' not in json.dumps(result)
     assert not capsys.readouterr().out
 
 
@@ -126,6 +144,97 @@ def test_explicit_format_projection_is_not_overridden(monkeypatch):
     monkeypatch.setattr(check.subprocess, 'run', run)
     check.gcloud('pubsub', 'topics', 'describe', check.TOPIC, '--format=json(name)')
     assert [part for part in seen[0] if part.startswith('--format=')] == ['--format=json(name)']
+    assert '--billing-project=repaido' in seen[0]
+
+
+def test_every_metadata_read_has_an_explicit_reviewed_quota_project(monkeypatch):
+    seen = []
+    monkeypatch.setattr(check.subprocess, 'run', lambda command, **kwargs:
+        seen.append(command) or SimpleNamespace(returncode=0, stdout='{}', stderr=''))
+    check.gcloud('compute', 'instance-groups', 'managed', 'describe', 'repaido-bike-dispatch',
+                 '--project=repaido', '--region=us-central1')
+    assert '--project=repaido' in seen[0]
+    assert [part for part in seen[0] if part.startswith('--billing-project=')] == ['--billing-project=repaido']
+
+
+@pytest.mark.parametrize('message', [
+    'PRIVATE_SERVICE_DISABLED_SUFFIX private-response-do-not-print',
+    'SERVICE_DISABLED_PRIVATE_SUFFIX private-response-do-not-print',
+    'PRIVATE_PERMISSION_DENIED_SUFFIX private-response-do-not-print',
+    'PERMISSION_DENIED_PRIVATE_SUFFIX private-response-do-not-print',
+])
+def test_only_whole_allowlisted_google_reason_enums_enter_output(monkeypatch, message):
+    monkeypatch.setattr(check.subprocess, 'run', lambda *args, **kwargs:
+        SimpleNamespace(returncode=1, stdout='', stderr=message))
+    result = check.gcloud('pubsub', 'topics', 'describe', check.TOPIC)
+    assert result['google_reasons'] == []
+    assert 'private-response-do-not-print' not in json.dumps(result)
+    assert 'PRIVATE_' not in json.dumps(result)
+
+
+def test_known_google_reason_is_preserved_without_raw_provider_detail(monkeypatch):
+    monkeypatch.setattr(check.subprocess, 'run', lambda *args, **kwargs:
+        SimpleNamespace(returncode=1, stdout='', stderr='reason: SERVICE_DISABLED; private-response-do-not-print'))
+    result = check.gcloud('pubsub', 'topics', 'describe', check.TOPIC)
+    assert 'SERVICE_DISABLED' in result['google_reasons']
+    assert 'private-response-do-not-print' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('legacy_list', [False, True])
+def test_worker_summary_accepts_real_regional_group_and_legacy_aggregate_shapes(legacy_list):
+    group = {'name': 'repaido-bike-dispatch', 'targetSize': 2,
+             'region': 'https://www.googleapis.com/compute/v1/projects/repaido/regions/us-central1',
+             'private_metadata': 'private-worker-reference-do-not-print',
+             'instanceTemplate': 'private-template-do-not-print'}
+    raw = [group, {'name': 'other-group', 'targetSize': 99}] if legacy_list else group
+    summary = check.worker_summary(raw)
+    assert summary['read_status'] == 'ok'
+    assert summary['managed_groups'] == [{'name': 'repaido-bike-dispatch', 'target_size': 2,
+                                         'region': 'us-central1'}]
+    assert 'private-' not in json.dumps(summary)
+    assert 'other-group' not in json.dumps(summary)
+
+
+def test_worker_read_failure_retains_actionable_safe_diagnostics_in_shared_report():
+    diagnostic = {'read_status': 'permission_denied', 'operation': 'compute.instanceGroupManagers.get',
+        'google_reasons': ['USER_PROJECT_DENIED', 'PRIVATE_PROVIDER_REASON_DO_NOT_PRINT'],
+        'next_check': 'private-provider-detail-do-not-print', 'stderr': 'private-stderr-do-not-print'}
+    result = check.report(**value(workers=diagnostic))
+    worker = result['worker_runtime']
+    assert worker['operation'] == 'compute.instanceGroupManagers.get'
+    assert worker['required_resource_permissions'] == ['compute.instanceGroupManagers.get']
+    assert worker['required_quota_permission'] == 'serviceusage.services.use'
+    assert worker['quota_project'] == 'repaido' and worker['quota_project_explicit'] is True
+    assert worker['google_reasons'] == ['USER_PROJECT_DENIED']
+    assert any('Continuous worker inventory: permission_denied' in text for text in result['findings'])
+    assert 'private-' not in json.dumps(result)
+    assert 'PRIVATE_PROVIDER' not in json.dumps(result)
+
+
+def test_public_http_403_retains_safe_diagnostic_and_keeps_server_availability_unknown(monkeypatch):
+    class Forbidden:
+        def open(self, request, timeout):
+            raise urllib.error.HTTPError(request.full_url, 403, 'private-response-do-not-print', {}, None)
+
+    monkeypatch.setattr(check.urllib.request, 'build_opener', lambda *args: Forbidden())
+    policy = check.public_policy()
+    assert policy == {'read_status': 'read_failed', 'http_status': 403, 'reason': 'http_error'}
+    result = check.report(**value(policy=policy))
+    assert result['public_policy'] == policy
+    assert result['bookings_available_reported_by_server'] is None
+    assert 'Bike bookings are paused in company policy.' not in result['findings']
+    assert 'private-response-do-not-print' not in json.dumps(result)
+
+
+def test_failed_policy_diagnostics_allow_only_known_reason_and_status_fields():
+    summary = check.policy_summary({'read_status': 'read_failed', 'http_status': 403,
+        'reason': 'http_error', 'private_header': 'private-header-do-not-print',
+        'body': 'private-body-do-not-print'})
+    assert summary == {'read_status': 'read_failed', 'http_status': 403, 'reason': 'http_error'}
+    forged = check.policy_summary({'read_status': 'read_failed', 'http_status': 'private-status-do-not-print',
+                                  'reason': 'private-reason-do-not-print'})
+    assert forged['read_status'] == 'read_failed'
+    assert 'private-' not in json.dumps(forged)
 
 
 def test_server_blockers_remain_visible_and_default_contract_is_not_activation():
@@ -161,6 +270,9 @@ def test_main_uses_only_project_scoped_metadata_reads_and_no_apply_option(monkey
     assert not any('containers.env' in part or 'containers.image' in part for part in service_read)
     assert all('--project=repaido' in command for command in calls)
     assert all(any(part.startswith('--format=json(') for part in command) for command in calls)
+    worker_read = next(command for command in calls if command[:3] == ('compute', 'instance-groups', 'managed'))
+    assert worker_read[:5] == ('compute', 'instance-groups', 'managed', 'describe', 'repaido-bike-dispatch')
+    assert '--region=us-central1' in worker_read
     assert all(not any(part in ('create', 'update', 'delete', 'enable', 'access', 'pull', 'publish') for part in command) for command in calls)
     monkeypatch.setattr('sys.argv', ['check-bike-launch.py', '--apply'])
     with pytest.raises(SystemExit) as failure:
