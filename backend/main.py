@@ -527,24 +527,8 @@ class BookingPaymentOrderInput(BaseModel):
 
 @app.post('/checkout/booking/order', status_code=201)
 def create_booking_payment_order(body: BookingPaymentOrderInput, user=Depends(current_user)):
-    if body.city not in CITIES: raise HTTPException(422, 'Choose a supported city.')
-    if USE_FIRESTORE:
-        service = firestore_service_by_id(body.service_id)
-        amount = CITY_BASE_FARES_PAISE[body.city]
-        metadata = {'service_id': body.service_id, 'city': body.city, 'address': body.address.strip(), 'phone': body.phone, 'notes': body.notes.strip(), 'starts_at': body.starts_at, 'idempotency_key': body.idempotency_key, 'specialist_id': body.specialist_id}
-        key_id, order = razorpay_order(amount, f'booking_{secrets.token_hex(8)}', {'purpose': 'booking', 'user_id': user['id'], 'service_id': service['id']})
-        payment_id = str(uuid.uuid4())
-        fs_doc('payment_orders', payment_id).set({'id': payment_id, 'user_id': user['id'], 'purpose': 'booking', 'amount_paise': amount, 'currency': 'INR', 'razorpay_order_id': order['id'], 'status': 'created', 'metadata': metadata, 'created_at': fs_now()})
-        return {'payment_order_id': payment_id, 'razorpay_order_id': order['id'], 'key_id': key_id, 'amount_paise': amount, 'currency': 'INR'}
-    with db() as c:
-        service = service_by_id(c, body.service_id)
-        amount = CITY_BASE_FARES_PAISE[body.city]
-        metadata = {'service_id': body.service_id, 'city': body.city, 'address': body.address.strip(), 'phone': body.phone, 'notes': body.notes.strip(), 'starts_at': body.starts_at, 'idempotency_key': body.idempotency_key, 'specialist_id': body.specialist_id}
-    key_id, order = razorpay_order(amount, f'booking_{secrets.token_hex(8)}', {'purpose': 'booking', 'user_id': user['id'], 'service_id': service['id']})
-    payment_id = str(uuid.uuid4())
-    with db() as c:
-        c.execute('INSERT INTO payment_orders (id,user_id,purpose,amount_paise,currency,razorpay_order_id,status,metadata,created_at) VALUES (?,?,?,?,?,?,?,?,?)', (payment_id, user['id'], 'booking', amount, 'INR', order['id'], 'created', json.dumps(metadata), int(time.time())))
-    return {'payment_order_id': payment_id, 'razorpay_order_id': order['id'], 'key_id': key_id, 'amount_paise': amount, 'currency': 'INR'}
+    import legacy_checkout
+    return legacy_checkout.create_order(sys.modules[__name__], body, user)
 
 class PaymentVerificationInput(BaseModel):
     payment_order_id: str = Field(min_length=1, max_length=100, pattern=r'^[A-Za-z0-9_-]+$')
@@ -599,11 +583,12 @@ def save_checkout_payment(c, body):
 
 @app.post('/checkout/booking/verify', status_code=201)
 def verify_booking_payment(body: PaymentVerificationInput, user=Depends(current_user)):
+    import legacy_checkout
+    return legacy_checkout.verify(sys.modules[__name__], body, user)
+
+
+def fulfill_booking_payment(body, user, payment):
     if USE_FIRESTORE:
-        payment_ref = fs_doc('payment_orders', body.payment_order_id)
-        payment_snap = payment_ref.get()
-        payment = checkout_payment_record(payment_snap.to_dict() if payment_snap.exists else None, body, user['id'], 'booking')
-        checkout_payment_capture(payment, body)
         metadata = payment['metadata']
         try:
             start = datetime.fromisoformat(metadata['starts_at'])
@@ -624,13 +609,23 @@ def verify_booking_payment(body: PaymentVerificationInput, user=Depends(current_
         booking_id = complete_paid_booking(sys.modules[__name__], body.payment_order_id, payment, booking, updates)
         return firestore_booking_output(booking_id)
     with db() as c:
-        payment = verify_payment(c, body, user['id'], 'booking')
+        import legacy_checkout
+        c.execute('BEGIN IMMEDIATE')
+        current = checkout_payment_record(c.execute('SELECT * FROM payment_orders WHERE id=?', (body.payment_order_id,)).fetchone(), body, user['id'], 'booking')
+        if not legacy_checkout.same_payment(legacy_checkout.normalized(current), payment):
+            raise HTTPException(409, 'This payment changed and requires reconciliation.')
+        case = c.execute("SELECT body FROM operation_records WHERE kind=? AND id=?", (legacy_checkout.CASES, body.payment_order_id)).fetchone()
+        case = json.loads(case['body']) if case else None
+        legacy_checkout.allocation_guard(case)
+        payment = current
         metadata = json.loads(payment['metadata'])
         booking = c.execute('SELECT id,payment_order_id,payment_id,payment_status FROM bookings WHERE user_id=? AND idempotency_key=?', (user['id'], metadata['idempotency_key'])).fetchone()
         if booking:
             if (payment['status'] != 'paid' or booking['payment_status'] != 'paid'
                     or booking['payment_order_id'] != payment['id'] or booking['payment_id'] != body.razorpay_payment_id):
                 raise HTTPException(409, 'This booking request already belongs to another payment.')
+            if case and case.get('state') != 'fulfilled':
+                c.execute('UPDATE operation_records SET body=? WHERE kind=? AND id=?',(json.dumps(legacy_checkout.completed_case(case,booking['id'])),legacy_checkout.CASES,body.payment_order_id))
             return booking_output(c, booking['id'])
         if payment['status'] == 'paid':
             raise HTTPException(409, 'This payment requires reconciliation before it can be confirmed.')
@@ -650,6 +645,8 @@ def verify_booking_payment(body: PaymentVerificationInput, user=Depends(current_
         booking_id = str(uuid.uuid4())
         save_checkout_payment(c, body)
         c.execute('INSERT INTO bookings (id,user_id,service_id,city,address,phone,notes,starts_at,status,price_paise,created_at,idempotency_key,professional_name,payment_status,payment_order_id,payment_id,tracking_status,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (booking_id,user['id'],metadata['service_id'],metadata['city'],metadata['address'],metadata['phone'],metadata['notes'],canonical_start,'requested',payment['amount_paise'],int(time.time()),metadata['idempotency_key'],worker['name'] if worker else None,'paid',payment['id'],body.razorpay_payment_id,'requested',int(time.time())))
+        if case:
+            c.execute('UPDATE operation_records SET body=? WHERE kind=? AND id=?',(json.dumps(legacy_checkout.completed_case(case,booking_id)),legacy_checkout.CASES,body.payment_order_id))
         return booking_output(c, booking_id)
 
 @app.post('/bookings', status_code=201)
@@ -1187,6 +1184,9 @@ install_lifecycle(sys.modules[__name__])
 
 from refunds import install as install_refunds
 install_refunds(sys.modules[__name__])
+
+import legacy_checkout
+legacy_checkout.install(sys.modules[__name__])
 
 from evidence import install as install_evidence
 install_evidence(sys.modules[__name__])

@@ -172,6 +172,8 @@ class Store:
                 c.execute(f"CREATE INDEX IF NOT EXISTS operation_bike_cash_remittances_{field} ON operation_records(json_extract(body,'$.{field}')) WHERE kind='bike_cash_remittances'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_bike_company_cash_credits_driver ON operation_records(json_extract(body,'$.unremitted_driver_id')) WHERE kind='bike_company_cash_credits'")
             c.execute("CREATE INDEX IF NOT EXISTS operation_bike_company_cash_accounts_outstanding ON operation_records(json_extract(body,'$.outstanding')) WHERE kind='bike_company_cash_accounts'")
+            for field in ('customer_id','active'):
+                c.execute(f"CREATE INDEX IF NOT EXISTS operation_legacy_checkout_cases_{field} ON operation_records(json_extract(body,'$.{field}'),id) WHERE kind='legacy_checkout_cases'")
 
     def run(self, callback):
         if self.core.USE_FIRESTORE:
@@ -248,6 +250,7 @@ class Unit:
                         'bike_quotes': {'customer_id'}, 'bike_rider_presence': {'driver_id', 'online'},
                         'bike_cash_remittances': {'driver_id', 'status'},
                         'bike_company_cash_credits': {'unremitted_driver_id'}, 'bike_company_cash_accounts': {'outstanding'}})
+        allowed['legacy_checkout_cases'] = {'customer_id','active'}
         if field not in allowed.get(kind, set()):
             raise ValueError('Unsupported indexed lookup')
         if self.tx is not None:
@@ -1199,6 +1202,7 @@ def install(core):
         result['bike_rides'] = process_deadlines(core)
         from bike_payroll import tick as payroll_tick
         result['bike_payroll'] = store.run(lambda u: payroll_tick(u))
+        result['booking_checkout'] = core.legacy_checkout_tick()
         return result
 
     @router.post('/admin/tick', dependencies=[Depends(core.operator)])

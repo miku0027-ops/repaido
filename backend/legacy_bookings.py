@@ -157,6 +157,10 @@ def complete_paid_booking(core, payment_id, expected_payment, booking, updates):
             raise HTTPException(409, 'This payment changed and requires reconciliation.')
         if payment.get('status') not in ('created', 'paid') or payment.get('razorpay_payment_id') not in (None, updates['razorpay_payment_id']):
             raise HTTPException(409, 'This payment requires reconciliation before it can be confirmed.')
+        from legacy_checkout import CASES, allocation_guard, completed_case
+        checkout = core.fs_doc('ops_'+CASES, payment_id).get(transaction=tx)
+        case = checkout.to_dict() if checkout.exists else None
+        allocation_guard(case)
         existing = _existing(core, tx, booking)
         if existing and existing.exists:
             data = existing.to_dict()
@@ -165,6 +169,8 @@ def complete_paid_booking(core, payment_id, expected_payment, booking, updates):
                     or data.get('payment_status') != 'paid'
                     or data.get('payment_order_id') != payment_id or data.get('payment_id') != updates['razorpay_payment_id']):
                 raise HTTPException(409, 'This booking request already belongs to another payment.')
+            if case and case.get('state') != 'fulfilled':
+                tx.set(core.fs_doc('ops_'+CASES,payment_id),completed_case(case,existing.id))
             return existing.id
         if payment.get('status') == 'paid':
             raise HTTPException(409, 'This payment requires reconciliation before it can be confirmed.')
@@ -175,6 +181,8 @@ def complete_paid_booking(core, payment_id, expected_payment, booking, updates):
         tx.set(core.fs_doc('bookings', booking['id']), booking)
         tx.set(_request_ref(core, booking), {'booking_id': booking['id']})
         tx.update(ref, updates)
+        if case:
+            tx.set(core.fs_doc('ops_'+CASES,payment_id),completed_case(case,booking['id']))
         _write_guards(tx, guards)
         return booking['id']
 

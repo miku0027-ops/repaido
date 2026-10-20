@@ -1,0 +1,28 @@
+.booking-payment-recovery{border:1px solid var(--ui-line,#dbe2ec);border-radius:20px;background:var(--ui-surface,#fff);margin:16px 0;color:var(--ui-ink,#142347)}
+.booking-payment-recovery>summary{display:flex;align-items:center;gap:10px;min-height:56px;padding:14px 16px;cursor:pointer;list-style:none}
+.booking-payment-recovery>summary::-webkit-details-marker{display:none}
+.booking-payment-recovery>summary>svg:first-child{color:#0756c9}
+.booking-payment-recovery>summary>svg:last-child{margin-left:auto;transition:transform .18s ease}
+.booking-payment-recovery[open]>summary>svg:last-child{transform:rotate(180deg)}
+.booking-payment-recovery-body{display:grid;gap:10px;padding:0 12px 12px}
+.booking-payment-card{padding:16px;border-radius:14px;background:var(--ui-subtle,#f3f6fb);border:1px solid var(--ui-line,#dbe2ec);min-width:0}
+.booking-payment-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.booking-payment-heading>div{display:grid;gap:4px;min-width:0}
+.booking-payment-heading strong{text-transform:capitalize;font-size:1rem}
+.booking-payment-heading span,.booking-payment-card>p,.booking-payment-reference{font-size:.875rem;line-height:1.5}
+.booking-payment-heading span{color:var(--ui-muted,#405575)}
+.booking-payment-heading>b{font-size:1.15rem;white-space:nowrap}
+.booking-payment-card p{margin:10px 0}
+.booking-payment-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.booking-payment-recovery button,.booking-payment-recovery select{min-height:44px;border:1px solid var(--ui-line,#b9c8dc);border-radius:12px;background:var(--ui-surface,#fff);color:inherit;padding:10px 14px;font:inherit;font-weight:650}
+.booking-payment-recovery button{cursor:pointer}
+.booking-payment-recovery button:disabled{cursor:default;opacity:.6}
+.booking-payment-recovery :focus-visible{outline:3px solid #2f7df5;outline-offset:3px}
+.booking-payment-time{display:grid;gap:10px;margin-top:14px}
+.booking-payment-time label{display:grid;gap:6px;font-size:.875rem}
+.booking-payment-time select{width:100%;min-width:0;font-weight:500}
+.booking-payment-time>button,.booking-payment-refund button:first-child{background:#074dc1;color:#fff;border-color:#074dc1}
+.booking-payment-refund{padding-top:8px}
+.booking-payment-reference{margin-top:12px}
+.booking-payment-reference code,.booking-payment-card code{overflow-wrap:anywhere;font-size:.8rem}
+@media(prefers-reduced-motion:reduce){.booking-payment-recovery>summary>svg:last-child{transition:none}}

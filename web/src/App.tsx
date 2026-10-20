@@ -1,4 +1,6 @@
 import {CustomerActivityHub,type ActivityLaunch} from './components/CustomerActivityHub';
+import {BookingPaymentRecovery} from './components/BookingPaymentRecovery';
+import {confirmLegacyBooking} from './services/legacyBooking';
 import {CustomerLiveActivity,type LiveActivityTarget} from './components/CustomerLiveActivity';
 import {publicProfessionalDetails} from './services/hireProfileCache';
 import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
@@ -642,43 +644,7 @@ export default function App() {
       setSheet('auth');
       throw new Error('Please sign in before paying for a booking.');
     }
-    const order = await api('/checkout/booking/order', {
-      method: 'POST',
-      body: JSON.stringify({
-        service_id: draft.items[0]?.service.id,
-        city: draft.city,
-        address: `${draft.address.name}, ${draft.address.street}, ${draft.address.area}, ${draft.address.pincode}`,
-        phone: draft.address.phone,
-        starts_at: new Date(`${draft.date}T${draft.time}:00+05:30`).toISOString(),
-        idempotency_key: crypto.randomUUID()
-      })
-    });
-    const payment = await new Promise<any>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => {
-        const gateway = new (window as any).Razorpay({
-          key: order.key_id,
-          order_id: order.razorpay_order_id,
-          amount: order.amount_paise,
-          currency: order.currency,
-          name: 'Repaido',
-          description: 'Service booking base fare',
-          prefill: { name: draft.address.name, contact: draft.address.phone },
-          handler: resolve,
-          modal: { ondismiss: () => reject(new Error('Payment was cancelled.')) }
-        });
-        gateway.open();
-      };
-      script.onerror = () => reject(new Error('Payment gateway failed to load.'));
-      document.body.appendChild(script);
-    });
-    const booking = await api('/checkout/booking/verify', {
-      method: 'POST',
-      body: JSON.stringify({ payment_order_id: order.payment_order_id, razorpay_order_id: order.razorpay_order_id, razorpay_payment_id: payment.razorpay_payment_id, razorpay_signature: payment.razorpay_signature })
-    });
-    await loadBookings();
-    return { reference: booking.id, mode: 'live' as const };
+    return confirmLegacyBooking(draft,{accountId:()=>auth.currentUser?.uid||'',api,loadBookings,storage:localStorage});
   };
 
   async function loadBookings(){
@@ -1210,7 +1176,7 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'Bookings' && <div className="customer-bookings-page">{(user||auth.currentUser)&&<div className="customer-booking-quick-actions" role="group" aria-label="Booking shortcuts"><CustomerActivityHub key={user?.id||auth.currentUser?.uid} launch={activityLaunch}/><button type="button" className="customer-business-access" aria-haspopup="dialog" onClick={()=>setBusinessAccountsOpen(true)}>Business accounts</button></div>}{(user||auth.currentUser)&&businessAccountsOpen&&<Modal title="Business & apartment accounts" className="customer-business-dialog" onClose={()=>setBusinessAccountsOpen(false)}><Suspense fallback={<p role="status">Opening business accounts…</p>}><BusinessAccounts key={user?.id||auth.currentUser?.uid} onSignIn={()=>setSheet('auth')}/></Suspense></Modal>}<CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings key={activityRecord?.kind+':'+activityRecord?.token} onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialRideId={cabRideId} initialSharedRideId={sharedRideId} initialBikeRideId={bikeRideId} key={(user?.id||'guest')+sharedRideId+bikeRideId+cabRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests initialRequestId={activityRecord?.kind==='hires'?activityRecord.id:undefined} onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans key={activityRecord?.kind==='home_plans'?activityRecord.token:undefined} onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
+            {tab === 'Bookings' && <div className="customer-bookings-page">{(user||auth.currentUser)&&!rideBookings&&!contractBookings&&!homePlans&&!hireBookings&&!contributeBookings&&<BookingPaymentRecovery key={user?.id||auth.currentUser?.uid}/>}{(user||auth.currentUser)&&<div className="customer-booking-quick-actions" role="group" aria-label="Booking shortcuts"><CustomerActivityHub key={user?.id||auth.currentUser?.uid} launch={activityLaunch}/><button type="button" className="customer-business-access" aria-haspopup="dialog" onClick={()=>setBusinessAccountsOpen(true)}>Business accounts</button></div>}{(user||auth.currentUser)&&businessAccountsOpen&&<Modal title="Business & apartment accounts" className="customer-business-dialog" onClose={()=>setBusinessAccountsOpen(false)}><Suspense fallback={<p role="status">Opening business accounts…</p>}><BusinessAccounts key={user?.id||auth.currentUser?.uid} onSignIn={()=>setSheet('auth')}/></Suspense></Modal>}<CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings key={activityRecord?.kind+':'+activityRecord?.token} onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialRideId={cabRideId} initialSharedRideId={sharedRideId} initialBikeRideId={bikeRideId} key={(user?.id||'guest')+sharedRideId+bikeRideId+cabRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests initialRequestId={activityRecord?.kind==='hires'?activityRecord.id:undefined} onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans key={activityRecord?.kind==='home_plans'?activityRecord.token:undefined} onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
