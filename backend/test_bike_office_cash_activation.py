@@ -9,7 +9,7 @@ from fastapi import HTTPException
 import bike_payroll
 import bike_rides
 import main
-from test_bike_payroll import api, quiet_scheduler, sqlite_api
+from test_bike_payroll import api, quiet_scheduler, sqlite_api, approved, enroll
 from test_local_business import vehicle
 
 spec = importlib.util.spec_from_file_location('office_cash_setup', Path(__file__).resolve().parents[1]/'scripts/activate-bike-office-cash.py')
@@ -88,3 +88,84 @@ def test_failed_cash_pilot_preserves_all_policy_salary_and_payment_records(pilot
     before=main.operations_store.run(snapshot)
     with pytest.raises(HTTPException):apply(identifier)
     assert main.operations_store.run(snapshot)==before
+
+
+@pytest.fixture
+def saved_two_rider_pilot(pilot):
+    api,identifier=pilot
+    approved('second-rider')
+    result=enroll(api,ids=('worker','second-rider'),expected_version=1,
+                  enabled=False,monthly_funding_paise=700000)
+    assert result.status_code==200,result.text
+    def review(u):
+        p=bike_rides.policy(u)
+        u.put('bike_policy','current',{**p,'version':3,'service_area_reviewed':True})
+    main.operations_store.run(review)
+    return identifier
+
+
+def apply_saved_roster(identifier, **extra):
+    args=dict(driver_id='worker',vehicle_id=identifier,period=bike_payroll.period_at(),
+              policy_version=3,payroll_version=2,actor='cloud-shell:synthetic-operator',
+              coverage_paise=1400000,preserve_saved_roster=True,expected_active_riders=2)
+    args.update(extra)
+    return main.operations_store.run(lambda u:setup.activate(u,**args))
+
+
+def financial_snapshot(u):
+    return {kind:u.all(kind) for kind in ('bike_policy','bike_payroll_policy','bike_salary_roster',
+        'bike_salary_obligations','bike_salary_transfer_references','bike_launch_maintenance','audit')}
+
+
+def test_saved_two_rider_cash_setup_preserves_obligations_and_private_funding_history(saved_two_rider_pilot):
+    identifier=saved_two_rider_pilot
+    before=main.operations_store.run(financial_snapshot)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results=list(pool.map(lambda _:apply_saved_roster(identifier),range(2)))
+    assert sorted(row['status'] for row in results)==['activated','already_saved']
+    assert all(row['active_rider_count']==2 and not row['salary_paid'] and
+               'previous_funding' not in row for row in results)
+    after=main.operations_store.run(financial_snapshot)
+    assert after['bike_salary_obligations']==before['bike_salary_obligations']
+    assert all(row['status']=='owed' and row['transfer'] is None for row in after['bike_salary_obligations'])
+    assert after['bike_salary_transfer_references']==[]
+    old=before['bike_payroll_policy'][0]
+    saved=after['bike_payroll_policy'][0]
+    assert saved['enabled'] and saved['version']==3 and saved['monthly_funding_paise']==1400000
+    assert saved['roster']==old['roster']
+    assert saved['salary_payment_method']=='office_cash'
+    history=after['bike_launch_maintenance'][0]['previous_funding']
+    assert all(history[name]==old[name] for name in ('version','funding_reference','funding_evidence','monthly_funding_paise'))
+    assert after['bike_policy'][0]['version']==4 and after['bike_policy'][0]['enabled']
+    again=apply_saved_roster(identifier)
+    assert again['status']=='already_saved'
+    assert main.operations_store.run(financial_snapshot)==after
+    if main.USE_FIRESTORE:
+        actual=main.fb_db.collection('ops_bike_payroll_policy').document('current').get().to_dict()
+        assert actual['monthly_funding_paise']==1400000 and len(actual['roster'])==2
+
+
+@pytest.mark.parametrize('fault',['underfunded','wrong_count','extra_earned_salary','stale',
+                                  'unapproved_second_rider','higher_existing_coverage','dispatch'])
+def test_saved_roster_failure_rolls_back_every_salary_and_policy_write(saved_two_rider_pilot,monkeypatch,fault):
+    identifier=saved_two_rider_pilot
+    extra={}
+    if fault=='underfunded':extra['coverage_paise']=700000
+    if fault=='wrong_count':extra.update(expected_active_riders=1,coverage_paise=700000)
+    if fault=='stale':extra['payroll_version']=1
+    if fault=='dispatch':monkeypatch.setenv('REPAIDO_BIKE_DISPATCH_MODE','pubsub')
+    def change(u):
+        if fault=='extra_earned_salary':
+            row=u.get('bike_salary_periods',bike_payroll.period_at())
+            row['driver_ids'].append('offboarded-rider')
+            u.put('bike_salary_periods',bike_payroll.period_at(),row)
+        if fault=='unapproved_second_rider':
+            row=u.get('business_partners','second-rider');row['status']='pending'
+            u.put('business_partners','second-rider',row)
+        if fault=='higher_existing_coverage':
+            row=bike_payroll.policy(u);row['monthly_funding_paise']=2100000
+            u.put('bike_payroll_policy','current',row)
+    main.operations_store.run(change)
+    before=main.operations_store.run(financial_snapshot)
+    with pytest.raises(HTTPException):apply_saved_roster(identifier,**extra)
+    assert main.operations_store.run(financial_snapshot)==before

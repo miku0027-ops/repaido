@@ -34,13 +34,24 @@ created reserve reference; it is not presented as a bank transaction or a cash
 handover receipt.
 
 The program is restricted to the delegated saved Balasore centre and 8 km
-operating circle, 4 km trip/pickup limits, one named rider/bike, INR 7,000, and
-October 2026. It preserves fares, tax/terms reviews, fixed campaign dates, other
+operating circle, 4 km trip/pickup limits, the selected rider/bike and October
+2026. Its original mode enrolls one rider with INR 7,000. An explicit
+`--preserve-saved-roster` mode retains the existing roster and requires its
+expected active count and the full owner-confirmed reserve at INR 7,000 each,
+within the existing three-rider limit. It preserves fares, tax/terms reviews, fixed campaign dates, other
 accounts, plates, vehicle ownership and retained rides. Other current salary
-obligations, changed versions/area, an incompatible agreement or lost readiness
+obligations outside that roster, changed versions/area, an incompatible agreement or lost readiness
 stop the transaction. The stored maintenance receipt makes retries idempotent;
 partial payroll/activation changes roll back together. It creates no online
 rider presence, GPS, salary handover or salary-paid record.
+
+The refreshed private inventory showed ride policy version 3 and payroll
+version 2, with two active riders, two October obligations, INR 7,000 coverage,
+and payroll disabled. The owner subsequently confirmed that the full INR 14,000
+is available and reserved at the office. The continuation uses that confirmation
+and preserves both obligations. Prior funding reference, evidence, amount and
+policy version are retained privately in the maintenance record; they are
+excluded from the returned receipt. A higher existing reserve is never reduced.
 
 The helper can configure this pilot against the already deployed compatible
 dispatch schema. The new office-cash UI and explicit handover-method API require
@@ -61,6 +72,12 @@ its API. The current application can continue serving rides during that release.
   private cash ledgers and 320–1440 px/200% light/dark WCAG checks.
 - Launch checklist browser: six groups passed. The new same-version dispatch
   regression failed before the fix and passed afterwards.
+- Saved-roster continuation: 30 passed, zero skipped across SQLite and the
+  actual loopback Firestore emulator. This includes concurrent retries,
+  unchanged salary obligations, retained funding evidence, and rollback for
+  insufficient coverage, changed roster count/version, additional earned
+  salaries, pending approval, higher existing coverage and lost dispatch.
+  Records: `/tmp/repaido-native-recovery-_om7ae0d/verification.json`.
 
 The native cash verification initially inherited a SQLite-only fixture despite
 an emulator being present. The fixture now explicitly switches the real store
