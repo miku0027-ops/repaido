@@ -249,6 +249,30 @@ def salary_metadata(snapshot, driver_id, now):
             'scope': 'Metadata only; funding acknowledgement is not bank verification. Other roster members, independent earnings, cash ledgers and available promotion funds are not evaluated.'}
 
 
+def independent_metadata(snapshot, driver_id):
+    fields = ('version', 'terms_version', 'enabled', 'reviewed', 'paid_payout_bps', 'promo_payout_paise', 'terms')
+    rider_fields = ('id', 'version', 'status', 'terms_version')
+    row = snapshot.get('ops_bike_earnings_policy', 'current', fields)
+    rider = snapshot.get('ops_bike_independent_riders', driver_id, rider_fields)
+    state = snapshot.state('ops_bike_earnings_policy', 'current', fields)
+    rider_state = snapshot.state('ops_bike_independent_riders', driver_id, rider_fields)
+    row, rider = row or {}, rider or {}
+    paid_share = row.get('paid_payout_bps')
+    version = row.get('terms_version')
+    checks = {'company_policy_enabled': row.get('enabled') is True,
+              'company_policy_reviewed': row.get('reviewed') is True,
+              'company_paid_share_configured': type(paid_share) is int and 0 < paid_share <= 10000,
+              'company_terms_present': bool(isinstance(row.get('terms'), str) and row['terms'].strip()),
+              'selected_agreement_matches_account': rider.get('id') == driver_id,
+              'selected_agreement_approved': rider.get('status') == 'approved',
+              'selected_agreement_uses_current_terms': type(version) is int and version > 0 and rider.get('terms_version') == version}
+    return {'policy_read_status': state, 'selected_agreement_read_status': rider_state,
+            'policy_version': integer(row.get('version')), 'selected_agreement_version': integer(rider.get('version')),
+            'selected_agreement_status': enum(rider.get('status'), ('pending', 'approved', 'rejected', 'suspended')),
+            'metadata_checks': checks, 'metadata_matches': all(checks.values()),
+            'scope': 'Agreement metadata only. This does not establish a funded salaried assignment, promotion funds, approval freshness, an available rider or a bookable quote. An approved independent agreement must be resolved through company admin before salary enrollment.'}
+
+
 def diagnose(reader, *, driver_id, vehicle_id, now=None, public_policy=None):
     now = time.time() if now is None else now
     snapshot = Snapshot(reader)
@@ -266,6 +290,7 @@ def diagnose(reader, *, driver_id, vehicle_id, now=None, public_policy=None):
               'selected_vehicle': selected_vehicle(snapshot, driver_id, vehicle_id, now),
               'selected_salary_profile_candidates': [profile(snapshot, driver_id, role, now) for role in ('driver', 'cab_owner')],
               'saved_ride_policy': ride_policy(snapshot, now), 'saved_salary_metadata': salary_metadata(snapshot, driver_id, now),
+              'saved_independent_metadata': independent_metadata(snapshot, driver_id),
               'serving_api_readiness': launch.policy_summary(public_policy) if public_policy is not None else launch.public_policy(),
               'operational_note': 'Only the serving API reports booking readiness. Metadata does not replace human document review, actual funding, dispatch health, real rider GPS or an end-to-end ground test. No native payroll GET or accrual was called.'}
     result['cloud_read_errors'] = ([auth_failure] if auth_failure else []) + list(snapshot.failures.values())

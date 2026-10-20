@@ -47,6 +47,31 @@ with the designated release operator rather than adding Owner grants.
 
 ## 1. Verify tools and inventory
 
+For the reviewed Balasore pilot, a single preparation wrapper is available after
+the website and both APIs have been verified against their successful build:
+
+```bash
+bash scripts/prepare-bike-runtime-plan.sh VERIFIED_SERVING_BUILD_ID
+```
+
+This explicit setup command fills only a missing editable Balasore centre
+(`21.4934, 86.9135`) and an absent disabled ₹7,000 salary template. The centre
+remains pending company review; funding stays zero/unacknowledged and the roster
+stays empty. Existing locations, payroll, fares and agreements are preserved.
+The default writes use document-update preconditions and an atomic maintenance
+audit; live booking policies are rejected.
+
+The wrapper installs checksum-pinned official Terraform 1.16.6 privately in its
+printed run directory, bypassing Cloud Shell's installation shim. It then runs
+the explicit prerequisite bootstrap and prepares a saved two-worker plan using
+the project-owned state-bucket name
+`repaido-bike-runtime-tfstate-133610574058`. Its availability/ownership is checked,
+not assumed. It does not apply the worker plan, change API traffic, or open
+bookings. Prerequisite APIs, the protected bucket and an absent quota secret may
+be created; retain the printed records if a later phase stops. Inspect any error
+before retrying, particularly an existing unbound secret or an uncertain default
+commit. Never remove a secret to get past a setup check.
+
 From the release repository root, use official Terraform 1.7+ compatible with
 the committed provider lock. Confirm the selected account belongs to this
 release operator. Do not paste OAuth output or secret bytes into chat.

@@ -176,6 +176,30 @@ One approved, funded salaried rider is enough for the initial ground test;
 three is the roster limit. Configure the actual current-month funding and
 launch policy through company admin before opening normal bookings.
 
+### Finish the first salary setup
+
+Open **Salaried rider team → Roster & funding policy**. Choose the selected
+approved operator as Rider 1 and leave the other slots empty for a one-rider
+test. The salary stays ₹7,000/month; choose the current IST funding month and
+record the actual available coverage, at least ₹7,000 for one rider (including
+any already earned obligations shown by the server). Add the real funding
+reference and evidence, acknowledge verification, enable the reviewed salary
+roster and save. The native save validates documents, funding, current month and
+any conflicting independent agreement. It enrolls the actual rider and records
+earned salary obligations; no bank transfer is initiated.
+
+An editable disabled template with zero funding and an empty roster is only a
+starting form. It does not establish that a rider is employed or funded. Record
+an external salary payment separately only after that payment actually happened.
+An approved independent agreement must be reviewed through its existing company
+workflow before moving the same rider to salary; preparation never suspends one
+automatically.
+
+The selected-rider support check now reports independent policy/agreement
+metadata separately. A general public `paid_ready=true` can come from configured
+independent earnings while this particular rider still has no active agreement;
+it does not prove a saved salaried roster or that the selected rider can dispatch.
+
 When the operator has explicitly selected an existing approved mobile account
 and bike, check those exact records without resolving or merging email accounts:
 

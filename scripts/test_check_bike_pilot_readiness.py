@@ -180,6 +180,37 @@ class ReadinessTests(unittest.TestCase):
         self.assertEqual(value['selected_vehicle']['read_status'], 'not_found')
         self.assertTrue(all(call[0] in ('auth_uid', 'get') for call in reader.calls))
 
+    def test_independent_company_configuration_does_not_imply_selected_rider_enrollment(self):
+        documents = fixtures()
+        documents.pop(('ops_bike_payroll_policy', 'current'))
+        documents['ops_bike_earnings_policy', 'current'] = {'version': 2, 'terms_version': 1,
+            'enabled': True, 'reviewed': True, 'paid_payout_bps': 7500,
+            'promo_payout_paise': 1500, 'terms': PRIVATE, 'reference': PRIVATE}
+        _, value = self.inspect(documents)
+        independent = value['saved_independent_metadata']
+        self.assertEqual(value['saved_salary_metadata']['read_status'], 'not_found')
+        self.assertTrue(independent['metadata_checks']['company_policy_enabled'])
+        self.assertEqual(independent['selected_agreement_read_status'], 'not_found')
+        self.assertFalse(independent['metadata_matches'])
+        self.assertNotIn(PRIVATE, json.dumps(value))
+        self.assertNotIn('7500', json.dumps(independent))
+
+    def test_approved_independent_terms_must_match_selected_account_and_current_policy(self):
+        documents = fixtures()
+        documents['ops_bike_earnings_policy', 'current'] = {'version': 3, 'terms_version': 2,
+            'enabled': True, 'reviewed': True, 'paid_payout_bps': 7500, 'terms': PRIVATE}
+        documents['ops_bike_independent_riders', UID] = {'id': UID, 'version': 4,
+            'status': 'approved', 'terms_version': 1, 'name': PRIVATE}
+        _, value = self.inspect(documents)
+        self.assertFalse(value['saved_independent_metadata']['metadata_matches'])
+        documents['ops_bike_independent_riders', UID]['terms_version'] = 2
+        _, value = self.inspect(documents)
+        self.assertTrue(value['saved_independent_metadata']['metadata_matches'])
+        documents['ops_bike_independent_riders', UID]['id'] = 'another-private-person'
+        _, value = self.inspect(documents)
+        self.assertFalse(value['saved_independent_metadata']['metadata_matches'])
+        self.assertNotIn('another-private-person', json.dumps(value))
+
     def test_expired_documents_and_approvals_are_reported_without_document_paths(self):
         documents = fixtures()
         documents['ops_business_documents', 'private-doc']['expires_at'] = NOW
