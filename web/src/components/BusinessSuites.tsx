@@ -12,6 +12,7 @@ import {Modal} from './ui';
 import {SharedRideRequestAlerts} from './SharedRideRequestAlerts';
 import {PublicCabAvailability} from './PublicCabAvailability';
 import {BikeRiderWorkspace} from './BikeRiderWorkspace';
+import {BusinessCabRideWorkspace} from './BusinessCabRideWorkspace';
 import './business-suites.css';
 
 export const BusinessHeaderTarget=createContext<HTMLElement|null>(null);
@@ -19,7 +20,7 @@ export const BusinessHeaderTarget=createContext<HTMLElement|null>(null);
 type BusinessRole='cab_owner'|'driver'|'scrap_owner';
 type Panel={id:string;label:string;icon:LucideIcon};
 type Records=ReturnType<typeof useBusinessRecords>;
-const closed=(r:any)=>['completed','cancelled','expired'].includes(r.state);
+const closed=(r:any)=>['completed','cancelled','expired','declined'].includes(r.state);
 const indiaDate=(t:number)=>new Date(t*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const monthNow=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}).slice(0,7);
 const only=(records:Records,test:(r:any)=>boolean):Records=>({...records,rows:records.rows.filter(test)});
@@ -48,7 +49,7 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
  const headerTarget=useContext(BusinessHeaderTarget);
  const heading=useRef<HTMLHeadingElement>(null),frame=useRef<HTMLElement>(null),navigation=useRef<HTMLElement>(null),panelHeader=useRef<HTMLDivElement>(null),first=useRef(true);
  const mobility=role!=='scrap_owner',owner=role==='cab_owner',scrap=role==='scrap_owner';
- const bookingPanels=panels.filter(p=>(owner?['cabs','shared','rentals','bikes']:['journeys','shared']).includes(p.id));
+ const bookingPanels=panels.filter(p=>(owner?['cabs','shared','rentals','bikes']:['journeys','bikes','shared']).includes(p.id));
  const inBookings=mobility&&bookingPanels.some(p=>p.id===panel),inMore=owner?['more','payments','account'].includes(panel):scrap&&['more','cleanup','impact','calendar','account'].includes(panel);
  const primary:Panel[]=owner?[
   {id:'overview',label:'Home',icon:Home},{id:'bookings',label:'Bookings',icon:ClipboardList},
@@ -105,10 +106,10 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   <div className="suite-layout">
     <nav ref={navigation} className="suite-navigation" aria-label={title+' navigation'}>{primary.map(({id,label,icon:Icon})=><button key={id} aria-label={scrap&&id==='requests'?'Collections':scrap&&id==='weighing'?'Inspection':role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label} aria-current={group===id?'page':undefined} onClick={()=>select(id)}><Icon size={24} aria-hidden="true"/><span>{role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label}</span></button>)}</nav>
    <div className="suite-content">
-    <div ref={panelHeader} className={"suite-panel-header"+(role==='driver'&&inBookings?' is-compact-bookings':'')}>
+    <div ref={panelHeader} className={"suite-panel-header"+(inBookings?' has-ride-tabs':'')}>
 
      <div className="suite-title-row"><h2 ref={heading} tabIndex={-1} className="suite-panel-title">{label}</h2>{action}</div>
-     {inBookings&&<nav className="suite-booking-navigation" aria-label="Booking types">{bookingPanels.map(p=><button key={p.id} aria-current={panel===p.id?'page':undefined} onClick={()=>onPanel(p.id)}>{p.label}</button>)}</nav>}
+     {inBookings&&<nav className="suite-booking-navigation" aria-label="Booking types">{bookingPanels.map(p=><button key={p.id} aria-current={panel===p.id?'page':undefined} onClick={()=>onPanel(p.id)}><span aria-hidden="true">{({journeys:'Cab',cabs:'Cab',bikes:'Bike',shared:'Shared',rentals:'Self-drive'} as Record<string,string>)[p.id]||p.label}</span><span className="sr-only">{p.label}</span></button>)}</nav>}
     </div>
     {children}
    </div>
@@ -133,6 +134,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
  const open=(r:any)=>{setRecordId(r.id);setPanel(r.vehicle_name?'shared':r.mode==='rental'?'rentals':'cabs');};
  return <SuiteFrame role="cab_owner" title="Cab owner suite" description="Your fleet. Your routes. Your business." partner={partner} panels={panels} panel={panel} onPanel={setPanel} action={panel==='fleet'?<button className="ops-primary" onClick={()=>setEditing({id:crypto.randomUUID(),version:0})}>Add vehicle</button>:undefined}><ContractError error={records.error||shared.error} onRetry={()=>{void records.refresh();void shared.refresh();}}/>
   <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} settings={panel==='account'}/>
+  <BusinessCabRideWorkspace records={cabs} role="cab_owner"/>
   {panel==='overview'&&<>
    <div className="suite-metrics"><Metric label="New booking requests" value={pending.length} onClick={()=>{setRecordId(pending[0]?.id||'');setPanel(pending[0]?.mode==='rental'?'rentals':'cabs');}}/><Metric label="Active vehicles" value={vehicles.filter(v=>v.active&&v.status==='approved'&&v.valid_until>Date.now()/1000).length} onClick={()=>setPanel('fleet')}/><Metric label="Shared departures" value={departures.filter(r=>!closed(r)).length} onClick={()=>setPanel('shared')}/><Metric label="Completed fares collected" value={money(received)} onClick={()=>setPanel('payments')}/></div>
    <NextWork rows={[...active,...departures]} onOpen={open} limit={1}/>
@@ -140,7 +142,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
    {!vehicles.length&&<Empty title="Add your first vehicle" description="Set your services, rates and vehicle documents." action="Set up fleet" onClick={()=>setPanel('fleet')}/>}
   </>}
   {panel==='shared'&&<>{!vehicles.length&&<Empty title="A vehicle comes first" description="Add an approved vehicle for shared departures." action="Open fleet" onClick={()=>setPanel('fleet')}/>}<SharedRideBookings owner managementRole="cab_owner" vehicles={vehicles} initialRecordId={recordId}/></>}
-  {panel==='bikes'&&<BikeRiderWorkspace vehicleRole="owner" onManageVehicles={()=>setPanel('fleet')}/>}
+  <BikeRiderWorkspace background={panel!=='bikes'} vehicleRole="owner" onManageVehicles={()=>setPanel('fleet')}/>
   {panel==='cabs'&&<><BusinessRecords kind="rides" records={cabs} owner managementRole="cab_owner" initialRecordId={recordId} heading="Cab bookings"/></>}
   {panel==='rentals'&&<><BusinessRecords kind="rides" records={rentals} owner managementRole="cab_owner" initialRecordId={recordId} heading="Self-drive rentals"/></>}
   {panel==='fleet'&&<>{vehicles.map(v=><article className="suite-card" key={v.id}><header className="suite-vehicle-heading"><h3>{v.name}</h3><span className="business-state">{v.status==='approved'&&v.valid_until<=Date.now()/1000?'Approval expired':v.status}</span></header><p>{v.registration} · {v.seats} passenger seats · {v.vehicle_kind==='bike'?'Bike rides & shared departures':v.mode==='both'?'Cab & self-drive':v.mode==='rental'?'Self-drive':'Cab'}</p><dl className="suite-facts">{v.vehicle_kind==='bike'?<><dt>Company bike fares</dt><dd>Set by Repaido</dd><dt>Shared departure fare</dt><dd>Set per published ride</dd></>:<><dt>Cab rate</dt><dd>{v.mode==='rental'?'Not offered':money(v.per_km_paise)+'/km'}</dd><dt>Rental rate</dt><dd>{v.mode==='cab'?'Not offered':money(v.daily_paise)+'/day'}</dd></>}<dt>Availability</dt><dd>{v.active?'Listed when approved and available':'Not listed'}</dd></dl><button onClick={()=>setEditing(v)}>{v.vehicle_kind==='bike'?'Edit bike & documents':'Edit vehicle & rates'}</button><VehicleConnections vehicle={v}/></article>)}{!vehicles.length&&<Empty title="Your fleet starts here" description="Add vehicle details and documents. Vehicles are reviewed before customers can book them."/>}</>}
@@ -161,14 +163,15 @@ export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;v
  const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'bikes',label:'Bike rides',icon:TwoWheeler},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'Vehicle assignments',icon:Car},{id:'account',label:'Account',icon:UserRound}];
  return <SuiteFrame role="driver" title="Driver suite" description="Your pickups, passengers and journeys." partner={partner} panels={panels} panel={panel} onPanel={setPanel}><ContractError error={records.error||shared.error}/>
   <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} driver settings={panel==='account'}/>
-  {panel==='overview'&&<>
+  <BusinessCabRideWorkspace records={records} role="driver"/>
+  <BikeRiderWorkspace background={panel!=='bikes'&&panel!=='overview'} home={panel==='overview'} vehicleRole="driver" onManageVehicles={()=>setPanel('vehicles')}/>
+  {panel==='overview'&&<details className="suite-other-journeys"><summary><Car size={18} aria-hidden="true"/>Cab & shared work<span>{active.length+departures.filter(row=>!closed(row)).length}</span></summary>
    <div className="suite-metrics"><Metric label="Assigned cab journeys" value={active.length} onClick={()=>setPanel('journeys')}/><Metric label="Assigned shared rides" value={departures.filter(r=>!closed(r)).length} onClick={()=>setPanel('shared')}/><Metric label="Ready for pickup" value={active.filter(r=>['reserved','on_the_way'].includes(r.state)).length} onClick={()=>{const row=active.find(r=>['reserved','on_the_way'].includes(r.state));if(row)open(row);else setPanel('journeys');}}/><Metric label="Journeys in progress" value={[...active,...departures].filter(r=>r.state==='in_progress').length} onClick={()=>{const row=[...active,...departures].find(r=>r.state==='in_progress');if(row)open(row);else setPanel('journeys');}}/></div>
    <NextWork rows={[...active,...departures]} onOpen={open} limit={1}/>
    <div className="suite-menu"><button onClick={()=>setPanel('vehicles')}><Car size={20} aria-hidden="true"/><span><strong>Vehicle assignments</strong><small>Review your owner’s invitations</small></span><ArrowRight size={20} aria-hidden="true"/></button></div>
-  </>}
+  </details>}
   {panel==='journeys'&&<><BusinessRecords kind="rides" records={records} owner managementRole="driver" initialRecordId={recordId} heading="Assigned cab journeys"/></>}
   {panel==='shared'&&<><SharedRideBookings owner managementRole="driver" vehicles={vehicles} initialRecordId={recordId}/></>}
-  {panel==='bikes'&&<BikeRiderWorkspace vehicleRole="driver" onManageVehicles={()=>setPanel('vehicles')}/>}
   {panel==='vehicles'&&<DriverInvitations compact/>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
   <PublicCabAvailability accountKey={source.uid}/>

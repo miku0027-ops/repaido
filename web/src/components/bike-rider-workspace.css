@@ -1,4 +1,5 @@
 .bike-rider-workspace{--bike-ink:#132b4a;--bike-muted:#5b6b80;--bike-line:#dce5f0;--bike-blue:#174997;--bike-surface:#fff;color:var(--bike-ink);min-width:0;display:grid;gap:12px;font-size:.875rem}
+.bike-rider-workspace[hidden]{display:none!important}
 .suite-cab_owner .suite-quick-actions:has(>button:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
 .bike-rider-workspace :is(button,a,input,select,textarea){font:inherit}
 .bike-rider-workspace button,.bike-rider-confirm button{min-height:44px;border-radius:12px;border:1px solid var(--bike-line,#dce5f0);background:#fff;color:var(--bike-ink,#132b4a);padding:9px 12px;cursor:pointer;transition:background .15s ease,box-shadow .15s ease,transform .15s ease}
@@ -235,3 +236,42 @@
 
 .bike-rider-workspace .bike-rider-settings-name,.bike-rider-workspace .bike-rider-trip-fare>div>small{color:#294b36}
 [data-theme=dark] .bike-rider-workspace .bike-rider-settings-name,[data-theme=dark] .bike-rider-workspace .bike-rider-trip-fare>div>small{color:#d5e9da}
+
+/* Duty home follows the map and earnings layout used throughout ride screens. */
+.bike-rider-workspace{--bike-ink:#232c24;--bike-muted:#536452;--bike-line:#d4ddcc;--bike-blue:#275a38;--bike-surface:#fff}
+.bike-rider-workspace .bike-rider-control{padding:10px 12px;border-radius:13px 13px 0 0;background:#29352c;color:#fff;margin-bottom:-12px}
+.bike-rider-control .bike-rider-presence{color:#d9e4d5}.bike-rider-control .bike-rider-presence.is-online{color:#a9efb8}
+.bike-rider-workspace .bike-rider-emblem{background:#ffdf5a;color:#303820;box-shadow:none;border:0;border-radius:50%}
+.bike-rider-workspace .bike-rider-online-toggle{background:#ffdc49;border:1px solid #e4c234;color:#282d21;border-radius:24px}
+.bike-rider-workspace .bike-rider-online-toggle.is-online{background:#e2f5e6;color:#155d35;border:1px solid #71b988}
+.bike-rider-workspace .bike-rider-earnings-strip{display:flex;align-items:center;gap:8px;min-width:0;padding:11px 14px;border:0;border-radius:0;background:#414d41;color:#fff;text-align:left}
+.bike-rider-earnings-strip>span{flex:1;min-width:0;font-size:.8125rem}.bike-rider-earnings-strip>strong{font-size:1rem;font-variant-numeric:tabular-nums}.bike-rider-earnings-strip>svg{flex:none;color:#ffe16c}
+.bike-rider-duty-map{position:relative;height:clamp(230px,39dvh,480px);margin-top:-12px;border-radius:0 0 16px 16px;overflow:hidden;background:#edf0e7}
+.bike-rider-duty-map .journey-map{height:100%;border-radius:0}
+.bike-rider-workspace .bike-rider-trip{background:#fff;border-radius:14px;box-shadow:0 2px 8px #26352812;border-color:#d4ddcc}
+.bike-rider-workspace .bike-rider-trip-fare{background:#f6f5e9;border-color:#dfdfcd;border-radius:10px}
+.bike-rider-workspace .bike-rider-trip.is-request{background:#e3f5e5;border-color:#30924e}
+.bike-rider-workspace button.bike-rider-primary,.bike-rider-confirm button.bike-rider-primary{background:#ffda45;color:#282d21;border-color:#c5a62c;box-shadow:none;font-weight:750}
+.bike-rider-workspace .bike-rider-trip.is-at-stop button.bike-rider-primary{background:#ffda45;color:#282d21;border-color:#c5a62c;box-shadow:none}
+.bike-rider-workspace .bike-rider-trip-actions>button.bike-rider-primary,[data-theme=dark] .bike-rider-workspace .bike-rider-trip-actions>button.bike-rider-primary{background:#ffda45;color:#282d21;border-color:#c5a62c;box-shadow:none}
+.bike-rider-trip.is-request .bike-rider-trip-actions>button.bike-rider-primary{background:#187440;color:#fff;border-color:#187440}
+[data-theme=dark] .bike-rider-trip.is-request .bike-rider-trip-actions>button.bike-rider-primary{background:#187440;color:#fff;border-color:#6ebb7b}
+.bike-rider-workspace .bike-rider-decline{background:#fff;color:#7c2525;border-color:#bd8d8d}
+.bike-rider-trip-body>header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.bike-rider-trip-body>header>small{font-size:.6875rem;color:var(--bike-muted)}
+.ride-finance-dialog.modal{position:fixed;inset:0;width:100%;max-width:none;height:100dvh;max-height:none;border:0;border-radius:0!important;margin:0;padding:0!important;overflow:auto;background:var(--ui-surface);color:var(--ui-ink)}
+.ride-finance-dialog>.app-modal-heading{position:sticky;top:0;z-index:2;align-items:center;margin:0;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:#28322b;color:#fff;border-bottom:3px solid #ffda45}
+.ride-finance-dialog>.app-modal-heading h2{font-size:1.0625rem;padding:0}
+.ride-finance-dialog>.app-modal-heading button{min-height:44px;min-width:44px;background:#38453b;color:#fff;border:1px solid #83907c}
+.ride-finance-dialog>.bike-rider-finance{max-width:820px;margin:auto;padding:18px max(14px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom));background:var(--ui-surface);border-radius:0}
+.ride-finance-dialog .bike-earnings-totals{grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr))}
+.ride-finance-dialog .bike-earnings-totals>div:first-child:nth-last-child(3){grid-column:1/-1}
+.ride-finance-dialog .bike-earnings-totals>div{border-radius:8px;border-left:3px solid #cfb42d;padding:16px}
+.ride-finance-dialog .bike-earnings-totals dd{font-size:1.5rem;margin-top:14px}
+.ride-finance-dialog :is(.bike-earnings-records,.bike-rider-payroll,.bike-rider-company-cash){border-radius:10px;background:var(--bike-surface)}
+[data-theme=dark] .bike-rider-workspace{--bike-ink:#ecf1e8;--bike-muted:#bbcbb4;--bike-line:#56654c;--bike-blue:#b4e2b5;--bike-surface:#222e20;background:#1d291c}
+[data-theme=dark] .bike-rider-workspace .bike-rider-trip{background:#253121;border-color:#56654c}
+[data-theme=dark] .bike-rider-workspace .bike-rider-trip-fare{background:#303a26;border-color:#56654c}
+[data-theme=dark] .bike-rider-workspace button.bike-rider-primary{background:#ffda45;color:#282d21;border-color:#c5a62c}
+[data-theme=dark] .bike-rider-workspace .bike-rider-trip.is-request{background:#193d27;border-color:#5fb271}
+@media(max-width:360px){.bike-rider-control .bike-rider-title h3{display:none}.bike-rider-control .bike-rider-title{gap:6px}.bike-rider-control .bike-rider-title .bike-rider-presence{margin:0}.bike-rider-control .bike-rider-emblem{width:30px;height:30px}.bike-rider-workspace .bike-rider-control{padding:9px 8px}}

@@ -1,0 +1,83 @@
+/* Shared ride language: map canvas, charcoal chrome, clear yellow actions and
+   green confirmations. Financial and lifecycle values come from native APIs. */
+.ride-workspace-dialog.modal{position:fixed;inset:0;box-sizing:border-box;margin:0;width:100%;max-width:none;height:100dvh;max-height:none;border:0;border-radius:0!important;padding:0!important;overflow:hidden;background:#f6f6f2;color:#202522}
+.ride-workspace-shell{--ride-ink:#202522;--ride-muted:#59625c;--ride-line:#dbe0d8;--ride-surface:#fff;display:grid;grid-template-rows:auto minmax(0,1fr);height:100%;min-width:0}
+.ride-workspace-topbar{display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left));background:#242925;color:#fff;min-width:0;box-shadow:0 2px 12px #0002;z-index:2}
+.ride-workspace-brand{display:flex;align-items:center;gap:9px;min-width:0;flex:1}.ride-workspace-brand>svg{flex:none;color:#ffda45}.ride-workspace-brand>span{min-width:0}.ride-workspace-brand small{font-size:.625rem;letter-spacing:.14em;color:#e0e7db}.ride-workspace-brand h2{font-size:1rem;line-height:1.35;margin:0;font-weight:750;overflow-wrap:anywhere}
+.ride-workspace-dialog .ride-workspace-icon{display:grid;place-items:center;flex:none;width:44px;height:44px;min-height:44px;border:1px solid #657266;border-radius:50%;padding:0;background:#303a32;color:#fff;cursor:pointer}
+.ride-workspace-status{display:flex;align-items:center;gap:6px;max-width:30%;font-size:.75rem;line-height:1.4;color:#d9f3df;overflow-wrap:anywhere}.ride-workspace-status i{width:7px;height:7px;background:#7cda96;border-radius:50%;flex:none}
+.ride-workspace-content{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom);scrollbar-gutter:stable}
+.ride-workspace-content>.bike-live-ride{border:0;border-radius:0;margin:0;background:var(--ride-surface);min-height:100%;display:grid;grid-template-rows:auto 1fr}
+.ride-workspace-content>.bike-live-ride.is-finished{display:block;min-height:0;height:auto;max-width:760px;margin:auto;padding:16px;box-sizing:border-box}
+.ride-workspace-dialog .ride-workspace-content>.bike-live-ride{--bike-ink:var(--ride-ink);--bike-muted:var(--ride-muted);--bike-line:var(--ride-line);--bike-surface:var(--ride-surface);--bike-wash:#f4f5ec;--bike-green:#1e6540;gap:0}
+.ride-workspace-content .bike-live-ride>header{display:none}
+.ride-workspace-content .bike-live-map{height:clamp(230px,43dvh,560px);border-radius:0;margin:0;border:0}
+.ride-workspace-content .bike-live-sheet{position:relative;margin:-20px auto 0;z-index:1;width:100%;max-width:760px;box-sizing:border-box;padding:20px 20px 24px;border-radius:24px 24px 0 0;background:var(--ride-surface);box-shadow:0 -5px 20px #20252218}
+.ride-workspace-content .bike-live-sheet:before{content:'';display:block;width:36px;height:4px;border-radius:4px;background:#ced5ca;margin:-10px auto 12px}
+.ride-workspace-content .is-searching .bike-live-map{height:clamp(310px,50dvh,620px)}
+.ride-workspace-content .is-searching .bike-live-sheet{padding-top:16px}
+.ride-workspace-content .is-searching .bike-live-actions>.bike-primary{flex:1;min-width:140px}
+.ride-workspace-content .is-searching .bike-live-actions{position:sticky;bottom:0;z-index:2;padding:8px 0;background:var(--ride-surface);box-shadow:0 0 0 8px var(--ride-surface)}
+.ride-workspace-content .bike-live-heading h4{font-size:1.25rem;color:var(--ride-ink)}
+.ride-workspace-content .bike-live-rider{background:#f5f6f0;border:1px solid var(--ride-line);border-radius:14px;padding:10px}
+.ride-workspace-dialog .bike-primary,.ride-workspace-dialog .ops-primary{background:#ffda45!important;color:#222820!important;border:1px solid #c8a916!important;box-shadow:none!important;font-weight:750;min-height:48px;border-radius:12px}
+.ride-workspace-dialog .ride-workspace-content .business-records .business-actions>button.ops-primary{background:#ffda45!important;color:#222820!important;border-color:#c8a916!important}
+.ride-workspace-dialog :is(button,a,summary):focus-visible,.ride-resume-banner:focus-visible{outline:3px solid #825200;outline-offset:3px}
+.ride-workspace-dialog .ride-workspace-topbar button:focus-visible{outline-color:#ffda45}
+.ride-workspace-read-error{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;background:#fff5d0;color:#544000;font-size:.8125rem;line-height:1.5}
+.ride-workspace-read-error button{min-height:44px;border:1px solid #ad8b32;border-radius:9px;padding:8px 12px;background:#fffdf6;color:#544000}
+.ride-resume-banner{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:55;box-sizing:border-box;width:100%;padding:10px 16px;border:0;border-bottom:3px solid #ffda45;border-radius:0;background:#263c2d;color:#fff;text-align:left;min-height:60px;cursor:pointer}
+.ride-resume-banner>span{flex:1;min-width:0;display:grid;gap:3px}.ride-resume-banner strong{font-size:.875rem}.ride-resume-banner small{font-size:.75rem;color:#d6eddb}.ride-resume-banner>svg{flex:none}
+.ride-safety-actions{display:grid;gap:14px;line-height:1.6}.ride-safety-actions :is(button,a){display:flex;gap:10px;align-items:center;min-height:48px;padding:10px 14px;box-sizing:border-box;border:1px solid var(--ui-line);border-radius:12px;color:var(--ui-ink);background:var(--ui-surface)}
+.ride-receipt-actions{position:sticky;bottom:0;z-index:2;max-width:760px;margin:auto;padding:12px 20px calc(12px + env(safe-area-inset-bottom));background:var(--ride-surface);border-top:1px solid var(--ride-line)}.ride-receipt-actions>button{width:100%;min-height:48px}
+.ride-workspace-content>.bike-rider-workspace{padding:0;border-radius:0;background:#f6f6f2;gap:0}
+.ride-workspace-content .bike-rider-trip{margin:0;border:0;border-radius:0;box-shadow:none;background:var(--ride-surface);transform:none!important;display:flex;flex-direction:column;padding:0;gap:0;min-height:100%}
+.bike-rider-trip-body{display:grid;gap:12px;min-width:0}
+.ride-workspace-content .bike-rider-trip-body{position:relative;max-width:760px;width:100%;box-sizing:border-box;margin:-20px auto 0;padding:20px;background:var(--ride-surface);border-radius:24px 24px 0 0;z-index:1;box-shadow:0 -5px 20px #20252218}
+.ride-workspace-content .bike-rider-trip-body:before{content:'';display:block;width:36px;height:4px;border-radius:4px;background:#ced5ca;margin:-10px auto 0}
+.ride-workspace-content .bike-rider-trip-body>.ride-sheet-handle{order:-2}
+.ride-workspace-content :is(.bike-live-sheet,.bike-rider-trip-body):has(>.ride-sheet-handle):before{display:none}
+.ride-workspace-dialog .ride-sheet-handle{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;padding:0;margin:-14px 0 -4px;border:0;border-radius:12px;background:transparent;color:var(--ride-muted);cursor:ns-resize;touch-action:none;box-shadow:none}
+.ride-sheet-handle>span{width:36px;height:4px;border-radius:4px;background:#b6c2ad}.ride-sheet-handle>svg{position:absolute;right:2px;top:13px}
+.ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:height 180ms ease}
+.ride-workspace-shell.is-expanded .ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){height:170px;min-height:0}
+.ride-workspace-shell.is-expanded .ride-workspace-content .journey-tracking>.google-journey-map{height:170px}
+.ride-workspace-shell.is-expanded .ride-search-pulse{min-height:0;gap:8px;padding:10px}.ride-workspace-shell.is-expanded .ride-search-core{height:54px;width:54px}.ride-workspace-shell.is-expanded .ride-search-core>svg{width:34px;height:34px}
+.ride-workspace-shell.is-expanded .google-journey-map{min-height:0}
+/* Leave Google's map attribution visible above the overlapping ride sheet. */
+.ride-workspace-content :is(.bike-live-map,.bike-rider-live-map)>.journey-map{height:calc(100% - 24px)}
+.ride-workspace-content .bike-rider-map-state{bottom:60px}
+.ride-workspace-content .business-record{display:flex;flex-direction:column}
+.ride-workspace-content .business-record>:is(.ride-cab-planned-map,.ride-search-pulse,.journey-tracking){order:-3}
+.ride-workspace-content .business-record>.ride-sheet-handle{order:-2;margin-top:0}
+.ride-workspace-content .bike-rider-live-map{flex:none;height:clamp(230px,43dvh,560px);width:100%;margin:0;border:0;border-radius:0;order:-1}
+.ride-workspace-content .bike-rider-workspace .bike-rider-trip{border:0;border-radius:0;background:var(--ride-surface);box-shadow:none}
+.ride-workspace-content .bike-rider-trip-actions{position:sticky;bottom:0;z-index:2;box-shadow:0 0 0 8px var(--ride-surface);order:-1;margin:0 0 6px}
+.ride-workspace-content .bike-rider-trip.is-request .bike-rider-trip-body{border-top:5px solid #218b4e}
+.ride-workspace-content .business-records{padding:0;min-height:100%;color:var(--ride-ink)}
+.ride-workspace-content .business-record{max-width:760px;margin:0 auto;padding:20px;border:0;background:var(--ride-surface);color:var(--ride-ink);border-radius:0;box-sizing:border-box;min-width:0}
+.ride-workspace-content .business-actions{position:sticky;bottom:0;padding:10px;background:var(--ride-surface);border:1px solid var(--ride-line);border-radius:14px;z-index:2}
+.ride-workspace-content .business-record>details{margin:12px 0}
+.ride-workspace-content .journey-tracking{padding:0;margin:12px -20px;border:0;border-radius:0;background:var(--ride-surface)}
+.ride-workspace-content .journey-tracking>.google-journey-map{height:clamp(230px,40dvh,520px);border-radius:0}
+.ride-workspace-content .journey-tracking>:not(.google-journey-map){margin-inline:16px}
+.ride-cab-planned-map{height:clamp(230px,43dvh,560px);margin:12px -20px;border-radius:0;overflow:hidden}
+.ride-cab-waiting{display:flex;gap:12px;align-items:center;padding:14px;border-radius:12px;background:#eef7e9;color:#23462c;font-size:.875rem;line-height:1.5}
+.ride-cab-waiting>svg{flex:none}.ride-cab-waiting strong{display:block}
+.ride-cab-waiting .ride-search-dot{width:16px;height:16px;border-radius:50%;background:#23854b;box-shadow:0 0 0 6px #23854b22;animation:ride-request-pulse 1.7s ease-out infinite;flex:none}
+@keyframes ride-request-pulse{50%{box-shadow:0 0 0 14px #23854b08}}
+@media(min-width:900px){.ride-workspace-content>.bike-live-ride{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,420px);grid-template-rows:minmax(0,1fr);height:100%;overflow:hidden}.ride-workspace-content .bike-live-map{height:100%}.ride-workspace-content .bike-live-sheet{margin:0;border-radius:0;overflow:auto}.ride-workspace-content>.bike-rider-workspace{height:100%}.ride-workspace-content .bike-rider-trip{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,420px);height:100%;overflow:hidden}.ride-workspace-content .bike-rider-live-map{height:100%;order:0}.ride-workspace-content .bike-rider-trip-body{grid-column:2;grid-row:1;margin:0;border-radius:0;overflow:auto;align-content:start}}
+@media(max-width:380px){.ride-workspace-topbar{gap:6px}.ride-workspace-brand>svg{display:none}.ride-workspace-status{font-size:.6875rem}.ride-workspace-content .bike-live-sheet,.ride-workspace-content .bike-rider-trip-body{padding:18px 12px}}
+@media(prefers-reduced-motion:reduce){.ride-search-dot{animation:none!important}.ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:none}}
+.reduce-motion .ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:none}
+@media(min-width:900px){.ride-workspace-dialog .ride-sheet-handle{display:none}.ride-workspace-shell.is-expanded .ride-workspace-content :is(.bike-live-map,.bike-rider-live-map){height:100%}.ride-workspace-content :is(.bike-live-map,.bike-rider-live-map)>.journey-map{height:100%}.ride-workspace-content .bike-rider-map-state{bottom:48px}}
+.reduce-motion .ride-search-dot{animation:none!important}
+.ride-workspace-dialog[open]{animation:ride-screen-enter 160ms ease-out}
+@keyframes ride-screen-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.ride-workspace-dialog[open]{animation:none}}
+.reduce-motion .ride-workspace-dialog[open]{animation:none}
+[data-theme=dark] .ride-workspace-shell{--ride-ink:#ecf0e7;--ride-muted:#bcc6b6;--ride-line:#505c4b;--ride-surface:#20271f;background:#20271f;color:#ecf0e7}
+[data-theme=dark] .ride-workspace-dialog.modal{background:#20271f;color:#ecf0e7}
+[data-theme=dark] .ride-workspace-content .bike-live-rider{background:#293526;border-color:#505c4b}
+[data-theme=dark] .ride-cab-waiting{background:#2c402b;color:#ceedd0}
+[data-theme=dark] .ride-workspace-dialog .ride-workspace-content>.bike-live-ride{--bike-wash:#2a3625;--bike-green:#b1dfb6}

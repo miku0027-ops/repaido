@@ -10,6 +10,7 @@ import type {TravelMode} from './components/MobilityExperience';
 import {HomeDiscoveryPreferences} from './components/HomeDiscoveryPreferences';
 import {TransportRail} from './components/TransportRail';
 import {MobilityHub,ScrapHub,TransportBookings} from './components/LocalBusiness';
+import {CustomerLiveRide} from './components/CustomerLiveRide';
 import './components/market-refinement.css';
 import {CouponWelcome} from './components/Coupons';
 import OpportunityCarousel,{CustomerContractMatches,opportunities} from './components/OpportunityCarousel';
@@ -793,7 +794,7 @@ export default function App() {
   }
 
   return (
-    <div className="repaido-customer-shell">
+    <CustomerLiveRide onHome={()=>setTab('Explore')}><div className="repaido-customer-shell">
       <BrandTabTransition tab={tab} reduced={reduce}/>
       {emailProfileOpen&&<AccountEmailAccess key={user?.id||'guest'} account={accountProfile} onClose={()=>setEmailProfileOpen(false)} onSignIn={()=>{setEmailProfileOpen(false);setSheet('auth');}}/>}
       <AccountEmailNotice account={accountProfile} onOpen={()=>setEmailProfileOpen(true)}/>
@@ -2798,6 +2799,6 @@ export default function App() {
           }));
         }}
       />
-    </div>
+    </div></CustomerLiveRide>
   );
 }

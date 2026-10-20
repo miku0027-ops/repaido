@@ -13,6 +13,7 @@ import {StageTrail} from './CompactExperience';
 import {ContractError,useCustomContractAction} from './customContractUI';
 import {JourneyMap,JourneyTracking} from './JourneyTracking';
 import {Modal} from './ui';
+import {RideSearchPulse} from './RideSearchPulse';
 import {RideDateTimeField,RideLocationButton,RideSeatControl,mobilityLocalTime} from './MobilityFormControls';
 const date=(t:number)=>new Date(t*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const epoch=(v:FormDataEntryValue|null)=>new Date(String(v)).getTime()/1000;
@@ -120,7 +121,7 @@ function SharedCustomerRideCard({row,mine,busy,pending,tracking,onRun,onPin,onTr
  const activity=arrival?'Wait for the vehicle to stop safely.':live?'Your journey is in progress.':mine.state==='requested'&&row.state==='scheduled'?'Your seat is confirmed after the owner accepts.':mine.state==='accepted'&&row.state==='in_progress'?'The journey has started. Your boarding is not recorded yet.':'';
  const openDetails=()=>{if(details.current){details.current.open=true;details.current.querySelector('summary')?.focus();}};
  const Vehicle=row.vehicle_kind==='bike'?TwoWheeler:LocalTaxi;
- return <article id={'shared-ride-'+row.id} className={'business-record shared-booking-card shared-customer-card'+(live?' shared-live-card':'')+(arrival?' is-at-stop':'')} aria-label={state+' · '+row.vehicle_name}>
+ return <article id={'shared-ride-'+row.id} className={'business-record shared-booking-card shared-customer-card'+(live?' shared-live-card':'')+(arrival?' is-at-stop':'')} aria-label={state+' · '+row.vehicle_name}>{mine?.state==='requested'&&row.state==='scheduled'&&<RideSearchPulse compact kind={row.vehicle_kind==='bike'?'bike':'shared'} title="Waiting for the journey owner" description="Your seat request is awaiting acceptance. No payment is collected by this screen."/>}
   <header className="shared-customer-hero"><div><span className="shared-customer-eyebrow"><Diversity3 size={17} aria-hidden="true"/>Shared {row.vehicle_kind==='bike'?'bike':'ride'}</span><h3>{state}</h3>{activity&&<p>{activity}</p>}</div><span className="shared-customer-art" aria-hidden="true">{arrival?<CheckCircle2 size={32}/>:live?<Navigation size={32}/>:<Vehicle size={34}/>}</span></header>
   {row.reschedule&&<details className="shared-customer-change"><summary><Clock3 size={17} aria-hidden="true"/><span>Departure updated · {date(row.starts_at)}</span><ChevronDown size={18} aria-hidden="true"/></summary><SharedDepartureNotice row={row} operate={false} boarded={mine.state==='boarded'} onReschedule={()=>{}}/></details>}
   <div className="shared-customer-route" aria-label="Published shared route"><span className="shared-customer-route-node" aria-hidden="true"><MapPin size={18}/></span><span><small>Route start</small><strong>{row.origin_address}</strong></span><span className="shared-customer-route-node is-destination" aria-hidden="true"><Flag size={18}/></span><span><small>Route end</small><strong>{row.destination_address}</strong></span></div>

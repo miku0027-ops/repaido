@@ -138,3 +138,22 @@
 @media(prefers-reduced-motion:reduce){.driver-assignment-help>summary svg{transition:none}}
 
 @media(min-width:421px) and (max-width:700px){.ops-cab-workspace .worker-header-actions>.worker-app-link{flex-direction:column;width:auto;min-width:48px;height:auto;padding:5px 8px;gap:2px}.ops-cab-workspace .worker-app-link>small{display:block;font-size:.75rem;line-height:1.3;font-weight:600}}
+
+/* Current service and its sibling services share one compact heading row. */
+.suite-workspace .suite-panel-header.has-ride-tabs{display:grid;grid-template-columns:minmax(75px,.8fr) minmax(0,2fr);align-items:center;gap:8px;padding:6px 0;margin-bottom:10px}
+.suite-workspace .has-ride-tabs .suite-title-row{min-width:0}
+.suite-workspace .has-ride-tabs .suite-panel-title{font-size:1rem;line-height:1.35;overflow-wrap:anywhere}
+.suite-workspace .has-ride-tabs .suite-booking-navigation{display:flex;justify-self:end;width:max-content;max-width:100%;min-width:0;gap:3px;margin:0;padding:4px;overflow:auto;overscroll-behavior-x:contain;scrollbar-width:thin;background:var(--ui-subtle);border-radius:12px}
+.suite-workspace .has-ride-tabs .suite-booking-navigation>button{flex:none;min-height:44px!important;padding:6px 9px;font-size:.75rem;line-height:1.35;border:0;border-radius:9px;white-space:nowrap}
+.suite-workspace .has-ride-tabs .suite-booking-navigation>button[aria-current=page]{background:#28332a;color:#fff;box-shadow:inset 0 -3px #ffda45}
+.suite-mobility{--suite-accent:#29332b;--suite-tint:#f5f5eb}
+.suite-mobility.suite-workspace .suite-navigation{background:#252e27;border-color:#6c7a6a;box-shadow:0 -4px 18px #13261722}
+.business-suite.suite-mobility.suite-workspace .suite-navigation button[aria-current=page]{background:#ffda45;color:#242b23}
+.business-suite.suite-mobility.suite-workspace .suite-navigation button:focus-visible{outline-color:#ffda45}
+.business-suite.suite-mobility.suite-workspace .suite-navigation button[aria-current=page]:focus-visible{outline-color:#fff}
+.suite-mobility .suite-metric{border-radius:10px;border-left:3px solid #d7b42c}
+.ride-record-open{display:flex;align-items:center;gap:10px;width:100%;min-height:64px;box-sizing:border-box;padding:12px;margin:8px 0;text-align:left;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-surface);color:var(--ui-ink)}
+.ride-record-open>span{display:grid;flex:1;gap:5px;min-width:0}.ride-record-open strong{font-size:.875rem}.ride-record-open small{font-size:.75rem;color:var(--ui-muted)}.ride-record-open>svg{flex:none}
+.suite-other-journeys{margin:12px 0;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-surface);padding:0 12px}
+.suite-other-journeys>summary{display:flex;align-items:center;gap:8px;min-height:48px;list-style:none;font-size:.8125rem;font-weight:650;cursor:pointer}.suite-other-journeys>summary::-webkit-details-marker{display:none}.suite-other-journeys>summary>span{margin-left:auto;min-width:24px;padding:4px 7px;border-radius:7px;background:var(--suite-tint);text-align:center}.suite-other-journeys[open]>summary{border-bottom:1px solid var(--ui-line);margin-bottom:12px}
+@media(max-width:360px){.suite-workspace .suite-panel-header.has-ride-tabs{grid-template-columns:minmax(70px,.65fr) minmax(0,1.65fr);gap:5px}.suite-workspace .has-ride-tabs .suite-booking-navigation>button{padding-inline:7px}}
