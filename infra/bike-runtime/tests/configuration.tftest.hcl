@@ -62,6 +62,14 @@ run "reviewed_pool_has_bounded_recovery_and_no_public_workers" {
     error_message = "Container restarts, hardening and graceful subscription draining must remain configured."
   }
   assert {
+    condition     = strcontains(google_compute_instance_template.worker.metadata_startup_script, "/data:rw,noexec,nosuid,size=32m,uid=1000,gid=1000,mode=0700")
+    error_message = "The non-root image user needs a private writable scratch database while the image stays read-only."
+  }
+  assert {
+    condition     = strcontains(google_compute_instance_template.worker.metadata_startup_script, "for source in 130.211.0.0/22 35.191.0.0/16") && strcontains(google_compute_instance_template.worker.metadata_startup_script, "iptables -w -C INPUT -p tcp -s \"$source\" --dport 9118 -j ACCEPT") && strcontains(google_compute_instance_template.worker.metadata_startup_script, "iptables -w -I INPUT 1 -p tcp -s \"$source\" --dport 9118 -j ACCEPT")
+    error_message = "COS host probes must allow only the two reviewed health-check ranges, with idempotent rules."
+  }
+  assert {
     condition     = google_monitoring_alert_policy.age.notification_channels == tolist(["projects/repaido/notificationChannels/123"])
     error_message = "Adopting the dispatch alert must preserve its existing notification recipients."
   }

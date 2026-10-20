@@ -25,6 +25,8 @@ riders do not require a VM, topic or subscription per rider.
 | Readiness | `/readyz` and independent database heartbeats require a connected, non-draining worker. |
 | Delivery | Ordered pull subscription, 7-day retention, retry backoff; no automatic dead-letter discard of reservation commands. |
 | Network | Private IP only, Private Google Access, no public SSH, health CIDRs limited to port 9118. |
+| Host firewall | COS INPUT rules permit port 9118 only from the two Google health-check ranges, matching the VPC firewall. |
+| Scratch storage | `/data` is a 32 MiB tmpfs owned by the existing image's UID/GID 1000 with mode 0700; the image remains read-only. Ride records remain in Firestore. |
 | Identity | Dedicated service account; scoped topic/subscription, Artifact Registry and secret grants; datastore and log-writer project roles. |
 | Runtime | COS stable, existing image pinned by SHA256, read-only container, no Linux capabilities, bounded memory/processes and ephemeral scratch space. |
 | Alerts | Oldest unacknowledged message over 60 seconds for 120 seconds; optional reviewed email recipient. |
