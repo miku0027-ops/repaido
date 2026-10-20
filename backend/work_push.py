@@ -6,6 +6,7 @@ after FCM accepts a message and before its receipt commits can repeat that messa
 The stable notification ID and Android tag let clients suppress duplicate alerts.
 """
 import os
+import re
 import time
 import uuid
 from datetime import timedelta
@@ -21,6 +22,10 @@ DISPATCH_SECONDS = 30
 
 
 def _delivery_allowed(u, row):
+    if row.get('event') == 'project_team_confirmed' and not (
+            isinstance(row.get('target_id'), str) and
+            re.fullmatch(r'[A-Za-z0-9_-]{1,100}', row['target_id'])):
+        return False
     if row.get('event') == 'shared_transport':
         from shared_departure_alerts import delivery_allowed
     else:
@@ -262,14 +267,19 @@ def process_deliveries(core, limit=50):
                         'target_id': row['target_id'], 'recipient_id': row['recipient_id'],
                         'expires_at': str(int(time.time() + ttl))}
                 transport = row.get('event') == 'shared_transport'
+                project = row.get('event') == 'project_team_confirmed'
                 if transport:
                     ttl = max(1,min(ttl,int(row['expires_at']-time.time())))
                     data.update(destination='mobility', business_id=row['target_id'], business_role=row['business_role'],
                                 alert_kind='shared_departure', transport_event=row['transport_event'], expires_at=str(int(time.time()+ttl)))
+                elif project:
+                    # A confirmed team member opens the agent view of this
+                    # project. Do not trust a supplied URL or role hint.
+                    data.update(destination='contractor', project_id=row['target_id'], project_role='technician')
                 # Source details are loaded after authorization on tap; salary,
                 # full addresses and private contract terms never enter the push.
                 messaging.send(messaging.Message(token=device['token'], data=data,
-                    notification=messaging.Notification(title=('Departure time changed' if row['transport_event']=='rescheduled' else 'Your shared ride departs soon' if row['transport_event']=='departure_reminder' else 'Shared ride update') if transport else 'Repaidians work update', body='Open your shared ride for departure and passenger details.' if transport else 'Open Repaidians to view your latest work update.'),
+                    notification=messaging.Notification(title=('Departure time changed' if row['transport_event']=='rescheduled' else 'Your shared ride departs soon' if row['transport_event']=='departure_reminder' else 'Shared ride update') if transport else 'Project team update' if project else 'Repaidians work update', body='Open your shared ride for departure and passenger details.' if transport else 'Open Project teams for your joining and next steps.' if project else 'Open Repaidians to view your latest work update.'),
                     android=messaging.AndroidConfig(priority='high' if transport else 'normal', ttl=timedelta(seconds=ttl),
                         notification=messaging.AndroidNotification(channel_id='repaido_requests_v2' if transport else 'repaido_tasks', sound='repaido_task_bell' if transport else 'default', tag=key, visibility='private'))),
                     app=_messaging_app())

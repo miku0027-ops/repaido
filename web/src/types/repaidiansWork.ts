@@ -40,6 +40,7 @@ export interface WorkApplication {
   worker_type?:string|null;first_interest_at?:number|null;capacity?:WorkCapacity;work_stage?:string;
   created_at:number;updated_at:number;events:WorkApplicationEvent[];
   invitation_id?:string;invitation_status?:string|null;invitation?:WorkInvitation|null;
+  joining_status?:'invited'|'accepted'|'confirmed'|null;joining_confirmed_at?:number|null;team_confirmed?:boolean;team_confirmed_at?:number|null;
 }
 export interface WorkApplicationsPage {applications:WorkApplication[];next_cursor:string|null;has_more?:boolean;}
 export interface WorkConnection {

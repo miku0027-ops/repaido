@@ -12,6 +12,13 @@ def project(api,**changes):
     return r.json(),body
 
 def cmd(api,p,action,uid='worker',**extra):return api.post('/operations/contractor/projects/'+p['id']+'/commands',headers=auth(uid),json=dict(expected_version=p['version'],action=action,**extra))
+def confirm_team(api,p):
+    for member in p['team']:
+        if member['status']=='accepted':
+            response=cmd(api,p,'confirm_joining',target_id=member['worker_id']);assert response.status_code==200,response.text;p=response.json()
+    response=cmd(api,p,'confirm_team');assert response.status_code==200,response.text
+    return response.json()
+
 def invite(api,p):
     r=api.post('/operations/contractor/projects/'+p['id']+'/invitations',headers=auth('worker'),json=dict(expected_version=p['version'],worker_id='worker2',role='supervisor',daily_rate_paise=100000,terms='Work 8 hours per day with site safety equipment.'))
     assert r.status_code==200,r.text
@@ -38,7 +45,7 @@ def test_access_idempotency_acceptance_and_conflicts(api):
     assert main.operations_store.run(lambda u:conflict(u,'worker2',p['starts_at'],60))
 
 def test_goals_attendance_leave_and_history(api):
-    seed(api);now=time.time();p,_=project(api,starts_at=now-60,ends_at=now+86400);p=invite(api,p);p=cmd(api,p,'accept',uid='worker2',target_id=p['team'][0]['id']).json();p=cmd(api,p,'start').json()
+    seed(api);now=time.time();p,_=project(api,starts_at=now-60,ends_at=now+86400);p=invite(api,p);p=cmd(api,p,'accept',uid='worker2',target_id=p['team'][0]['id']).json();p=confirm_team(api,p);p=cmd(api,p,'start').json()
     r=cmd(api,p,'check_in',uid='worker2');assert r.status_code==200,r.text;p=r.json()
     assert cmd(api,p,'check_in',uid='worker2').status_code==409
     p=cmd(api,p,'check_out',uid='worker2').json();assert p['attendance'][0]['out_at']>=p['attendance'][0]['in_at']
@@ -59,7 +66,7 @@ def test_tender_register_bid_private_award(api,monkeypatch):
     bid=dict(request_id=str(uuid.uuid4()),expected_version=t['version'],project_id=p['id'],amount_paise=900000,proposal='Detailed proposal to deliver the electrical scope',accepted_terms=True)
     url='/operations/contractor/tenders/'+t['id']
     assert api.post(url+'/bid',headers=auth('worker'),json=bid).status_code==409
-    p=invite(api,p);p=cmd(api,p,'accept',uid='worker2',target_id=p['team'][0]['id']).json()
+    p=invite(api,p);p=cmd(api,p,'accept',uid='worker2',target_id=p['team'][0]['id']).json();p=confirm_team(api,p)
     r=api.post(url+'/bid',headers=auth('worker'),json=bid);assert r.status_code==200,r.text;t=r.json()
     assert api.post(url+'/bid',headers=auth('worker'),json=bid).json()['bids_count']==1
     hidden=api.get('/operations/contractor/workspace',headers=auth('worker2')).json()['tenders'];assert not hidden

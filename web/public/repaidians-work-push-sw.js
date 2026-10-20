@@ -26,17 +26,20 @@ self.addEventListener('push',event=>{
   let payload={};try{payload=event.data?.json()||{};}catch{return;}
   const data=payload.data||{};
   const expires=Number(data.expires_at||0);if(expires&&expires*1000<Date.now())return;
-  if(!['repaidians','mobility'].includes(data.destination)||typeof data.recipient_id!=='string'||data.recipient_id.length>200)return;
+  if(!['repaidians','mobility','contractor'].includes(data.destination)||typeof data.recipient_id!=='string'||data.recipient_id.length>200)return;
   if(data.destination==='mobility'&&!/^[a-f0-9]{64}$/.test(data.business_id||''))return;
+  if(data.destination==='contractor'&&(data.work_event!=='project_team_confirmed'||
+    !/^[A-Za-z0-9_-]{1,100}$/.test(data.project_id||'')||!['technician','contractor'].includes(data.project_role)||
+    !Number.isFinite(expires)||expires*1000<=Date.now()))return;
   event.waitUntil((async()=>{
     const active=await accountFingerprint();
     if(!active||active!==await fingerprint(data.recipient_id))return;
     // Fetch source details after sign-in. Private pay, terms and full addresses
     // never appear on a lock screen or in a browser notification.
-    const ride=data.destination==='mobility';
-    const url=ride?(['cab_owner','driver'].includes(data.business_role)?'/worker?mode='+data.business_role+'&shared-ride='+data.business_id:'/?view=rides&shared-ride='+data.business_id):'/?repaidians&community=notifications';
-    await self.registration.showNotification(ride?(data.transport_event==='rescheduled'?'Departure time changed':data.transport_event==='departure_reminder'?'Your shared ride departs soon':'Shared ride update'):'Repaidians work update',{
-      body:ride?'Open your ride for the departure time, reason and directions.':'Open Repaidians to view your latest work update.',icon:'/favicon-192.png',silent:false,vibrate:ride?[200,100,200]:undefined,
+    const ride=data.destination==='mobility',project=data.destination==='contractor';
+    const url=project?'/worker?mode='+data.project_role+'&tab=projects&project='+encodeURIComponent(data.project_id):ride?(['cab_owner','driver'].includes(data.business_role)?'/worker?mode='+data.business_role+'&shared-ride='+data.business_id:'/?view=rides&shared-ride='+data.business_id):'/?repaidians&community=notifications';
+    await self.registration.showNotification(ride?(data.transport_event==='rescheduled'?'Departure time changed':data.transport_event==='departure_reminder'?'Your shared ride departs soon':'Shared ride update'):project?'Project team update':'Repaidians work update',{
+      body:ride?'Open your ride for the departure time, reason and directions.':project?'Open Project teams for your joining and next steps.':'Open Repaidians to view your latest work update.',icon:'/favicon-192.png',silent:false,vibrate:ride?[200,100,200]:undefined,
       tag:'repaidians-work-'+String(data.notification_id||'update').slice(0,100),
       data:{url},
     });

@@ -85,6 +85,7 @@ def test_departure_releases_place_but_does_not_reopen_hiring_without_owner_actio
     seed(api); p, _ = project(api); p, _ = notice(api, p)
     p = manual_invite(api, p).json()
     p = cmd(api, p, 'accept', uid='worker2', target_id=p['team'][0]['id']).json()
+    p = get('contract_projects',p['id'])
     assert p['hiring']['status'] == 'closed'
     response = cmd(api, p, 'leave_team', uid='worker2')
     assert response.status_code == 200, response.text
@@ -99,6 +100,7 @@ def test_duplicate_historical_rows_do_not_inflate_capacity_or_public_counts(api)
     seed(api); p, _ = project(api); p, _ = notice(api, p, openings=2)
     p = manual_invite(api, p).json()
     p = cmd(api, p, 'accept', uid='worker2', target_id=p['team'][0]['id']).json()
+    p = get('contract_projects',p['id'])
     duplicate = copy.deepcopy(p['team'][0]); duplicate['id'] = 'legacy-duplicate-invitation'
     p['team'].append(duplicate); put('contract_projects', p['id'], p)
     capacity = cw.team_capacity(p)

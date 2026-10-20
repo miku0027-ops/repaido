@@ -286,6 +286,37 @@ def test_runner_secret_data_uses_stdin_and_json_output_only(activation, monkeypa
     assert not any(secret.decode() in item for item in calls[0][0])
 
 
+@pytest.mark.parametrize('flags', [(), ('--billing-project=repaido',),
+    ('--billing-project', 'repaido'),
+    ('--billing-project=repaido', '--billing-project', 'repaido')])
+def test_runner_pins_exactly_one_quota_project_preserving_payload_and_operator_environment(
+        activation, monkeypatch, flags):
+    calls = []
+    monkeypatch.setenv('CLOUDSDK_BILLING_QUOTA_PROJECT', 'unrelated-inherited-default')
+    def capture(self, args, **kwargs):
+        calls.append((args, kwargs))
+        return {'ok': True}
+    monkeypatch.setattr(activation.Runner, 'run', capture)
+    payload = b'fixture-secret-in-stdin-only'
+    assert activation.Runner().cloud('secrets', 'versions', 'add', 'fixture',
+        '--data-file=-', *flags, data=payload, optional=True) == {'ok': True}
+    args, kwargs = calls[0]
+    assert args == ['gcloud', 'secrets', 'versions', 'add', 'fixture', '--data-file=-',
+                    '--project=repaido', '--billing-project=repaido', '--quiet', '--format=json']
+    assert kwargs == {'optional': True, 'data': payload}
+    assert activation.os.environ['CLOUDSDK_BILLING_QUOTA_PROJECT'] == 'unrelated-inherited-default'
+
+
+@pytest.mark.parametrize('flags', [('--billing-project=another-project',),
+    ('--billing-project', 'another-project'), ('--billing-project',),
+    ('--billing-project=',), ('--billing-project=repaido', '--billing-project=another-project')])
+def test_runner_rejects_conflicting_or_missing_quota_project_before_any_provider_call(
+        activation, monkeypatch, flags):
+    monkeypatch.setattr(activation.Runner, 'run', lambda *args, **kwargs: pytest.fail('No provider call allowed'))
+    with pytest.raises(activation.SetupError, match='requires repaido as its quota project'):
+        activation.Runner().cloud('pubsub', 'topics', 'describe', TOPIC, *flags)
+
+
 def candidate_fixture(activation, service, revision):
     manifest = {'baseline': activation.select_serving(service, revision),
                 'quota_secret_version': SECRET, 'tag': 'bike-fixture'}
@@ -698,6 +729,7 @@ def test_metadata_rest_reads_only_treat_explicit_optional_404_as_absent(
     def unavailable(request, timeout):
         calls.append(request)
         assert request.get_header('Authorization') == 'Bearer '+private_token
+        assert request.get_header('X-goog-user-project') == 'repaido'
         raise activation.urllib.error.HTTPError(request.full_url, status, private_token, {}, None)
 
     monkeypatch.setattr(activation.urllib.request, 'urlopen', unavailable)
@@ -719,6 +751,30 @@ def test_metadata_rest_read_preserves_provider_json_without_printing_oauth(activ
                         lambda request, timeout: io.BytesIO(json.dumps(expected).encode()))
     assert activation.Runner().api_read(
         'https://compute.googleapis.com/compute/v1/projects/repaido/regions/us-central1/autoscalers/bike-fixture') == expected
+
+
+@pytest.mark.parametrize('url', [
+    'https://compute.googleapis.com/compute/v1/projects/repaido/regions/us-central1/autoscalers/bike-fixture',
+    'https://monitoring.googleapis.com/v3/projects/repaido/alertPolicies?pageSize=1000',
+])
+def test_metadata_rest_sets_resource_quota_project_while_preserving_existing_oauth(
+        activation, monkeypatch, url, capsys):
+    token = 'fixture-opaque-oauth-credential'
+    commands = []
+    def capture(self, args, **kwargs):
+        commands.append((args, kwargs))
+        return token + '\n'
+    monkeypatch.setattr(activation.Runner, 'run', capture)
+    def respond(request, timeout):
+        assert request.full_url == url
+        assert request.get_header('Authorization') == 'Bearer ' + token
+        assert request.get_header('X-goog-user-project') == 'repaido'
+        assert request.get_method() == 'GET' and request.data is None
+        return io.BytesIO(b'{"metadata":true}')
+    monkeypatch.setattr(activation.urllib.request, 'urlopen', respond)
+    assert activation.Runner().api_read(url) == {'metadata': True}
+    assert commands == [(['gcloud', 'auth', 'print-access-token'], {'raw': True})]
+    assert capsys.readouterr() == ('', '')
 
 
 @pytest.mark.parametrize('url', [

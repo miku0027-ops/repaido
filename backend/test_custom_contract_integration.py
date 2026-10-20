@@ -17,7 +17,7 @@ import custom_contracts as custom
 import integrations
 import main
 from test_operations import api, auth, ADMIN, PIN
-from test_contract_work import seed, project, invite, cmd
+from test_contract_work import seed, project, invite, cmd, confirm_team
 from test_worker_network import get, put
 from test_worker_network import notice, apply, decision
 
@@ -98,6 +98,7 @@ def awarded_project(api, monkeypatch, amount=900000):
     p, _ = project(api, tender_id=tender['id'], starts_at=body['starts_at'], ends_at=body['ends_at'])
     p = invite(api, p)
     p = cmd(api, p, 'accept', uid='worker2', target_id=p['team'][0]['id']).json()
+    p = confirm_team(api,p)
     response = api.post('/operations/contractor/tenders/' + tender['id'] + '/bid', headers=auth('worker'), json=dict(
         request_id=str(uuid.uuid4()), expected_version=tender['version'], project_id=p['id'], amount_paise=amount,
         proposal='Detailed proposal for safe inspection and complete installation.', accepted_terms=True))
@@ -166,6 +167,7 @@ def test_awarded_team_workspace_and_command_responses_keep_contract_finance_priv
     p['team'][0]['role'] = role
     p['internal_finance'] = {'margin_paise': 12345, 'review_note': 'PRIVATE internal finance review'}
     put('contract_projects', p['id'], p)
+    p = confirm_team(api,p) # changing the reporting role invalidates the confirmed roster
     monkeypatch.setattr(time, 'time', lambda: p['starts_at'] + 1)
     p = cmd(api, p, 'start').json()
     p = cmd(api, p, 'goal_add', title='Inspect installed circuits', note='Record the inspection result',

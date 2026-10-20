@@ -13,7 +13,7 @@ const rideId='bike/id +?δ',notificationId='bike-notice/id +?1';
 let browser;
 function deferred(){let resolve;const promise=new Promise(done=>{resolve=done;});return {promise,resolve};}
 
-async function scenario({mode,roles=['driver'],readStatus=200,readGate,meGate}={}){
+async function scenario({mode,roles=['driver'],readStatus=200,readGate,meGate,teamNotice=false}={}){
   const context=await browser.newContext({viewport:{width:465,height:850},reducedMotion:'reduce'});
   const state={readRequests:0,meRequests:0,externalRequests:[]};
   await context.route('https://**/*',route=>{state.externalRequests.push(new URL(route.request().url()).hostname);return route.abort('blockedbyclient');});
@@ -30,7 +30,7 @@ async function scenario({mode,roles=['driver'],readStatus=200,readGate,meGate}={
     const request=route.request(),url=new URL(request.url()),firstAccount=request.headers().authorization==='Bearer bike-notification-account-one';
     requests.push({mode:mode??'customer',path:url.pathname,method:request.method(),account:firstAccount?'one':'two'});
     let status=200,body;
-    if(url.pathname==='/api/operations/notifications')body={notifications:firstAccount?[{id:notificationId,title:'Exact bike notification',body:'Open your specific bike ride.',kind:'local_business',destination:'mobility',business_id:'shared-ride-decoy',bike_ride_id:rideId,created_at:1700000000,read_at:null}]:[]};
+    if(url.pathname==='/api/operations/notifications')body={notifications:firstAccount?[teamNotice?{id:notificationId,title:'Exact project team notification',body:'Your team is confirmed.',kind:'project_team',destination:'contractor',project_id:'project-confirmed-123',created_at:1700000000,read_at:null}:{id:notificationId,title:'Exact bike notification',body:'Open your specific bike ride.',kind:'local_business',destination:'mobility',business_id:'shared-ride-decoy',bike_ride_id:rideId,created_at:1700000000,read_at:null}]:[]};
     else if(url.pathname==='/api/operations/notifications/'+encodeURIComponent(notificationId)+'/read'){
       assert.equal(request.method(),'POST');state.readRequests++;if(readGate)await readGate.promise;status=readStatus;body=status===200?{read_at:1700000001}:{detail:{message:'The read could not be saved. Retry.'}};
     }else if(url.pathname==='/api/operations/worker/me'){
@@ -40,8 +40,8 @@ async function scenario({mode,roles=['driver'],readStatus=200,readGate,meGate}={
   });
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   const start=mode===undefined?origin+'/tests/bike-notifications-preview.html':origin+'/worker?fixture=bike-notifications&mode='+encodeURIComponent(mode);
-  await page.goto(start);await page.getByRole('heading',{name:'Exact bike notification',exact:true}).waitFor();
-  return {context,page,state,start,open:()=>page.getByRole('button',{name:'View details',exact:true}).click(),events:()=>page.evaluate(()=>window.bikeNotificationFixture.events)};
+  await page.goto(start);await page.getByRole('heading',{name:teamNotice?'Exact project team notification':'Exact bike notification',exact:true}).waitFor();
+  return {context,page,state,start,open:()=>page.getByRole('button',{name:teamNotice?'View project':'View details',exact:true}).click(),events:()=>page.evaluate(()=>window.bikeNotificationFixture.events)};
 }
 
 try{
@@ -84,6 +84,19 @@ try{
   {
     const gate=deferred(),s=await scenario({mode:'agent',roles:['driver'],meGate:gate});await s.open();await s.page.waitForTimeout(100);assert.equal(s.state.meRequests,1);await s.page.evaluate(()=>window.bikeNotificationFixture.switchAccount());await s.page.getByRole('heading',{name:'No notifications here yet',exact:true}).waitFor();gate.resolve();await s.page.waitForTimeout(100);assert.equal(s.state.readRequests,0);assert.deepEqual(await s.events(),[]);assert.equal(s.page.url(),s.start);
     checks.push('an account change during worker role discovery cannot navigate or mark the former account ride');await s.context.close();
+  }
+  {
+    const s=await scenario({teamNotice:true});await s.open();await s.page.waitForURL(url=>url.pathname==='/worker'&&url.searchParams.get('project')==='project-confirmed-123');
+    const url=new URL(s.page.url());assert.equal(url.searchParams.get('mode'),'technician');assert.equal(url.searchParams.get('tab'),'projects');assert.equal(s.state.readRequests,1);assert.equal(s.state.meRequests,0);
+    checks.push('a private team notice in the customer bell marks read and opens the exact agent project');await s.context.close();
+  }
+  {
+    const s=await scenario({teamNotice:true,readStatus:503});await s.open();await s.page.getByRole('alert').filter({hasText:'The read could not be saved.'}).waitFor();assert.equal(s.page.url(),s.start);assert.deepEqual(await s.events(),[]);
+    checks.push('failed project read receipts leave the private notice open without navigating');await s.context.close();
+  }
+  {
+    const gate=deferred(),s=await scenario({teamNotice:true,readGate:gate});await s.open();await s.page.waitForFunction(()=>document.querySelector('.notif-header-btn')?.disabled);await s.page.evaluate(()=>window.bikeNotificationFixture.switchAccount());await s.page.getByRole('heading',{name:'No notifications here yet',exact:true}).waitFor();gate.resolve();await s.page.waitForTimeout(100);assert.deepEqual(await s.events(),[]);assert.equal(s.page.url(),s.start);assert.equal(await s.page.getByText('Exact project team notification',{exact:true}).count(),0);
+    checks.push('a late project read receipt after account switch cannot expose or open the former account project');await s.context.close();
   }
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks,work}));
 }catch(error){console.error(error);process.exitCode=1;}

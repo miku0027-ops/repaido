@@ -7,6 +7,7 @@ type Registration={identity:string;deviceId:string;bearer:string;recipientFinger
 let owned:Registration|null=null,activeCommand:Promise<unknown>|null=null,epoch=0;
 let retirement:Promise<void>|null=null;
 let restored=false,restoring:Promise<void>|null=null;
+let workerUpdateRequested=false;
 const META='repaidians.work-push.registration';
 const UPDATE='repaidians:work-push';
 const identityNow=()=>auth.currentUser?.uid||localStorage.getItem('repaido.token')||'guest';
@@ -19,6 +20,16 @@ async function workerAccount(value:string|null,registration?:ServiceWorkerRegist
   if(!('serviceWorker'in navigator))return;
   const target=registration||await navigator.serviceWorker.getRegistration('/repaidians-push/');
   if(!target?.active)return;
+  if(!registration&&!workerUpdateRequested&&typeof target.update==='function'){
+    // Push-only workers are not visited as application pages. Ask this
+    // existing, same-scope registration to fetch reviewed script updates once
+    // per page; offline/hung updates must not block account isolation or status.
+    try{
+      if(target.scope===new URL('/repaidians-push/',window.location.origin).href){
+        workerUpdateRequested=true;void target.update().catch(()=>{});
+      }
+    }catch{/* Existing notifications remain available while offline. */}
+  }
   await new Promise<void>((resolve,reject)=>{
     const channel=new MessageChannel(),timer=setTimeout(()=>{channel.port1.close();reject(new Error('Could not secure browser notification settings. Retry.'));},5000);
     channel.port1.onmessage=event=>{clearTimeout(timer);channel.port1.close();event.data?.ok?resolve():reject(new Error('Could not save browser notification settings. Retry.'));};

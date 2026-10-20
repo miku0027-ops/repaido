@@ -36,7 +36,20 @@ export function Modal({title,children,onClose,className='',frameless=false}:{tit
       if(event.key!=='Tab'||!dialog||event.defaultPrevented)return;
       const openDialogs=document.querySelectorAll('dialog[open]');
       if(openDialogs[openDialogs.length-1]!==dialog)return;
-      const controls=Array.from(dialog.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],summary,[tabindex]')).filter(e=>!e.matches(':disabled,[tabindex="-1"]')&&e.getClientRects().length>0);
+      const controls=Array.from(dialog.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],summary,[tabindex],[contenteditable="true"]')).filter(element=>{
+        if(element.tabIndex<0||element.matches(':disabled')||element.closest('[hidden],[inert]')||!element.getClientRects().length)return false;
+        const style=getComputedStyle(element);
+        if(style.visibility==='hidden'||style.visibility==='collapse')return false;
+        // Closed details can retain descendant layout boxes in Chromium while
+        // their content is absent from native keyboard navigation.
+        for(let parent=element.parentElement;parent&&parent!==dialog;parent=parent.parentElement){
+          if(parent instanceof HTMLDetailsElement&&!parent.open){
+            const summary=parent.querySelector(':scope > summary');
+            if(!summary?.contains(element))return false;
+          }
+        }
+        return true;
+      });
       const first=controls[0],last=controls[controls.length-1];
       if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}

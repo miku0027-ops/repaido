@@ -11,19 +11,19 @@ executable=executable.replace(/^import \{ app, auth \} from ['"]\.\.\/firebase['
 executable=executable.replace(/^import \{ apiFetch \} from ['"]\.\/api['"];?$/m,'const apiFetch=globalThis.__pushApi;');
 executable=executable.replaceAll(/import\(['"]firebase\/messaging['"]\)/g,'Promise.resolve(globalThis.__pushMessaging)').replaceAll('import.meta.env.VITE_FIREBASE_VAPID_KEY','globalThis.__pushVapid');
 executable='const navigator=globalThis.__pushNavigator;\n'+executable;
-let service,revision=0,calls,permissions,deleted,tokens,values,session,apiImpl,messagingImpl,callbacks;
+let service,revision=0,calls,permissions,deleted,tokens,values,session,apiImpl,messagingImpl,callbacks,updates,updateImpl;
 const token='fixture-push-token-1234567890',deviceId='a'.repeat(64);
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const tick=async()=>{await Promise.resolve();await Promise.resolve();await Promise.resolve();};
 async function reload(){return import('data:text/javascript;base64,'+Buffer.from(executable).toString('base64')+'#'+(++revision));}
 const user=id=>({uid:id,getIdToken:async()=>'verified-'+id});
 beforeEach(async()=>{
-  calls=[];permissions=0;deleted=0;tokens=0;values=new Map();session=new Map();callbacks=[];
-  globalThis.window=new EventTarget();window.isSecureContext=true;window.PushManager=function(){};
+  calls=[];permissions=0;deleted=0;tokens=0;values=new Map();session=new Map();callbacks=[];updates=0;updateImpl=async()=>{};
+  globalThis.window=new EventTarget();window.isSecureContext=true;window.PushManager=function(){};window.location={origin:'https://repaido.test'};
   globalThis.Notification=class{static permission='default';static async requestPermission(){permissions++;this.permission='granted';return 'granted';}};window.Notification=Notification;
   globalThis.localStorage={getItem:key=>values.get(key)||null};globalThis.sessionStorage={getItem:key=>session.get(key)||null,setItem:(key,value)=>session.set(key,value),removeItem:key=>session.delete(key)};
   globalThis.__pushAuth={currentUser:user('account-a'),authStateReady:async()=>{}};globalThis.__pushOnAuth=(_auth,fn)=>callbacks.push(fn);
-  const registration={active:{state:'activated',postMessage:(_message,ports)=>ports[0].postMessage({ok:true})}};globalThis.__pushNavigator={serviceWorker:{register:async()=>registration,getRegistration:async()=>registration}};window.serviceWorker=__pushNavigator.serviceWorker;
+  const registration={scope:'https://repaido.test/repaidians-push/',update:()=>{updates++;return updateImpl();},active:{state:'activated',postMessage:(_message,ports)=>ports[0].postMessage({ok:true})}};globalThis.__pushNavigator={serviceWorker:{register:async()=>registration,getRegistration:async()=>registration}};window.serviceWorker=__pushNavigator.serviceWorker;
   globalThis.__pushMessaging={isSupported:async()=>true,getMessaging:()=>({}),getToken:async()=>{tokens++;return messagingImpl?messagingImpl():token;},deleteToken:async()=>{deleted++;}};
   apiImpl=async()=>new Response(JSON.stringify({id:deviceId,user_id:__pushAuth.currentUser?.uid}),{status:200,headers:{'Content-Type':'application/json'}});
   globalThis.__pushApi=async(path,init)=>{calls.push({path,init});return apiImpl(path,init);};service=await reload();
@@ -31,6 +31,22 @@ beforeEach(async()=>{
 
 test('support checks never prompt for permission or register a device',async()=>{
   const status=await service.workPushStatus();assert.equal(status.supported,true);assert.equal(status.enabled,false);assert.equal(permissions,0);assert.equal(tokens,0);assert.equal(calls.length,0);
+});
+test('existing same-scope worker update is requested once without permission or token changes',async()=>{
+  await service.workPushStatus();await service.workPushStatus();await service.syncWorkPushAccount();
+  assert.equal(updates,1);assert.equal(permissions,0);assert.equal(tokens,0);assert.equal(calls.length,0);
+});
+test('offline or nonresolving worker update never blocks notification status or account retirement',{timeout:2000},async()=>{
+  const pending=deferred();updateImpl=()=>pending.promise;
+  const status=await service.workPushStatus();assert.equal(status.supported,true);assert.equal(updates,1);
+  await service.enableWorkPush();assert.equal((await service.workPushStatus()).enabled,true);assert.equal(updates,1);
+  __pushAuth.currentUser=user('account-b');await service.syncWorkPushAccount();assert.equal((await service.workPushStatus()).enabled,false);assert.equal(updates,1);assert.equal(deleted,1);
+  updateImpl=async()=>{throw Error('offline');};const restored=await reload();assert.equal((await restored.workPushStatus()).supported,true);await tick();assert.equal(updates,2);
+});
+test('an existing unrelated registration is never updated',async()=>{
+  const original=__pushNavigator.serviceWorker.getRegistration;
+  __pushNavigator.serviceWorker.getRegistration=async()=>({...await original(),scope:'https://repaido.test/'});
+  await service.workPushStatus();assert.equal(updates,0);assert.equal(permissions,0);assert.equal(tokens,0);
 });
 test('explicit enable registers verified device; metadata never stores bearer or push token',async()=>{
   const status=await service.enableWorkPush();assert.equal(status.enabled,true);assert.equal(permissions,1);assert.equal(tokens,1);
@@ -75,7 +91,11 @@ test('push worker filters recipient after restart/signout and opens only the loc
   waits=[];handlers.notificationclick({notification:{data:shown.at(-1).options.data,close(){}},waitUntil:promise=>waits.push(promise)});await Promise.all(waits);assert.equal(navigated.pop(),'https://repaido.test/?view=rides&shared-ride='+ride);
   waits=[];send({...mobility,data:{...mobility.data,business_role:'driver',transport_event:'departure_reminder'}});await Promise.all(waits);assert.equal(shown.at(-1).title,'Your shared ride departs soon');assert.equal(shown.at(-1).options.data.url,'/worker?mode=driver&shared-ride='+ride);
   waits=[];handlers.notificationclick({notification:{data:{url:'https://attacker.test/'},close(){}},waitUntil:promise=>waits.push(promise)});await Promise.all(waits);assert.equal(navigated.length,0,'Notification clicks cannot navigate to another origin');
-  await setAccount(null);waits=[];send(valid);send(mobility);await Promise.all(waits);assert.equal(shown.length,4,'Queued pushes after signout are suppressed');
+  const project={data:{destination:'contractor',work_event:'project_team_confirmed',recipient_id:'account-a',notification_id:'team-note',project_id:'project-'+'a'.repeat(32),project_role:'technician',expires_at:String(Date.now()/1000+600),url:'https://attacker.test/',phone:'private number',body:'private project title'}};
+  waits=[];for(const change of [{recipient_id:'account-b'},{project_id:'../private'},{project_id:'https://attacker.test/'},{project_role:'cab_owner'},{work_event:'unreviewed_event'},{expires_at:'NaN'},{expires_at:'1'},{expires_at:''}])send({data:{...project.data,...change}});await Promise.all(waits);assert.equal(shown.length,4,'Invalid project events, expired updates and other recipients are rejected');
+  waits=[];send(project);await Promise.all(waits);assert.equal(shown.length,5);assert.equal(shown.at(-1).title,'Project team update');assert.equal(shown.at(-1).options.data.url,'/worker?mode=technician&tab=projects&project='+project.data.project_id);assert.doesNotMatch(JSON.stringify(shown.at(-1)),/private|attacker|phone/);
+  waits=[];handlers.notificationclick({notification:{data:shown.at(-1).options.data,close(){}},waitUntil:promise=>waits.push(promise)});await Promise.all(waits);assert.equal(navigated.pop(),'https://repaido.test/worker?mode=technician&tab=projects&project='+project.data.project_id);
+  await setAccount(null);waits=[];send(valid);send(mobility);send(project);await Promise.all(waits);assert.equal(shown.length,5,'Queued pushes after signout are suppressed');
   waits=[];handlers.notificationclick({notification:{close(){}},waitUntil:promise=>waits.push(promise)});await Promise.all(waits);assert.deepEqual(navigated,['https://repaido.test/?repaidians&community=notifications']);
   assert.deepEqual([...records.values()],[null],'Only account hash or cleared scope is persisted');
 });

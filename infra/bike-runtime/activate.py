@@ -79,7 +79,26 @@ class Runner:
             raise SetupError('Provider returned invalid JSON') from None
 
     def cloud(self, *args, optional=False, data=None):
-        return self.run(['gcloud', *args, '--project='+PROJECT, '--quiet', '--format=json'],
+        # Use the same explicit quota project as the direct REST diagnostics.
+        # Do not inherit another account's default or append conflicting flags.
+        selected = []
+        index = 0
+        while index < len(args):
+            argument = args[index]
+            if argument == '--billing-project':
+                index += 1
+                value = args[index] if index < len(args) else None
+            elif argument.startswith('--billing-project='):
+                value = argument.split('=', 1)[1]
+            else:
+                selected.append(argument)
+                index += 1
+                continue
+            if value != PROJECT:
+                raise SetupError('Bike activation requires repaido as its quota project')
+            index += 1
+        return self.run(['gcloud', *selected, '--project='+PROJECT,
+                         '--billing-project='+PROJECT, '--quiet', '--format=json'],
                         optional=optional, data=data)
 
     def tf(self, directory, *args, raw=False):
@@ -93,7 +112,8 @@ class Runner:
                                'https://monitoring.googleapis.com/v3/projects/repaido/')):
             raise SetupError('Unexpected Google Cloud metadata API URL')
         token = self.run(['gcloud', 'auth', 'print-access-token'], raw=True).strip()
-        request = urllib.request.Request(url, headers={'Authorization': 'Bearer '+token})
+        request = urllib.request.Request(url, headers={'Authorization': 'Bearer '+token,
+                                                       'X-Goog-User-Project': PROJECT})
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 return json.load(response)

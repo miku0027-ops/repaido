@@ -247,7 +247,14 @@ def index_record(u, kind, key, row):
         u.put('rp_work_index', name + ':' + key, {'channels': sorted(channels), 'active': active})
     if kind == 'contract_projects':
         # One queue record per changed project, not one synchronous write per follower.
-        fingerprint = digest(json.dumps([row.get('status'),[[m.get('id'),m.get('worker_id'),m.get('status')] for m in row.get('team',[])]],sort_keys=True))
+        # A contractor's formation decision and the later customer award are
+        # separate saved events. Either must wake the bounded participant
+        # fanout even when every invitation remains in its accepted state.
+        from contract_work import team_confirmation_current
+        confirmation = row.get('team_confirmation') or {}
+        fingerprint = digest(json.dumps([row.get('status'), row.get('awarded_at'),
+            confirmation.get('id'), confirmation.get('roster_fingerprint'), team_confirmation_current(row),
+            [[m.get('id'),m.get('worker_id'),m.get('status'),m.get('joining_status'),m.get('joining_confirmed_at')] for m in row.get('team',[])]],sort_keys=True))
         state = u.get('rp_work_project_queue', key) or {}
         if state.get('fingerprint') != fingerprint:
             u.put('rp_work_project_queue', key, {'id': key, 'sortKey': key, 'fingerprint': fingerprint, 'offset': 0, 'active': True})
@@ -475,7 +482,13 @@ def prefetch_notification_targets(u, rows, uid=None):
 
 def notification_visible(u, row, uid):
     """Shared bell/push predicate for both durable job-discovery projections."""
-    if row.get('type', row.get('kind')) != 'job_discovery':
+    event = row.get('type', row.get('kind'))
+    if event == 'project_team':
+        return project_team_notice_visible(u, row, uid)
+    if event in ('placement', 'congratulation'):
+        return delivery_allowed(u, {'recipient_id': uid, 'sender_id': row.get('authorId'),
+            'event': event, 'target_id': row.get('placementId') or row.get('targetId')})
+    if event != 'job_discovery':
         return True
     if row.get('user_id', uid) != uid:
         return False
@@ -536,6 +549,108 @@ def company(u, cid, uid):
     return {**{key: profile.get(key, '') for key in ('name', 'city', 'sector', 'scope')}, 'id': cid, 'reviewed': True}
 
 
+def project_award_reference(u, project):
+    """A saved winning bid, rather than a client-visible stage label, proves award."""
+    if not project.get('tender_id') or not project.get('awarded_at'):
+        return None
+    tender = u.get('contract_tenders', project['tender_id']) or {}
+    bid = next((row for row in tender.get('bids', []) if row.get('id') == tender.get('winning_bid_id')), None)
+    amount = project.get('contract_value_paise')
+    if (tender.get('status') != 'awarded' or tender.get('winning_project_id') != project.get('id')
+            or not bid or bid.get('status') != 'awarded' or bid.get('project_id') != project.get('id')
+            or bid.get('contractor_id') != project.get('owner_id')
+            or tender.get('owner_id') != project.get('client_id')
+            or bid.get('amount_paise') != amount or type(amount) is not int or amount <= 0
+            or project.get('client_id') == project.get('owner_id')
+            or tender.get('source_kind') == 'customer_custom_query'
+               and tender.get('awarded_contractor_id') != project.get('owner_id')):
+        return None
+    return digest(json.dumps([project['id'], project['awarded_at'], tender.get('winning_bid_id'),
+                              project.get('client_id'), amount], separators=(',', ':')))
+
+
+def project_award_current(u, project):
+    return bool(project_award_reference(u, project))
+
+
+def project_team_notice_visible(u, row, uid):
+    """Private joining/team notices follow the live member and exact formation."""
+    if row.get('user_id', uid) != uid:
+        return False
+    project = u.get('contract_projects', row.get('project_id', ''))
+    if (not project or project.get('status') in ('completed', 'cancelled')
+            or row.get('sender_id') is not None and row['sender_id'] != project.get('owner_id')
+            or not _safe_owner(u, uid, project.get('owner_id'))
+            or (u.get('network_suspensions', uid) or {}).get('active')):
+        return False
+    from contract_work import accepted_team, joining_confirmed, team_confirmation_current
+    own = next((seat for seat in accepted_team(project) if seat.get('worker_id') == uid), None)
+    if not own or not joining_confirmed(project, own):
+        return False
+    if row.get('event') == 'joining_confirmed':
+        return (type(own.get('joining_confirmed_at')) in (int, float) and own['joining_confirmed_at'] > 0
+                and row.get('invitation_id') == own.get('id')
+                and row.get('joining_confirmed_at') == own.get('joining_confirmed_at'))
+    if row.get('event') not in ('team_confirmed', 'contract_awarded'):
+        return False
+    confirmation = project.get('team_confirmation') or {}
+    if (not team_confirmation_current(project) or not confirmation.get('id')
+            or row.get('team_confirmation_id') != confirmation['id']
+            or row.get('team_roster_fingerprint') != confirmation.get('roster_fingerprint')):
+        return False
+    if row['event'] == 'contract_awarded':
+        reference = project_award_reference(u, project)
+        return bool(reference and reference == row.get('award_reference'))
+    return True
+
+
+def _project_team_notices(u, project, seat):
+    """Bounded fanout creates private notices without publishing a placement."""
+    from contract_work import joining_confirmed, team_confirmation_current
+    confirmation = project.get('team_confirmation') or {}
+    uid = seat.get('worker_id')
+    if (not uid or not confirmation.get('id') or project.get('status') in ('completed', 'cancelled')
+            or not joining_confirmed(project, seat) or not team_confirmation_current(project)):
+        return 0
+    reference = project_award_reference(u, project)
+    stages = ['team_confirmed', *(['contract_awarded'] if reference else [])]
+    delivered = 0
+    for stage in stages:
+        key = digest(('project-team:' if stage == 'team_confirmed' else 'project-award:')
+                     + project['id'] + ':' + confirmation['id'] + ':'
+                     + ((reference + ':') if stage == 'contract_awarded' else '') + uid)
+        note = {'id': key, 'user_id': uid, 'kind': 'project_team', 'event': stage,
+                'project_id': project['id'], 'team_confirmation_id': confirmation['id'],
+                'team_roster_fingerprint': confirmation.get('roster_fingerprint'),
+                'destination': 'contractor', 'created_at': time.time(), 'read_at': None,
+                'title': 'Contract awarded' if stage == 'contract_awarded' else 'Your team is confirmed',
+                'body': ('Congratulations! The customer awarded your team’s project. Review the agreed dates and next steps.'
+                         if stage == 'contract_awarded' else
+                         'Your team is confirmed. The tender decision remains a separate step.'
+                         if project.get('tender_id') and not reference else
+                         'Congratulations! Your team is confirmed. Open the project for your team and next steps.')}
+        if stage == 'contract_awarded':
+            note['award_reference'] = reference
+        if not project_team_notice_visible(u, note, uid):
+            continue
+        if not u.get('notifications', key):
+            u.put('notifications', key, note)
+            delivered += 1
+        # In-app records do not require a social subscription or public sharing.
+        # Push remains optional, using the account's existing application setting.
+        if not ((u.get('rp_members', uid) or {}).get('settings') or {}).get('applicationNotifications', True):
+            continue
+        if not u.get('rp_work_delivery', key):
+            u.put('rp_work_delivery', key, {'id': key, 'sortKey': key, 'recipient_id': uid,
+                'sender_id': project['owner_id'], 'event': 'project_team_confirmed',
+                'project_event': stage, 'target_id': project['id'], 'project_id': project['id'],
+                'team_confirmation_id': confirmation['id'],
+                'team_roster_fingerprint': confirmation.get('roster_fingerprint'),
+                'award_reference': reference if stage == 'contract_awarded' else None,
+                'notification_id': key, 'delivery_status': 'pending', 'created_at': note['created_at']})
+    return delivered
+
+
 def placement(u, pid, uid):
     if not re.fullmatch(ID, str(pid)):
         return None
@@ -549,8 +664,10 @@ def placement(u, pid, uid):
     owner = project.get('owner_id')
     if not _safe_owner(u, uid, owner) or not _safe_owner(u, uid, member['id']):
         return None
-    from contract_work import hiring_source_authorized
-    if not hiring_source_authorized(u, project) or project.get('status') in ('cancelled',):
+    from contract_work import hiring_source_authorized, team_confirmation_current
+    if (not hiring_source_authorized(u, project) or project.get('status') in ('cancelled',)
+            or not team_confirmation_current(project)
+            or project.get('tender_id') and not project_award_current(u, project)):
         return None
     seat = next((seat for seat in project.get('team', []) if seat.get('id') == ref['seatId'] and seat.get('worker_id') == member['id'] and seat.get('status') == 'accepted'), None)
     if not seat:
@@ -627,7 +744,7 @@ def application_event(u, application, project, event):
     title = {'profile_viewed': 'Your profile was viewed', 'application_viewed': 'Your application was opened',
              'reviewing': 'Your application is being reviewed', 'held': 'Your application is on hold',
              'shortlisted': 'You were shortlisted', 'offered': 'You received a work offer',
-             'rejected': 'Your application was updated', 'accepted': 'Your placement is confirmed'}.get(event, 'Your application was updated')
+             'rejected': 'Your application was updated', 'accepted': 'You accepted the offer'}.get(event, 'Your application was updated')
     emitted = emit(u, uid, owner, 'application_update', aid, title, project.get('title', ''), aid + ':' + str(version) + ':' + event)
     if emitted:
         key = digest(aid + ':' + str(version) + ':' + event)
@@ -646,6 +763,16 @@ def delivery_allowed(u, row):
     if not uid or not sender or blocked(u, uid, sender):
         return False
     event = row.get('event', row.get('type'))
+    if event == 'project_team_confirmed':
+        if row.get('project_id') != row.get('target_id'):
+            return False
+        if not ((u.get('rp_members', uid) or {}).get('settings') or {}).get('applicationNotifications', True):
+            return False
+        return project_team_notice_visible(u, {'user_id': uid, 'sender_id': sender,
+            'project_id': row.get('project_id'),
+            'team_confirmation_id': row.get('team_confirmation_id'),
+            'team_roster_fingerprint': row.get('team_roster_fingerprint'),
+            'event': row.get('project_event'), 'award_reference': row.get('award_reference')}, uid)
     if event == 'job_discovery':
         return notification_visible(u, {'type': event, 'jobId': row.get('target_id'), 'authorId': sender}, uid)
     if event == 'contract_update':
@@ -823,6 +950,7 @@ def _project_placements(u, entry, batch=20):
         if not uid or not sid:
             continue
         if terminal:_project_terminal_notice(u,project,seat)
+        elif seat.get('status') == 'accepted':_project_team_notices(u,project,seat)
         if seat.get('status')!='accepted' or project.get('status')=='cancelled':
             count+=1;continue
         pid = digest(project['id'] + ':' + sid)

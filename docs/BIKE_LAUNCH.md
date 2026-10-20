@@ -176,6 +176,23 @@ One approved, funded salaried rider is enough for the initial ground test;
 three is the roster limit. Configure the actual current-month funding and
 launch policy through company admin before opening normal bookings.
 
+When the operator has explicitly selected an existing approved mobile account
+and bike, check those exact records without resolving or merging email accounts:
+
+```bash
+python3 scripts/check-bike-pilot-readiness.py \
+  --driver-id "$REPAIDO_PILOT_DRIVER_ID" \
+  --vehicle-id "$REPAIDO_PILOT_VEHICLE_ID"
+```
+
+This helper uses masked, read-only document requests. It identifies missing
+saved policy fields, the selected bike's actual operator, current approvals,
+roster membership and current-month salary funding metadata. It omits contact
+details, plates, coordinates, documents and funding evidence. It never calls
+payroll administration endpoints that can accrue obligations. Metadata checks
+do not establish a bank deposit or replace the serving API's booking readiness;
+read failures remain distinct from absent records.
+
 Shared bikes use the existing scheduled shared-ride model: an approved
 owner/assigned rider publishes one passenger seat and a per-seat fare. Their
 acceptance, private customer pickup code, precise pickup/drop-off checks and

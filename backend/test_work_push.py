@@ -70,6 +70,42 @@ def test_successful_delivery_has_stable_ids_no_private_payload_and_no_resend(rel
     assert work_push.process_deliveries(main)['attempted'] == 0
 
 
+@pytest.mark.parametrize('project_event', ['team_confirmed', 'contract_awarded'])
+def test_project_team_delivery_opens_private_agent_project_without_public_share(relay, monkeypatch, project_event):
+    seed(device_ids=('one',), event='project_team_confirmed', target_id='project-'+'a'*32,
+         project_event=project_event, project_role='contractor', url='https://private.invalid/',
+         phone='PRIVATE PHONE', team_confirmation_id='PRIVATE CONFIRMATION',
+         team_roster_fingerprint='PRIVATE ROSTER')
+    sent=[]
+    monkeypatch.setattr(messaging, 'send', lambda message, **kwargs: sent.append(message))
+    assert work_push.process_deliveries(main)['sent'] == 1
+    assert len(sent) == 1
+    message=sent[0]
+    assert message.data['destination'] == 'contractor'
+    assert message.data['project_id'] == 'project-'+'a'*32
+    assert message.data['project_role'] == 'technician'
+    assert message.data['work_event'] == 'project_team_confirmed'
+    assert message.notification.title == 'Project team update'
+    assert message.notification.body == 'Open Project teams for your joining and next steps.'
+    assert message.android.priority == 'normal'
+    assert message.android.notification.channel_id == 'repaido_tasks'
+    assert message.android.notification.sound == 'default'
+    assert message.android.notification.visibility == 'private'
+    assert 'PRIVATE' not in str(message.data)+message.notification.title+message.notification.body
+    assert 'url' not in message.data and 'phone' not in message.data
+    assert work_push.process_deliveries(main)['attempted'] == 0
+
+
+@pytest.mark.parametrize('target', ['../another-project', 'https://private.invalid/', 'project?mode=contractor', '', 'a'*101, None])
+def test_malformed_project_push_target_is_skipped_before_provider_send(relay, monkeypatch, target):
+    seed(device_ids=('one',), event='project_team_confirmed', target_id=target)
+    sent=[]
+    monkeypatch.setattr(messaging, 'send', lambda message, **kwargs: sent.append(message))
+    assert work_push.process_deliveries(main)['attempted'] == 0
+    assert row()['delivery_status'] == 'skipped'
+    assert sent == []
+
+
 def test_partial_failure_retries_only_failed_device_and_backoff(relay, monkeypatch):
     seed()
     calls = []

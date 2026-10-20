@@ -49,6 +49,19 @@ def seed_job(key='job1', trade='Electrical', city='Balasore', owner='worker', **
     return row
 
 
+def confirm_team_record(project):
+    """A real formation snapshot, rather than an invitation acceptance label."""
+    from contract_work import accepted_team, roster_fingerprint
+    stamp = time.time()
+    for seat in accepted_team(project):
+        seat.update(joining_status='confirmed', joining_confirmed_at=stamp)
+    # The accepted_team helper returns the actual row objects in this fixture.
+    project['hiring'].update(openings=len(accepted_team(project)), status='closed')
+    project['team_confirmation'] = dict(id=str(uuid.uuid4()), confirmed_at=stamp,
+        confirmed_by=project['owner_id'], roster_fingerprint=roster_fingerprint(project))
+    return project
+
+
 def profile(uid='customer', **changes):
     def save(u):
         member = u.get('rp_members', uid)
@@ -218,7 +231,7 @@ def test_contract_updates_cycle_past_unchanged_source_pages(work_api, watched, w
     assert main.operations_store.run(lambda u: work.deliver_contract_updates(u, 'customer')) == 0
 
 
-def test_accepted_placements_only_and_independent_salary_consent(work_api):
+def test_confirmed_placements_only_and_independent_salary_consent(work_api):
     profile('worker2'); seed_job()
     def seat(u, status='pending'):
         p = u.get('contract_projects', 'job1')
@@ -230,6 +243,9 @@ def test_accepted_placements_only_and_independent_salary_consent(work_api):
     pid = repaidians.digest('job1:seat1')
     assert work_api.get('/repaidians/placements/' + pid, headers=auth('customer')).status_code == 404
     main.operations_store.run(lambda u: seat(u, 'accepted'))
+    work.process_updates(main)
+    assert work_api.get('/repaidians/placements/' + pid, headers=auth('customer')).status_code == 404
+    main.operations_store.run(lambda u: u.put('contract_projects', 'job1', confirm_team_record(u.get('contract_projects', 'job1'))))
     work.process_updates(main)
     card = work_api.get('/repaidians/placements/' + pid, headers=auth('customer'))
     assert card.status_code == 200, card.text
@@ -248,7 +264,7 @@ def test_placement_notifications_use_live_follow_edges_and_congratulate_once(wor
     assert work_api.put('/repaidians/follow/worker2', headers=auth('customer'), json={'active': True}).status_code == 200
     def accept(u):
         p = u.get('contract_projects', 'job1'); p['team'] = [{'id': 's1', 'worker_id': 'worker2', 'status': 'accepted', 'role': 'member', 'daily_rate_paise': 70000}]
-        u.put('contract_projects', 'job1', p)
+        u.put('contract_projects', 'job1', confirm_team_record(p))
     main.operations_store.run(accept)
     work.process_updates(main); work.process_updates(main)
     pid = repaidians.digest('job1:s1')
@@ -335,8 +351,9 @@ def test_company_connections_require_live_accepted_share_and_relationship(work_a
     main.operations_store.run(lambda u: u.put('contract_profiles', 'worker', {'id': 'worker', 'name': 'Electrical company', 'city': 'Balasore', 'sector': 'Electrical', 'scope': 'Public company scope.'}))
     def accept(u):
         p = u.get('contract_projects', 'job1'); p['team'] = [{'id': 'joined', 'worker_id': 'worker2', 'status': 'accepted', 'role': 'member', 'daily_rate_paise': 50000}]
-        u.put('contract_projects', 'job1', p)
+        u.put('contract_projects', 'job1', confirm_team_record(p))
     main.operations_store.run(accept)
+    seed_job('open-role')
     work.process_updates(main)
     path = '/repaidians/companies/worker'
     assert work_api.get(path, headers=auth('customer')).json()['connections'] == []
@@ -420,7 +437,7 @@ def test_expired_members_can_revoke_work_privacy_without_new_entitlement(work_ap
     def accepted(u):
         p = u.get('contract_projects', 'job1')
         p['team'] = [{'id': 'expired-seat', 'worker_id': 'worker2', 'role': 'member', 'status': 'accepted', 'daily_rate_paise': 80000}]
-        u.put('contract_projects', 'job1', p)
+        u.put('contract_projects', 'job1', confirm_team_record(p))
     main.operations_store.run(accepted)
     work.process_updates(main)
     queued = main.operations_store.run(lambda u: repaidians.query(u, 'rp_work_delivery', 30))

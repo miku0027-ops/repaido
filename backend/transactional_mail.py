@@ -40,6 +40,9 @@ _KINDS = {
     'email_verification': ('Verify your Repaido email address', 'Confirm ownership of this email address using the expiring verification link. This link does not sign you in.'),
     'booking_confirmed': ('Your Repaido booking is confirmed', 'Your booking has an update. Sign in to review the saved booking and work details.'),
     'contract_awarded': ('Your Repaido contract has been awarded', 'A contract award has been recorded. Sign in to review the agreed scope, team and next steps.'),
+    'contract_joining_confirmed': ('Your project joining is confirmed', 'The contractor confirmed your joining terms. Team formation and any tender award are separate decisions. Sign in to review the saved project and next steps.'),
+    'contract_team_confirmed_pending_award': ('Your project team is confirmed', 'Your contractor confirmed the project team. The tender decision is still pending. Sign in to review your confirmed team and the latest project stage.'),
+    'contract_team_confirmed': ('Congratulations — your project team is confirmed', 'Your contractor confirmed the project team. Sign in to review your team, agreed dates and the next step.'),
     'custom_contract_awarded': ('Your Repaido contract has been awarded', 'A contract award has been recorded. Sign in to review the agreed scope, team and next steps.'),
     'custom_contract_bid': ('A contractor proposal is ready', 'A proposal is available for your contract request. Sign in to review it and decide.'),
     'payment_confirmed': ('Your Repaido payment record is ready', 'A verified payment update has been recorded. Sign in to view the actual payment status and report.'),
@@ -56,7 +59,7 @@ _KINDS = {
     'contract_transfer_reported': ('Your Repaido transfer report is pending review', 'An external transfer reference has been reported. It remains unverified until independent review. Sign in to view its status.'),
     'contract_transfer_reviewed': ('Your Repaido transfer report has a decision', 'An independent review decision has been saved. Sign in to see whether the reported transfer was verified or rejected.'),
 }
-_QUERY_KEYS = {'view', 'section', 'tab', 'mode', 'booking', 'custom-contract', 'custom-proposal', 'destination', 'reference', 'ref', 'query', 'query_id', 'queryId',
+_QUERY_KEYS = {'view', 'section', 'tab', 'mode', 'booking', 'project', 'custom-contract', 'custom-proposal', 'destination', 'reference', 'ref', 'query', 'query_id', 'queryId',
                'contract_query_id', 'contract_id', 'project_id', 'booking_id', 'shop_id', 'order_id', 'payment_id'}
 
 
@@ -184,7 +187,31 @@ def _verification_link(value, challenge, origin):
     return value
 
 
-def _resolve(u, row, now):
+def _resolve(u, row, now, *, check_source=True):
+    if check_source and row['kind'] in ('contract_joining_confirmed', 'contract_team_confirmed_pending_award', 'contract_team_confirmed'):
+        # Formation mail must not outlive the exact member/roster which earned
+        # it. Contact ownership alone cannot authorize an obsolete work notice.
+        try:
+            from repaidians_work import project_team_notice_visible, project_award_current
+            project = u.get('contract_projects', row['payload'].get('record_id', ''))
+            if row['kind'] == 'contract_joining_confirmed':
+                note = u.get('notifications', row['event_id']) or {}
+                current = bool(note.get('event') == 'joining_confirmed'
+                               and note.get('project_id') == (project or {}).get('id')
+                               and project_team_notice_visible(u, note, row['recipient_id']))
+            else:
+                confirmation = (project or {}).get('team_confirmation') or {}
+                note = {'user_id': row['recipient_id'], 'event': 'team_confirmed',
+                        'project_id': (project or {}).get('id'),
+                        'team_confirmation_id': row['event_id'],
+                        'team_roster_fingerprint': confirmation.get('roster_fingerprint')}
+                current = bool(project and project_team_notice_visible(u, note, row['recipient_id']))
+                pending = bool(project and project.get('tender_id') and not project_award_current(u, project))
+                current = current and (pending == (row['kind'] == 'contract_team_confirmed_pending_award'))
+            if not current:
+                return None, 'project_team_event_obsolete'
+        except Exception:
+            return None, 'project_team_source_unavailable'
     try:
         contact = _contact(u, row['recipient_id'], row['kind'], row['payload'])
     except Exception:
@@ -245,7 +272,7 @@ def _enqueue_rows(u, event_id, kind, recipient_ids, payload, now, expires_at, co
                    status='blocked' if blocked else 'pending', reason=blocked, created_at=now,
                    expires_at=expires_at, attempts=0, lease_until=0, lease_token='', next_attempt_at=now,
                    message_id=f'<{key}@repaido.com>')
-        contact, reason = _resolve(u, row, now)
+        contact, reason = _resolve(u, row, now, check_source=False)
         expected = contacts.get(uid) if contacts is not None else None
         if expected:
             row['contact_fingerprint'] = expected
@@ -294,7 +321,7 @@ def enqueue_fanout(u, event_id, kind, recipient_ids, payload):
     now = time.time(); recipients = []
     u.prefetch([('account_contacts', uid) for uid in recipient_ids])
     for uid in recipient_ids:
-        contact, reason = _resolve(u, dict(recipient_id=uid, kind=kind, payload=payload), now)
+        contact, reason = _resolve(u, dict(recipient_id=uid, kind=kind, payload=payload), now, check_source=False)
         recipients.append(dict(id=uid, contact_fingerprint=contact['fingerprint'] if contact else None))
     row = dict(id=key, event_id=event_id, kind=kind, payload=payload, recipients=recipients,
                fingerprint=fingerprint, status='pending', expanded_count=0, created_at=now,
@@ -336,7 +363,7 @@ def _claim(u, key, now):
         row.update(status='blocked', reason=reason, next_attempt_at=now + 300, lease_until=0, lease_token=''); _save(u, row); return None
     contact, reason = _resolve(u, row, now)
     if not contact:
-        row.update(status='skipped' if reason == 'challenge_obsolete' else 'blocked', reason=reason,
+        row.update(status='skipped' if reason in ('challenge_obsolete', 'project_team_event_obsolete') else 'blocked', reason=reason,
                    next_attempt_at=now + 300, lease_until=0, lease_token=''); _save(u, row); return None
     if row.get('contact_fingerprint') and row['contact_fingerprint'] != contact['fingerprint']:
         row.update(status='skipped', reason='account_contact_changed', lease_until=0, lease_token=''); _save(u, row); return None

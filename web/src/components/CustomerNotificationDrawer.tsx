@@ -56,7 +56,7 @@ function NotificationPanel({onOpenSaved,onOpenHomes,onClose,onOpenJob,onOpenComm
   const unread=notifications.filter(n=>!n.read_at).length;
   useEffect(()=>{if(!loading&&!error)onUnreadCountChange?.(unread);},[unread,loading,error,onUnreadCountChange]);
   const discoveryJob=(n:RawNotification)=>n.destination==='repaidians'&&n.kind==='job_discovery'?(n.community_job_id||n.project_id):undefined;
-  const filtered=useMemo(()=>notifications.filter(n=>filter==='all'||filter==='unread'&&!n.read_at||filter==='bookings'&&(!!n.job_id&&!discoveryJob(n)||n.kind==='local_business'&&n.destination==='mobility')||filter==='offers'&&!!n.campaign_id||filter==='contracts'&&n.destination==='custom_contract'||filter==='discoveries'&&!!discoveryJob(n)),[notifications,filter]);
+  const filtered=useMemo(()=>notifications.filter(n=>filter==='all'||filter==='unread'&&!n.read_at||filter==='bookings'&&(!!n.job_id&&!discoveryJob(n)||n.kind==='local_business'&&n.destination==='mobility')||filter==='offers'&&!!n.campaign_id||filter==='contracts'&&(n.destination==='custom_contract'||n.kind==='project_team')||filter==='discoveries'&&!!discoveryJob(n)),[notifications,filter]);
   const mark=async(id?:string)=>{
     if(marking.current||uid!==(auth.currentUser?.uid||''))return false;marking.current=true;setBusy(id||'all');setError('');const actor=uid;
     try{
@@ -71,6 +71,10 @@ function NotificationPanel({onOpenSaved,onOpenHomes,onClose,onOpenJob,onOpenComm
   };
   const open=async(n:RawNotification)=>{
     if(uid!==(auth.currentUser?.uid||''))return;
+    if(n.kind==='project_team'&&n.project_id){
+      if(!await mark(n.id))return;
+      onClose();window.location.assign(`/worker?mode=technician&tab=projects&project=${encodeURIComponent(n.project_id)}`);return;
+    }
     if(n.destination==='saved'&&onOpenSaved){if(await mark(n.id)){onClose();onOpenSaved();}return;}
     if(n.destination==='homes'&&onOpenHomes){if(await mark(n.id)){onClose();onOpenHomes(n.homes_tab||'enquiries');}return;}
     if(n.market_chat_id&&onOpenMarketChat){
@@ -128,9 +132,9 @@ function NotificationPanel({onOpenSaved,onOpenHomes,onClose,onOpenJob,onOpenComm
     else if(n.kind==='local_business'&&onNavigateTab){onClose();if(n.destination==='scrap')onNavigateTab('ShopSpares','scrap');else onNavigateTab('Bookings','rides');}
     else if(n.destination==='b2b_quotation'&&onNavigateTab){onClose();onNavigateTab('ShopSpares','b2b');}
   };
-  const label=(n:RawNotification)=>n.destination==='saved'?'Saved update':n.destination==='homes'?'Home rental':n.market_chat_id?'Market message':n.destination==='support'?'Support reply':n.kind==='local_business'?(n.destination==='cleanup'?'Cleanup update':n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
-  const actionable=(n:RawNotification)=>!!(n.bike_ride_id||(n.destination==='saved'&&onOpenSaved)||(n.destination==='homes'&&onOpenHomes)||(n.market_chat_id&&onOpenMarketChat)||(n.destination==='support'&&n.case_id)||(n.kind==='local_business'&&(onNavigateTab||n.destination==='cleanup'))||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
-  const actionLabel=(n:RawNotification)=>n.market_chat_id?'Open conversation':discoveryJob(n)?'View matching job':n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
+  const label=(n:RawNotification)=>n.kind==='project_team'?'Project team':n.destination==='saved'?'Saved update':n.destination==='homes'?'Home rental':n.market_chat_id?'Market message':n.destination==='support'?'Support reply':n.kind==='local_business'?(n.destination==='cleanup'?'Cleanup update':n.destination==='mobility'?'Ride update':'Collection update'):discoveryJob(n)?'Matching job':n.destination==='custom_contract'?'Custom contract':n.alert_kind==='arrival'?'Arrival update':n.job_id?'Booking update':n.campaign_id?'Offer':n.plan_id?'Home plan':'Account update';
+  const actionable=(n:RawNotification)=>!!((n.kind==='project_team'&&n.project_id)||n.bike_ride_id||(n.destination==='saved'&&onOpenSaved)||(n.destination==='homes'&&onOpenHomes)||(n.market_chat_id&&onOpenMarketChat)||(n.destination==='support'&&n.case_id)||(n.kind==='local_business'&&(onNavigateTab||n.destination==='cleanup'))||(discoveryJob(n)&&onOpenCommunityJob)||(n.destination==='custom_contract'&&(n.query_id||n.queryId)&&onOpenContract)||(n.job_id&&!discoveryJob(n)&&onOpenJob)||(n.campaign_id&&onOpenPromotion)||(n.plan_id&&onOpenHomePlan)||(n.destination==='b2b_quotation'&&onNavigateTab));
+  const actionLabel=(n:RawNotification)=>n.kind==='project_team'?'View project':n.market_chat_id?'Open conversation':discoveryJob(n)?'View matching job':n.destination==='custom_contract'?(n.kind==='custom_contract_recommendations'||n.event_type==='custom_contract_recommendations'?'Review matches':n.kind==='custom_contract_bid'||n.event_type==='custom_contract_bid'?'Review proposal':'View contract'):n.job_id?'View booking':'View details';
   const date=(n:RawNotification)=>n.created_at?new Date(n.created_at*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Date unavailable';
   return <Modal title="Notifications" className="customer-notification-dialog" frameless onClose={onClose}>
     <section className="repaido-notif-drawer-panel">

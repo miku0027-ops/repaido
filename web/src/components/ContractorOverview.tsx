@@ -4,7 +4,7 @@ import {CalendarDays,ChevronRight,Folder,Gavel,Handshake,Target,Users} from '../
 type Row=Record<string,any>;
 type Goal=Row&{project:Row};
 const open=(project:Row)=>!['completed','cancelled'].includes(project.status);
-const members=(project:Row)=>new Set(project.team.filter((member:Row)=>member.status==='accepted').map((member:Row)=>member.worker_id)).size;
+const members=(project:Row)=>new Set(project.team.filter((member:Row)=>member.status==='accepted'&&(member.joining_status==='confirmed'||project.team_confirmation?.confirmed===true)).map((member:Row)=>member.worker_id)).size;
 const day=(value:number)=>new Intl.DateTimeFormat('en-IN',{day:'numeric',month:'short',timeZone:'Asia/Kolkata'}).format(value*1000);
 const time=(value:number)=>new Intl.DateTimeFormat('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}).format(value*1000);
 const sameDay=(a:number,b:number)=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(a*1000)===new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(b*1000);
@@ -24,7 +24,7 @@ export function ContractorOverview({projects,tenders,uid,canContract,now,onNavig
  const goals=contractorGoals(projects);
  const stats=[
   {label:'Projects',name:'Open projects',value:ownedOpen.length,action:()=>onNavigate('Projects','open')},
-  {label:'Team',name:'Current team placements',value:ownedOpen.reduce((count,project)=>count+members(project),0),action:()=>onNavigate('Team & HR')},
+  {label:'Team',name:'Confirmed joins',value:ownedOpen.reduce((count,project)=>count+members(project),0),action:()=>onNavigate('Team & HR')},
   {label:'Bids',name:'Pending tender bids',value:tenders.filter(tender=>tender.status==='open'&&tender.bids.some((bid:Row)=>bid.contractor_id===uid&&bid.status==='submitted')).length,action:()=>onNavigate('Tenders','bids')},
   {label:'Due',name:'Due milestones',value:goals.length,action:()=>onNavigate('Team & HR')}
  ];
