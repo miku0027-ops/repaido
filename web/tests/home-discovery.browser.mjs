@@ -13,21 +13,23 @@ const errors=[],writes=[],checks=[],pause=ms=>new Promise(r=>setTimeout(r,ms));
 // Theme colors transition independently; audit the settled appearance in each variant.
 const settleAppearance=page=>page.evaluate(async()=>{await new Promise(requestAnimationFrame);await Promise.all(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})));});
 try{
- for(let i=0;i<120;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}
+ for(let i=0;i<600;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null||i===599)throw Error(log||'Fixture API did not start');await pause(100);}
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  const context=await browser.newContext({viewport:{width:487,height:850}});
- await context.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url());if(req.method()!=='GET')writes.push({path:url.pathname,method:req.method(),body:req.postData()});const response=await route.fetch({url:api+url.pathname.replace(/^\/api/,'')+url.search});await route.fulfill({response});});
+ await context.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url());if(req.method()!=='GET')writes.push({path:url.pathname,method:req.method(),body:req.postData()});try{const response=await route.fetch({url:api+url.pathname.replace(/^\/api/,'')+url.search});await route.fulfill({response});}catch{await route.abort().catch(()=>{});}});
  page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/tests/home-discovery-preview.html');await page.locator('.service-offer-tile').first().waitFor();assert.equal(await page.locator('.service-offer-tile').count(),3);
  await page.addScriptTag({path:web+'/node_modules/axe-core/axe.min.js'});
- for(const width of [320,390,487,1440])for(const theme of ['light','dark'])for(const scale of [100,200]){
+ for(const width of [320,390,466,487,1440])for(const theme of ['light','dark'])for(const scale of [100,200]){
   await page.setViewportSize({width,height:850});await page.evaluate(({theme,scale})=>{document.documentElement.dataset.theme=theme;document.documentElement.style.fontSize=scale+'%';},{theme,scale});await settleAppearance(page);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,`overflow ${width} ${theme} ${scale}`);
+  const modeIssues=await page.getByRole('group',{name:'Transport service type'}).evaluate(rail=>{const buttons=[...rail.querySelectorAll('button')],issues=[];for(const button of buttons){const icon=button.querySelector('.mobility-mode-icon').getBoundingClientRect(),label=button.querySelector('.mobility-mode-label'),box=button.getBoundingClientRect(),text=document.createRange();text.selectNodeContents(label);if(icon.bottom>label.getBoundingClientRect().top+.5)issues.push('Icon overlaps '+label.textContent);for(const r of text.getClientRects())if(r.left<box.left-.5||r.right>box.right+.5||r.bottom>box.bottom+.5)issues.push('Label clips '+label.textContent);if(box.width<44||box.height<44)issues.push('Small target '+label.textContent);}return issues;});assert.deepEqual(modeIssues,[],`transport mode containment ${width}/${scale}`);
+
   const failures=await page.evaluate(async()=>{const result=await axe.run('.android-explore-screen',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}});return result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}));});
   assert.deepEqual(failures,[],`${width} ${theme} ${scale}`);
   assert.equal(await page.locator('.story-label').evaluateAll(es=>es.some(e=>e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1)),false,'category labels must not clip');
  }
- checks.push('home variants: 320 / 390 / 487 / 1440, light / dark, 100% / 200% text, enhanced contrast');
+ checks.push('home variants: 320 / 390 / 466 / 487 / 1440, light / dark, 100% / 200% text, enhanced contrast');
  await page.setViewportSize({width:487,height:850});await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});
  await page.screenshot({path:work+'/home.png',fullPage:true});
  const types=page.getByRole('group',{name:'Transport service type'});

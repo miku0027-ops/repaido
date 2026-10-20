@@ -77,17 +77,64 @@
  .business-suite.suite-workspace .suite-navigation button{min-width:44px;overflow-wrap:normal;word-break:normal}
 }
 
-/* Keep the approved business identity alongside the brand, above the workspace. */
+/* App shortcuts stay beside the logo; business identity reflows independently. */
 .worker-business-heading:empty{display:none}
-.ops-cab-workspace>.ops-heading:has(.worker-suite-identity){display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;margin-bottom:10px}
+.ops-cab-workspace>.ops-heading:has(.worker-suite-identity){display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;margin-bottom:8px}
 .worker-business-heading{min-width:0;padding-left:12px;border-left:1px solid var(--ui-line)}
 .worker-suite-identity{display:grid;gap:2px;min-width:0;color:var(--ui-ink)}
 .ops-heading .worker-suite-identity h1{font-size:.8125rem;line-height:1.3;font-weight:700;margin:0}
 .worker-suite-identity>span{font-size:.75rem;line-height:1.4;overflow-wrap:anywhere}
-.worker-suite-identity>small{display:flex;align-items:center;gap:4px;font-size:.75rem;line-height:1.3;color:var(--ui-muted)}
-.worker-suite-identity>small svg{flex:none}
-@media(max-width:600px){
- .ops-cab-workspace>.ops-heading:has(.worker-suite-identity){grid-template-columns:auto minmax(0,1fr);gap:8px 12px}
- .ops-cab-workspace>.ops-heading:has(.worker-suite-identity)>.worker-header-actions{grid-column:1/-1;justify-content:flex-end;gap:6px}
- .ops-cab-workspace>.ops-heading:has(.worker-suite-identity)>.worker-header-actions>button{padding:6px 10px}
+.worker-suite-identity>small{display:flex;align-items:center;gap:4px;font-size:.75rem;line-height:1.3;color:var(--ui-muted);min-width:0;overflow-wrap:anywhere}
+.worker-suite-identity>small svg,.worker-app-link>svg{flex:none}
+.worker-app-link>small{display:none}
+.ops-cab-workspace .worker-header-actions{flex-wrap:nowrap}
+.ops-cab-workspace .worker-header-actions>.worker-app-link{display:inline-flex;align-items:center;gap:6px;min-width:44px;border-radius:12px}
+.suite-workspace .suite-title-row .suite-panel-title{margin:0}
+.suite-driver .is-compact-bookings .suite-title-row{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.suite-driver .is-compact-bookings{padding-top:4px;padding-bottom:8px;margin-bottom:10px}
+.suite-driver .is-compact-bookings .suite-booking-navigation{margin-top:0}
+.suite-workspace .public-cab-control{margin:12px 0;padding:0;box-shadow:none}
+.suite-workspace .public-cab-control>summary{min-height:48px;padding:6px 10px;font-size:.75rem}
+.suite-workspace .public-cab-control-emblem{width:30px;height:30px;border-radius:9px}
+@media(max-width:700px){
+ .ops-cab-workspace>.ops-heading:has(.worker-suite-identity){gap:8px}
+ .ops-cab-workspace .worker-business-heading{padding-left:8px}
+ .ops-cab-workspace>.ops-heading>.worker-header-actions{gap:4px}
+ .ops-cab-workspace .worker-header-actions>.worker-app-link{width:44px;height:44px;padding:0;justify-content:center;flex:none}
+ .ops-cab-workspace .worker-app-link>span{display:none}
 }
+@media(max-width:420px){
+ .ops-cab-workspace>.ops-heading:has(.worker-suite-identity){grid-template-columns:minmax(0,1fr) auto;gap:6px 8px}
+ .ops-cab-workspace>.ops-heading>.repaido-brand-container{grid-column:1;grid-row:1;justify-self:start}
+ .ops-cab-workspace>.ops-heading>.worker-header-actions{grid-column:2;grid-row:1}
+ .ops-cab-workspace>.ops-heading>.worker-business-heading{grid-column:1/-1;grid-row:2;padding:4px 0 0;border-left:0;border-top:1px solid var(--ui-line)}
+ .ops-cab-workspace .worker-suite-identity{display:flex;align-items:center;flex-wrap:wrap;gap:3px 8px}
+ .ops-cab-workspace .worker-suite-identity>span{flex:1 1 auto;min-width:0}
+ .ops-cab-workspace .worker-suite-identity>small{flex:none;max-width:100%}
+ .ops-cab-workspace>.ops-heading>.repaido-brand-container img{height:28px!important;max-height:28px!important}
+}
+
+/* Assignment actions remain visible; connecting instructions open on demand. */
+.driver-invitations{min-width:0}
+.driver-assignment-empty{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface);font-size:.8125rem}
+.driver-assignment-empty>svg{flex:none;color:var(--ui-muted)}
+.driver-assignment-empty>div{min-width:0}
+.driver-assignment-empty strong{font-size:.8125rem;font-weight:600;line-height:1.5}
+.driver-assignment-empty p{margin:3px 0 0;color:var(--ui-muted);font-size:.75rem;line-height:1.5}
+.suite-workspace .driver-assignment-row{padding:12px;margin:8px 0;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface)}
+.driver-assignment-row>div:first-child{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:.8125rem}
+.driver-assignment-row .business-state{text-transform:capitalize}
+.driver-invitations .driver-assignment-help{margin:8px 0 0;padding:0;border-top:0}
+.driver-invitations .driver-assignment-help>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:8px 2px;list-style:none;font-size:.75rem;font-weight:600}
+.driver-assignment-help>summary::-webkit-details-marker{display:none}
+.driver-assignment-help>summary svg{flex:none;transition:transform 150ms ease}
+.driver-assignment-help[open]>summary svg{transform:rotate(180deg)}
+.driver-assignment-help>p{font-size:.75rem;line-height:1.6;margin:4px 0 8px;color:var(--ui-muted)}
+.driver-assignment-help>p:empty{display:none}
+.driver-account-id{display:flex;align-items:flex-end;flex-wrap:wrap;gap:8px;padding:10px;background:var(--ui-subtle);border-radius:10px;min-width:0}
+.driver-account-id>label{display:grid;gap:4px;flex:1 1 170px;min-width:0;font-size:.75rem;line-height:1.5}
+.driver-account-id input{min-width:0;width:100%;padding:8px;border:1px solid var(--ui-control);border-radius:8px;background:var(--ui-surface);color:var(--ui-ink);font:inherit;box-sizing:border-box}
+.business-suite .driver-account-id>button{display:inline-flex;gap:6px;min-height:44px;padding:8px 10px;font-size:.75rem;flex:none}
+@media(prefers-reduced-motion:reduce){.driver-assignment-help>summary svg{transition:none}}
+
+@media(min-width:421px) and (max-width:700px){.ops-cab-workspace .worker-header-actions>.worker-app-link{flex-direction:column;width:auto;min-width:48px;height:auto;padding:5px 8px;gap:2px}.ops-cab-workspace .worker-app-link>small{display:block;font-size:.75rem;line-height:1.3;font-weight:600}}

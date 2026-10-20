@@ -138,7 +138,7 @@ function SupportEvidenceImage({attachment,number,uid}:{attachment:SupportAttachm
 function ActionFeedback({action}:{action:ReturnType<typeof useSupportAction>}){return <>{action.error&&<p role="alert" className="support-error">{action.error}</p>}{action.notice&&<p role="status" className="support-confirmation"><CheckCircle2 size={16} aria-hidden="true"/>{action.notice}</p>}</>;}
 function SupportSafety(){return <details className="support-safety"><summary><LockKeyhole size={16} aria-hidden="true"/>A note about privacy & safety</summary><p>Keep passwords, OTPs, bank details and identity documents out of messages. For an immediate emergency, contact local emergency services.</p></details>;}
 export function SupportQuickButton({onOpen}:{onOpen:()=>void}){
- return <button type="button" className="customer-support-fab" onClick={onOpen} aria-label="Chat with Repaido support" aria-haspopup="dialog"><SupportMark/><small>Help</small></button>;
+ return <button type="button" className="customer-support-fab" onClick={onOpen} title="Help & support" aria-label="Chat with Repaido support" aria-haspopup="dialog"><SupportMark/><small>Help</small></button>;
 }
 export function SupportDialog({onClose,onSignIn,initialCaseId}:{onClose:()=>void;onSignIn:()=>void;initialCaseId?:string}){
  return <Modal title="Repaido support" className="support-chat-dialog" frameless onClose={onClose}>

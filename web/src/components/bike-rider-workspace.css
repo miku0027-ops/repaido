@@ -232,3 +232,6 @@
 [data-theme=dark] .bike-rider-workspace .bike-rider-trip{background:#30372b;border-color:#627056}
 [data-theme=dark] .bike-rider-workspace .bike-rider-trip-fare{background:#283322;border-color:#627056}
 [data-theme=dark] .bike-rider-workspace .bike-rider-trip.is-request{background:#163c27;border-color:#47a566}
+
+.bike-rider-workspace .bike-rider-settings-name,.bike-rider-workspace .bike-rider-trip-fare>div>small{color:#294b36}
+[data-theme=dark] .bike-rider-workspace .bike-rider-settings-name,[data-theme=dark] .bike-rider-workspace .bike-rider-trip-fare>div>small{color:#d5e9da}

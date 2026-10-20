@@ -876,6 +876,8 @@ export default function App() {
                 )}
               </button>
 
+              <SupportQuickButton onOpen={()=>{setSupportCaseId('');setSheet('support_ticket');}}/>
+
               {/* User / Profile Button */}
               {user ? (
                 <button onClick={() => setTab('You')} className="repaido-user-avatar-pill relative" title="My Profile" aria-label="My profile">
@@ -1259,7 +1261,6 @@ export default function App() {
 
           {/* Mobile Bottom Navigation Bar */}
           <nav data-captain-gold={captainMembership.gold} className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
-            <SupportQuickButton onOpen={()=>{setSupportCaseId('');setSheet('support_ticket');}}/>
             <div className="android-nav-links" ref={bottomNavLinks} onFocusCapture={event=>revealBottomDestination(event.currentTarget,(event.target as HTMLElement).closest<HTMLElement>('.android-nav-item'))}>
             <button
               className={`android-nav-item ${tab === 'Explore' ? 'active' : ''}`}

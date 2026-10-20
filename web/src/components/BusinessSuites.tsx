@@ -48,7 +48,7 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
  const headerTarget=useContext(BusinessHeaderTarget);
  const heading=useRef<HTMLHeadingElement>(null),frame=useRef<HTMLElement>(null),navigation=useRef<HTMLElement>(null),panelHeader=useRef<HTMLDivElement>(null),first=useRef(true);
  const mobility=role!=='scrap_owner',owner=role==='cab_owner',scrap=role==='scrap_owner';
- const bookingPanels=panels.filter(p=>(owner?['cabs','shared','rentals','bikes']:['journeys','shared','bikes']).includes(p.id));
+ const bookingPanels=panels.filter(p=>(owner?['cabs','shared','rentals','bikes']:['journeys','shared']).includes(p.id));
  const inBookings=mobility&&bookingPanels.some(p=>p.id===panel),inMore=owner?['more','payments','account'].includes(panel):scrap&&['more','cleanup','impact','calendar','account'].includes(panel);
  const primary:Panel[]=owner?[
   {id:'overview',label:'Home',icon:Home},{id:'bookings',label:'Bookings',icon:ClipboardList},
@@ -88,7 +88,9 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
    const enter=()=>{
     if(!pending||!frame.current?.querySelector('.bike-rider-settings,.bike-rider-workspace>.bike-rider-error'))return;
     pending=false;observer.disconnect();
-    const top=window.scrollY+(panelHeader.current?.parentElement?.getBoundingClientRect().top||0);
+    let top=window.scrollY+(panelHeader.current?.parentElement?.getBoundingClientRect().top||0);
+    const currentAction=frame.current.querySelector<HTMLElement>('[aria-label="Current bike ride"] .bike-rider-trip-actions>.bike-rider-primary');
+    if(currentAction&&navigation.current)top=Math.max(top,window.scrollY+currentAction.getBoundingClientRect().bottom-navigation.current.getBoundingClientRect().top+12);
     window.scrollTo({top:Math.max(0,top),behavior:'instant'});
    };
    const observer=new ResizeObserver(enter);observer.observe(frame.current);enter();
@@ -103,7 +105,7 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   <div className="suite-layout">
     <nav ref={navigation} className="suite-navigation" aria-label={title+' navigation'}>{primary.map(({id,label,icon:Icon})=><button key={id} aria-label={scrap&&id==='requests'?'Collections':scrap&&id==='weighing'?'Inspection':role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label} aria-current={group===id?'page':undefined} onClick={()=>select(id)}><Icon size={24} aria-hidden="true"/><span>{role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label}</span></button>)}</nav>
    <div className="suite-content">
-    <div ref={panelHeader} className="suite-panel-header">
+    <div ref={panelHeader} className={"suite-panel-header"+(role==='driver'&&inBookings?' is-compact-bookings':'')}>
 
      <div className="suite-title-row"><h2 ref={heading} tabIndex={-1} className="suite-panel-title">{label}</h2>{action}</div>
      {inBookings&&<nav className="suite-booking-navigation" aria-label="Booking types">{bookingPanels.map(p=><button key={p.id} aria-current={panel===p.id?'page':undefined} onClick={()=>onPanel(p.id)}>{p.label}</button>)}</nav>}
@@ -156,7 +158,7 @@ export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;v
  const open=(row:any)=>{setRecordId(row.id);setPanel(row.vehicle_name?'shared':'journeys');};
  const [panel,setPanel]=useState(()=>initialMobilityPanel('driver'));const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.mode==='cab'&&(r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid)),departures=shared.rows.filter(r=>r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r));
- const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'bikes',label:'Bike rides',icon:TwoWheeler},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'My vehicles',icon:Car},{id:'account',label:'Account',icon:UserRound}];
+ const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'bikes',label:'Bike rides',icon:TwoWheeler},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'Vehicle assignments',icon:Car},{id:'account',label:'Account',icon:UserRound}];
  return <SuiteFrame role="driver" title="Driver suite" description="Your pickups, passengers and journeys." partner={partner} panels={panels} panel={panel} onPanel={setPanel}><ContractError error={records.error||shared.error}/>
   <SharedRideRequestAlerts rows={departures} accountKey={source.uid} onOpen={open} driver settings={panel==='account'}/>
   {panel==='overview'&&<>
@@ -167,7 +169,7 @@ export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;v
   {panel==='journeys'&&<><BusinessRecords kind="rides" records={records} owner managementRole="driver" initialRecordId={recordId} heading="Assigned cab journeys"/></>}
   {panel==='shared'&&<><SharedRideBookings owner managementRole="driver" vehicles={vehicles} initialRecordId={recordId}/></>}
   {panel==='bikes'&&<BikeRiderWorkspace vehicleRole="driver" onManageVehicles={()=>setPanel('vehicles')}/>}
-  {panel==='vehicles'&&<DriverInvitations/>}
+  {panel==='vehicles'&&<DriverInvitations compact/>}
   {panel==='account'&&<AccountPanel partner={partner} accountControls={accountControls}/>}
   <PublicCabAvailability accountKey={source.uid}/>
  </SuiteFrame>;
