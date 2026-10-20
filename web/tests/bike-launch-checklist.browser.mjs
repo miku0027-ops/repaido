@@ -37,10 +37,22 @@ try{
   const violations=await page.evaluate(async()=>(await window.axe.run('.bike-launch-checklist',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})));assert.deepEqual(violations,[],`accessibility ${width} ${theme} ${scale}`);
  }
  await page.setViewportSize({width:465,height:950});await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});await page.screenshot({path:work+'/launch-blockers.png',fullPage:true});checks.push('launch checklist has no overflow or WCAG A/AA violations across 320–1440px, light/dark and 200% text');
- const refresh=async updates=>{policy={...policy,...updates,version:policy.version+1};await page.getByRole('button',{name:'Refresh bikes',exact:true}).click();await page.waitForFunction(version=>document.querySelector('.bike-admin-status>small')?.textContent==='Policy v'+version,policy.version);};
+ const refresh=async(updates,increment=true)=>{policy={...policy,...updates,version:policy.version+(increment?1:0)};const loaded=page.waitForResponse(response=>response.url().endsWith('/bike-rides/admin/overview')&&response.request().method()==='GET');await page.getByRole('button',{name:'Refresh bikes',exact:true}).click();await loaded;await page.waitForFunction(version=>document.querySelector('.bike-admin-status>small')?.textContent==='Policy v'+version,policy.version);};
  const activationReady=async expected=>{await page.waitForFunction(expected=>{const button=[...document.querySelectorAll('button')].find(button=>button.textContent==='Activate bike bookings');return !!button&&button.disabled!==expected;},expected);};
  health={...health,ready:true,production_ready:true,configured:true,worker_online:true,broker_connected:true,reason:''};
  await refresh({base_paise:800,per_km_paise:500,paid_ready:true,routing_ready:true,dispatch_ready:true,tax_reviewed:true,cash_enabled:true,terms:'Reviewed customer fare and cancellation terms.',evidence_reference:'review-reference-001',service_center:{lat:21.49,lng:86.93},service_area_reviewed:true,geography_ready:true,payroll_ready:true,funding_ready:true,salary_roster_ready:true,promo_pool_ready:true,blockers:[]});await activationReady(true);await checklist.getByText('Paid bookings do not require a launch promotion.',{exact:true}).waitFor();
+ await refresh({dispatch_ready:false},false);await activationReady(false);
+ await page.getByLabel('Per kilometre · ₹',{exact:true}).fill('9.99');
+ await refresh({dispatch_ready:true,payroll_ready:false,funding_ready:false},false);
+ await page.locator('.bike-admin-readiness').getByText('Company funding: Setup needed',{exact:true}).waitFor();
+ assert.equal(await page.getByLabel('Per kilometre · ₹',{exact:true}).inputValue(),'9.99');
+ await refresh({payroll_ready:true,funding_ready:true},false);
+ await page.locator('.bike-admin-readiness').getByText('Company funding: Ready',{exact:true}).waitFor();
+ assert(await page.getByRole('button',{name:'Activate bike bookings',exact:true}).isDisabled());
+ assert.equal(await page.getByLabel('Per kilometre · ₹',{exact:true}).inputValue(),'9.99');
+ await page.getByRole('button',{name:'Discard policy changes',exact:true}).click();await activationReady(true);
+ assert.equal(await page.getByLabel('Per kilometre · ₹',{exact:true}).inputValue(),'5');
+ assert.deepEqual(writes,[]);checks.push('dispatch and payroll readiness changes update without a ride-policy version change, preserve unsaved fare edits and never activate or save automatically');
  await refresh({promo_enabled:true,promo_started_at:1792413000,promo_terms_reviewed:true,promo_ready:false,promo_identity_ready:false});await activationReady(true);await checklist.getByText('Paid bookings can still open when the required checks pass.',{exact:true}).waitFor();assert.equal(await checklist.getByText('Eligibility and funds are checked again for each booking.',{exact:true}).count(),0);
  await refresh({salary_roster_ready:false,independent_ready:true,promo_pool_ready:false,promo_identity_ready:true,promo_ready:true,blockers:['Company rider payroll is not enabled.']});await activationReady(true);assert.equal(await checklist.getByText('Company rider payroll is not enabled.',{exact:true}).count(),0);await checklist.getByText('Review funding for the selected rider earning plan.',{exact:false}).waitFor();
  await refresh({promo_started_at:null,promo_terms_reviewed:false});await activationReady(false);checks.push('paid activation accepts either reviewed rider model, treats effective promotions as optional, and preserves mandatory campaign date/terms validation');

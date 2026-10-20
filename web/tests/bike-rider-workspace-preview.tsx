@@ -11,6 +11,7 @@ const commands:Record<string,unknown>[]=[];
 const reads={payroll:0,olderDetails:0,presenceWrites:0};
 const companyCash:BikeCompanyCashSummary={driver_id:'qa-rider',version:1,collected_paise:1000,reported_remittance_paise:0,confirmed_remittance_paise:0,outstanding_held_paise:1000,available_to_report_paise:1000,currency:'INR'};
 const payroll:BikeDriverPayroll={driver_id:'qa-rider',period:'2026-10',compensation_model:'monthly_salary',monthly_salary_paise:700000,rostered:true,approved:true,obligations:[{id:'qa-salary',period:'2026-10',amount_paise:700000,status:'transfer_reported',version:2,transfer:{reference:'LOCAL-QA-TRANSFER',amount_paise:700000}}],server_time:Date.now()/1000,company_cash:companyCash};
+if(params.has('cash')){payroll.salary_payment_method='office_cash';payroll.cash_collection_point='the company office';payroll.obligations[0].transfer!.payment_method='office_cash';payroll.obligations[0].transfer!.reference='LOCAL-QA-CASH-RECEIPT';}
 const deposits:object[]=[];
 let failReads=params.has('offline')?1:0,failDeparture=params.has('retry')?1:0;
 const response=<T,>(value:unknown)=>structuredClone(value) as T;

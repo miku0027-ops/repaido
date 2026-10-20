@@ -26,6 +26,7 @@ MAX_RIDERS = 3
 HEADERS = {'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer'}
 DEFAULT = dict(version=0, enabled=False, service_city='Balasore',
                compensation_model='monthly_salary', monthly_salary_paise=SALARY_PAISE,
+               salary_payment_method='office_cash', cash_collection_point='Company office',
                monthly_funding_paise=0, funding_period='', funding_reference='',
                funding_evidence='', funding_acknowledged=False, roster=[])
 PERIOD = r'^20[0-9]{2}-(0[1-9]|1[0-2])$'
@@ -39,6 +40,8 @@ class RosterEntry(Input):
 class Policy(Input):
     expected_version: int = Field(ge=0, strict=True)
     enabled: bool = False
+    salary_payment_method: Literal['bank_transfer', 'office_cash'] | None = None
+    cash_collection_point: str | None = Field(default=None, min_length=3, max_length=200)
     monthly_funding_paise: int = Field(default=0, ge=0, le=1000000000, strict=True)
     funding_period: str = Field(default='', max_length=7)
     funding_reference: str = Field(default='', max_length=200)
@@ -48,6 +51,10 @@ class Policy(Input):
 
     @model_validator(mode='after')
     def valid(self):
+        if self.cash_collection_point is not None:
+            self.cash_collection_point = self.cash_collection_point.strip()
+            if len(self.cash_collection_point) < 3:
+                raise ValueError('Enter the actual office cash collection point.')
         identifiers = [r.driver_id for r in self.roster]
         if len(set(identifiers)) != len(identifiers):
             raise ValueError('Choose each rider only once.')
@@ -62,15 +69,16 @@ class Policy(Input):
 class SalaryPayment(Input):
     expected_version: int = Field(ge=1, strict=True)
     amount_paise: int = Field(ge=SALARY_PAISE, le=SALARY_PAISE, strict=True)
+    payment_method: Literal['bank_transfer', 'office_cash'] = 'bank_transfer'
     transfer_reference: str = Field(min_length=8, max_length=200)
     evidence: str = Field(min_length=10, max_length=1000)
 
     @model_validator(mode='after')
     def reference(self):
         if len(normalize_reference(self.transfer_reference)) < 8:
-            raise ValueError('Use the actual transfer reference, with at least eight letters or digits.')
+            raise ValueError('Use the actual cash receipt or transfer reference, with at least eight letters or digits.')
         if len(self.evidence.strip()) < 10:
-            raise ValueError('Record evidence of the reported transfer.')
+            raise ValueError('Record evidence of the actual cash handover or transfer.')
         return self
 
 
@@ -583,7 +591,7 @@ def install(core):
                     existing.update(active=False, offboarded_at=now, updated_at=now,
                                     updated_by=admin['id'])
                     u.put('bike_salary_roster', digest(driver_id), existing)
-            p = {**old, **body.model_dump(exclude={'expected_version', 'roster'}),
+            p = {**old, **body.model_dump(exclude={'expected_version', 'roster'}, exclude_none=True),
                  'version': old['version']+1, 'roster': roster,
                  'updated_at': now, 'updated_by': admin['id']}
             u.put('bike_payroll_policy', 'current', p)
@@ -592,7 +600,8 @@ def install(core):
                 fail('SALARY_FUNDING_REQUIRED', ' '.join(ready['blockers']), 422)
             audit(u, 'BikePayrollPolicyUpdated', admin['id'], policy_version=p['version'],
                   active_driver_ids=list(incoming), monthly_funding_paise=p['monthly_funding_paise'],
-                  funding_period=p['funding_period'], funding_reference=p['funding_reference'])
+                  funding_period=p['funding_period'], funding_reference=p['funding_reference'],
+                  salary_payment_method=p['salary_payment_method'])
             return _admin_view(u, current, now)
         return store.run(save)
 
@@ -613,25 +622,27 @@ def install(core):
             if transfer:
                 if (normalize_reference(transfer['reference']) == reference and
                         transfer['amount_paise'] == body.amount_paise and
-                        transfer['evidence'] == body.evidence.strip()):
+                        transfer['evidence'] == body.evidence.strip() and
+                        transfer.get('payment_method', 'bank_transfer') == body.payment_method):
                     return row
-                fail('SALARY_TRANSFER_EXISTS', 'This month already has a reported salary transfer; reconcile it before any further transfer.', 409)
+                fail('SALARY_TRANSFER_EXISTS', 'This month already has a reported salary payment; reconcile it before any further payment.', 409)
             if old:
-                fail('TRANSFER_REFERENCE_REUSED', 'This salary transfer reference is already assigned to another obligation.', 409)
+                fail('TRANSFER_REFERENCE_REUSED', 'This salary payment reference is already assigned to another obligation.', 409)
             if row['version'] != body.expected_version:
-                fail('STALE', 'Refresh this salary obligation before reporting a transfer.', 409)
+                fail('STALE', 'Refresh this salary obligation before reporting a payment.', 409)
             transfer = dict(amount_paise=body.amount_paise, reference=body.transfer_reference.strip(),
                             evidence=body.evidence.strip(), reported_at=now,
-                            reported_by=admin['id'], source='company_reported_transfer')
+                            reported_by=admin['id'], payment_method=body.payment_method,
+                            source='company_reported_cash_handover' if body.payment_method == 'office_cash' else 'company_reported_transfer')
             row.update(transfer=transfer, status='transfer_reported', version=row['version']+1,
                        updated_at=now)
             u.put('bike_salary_transfer_references', transfer_key,
                   dict(reference=reference, obligation_id=row['id'], driver_id=driver_id,
-                       period=period, amount_paise=body.amount_paise, created_at=now))
+                       period=period, amount_paise=body.amount_paise, payment_method=body.payment_method, created_at=now))
             u.put('bike_salary_obligations', row['id'], row)
             audit(u, 'BikeSalaryTransferReported', admin['id'], driver_id=driver_id,
                   period=period, obligation_id=row['id'], amount_paise=body.amount_paise,
-                  transfer_reference=transfer['reference'])
+                  transfer_reference=transfer['reference'], payment_method=body.payment_method)
             return row
         return store.run(save)
 
@@ -651,6 +662,8 @@ def install(core):
             cash_rows = u.find('bike_cash_remittances', 'driver_id', user['id'], limit=25)
             return dict(driver_id=user['id'], period=selected, compensation_model='monthly_salary',
                         monthly_salary_paise=SALARY_PAISE, currency='INR', service_city='Balasore',
+                        salary_payment_method=p['salary_payment_method'],
+                        cash_collection_point=p['cash_collection_point'] if p['salary_payment_method'] == 'office_cash' else None,
                         rostered=any(r['driver_id'] == user['id'] for r in _active_roster(p)),
                         approved=bool(_approved_profile(u, user['id'], now)),
                         roster={key: roster.get(key) for key in ('driver_id', 'active', 'first_enrolled_at', 'offboarded_at')} if roster else None,

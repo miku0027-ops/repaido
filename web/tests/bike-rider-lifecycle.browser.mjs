@@ -117,6 +117,19 @@ try{
  await resumed.waitForFunction(()=>window.bikeRiderFixture.reads.presenceWrites>0&&document.querySelector('[role=switch]')?.getAttribute('aria-checked')==='true');
  assert.equal(await resumed.getByRole('switch').getAttribute('aria-checked'),'true','a returning online rider resumes GPS only with an existing permission');
  await resumedContext.close();
+ const cash=await browser.newPage({viewport:{width:390,height:900},reducedMotion:'reduce'});await freezePreview(cash);
+ await cash.goto(`${base}/tests/bike-rider-workspace-preview.html?cash`,{waitUntil:'networkidle'});
+ await cash.getByRole('button',{name:'Money',exact:true}).click();await cash.locator('.bike-rider-payroll>summary').click();
+ await cash.getByText('Salary collection: cash from the company office. Confirm receipt after the cash is handed to you.',{exact:true}).waitFor();
+ await cash.getByRole('button',{name:'Confirm receipt',exact:true}).click();
+ const cashDialog=cash.getByRole('dialog',{name:'Confirm salary receipt',exact:true});
+ await cashDialog.getByText('Cash receipt reference: LOCAL-QA-CASH-RECEIPT',{exact:true}).waitFor();
+ await cashDialog.getByText('Count the cash before confirming.',{exact:false}).waitFor();
+ await cashDialog.getByRole('button',{name:'Back',exact:true}).click();
+ await cash.getByText('Cash handed over · confirm receipt',{exact:true}).waitFor();
+ await cash.getByRole('button',{name:'Confirm receipt',exact:true}).click();
+ await cashDialog.getByRole('button',{name:'I received this salary',exact:true}).click();
+ await cashDialog.waitFor({state:'hidden'});await cash.getByText('Receipt confirmed',{exact:true}).waitFor();await cash.close();
  assert.deepEqual(apiRequests,[]);assert.deepEqual(errors,[]);
- console.log('PASS: isolated rider lifecycle, reconnect, stable versioned retries, OTP rejection/recovery, fresh GPS gating, zero real API writes');
+ console.log('PASS: isolated rider lifecycle, reconnect, stable versioned retries, OTP rejection/recovery, fresh GPS gating, office cash collection/receipt confirmation, zero real API writes');
 }finally{await browser.close();}

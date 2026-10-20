@@ -1,6 +1,8 @@
 """Salary accounting uses real HTTP transactions, never cloud or bank mocks."""
 import copy
+import os
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from unittest.mock import patch
@@ -9,10 +11,36 @@ from zoneinfo import ZoneInfo
 import pytest
 import main
 import bike_payroll as payroll
-from test_operations import api, auth, ADMIN
+from test_operations import api as sqlite_api, auth, ADMIN
 
 BASE = '/operations/bike-rides'
 INDIA = ZoneInfo('Asia/Kolkata')
+
+
+@pytest.fixture(autouse=True)
+def quiet_scheduler(monkeypatch):
+    monkeypatch.setattr(main, 'operations_tick', lambda: None)
+
+
+@pytest.fixture(params=['sqlite', 'native'])
+def api(sqlite_api, monkeypatch, request):
+    database = None
+    if request.param == 'native':
+        host = os.getenv('FIRESTORE_EMULATOR_HOST', '')
+        if not host:
+            pytest.skip('Requires an explicit loopback Firestore emulator')
+        assert host.startswith(('127.0.0.1:', 'localhost:'))
+        from google.auth.credentials import AnonymousCredentials
+        from google.cloud.firestore import Client
+        database = Client(project='demo-repaido-cash-'+uuid.uuid4().hex[:10], credentials=AnonymousCredentials())
+        monkeypatch.setattr(main, 'USE_FIRESTORE', True)
+        monkeypatch.setattr(main, 'fb_db', database)
+        assert main.operations_store.core.USE_FIRESTORE
+    try:
+        yield sqlite_api
+    finally:
+        if database is not None:
+            database.close()
 
 
 def approved(uid, role='driver', city='Balasore', valid_until=None):
@@ -159,6 +187,67 @@ def test_reported_salary_is_not_paid_until_own_receipt_and_retries_are_safe(api)
     audits = main.operations_store.run(lambda u: u.all('audit'))
     assert len([r for r in audits if r['action'] == 'BikeSalaryTransferReported']) == 1
     assert len([r for r in audits if r['action'] == 'BikeSalaryReceiptConfirmed']) == 1
+
+
+def test_office_cash_salary_is_reported_once_and_requires_the_riders_receipt(api):
+    approved('worker')
+    data = enroll(api, salary_payment_method='office_cash', cash_collection_point='Company office').json()
+    assert data['policy']['salary_payment_method'] == 'office_cash'
+    assert data['obligations'][0]['status'] == 'owed'
+    first = report(api, payment_method='office_cash', reference='OFFICE-CASH-2026-001',
+                   evidence='Full salary counted and handed over against the office cash voucher.')
+    assert first.status_code == 200, first.text
+    row = first.json()
+    assert row['transfer']['payment_method'] == 'office_cash'
+    assert row['transfer']['source'] == 'company_reported_cash_handover'
+    assert row['status'] == 'transfer_reported' and row['received_at'] is None
+    assert report(api, payment_method='office_cash', reference='OFFICE-CASH-2026-001',
+                  evidence='Full salary counted and handed over against the office cash voucher.').json() == row
+    assert report(api, payment_method='bank_transfer', reference='OFFICE-CASH-2026-001',
+                  evidence='Full salary counted and handed over against the office cash voucher.').status_code == 409
+    own = api.get(BASE+'/driver/payroll', headers=auth('worker')).json()
+    assert own['salary_payment_method'] == 'office_cash' and own['cash_collection_point'] == 'Company office'
+    confirm = BASE+'/driver/payroll/'+data['period']+'/confirm'
+    assert api.post(confirm, headers=auth('stranger'), json={'expected_version':2,'received':True}).status_code == 404
+    response = api.post(confirm, headers=auth('worker'), json={'expected_version':2,'received':True})
+    assert response.status_code == 200 and response.json()['status'] == 'driver_received'
+    assert response.json()['transfer']['payment_method'] == 'office_cash'
+
+
+def test_cash_reserve_still_needs_real_funding_acknowledgement(api):
+    approved('worker')
+    response = enroll(api, salary_payment_method='office_cash', funding_acknowledged=False)
+    assert response.status_code == 422
+    data = api.get(BASE+'/payroll', headers=ADMIN).json()
+    assert not data['policy']['enabled'] and data['policy']['monthly_funding_paise'] == 0
+    assert data['obligations'] == []
+
+
+def test_cash_and_bank_salary_references_share_one_duplicate_guard(api):
+    for uid in ('worker', 'worker2'):
+        approved(uid)
+    assert enroll(api, ('worker','worker2')).status_code == 200
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda item: report(api, driver=item[0], payment_method=item[1],
+            reference='OFFICE-CASH-SHARED-001'), [('worker','office_cash'),('worker2','bank_transfer')]))
+    assert sorted(response.status_code for response in responses) == [200,409]
+    assert main.operations_store.run(lambda u: len(u.all('bike_salary_transfer_references'))) == 1
+
+
+def test_older_clients_preserve_cash_preferences_and_legacy_transfer_retries(api):
+    approved('worker')
+    data = enroll(api, salary_payment_method='office_cash', cash_collection_point='Balasore company office').json()
+    updated = api.put(BASE+'/payroll', headers=ADMIN, json=update_body(data))
+    assert updated.status_code == 200
+    assert updated.json()['policy']['salary_payment_method'] == 'office_cash'
+    assert updated.json()['policy']['cash_collection_point'] == 'Balasore company office'
+    first = report(api)
+    assert first.status_code == 200
+    row = first.json()
+    row['transfer'].pop('payment_method')
+    main.operations_store.run(lambda u: u.put('bike_salary_obligations', row['id'], row))
+    assert report(api).json() == row
+    assert report(api, payment_method='office_cash').status_code == 409
 
 
 def test_transfer_reference_races_are_global_and_normalized(api):
