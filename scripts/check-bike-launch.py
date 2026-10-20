@@ -5,6 +5,7 @@ Run in Google Cloud Shell. Output deliberately excludes credentials, raw service
 environment, account records, phones, rider identities and stop coordinates.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import math
 import re
@@ -29,7 +30,7 @@ def gcloud(*args):
         command.append('--format=json')
     try:
         result = subprocess.run(command, text=True,
-                                capture_output=True, timeout=45)
+                                capture_output=True, stdin=subprocess.DEVNULL, timeout=45)
     except FileNotFoundError:
         return {'read_status': 'gcloud_missing'}
     except subprocess.TimeoutExpired:
@@ -37,9 +38,10 @@ def gcloud(*args):
     if result.returncode:
         # Never echo stderr: providers can include request/configuration details.
         message = result.stderr.upper()
-        status = ('not_found' if 'NOT_FOUND' in message or 'NOT FOUND' in message else
-                  'permission_denied' if 'PERMISSION_DENIED' in message or 'PERMISSION DENIED' in message else
+        status = ('permission_denied' if 'PERMISSION_DENIED' in message or 'PERMISSION DENIED' in message else
                   'authentication_failed' if any(value in message for value in ('UNAUTHENTICATED', 'INVALID_GRANT', 'ACCESS_TOKEN_TYPE_UNSUPPORTED', '401')) else
+                  'api_disabled' if 'SERVICE_DISABLED' in message or 'HAS NOT BEEN USED' in message else
+                  'not_found' if 'NOT_FOUND' in message or 'NOT FOUND' in message else
                   'read_failed')
         return {'read_status': status}
     try:
@@ -87,22 +89,32 @@ def allowed_resource(value, kind):
 def service_summary(service):
     if not isinstance(service, dict) or service.get('read_status'):
         return {'read_status': service.get('read_status', 'invalid_response') if isinstance(service, dict) else 'invalid_response'}
-    spec = service.get('spec', {}).get('template', {}).get('spec', {})
-    container = (spec.get('containers') or [{}])[0]
-    environment = {row.get('name'): row for row in container.get('env', []) if isinstance(row, dict)}
+    spec = service.get('spec', {}).get('template', {}).get('spec')
+    v2 = not isinstance(spec, dict)
+    if v2:
+        spec = service.get('template', {})
+    containers = spec.get('containers') if isinstance(spec, dict) else None
+    # A projection which dropped containers cannot establish that env/secrets
+    # are absent. Likewise, avoid guessing which sidecar is the API container.
+    if not isinstance(containers, list) or len(containers) != 1 or not isinstance(containers[0], dict):
+        return {'read_status': 'incomplete_response', 'name': 'repaido-api'}
+    container = containers[0]
+    if not isinstance(container.get('image'), str) or not isinstance(container.get('env'), list):
+        return {'read_status': 'incomplete_response', 'name': 'repaido-api'}
+    environment = {row.get('name'): row for row in container['env'] if isinstance(row, dict)}
     def value(name):
         return environment.get(name, {}).get('value')
     quota = environment.get('REPAIDO_BIKE_PROMO_QUOTA_SECRET', {})
-    reference = quota.get('valueFrom', {}).get('secretKeyRef', {})
-    key = reference.get('key', '')
+    reference = quota.get('valueSource' if v2 else 'valueFrom', {}).get('secretKeyRef', {})
+    key = reference.get('version' if v2 else 'key', '')
     image = container.get('image', '')
     if not isinstance(image, str) or not re.fullmatch(r'[a-z0-9.-]+-docker\.pkg\.dev/repaido/[A-Za-z0-9_./:@-]+', image):
         image = '(not a recognized project Artifact Registry reference)'
     mode = value('REPAIDO_BIKE_DISPATCH_MODE')
     return {'read_status': 'ok', 'name': 'repaido-api',
-            'ready_revision': service.get('status', {}).get('latestReadyRevisionName'),
+            'ready_revision': service.get('latestReadyRevision') if v2 else service.get('status', {}).get('latestReadyRevisionName'),
             'image': image,
-            'runtime_service_account': spec.get('serviceAccountName'),
+            'runtime_service_account': spec.get('serviceAccount' if v2 else 'serviceAccountName'),
             'configuration_scope': 'latest_service_template; confirm serving traffic before any update',
             'storage_is_firestore': value('REPAIDO_STORAGE') == 'firestore',
             'dispatch_mode_explicitly_configured': mode is not None,
@@ -188,7 +200,7 @@ def report(*, service, topic, subscription, workers, policy):
             'api': api, 'topic': broker_topic, 'subscription': broker_subscription,
             'worker_runtime': worker_summary(workers), 'public_policy': policy,
             'findings': findings,
-            'bookings_available_reported_by_server': policy.get('bookings_available') is True,
+            'bookings_available_reported_by_server': policy.get('bookings_available') if policy['read_status'] == 'ok' else None,
             'admin_review_still_required': ['Current approved rider and bike documents.',
                 'Up to three actual salaried riders at INR 7000 each per month, and current-month funding evidence.',
                 'Reviewed operating circle, applicable tax, cash collection and cancellation terms.',
@@ -204,18 +216,23 @@ def report(*, service, topic, subscription, workers, policy):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()  # Deliberately no apply/provision/activation option.
+    # Project the complete container list. Projecting children of the repeated
+    # containers field can omit env/image in gcloud's formatted response.
     service = gcloud('run', 'services', 'describe', 'repaido-api', '--project='+PROJECT, '--region='+REGION,
-        '--format=json(metadata.name,spec.template.spec.containers.image,spec.template.spec.containers.env,spec.template.spec.serviceAccountName,status.latestReadyRevisionName,status.traffic)')
+        '--format=json(metadata.name,spec.template.spec,status.latestReadyRevisionName,status.traffic,template,latestReadyRevision)')
     api = service_summary(service)
     topic = api.get('topic') or TOPIC
     subscription = api.get('subscription') or SUBSCRIPTION
-    value = report(service=service,
-        topic=gcloud('pubsub', 'topics', 'describe', topic, '--project='+PROJECT,
-            '--format=json(name,messageStoragePolicy.allowedPersistenceRegions)'),
-        subscription=gcloud('pubsub', 'subscriptions', 'describe', subscription, '--project='+PROJECT,
-            '--format=json(name,topic,enableMessageOrdering,ackDeadlineSeconds,messageRetentionDuration,expirationPolicy,deadLetterPolicy,retryPolicy)'),
-        workers=gcloud('compute', 'instance-groups', 'managed', 'list', '--project='+PROJECT,
-                       '--filter=name=repaido-bike-dispatch', '--format=json(name,region,targetSize)'), policy=public_policy())
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        topic_result = pool.submit(gcloud, 'pubsub', 'topics', 'describe', topic, '--project='+PROJECT,
+            '--format=json(name,messageStoragePolicy.allowedPersistenceRegions)')
+        subscription_result = pool.submit(gcloud, 'pubsub', 'subscriptions', 'describe', subscription, '--project='+PROJECT,
+            '--format=json(name,topic,enableMessageOrdering,ackDeadlineSeconds,messageRetentionDuration,expirationPolicy,deadLetterPolicy,retryPolicy)')
+        workers_result = pool.submit(gcloud, 'compute', 'instance-groups', 'managed', 'list', '--project='+PROJECT,
+            '--filter=name=repaido-bike-dispatch', '--format=json(name,region,targetSize)')
+        policy_result = pool.submit(public_policy)
+        value = report(service=service, topic=topic_result.result(), subscription=subscription_result.result(),
+            workers=workers_result.result(), policy=policy_result.result())
     print(json.dumps(value, indent=2, sort_keys=True))
     return 0
 

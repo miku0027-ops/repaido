@@ -52,6 +52,50 @@ def test_absent_mode_is_effective_pubsub_not_an_invented_configuration_failure()
     assert data['topic'] is None and data['subscription'] is None
 
 
+@pytest.mark.parametrize('container', [None, {}, {'image': 'fixture'}, {'env': []}])
+def test_incomplete_container_projection_never_claims_configuration_is_absent(container):
+    raw = service()
+    if container is None:
+        del raw['spec']['template']['spec']['containers']
+    else:
+        raw['spec']['template']['spec']['containers'] = [container]
+    result = check.report(**value(service=raw))
+    assert result['api']['read_status'] == 'incomplete_response'
+    assert 'storage_is_firestore' not in result['api']
+    assert 'quota_secret' not in result['api']
+    assert 'The API must use the existing shared Firestore store.' not in result['findings']
+    assert not any('API has no valid' in finding for finding in result['findings'])
+
+
+def test_complete_v1_and_v2_containers_report_the_same_real_configuration_without_secret_values():
+    env = [{'name': 'REPAIDO_STORAGE', 'value': 'firestore'},
+           {'name': 'REPAIDO_BIKE_PUBSUB_TOPIC', 'value': check.TOPIC},
+           {'name': 'REPAIDO_BIKE_PUBSUB_SUBSCRIPTION', 'value': check.SUBSCRIPTION},
+           {'name': 'REPAIDO_BIKE_PROMO_QUOTA_SECRET',
+            'valueFrom': {'secretKeyRef': {'name': 'do-not-print-secret-name', 'key': '7'}}}]
+    v1 = service(env)
+    container = v1['spec']['template']['spec']['containers'][0]
+    v2env = [*env[:3], {'name': 'REPAIDO_BIKE_PROMO_QUOTA_SECRET',
+        'valueSource': {'secretKeyRef': {'secret': 'do-not-print-secret-name', 'version': '7'}}}]
+    v2 = {'template': {'serviceAccount': 'runtime@repaido.iam.gserviceaccount.com',
+        'containers': [{**container, 'env': v2env}]},
+        'latestReadyRevision': 'repaido-api-001'}
+    first, second = check.service_summary(v1), check.service_summary(v2)
+    assert first == second
+    assert first['storage_is_firestore'] is True
+    assert first['quota_secret']['pinned_numeric_version'] is True
+    assert first['image'] == container['image']
+    assert first['topic'] == check.TOPIC
+    assert 'do-not-print-secret-name' not in json.dumps(first)
+
+
+def test_failed_public_policy_read_is_unknown_not_a_server_reported_booking_pause():
+    result = check.report(**value(policy={'read_status': 'read_failed'}))
+    assert result['bookings_available_reported_by_server'] is None
+    assert 'Public policy readiness could not be verified.' in result['findings']
+    assert 'Bike bookings are paused in company policy.' not in result['findings']
+
+
 @pytest.mark.parametrize('key,expected', [('1', True), ('latest', False), ('0', False), ('01', False)])
 def test_quota_key_reports_binding_pinning_without_reading_the_secret(key, expected):
     result = check.service_summary(service([{'name': 'REPAIDO_BIKE_PROMO_QUOTA_SECRET',
@@ -63,6 +107,8 @@ def test_quota_key_reports_binding_pinning_without_reading_the_secret(key, expec
 @pytest.mark.parametrize('message,status', [
     ('NOT_FOUND: fixture resource does not exist', 'not_found'),
     ('PERMISSION_DENIED: private-response-do-not-print', 'permission_denied'),
+    ('PERMISSION_DENIED: resource not found or permission is missing', 'permission_denied'),
+    ('SERVICE_DISABLED: API has not been used in this project', 'api_disabled'),
     ('HTTP 401 ACCESS_TOKEN_TYPE_UNSUPPORTED private-response-do-not-print', 'authentication_failed'),
     ('Unexpected private-response-do-not-print', 'read_failed')])
 def test_gcloud_failures_are_classified_without_echoing_provider_output(monkeypatch, message, status, capsys):
@@ -75,6 +121,7 @@ def test_explicit_format_projection_is_not_overridden(monkeypatch):
     seen = []
     def run(command, **kwargs):
         seen.append(command)
+        assert kwargs['stdin'] == check.subprocess.DEVNULL
         return SimpleNamespace(returncode=0, stdout='{}', stderr='')
     monkeypatch.setattr(check.subprocess, 'run', run)
     check.gcloud('pubsub', 'topics', 'describe', check.TOPIC, '--format=json(name)')
@@ -109,6 +156,9 @@ def test_main_uses_only_project_scoped_metadata_reads_and_no_apply_option(monkey
     output = json.loads(capsys.readouterr().out)
     assert output['read_only'] and not output['cloud_mutations']
     assert len(calls) == 4
+    service_read = next(command for command in calls if command[:3] == ('run', 'services', 'describe'))
+    assert any('spec.template.spec,' in part for part in service_read)
+    assert not any('containers.env' in part or 'containers.image' in part for part in service_read)
     assert all('--project=repaido' in command for command in calls)
     assert all(any(part.startswith('--format=json(') for part in command) for command in calls)
     assert all(not any(part in ('create', 'update', 'delete', 'enable', 'access', 'pull', 'publish') for part in command) for command in calls)

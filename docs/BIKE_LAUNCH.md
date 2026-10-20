@@ -30,6 +30,13 @@ uses the source's Pub/Sub default and is reported separately from its presence.
 The public policy is the effective readiness result. No migration or app build
 is needed merely to run this probe.
 
+An `incomplete_response` means the Cloud Run container configuration could not
+be inspected. It does not establish that Firestore, dispatch settings or a
+secret are missing. The probe reads the complete container metadata and
+sanitizes its output; raw environment values are never included. If the public
+policy request fails, booking availability is reported as unknown (`null`),
+rather than claiming the server reported a paused service.
+
 The service inventory describes the latest service template. Before making any
 configuration change, confirm which revision receives traffic. A split/canary
 needs review of every serving writer, rather than assuming latest means live.
