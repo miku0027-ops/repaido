@@ -178,6 +178,93 @@ class PilotInventoryTests(unittest.TestCase):
         self.assertNotIn('PRIVATE', str(caught.exception))
         self.assertIn('HTTP 403', str(caught.exception))
 
+    def test_user_oauth_requests_explicitly_select_the_quota_project(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, count): return b'{"users":[]}'
+        class Opener:
+            def open(self, request, timeout):
+                self.request = request
+                return Response()
+        opener = Opener()
+        pilot.CloudReader('test-token', opener).auth_email(EMAIL)
+        self.assertEqual(opener.request.get_header('X-goog-user-project'), 'repaido')
+
+    def test_403_known_reasons_distinguish_quota_service_scope_and_iam(self):
+        checks = {'USER_PROJECT_DENIED': 'serviceusage.services.use',
+                  'SERVICE_DISABLED': 'API for this operation',
+                  'ACCESS_TOKEN_SCOPE_INSUFFICIENT': 'OAuth session scopes',
+                  'IAM_PERMISSION_DENIED': 'operation permissions'}
+        for reason, hint in checks.items():
+            with self.subTest(reason=reason):
+                detail = {'error': {'status': 'PERMISSION_DENIED', 'message': 'PRIVATE PHONE AND TOKEN',
+                          'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+                                       'domain': 'googleapis.com', 'reason': reason,
+                                       'metadata': {'subject': 'PRIVATE USER', 'resource': 'PRIVATE DOCUMENT'}}]}}
+                diagnostic = pilot.error_diagnostic(pilot.IDENTITY + '/accounts:lookup', 403, detail)
+                self.assertEqual(diagnostic['operation'], 'identitytoolkit.accounts.lookup')
+                self.assertEqual(diagnostic['google_status'], 'PERMISSION_DENIED')
+                self.assertEqual(diagnostic['google_reasons'], [reason])
+                self.assertEqual(diagnostic['required_resource_permissions'], ['firebaseauth.users.get'])
+                self.assertIn(hint, diagnostic['next_check'])
+                self.assertNotIn('PRIVATE', json.dumps(diagnostic))
+
+    def test_unrecognized_error_strings_and_metadata_are_never_echoed(self):
+        detail = {'error': {'status': 'PRIVATE STATUS', 'message': EMAIL, 'details': [
+            {'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'domain': 'googleapis.com', 'reason': 'PRIVATE_REASON'},
+            {'@type': 'PRIVATE TYPE', 'domain': 'googleapis.com', 'reason': 'SERVICE_DISABLED'},
+            {'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'domain': 'PRIVATE DOMAIN', 'reason': 'USER_PROJECT_DENIED'},
+            {'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'domain': 'googleapis.com', 'reason': ['PRIVATE MALFORMED']}]}}
+        diagnostic = pilot.error_diagnostic(pilot.FIRESTORE + ':runQuery', 403, detail)
+        self.assertEqual(diagnostic['google_reasons'], [])
+        self.assertNotIn('google_status', diagnostic)
+        self.assertNotIn('PRIVATE', json.dumps(diagnostic))
+        self.assertNotIn(EMAIL, json.dumps(diagnostic))
+
+    def test_operation_permissions_are_specific_without_resource_identifiers(self):
+        for endpoint, expected, permissions in (
+                (pilot.IDENTITY + '/accounts', 'identitytoolkit.accounts.create', ['firebaseauth.users.create']),
+                (pilot.FIRESTORE + ':runQuery', 'firestore.documents.runQuery', ['datastore.entities.get', 'datastore.entities.list']),
+                (pilot.FIRESTORE + '/ops_business_partners/private-account-id', 'firestore.documents.get', ['datastore.entities.get'])):
+            diagnostic = pilot.error_diagnostic(endpoint, 403)
+            self.assertEqual(diagnostic['operation'], expected)
+            self.assertEqual(diagnostic['required_resource_permissions'], permissions)
+            self.assertNotIn('private-account-id', json.dumps(diagnostic))
+
+    def test_cli_403_reports_diagnostic_and_never_reaches_creation(self):
+        class Opener:
+            def __init__(self): self.calls = []
+            def open(self, request, timeout):
+                self.calls.append(request)
+                payload = {'error': {'status': 'PERMISSION_DENIED', 'message': 'PRIVATE RESPONSE', 'details': [
+                    {'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'domain': 'googleapis.com', 'reason': 'USER_PROJECT_DENIED'}]}}
+                raise urllib.error.HTTPError(request.full_url, 403, 'PRIVATE ERROR', {}, io.BytesIO(json.dumps(payload).encode()))
+        opener = Opener()
+        reader = pilot.CloudReader('PRIVATE_TOKEN', opener, allow_account_creation=True)
+        output = io.StringIO()
+        with patch.object(pilot, 'oauth_token', return_value='PRIVATE_TOKEN'), patch.object(pilot, 'CloudReader', return_value=reader), redirect_stderr(output):
+            self.assertEqual(pilot.main(['--email', EMAIL, '--registration', REGISTRATION, '--create-account-if-missing']), 1)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['diagnostic']['operation'], 'identitytoolkit.accounts.lookup')
+        self.assertEqual(result['diagnostic']['google_reasons'], ['USER_PROJECT_DENIED'])
+        self.assertFalse(result['mutations_performed'])
+        self.assertEqual(len(opener.calls), 1)
+        self.assertEqual(opener.calls[0].full_url, pilot.IDENTITY + '/accounts:lookup')
+        self.assertNotIn('PRIVATE', output.getvalue())
+        self.assertNotIn(EMAIL, output.getvalue())
+
+    def test_invalid_or_oversized_error_body_still_identifies_operation(self):
+        for payload in (b'PRIVATE INVALID JSON', b'x' * (pilot.MAX_ERROR_BYTES + 1)):
+            class Opener:
+                def open(self, request, timeout):
+                    raise urllib.error.HTTPError(request.full_url, 403, 'PRIVATE ERROR', {}, io.BytesIO(payload))
+            with self.assertRaises(pilot.CloudOperationError) as caught:
+                pilot.CloudReader('test-token', Opener()).auth_email(EMAIL)
+            self.assertEqual(caught.exception.diagnostic['operation'], 'identitytoolkit.accounts.lookup')
+            self.assertEqual(caught.exception.diagnostic['google_reasons'], [])
+            self.assertNotIn('PRIVATE', str(caught.exception))
+
     def test_default_adapter_cannot_create_account_or_write_firestore(self):
         reader = pilot.CloudReader('test-token')
         with self.assertRaises(pilot.InventoryError):

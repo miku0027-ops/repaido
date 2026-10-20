@@ -25,6 +25,17 @@ PROJECT = 'repaido'
 FIRESTORE = f'https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)/documents'
 IDENTITY = f'https://identitytoolkit.googleapis.com/v1/projects/{PROJECT}'
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+MAX_ERROR_BYTES = 32768
+GOOGLE_STATUSES = frozenset({'CANCELLED', 'UNKNOWN', 'INVALID_ARGUMENT', 'DEADLINE_EXCEEDED',
+                            'NOT_FOUND', 'ALREADY_EXISTS', 'PERMISSION_DENIED', 'RESOURCE_EXHAUSTED',
+                            'FAILED_PRECONDITION', 'ABORTED', 'OUT_OF_RANGE', 'UNIMPLEMENTED',
+                            'INTERNAL', 'UNAVAILABLE', 'DATA_LOSS', 'UNAUTHENTICATED'})
+# Do not echo arbitrary reason, message, metadata, resource or subject strings.
+GOOGLE_REASONS = frozenset({'SERVICE_DISABLED', 'USER_PROJECT_DENIED', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT',
+                           'IAM_PERMISSION_DENIED', 'BILLING_DISABLED', 'CONSUMER_INVALID',
+                           'CONSUMER_SUSPENDED', 'CREDENTIALS_MISSING', 'ACCESS_TOKEN_EXPIRED',
+                           'ACCESS_TOKEN_TYPE_UNSUPPORTED', 'SECURITY_POLICY_VIOLATED',
+                           'RATE_LIMIT_EXCEEDED', 'RESOURCE_QUOTA_EXCEEDED', 'QUOTA_EXCEEDED'})
 
 
 class InventoryError(RuntimeError):
@@ -35,8 +46,59 @@ class AccountAlreadyExists(InventoryError):
     pass
 
 
+class CloudOperationError(InventoryError):
+    def __init__(self, diagnostic):
+        self.diagnostic = diagnostic
+        details = ['HTTP ' + str(diagnostic['http_status'])] if diagnostic.get('http_status') else []
+        if diagnostic.get('google_status'):
+            details.append(diagnostic['google_status'])
+        details.extend(diagnostic.get('google_reasons', []))
+        super().__init__(diagnostic['operation'] + ' failed (' + '; '.join(details or ['network or invalid response']) + ').')
+
+
 class AccountCreationOutcomeUnknown(InventoryError):
-    pass
+    def __init__(self, message, diagnostic=None):
+        super().__init__(message)
+        self.diagnostic = diagnostic
+
+
+def operation_details(url):
+    if url == IDENTITY + '/accounts:lookup':
+        return 'identitytoolkit.accounts.lookup', ['firebaseauth.users.get']
+    if url == IDENTITY + '/accounts':
+        return 'identitytoolkit.accounts.create', ['firebaseauth.users.create']
+    if url == FIRESTORE + ':runQuery':
+        return 'firestore.documents.runQuery', ['datastore.entities.get', 'datastore.entities.list']
+    return 'firestore.documents.get', ['datastore.entities.get']
+
+
+def error_diagnostic(url, http_status=None, detail=None):
+    operation, permissions = operation_details(url)
+    diagnostic = {'operation': operation, 'http_status': http_status, 'quota_project': PROJECT,
+                  'quota_project_header_sent': True, 'required_resource_permissions': permissions,
+                  'required_quota_permission': 'serviceusage.services.use', 'google_reasons': []}
+    error = detail.get('error') if isinstance(detail, dict) else None
+    if isinstance(error, dict):
+        if isinstance(error.get('status'), str) and error['status'] in GOOGLE_STATUSES:
+            diagnostic['google_status'] = error['status']
+        details = error.get('details')
+        if isinstance(details, list):
+            diagnostic['google_reasons'] = sorted({item['reason'] for item in details[:100]
+                if isinstance(item, dict) and item.get('@type') == 'type.googleapis.com/google.rpc.ErrorInfo'
+                and item.get('domain') == 'googleapis.com' and isinstance(item.get('reason'), str)
+                and item['reason'] in GOOGLE_REASONS})
+    reasons = diagnostic['google_reasons']
+    if 'USER_PROJECT_DENIED' in reasons:
+        diagnostic['next_check'] = 'Verify the quota project is valid and the current Cloud Shell account has serviceusage.services.use on repaido.'
+    elif 'SERVICE_DISABLED' in reasons:
+        diagnostic['next_check'] = 'Check whether the API for this operation is enabled in repaido. This helper does not enable services.'
+    elif 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' in reasons:
+        diagnostic['next_check'] = 'Check the Cloud Shell OAuth session scopes; this API accepts cloud-platform OAuth. Do not paste access tokens into chat.'
+    elif 'IAM_PERMISSION_DENIED' in reasons:
+        diagnostic['next_check'] = 'Check the listed operation permissions for the current Cloud Shell account on repaido; no IAM roles were changed.'
+    else:
+        diagnostic['next_check'] = 'The provider did not establish a more specific allowed cause. Check the listed resource and quota permissions; no IAM roles were changed.'
+    return diagnostic
 
 
 def validate_email(value):
@@ -90,9 +152,13 @@ class CloudReader:
         return self._request(url, body, missing_ok=missing_ok)
 
     def _request(self, url, body=None, *, missing_ok=False, creating=False):
+        # Official direct REST guidance: cloud.google.com/docs/authentication/troubleshoot-adc
+        # and cloud.google.com/apis/docs/system-parameters. This selects quota;
+        # it does not grant firebaseauth/datastore or serviceusage permissions.
         request = urllib.request.Request(
             url, data=json.dumps(body).encode() if body is not None else None,
-            headers={'Authorization': 'Bearer ' + self._token, 'Content-Type': 'application/json'},
+            headers={'Authorization': 'Bearer ' + self._token, 'Content-Type': 'application/json',
+                     'X-Goog-User-Project': PROJECT},
             method='POST' if body is not None else 'GET')
         try:
             with self._opener.open(request, timeout=30) as response:
@@ -103,17 +169,18 @@ class CloudReader:
         except urllib.error.HTTPError as error:
             if error.code == 404 and missing_ok:
                 return None
-            if creating and error.code in (400, 409):
-                try:
-                    detail = json.loads(error.read(4096))
-                    if detail.get('error', {}).get('message') == 'EMAIL_EXISTS':
-                        raise AccountAlreadyExists('The exact email already exists; reusing its account lookup.') from None
-                except (ValueError, AttributeError):
-                    pass
+            try:
+                payload = error.read(MAX_ERROR_BYTES + 1)
+                detail = json.loads(payload) if len(payload) <= MAX_ERROR_BYTES else None
+            except (OSError, ValueError):
+                detail = None
+            provider_error = detail.get('error') if isinstance(detail, dict) else None
+            if creating and error.code in (400, 409) and isinstance(provider_error, dict) and provider_error.get('message') == 'EMAIL_EXISTS':
+                raise AccountAlreadyExists('The exact email already exists; reusing its account lookup.') from None
             # Provider error bodies can contain private account data. Do not echo.
-            raise InventoryError(f'Cloud read failed (HTTP {error.code}); check the current Cloud Shell account and project access.') from None
+            raise CloudOperationError(error_diagnostic(url, error.code, detail)) from None
         except (urllib.error.URLError, TimeoutError, OSError, ValueError):
-            raise InventoryError('Cloud read failed or returned invalid JSON; no changes were made.') from None
+            raise CloudOperationError(error_diagnostic(url)) from None
 
     def auth_email(self, email):
         return self._users(self.read(IDENTITY + '/accounts:lookup', {'email': [email]}))
@@ -339,10 +406,11 @@ def create_account_if_missing(reader, *, email, registration, now=None):
         reused['mode'] = 'create-account-if-missing'
         reused['account_creation'] = {'status': 'existing_account_reused', 'uid': reused['identity']['uid'], 'changed': False}
         return reused
-    except InventoryError:
+    except InventoryError as error:
         # A timeout or malformed provider response can follow a successful
         # remote write. Never describe that as a confirmed no-change result.
-        raise AccountCreationOutcomeUnknown('The account-creation outcome could not be confirmed. Run read-only inventory before retrying; no business or vehicle approval was attempted.') from None
+        raise AccountCreationOutcomeUnknown('The account-creation outcome could not be confirmed. Run read-only inventory before retrying; no business or vehicle approval was attempted.',
+                                            getattr(error, 'diagnostic', None)) from None
     try:
         result = inventory(reader, email=email, registration=registration, now=now)
     except InventoryError:
@@ -389,10 +457,14 @@ def main(argv=None):
         return 0
     except AccountCreationOutcomeUnknown as error:
         print(json.dumps({'status': 'account_creation_outcome_unknown', 'reason': str(error),
+                          'diagnostic': error.diagnostic,
                           'mutations_performed': None, 'next_action': 'Run --mode inventory before retrying.'}), file=sys.stderr)
         return 1
     except InventoryError as error:
-        print(json.dumps({'status': 'inventory_failed', 'reason': str(error), 'mutations_performed': False}), file=sys.stderr)
+        output = {'status': 'inventory_failed', 'reason': str(error), 'mutations_performed': False}
+        if getattr(error, 'diagnostic', None):
+            output['diagnostic'] = error.diagnostic
+        print(json.dumps(output), file=sys.stderr)
         return 1
 
 
