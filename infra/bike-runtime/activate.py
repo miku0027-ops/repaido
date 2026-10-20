@@ -418,6 +418,23 @@ def owned_addresses(runner, directory, bucket):
     return set(runner.tf(directory, 'state', 'list', raw=True).splitlines())
 
 
+def infrastructure_configuration(existing):
+    """Compare resource settings, not MIG health and autoscaler observations.
+
+    Preserve raw observations in the manifest for diagnosis. Readiness is checked
+    separately before promotion; a VM recovery must not invalidate its own plan.
+    """
+    value = json.loads(json.dumps(existing))
+    for resource, fields in {
+        'group': ('status','currentActions','fingerprint'),
+        'autoscaler': ('recommendedSize','status','statusDetails'),
+    }.items():
+        if isinstance(value.get(resource), dict):
+            for field in fields:
+                value[resource].pop(field, None)
+    return value
+
+
 def prepare(runner, args):
     value = inventory(runner)
     version = validate_secret(args.quota_secret_version or value['quota_secret_version'])
@@ -497,7 +514,7 @@ def save_plan(runner, directory, manifest):
 def adopt(runner, args):
     directory, manifest = load(args.directory)
     current = inventory(runner)
-    if current['baseline'] != manifest['baseline'] or current['existing'] != manifest['existing']:
+    if current['baseline'] != manifest['baseline'] or infrastructure_configuration(current['existing']) != infrastructure_configuration(manifest['existing']):
         raise SetupError('Cloud resource inventory changed; prepare again before state adoption')
     owned = owned_addresses(runner, directory/'terraform', manifest['state_bucket'])
     for row in manifest['adoption']:
@@ -515,8 +532,11 @@ def apply_infra(runner, args):
     current = inventory(runner)
     if current['baseline'] != manifest['baseline'] or current['work_baselines'] != manifest['work_baselines']:
         raise SetupError('Another API/work deployment changed the release baseline; prepare again')
-    if current['existing'] != manifest['existing']:
-        raise SetupError('Infrastructure inventory changed after planning; prepare again rather than applying a stale resource diff')
+    before = infrastructure_configuration(manifest['existing'])
+    after = infrastructure_configuration(current['existing'])
+    if after != before:
+        changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))
+        raise SetupError('Infrastructure configuration changed after planning ('+', '.join(changed)+'); prepare again rather than applying a stale resource diff')
     validate_plan(runner.tf(directory/'terraform', 'show', '-json', 'launch.tfplan'))
     runner.tf(directory/'terraform', 'apply', '-input=false', 'launch.tfplan', raw=True)
     write_json(directory/'infra-applied.json', {'at': int(time.time()), 'image': manifest['baseline']['image']})

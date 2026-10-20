@@ -37,6 +37,14 @@ traffic, subnet overlap, mutable image, unpinned quota key, destructive plan or
 unrelated API change stops the helper. A resource already owned by another
 Terraform state must be transferred deliberately before running `adopt`.
 
+The saved inventory retains live group health and autoscaler observations, but
+drift checks compare resource configuration. MIG status, current actions and its
+observation fingerprint, plus autoscaler status/recommendations, can change
+while unhealthy workers recover. These observations do not invalidate a repair
+plan. Capacity, instance versions, update policy, identities, firewall rules,
+queue settings and other configuration remain checked; healthy workers in both
+zones are still required before API promotion.
+
 Use an authorized Cloud Shell OAuth account and Terraform ADC, without service
 account key files. The operator needs permission to inventory and provision the
 dedicated Compute, Pub/Sub, Monitoring and service-account resources; enable

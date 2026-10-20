@@ -1,5 +1,6 @@
 """Offline safety checks for bike Cloud Shell activation; no provider calls."""
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -835,6 +836,60 @@ def test_existing_remote_state_uses_terraform_ownership_instead_of_being_treated
 
     assert activation.owned_addresses(Provider(), tmp_path, 'repaido-fixture-state') == {address}
     assert calls == [((tmp_path, 'state', 'list'), {'raw': True})]
+
+
+@pytest.fixture
+def repair_plan(activation,tmp_path,monkeypatch):
+    path=tmp_path/'terraform'/'launch.tfplan'
+    path.parent.mkdir();path.write_bytes(b'reviewed-fixture-plan')
+    manifest={'baseline':{'image':DIGEST},'work_baselines':{},'adoption':[],
+              'plan_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+              'existing':{'group':{'targetSize':2,'versions':[{'instanceTemplate':'reviewed-template'}],
+                  'distributionPolicy':{'zones':['us-central1-a','us-central1-b']},
+                  'updatePolicy':{'maxSurge':2},'status':{'isStable':False},
+                  'currentActions':{'verifying':2},'fingerprint':'observed-before'},
+                  'autoscaler':{'autoscalingPolicy':{'minNumReplicas':2,'maxNumReplicas':2},
+                      'recommendedSize':2,'status':'ACTIVE','statusDetails':[]},
+                  'subscription':{'topic':TOPIC,'enableMessageOrdering':True},
+                  'firewall':{'sourceRanges':['130.211.0.0/22','35.191.0.0/16']},
+                  'account':{'disabled':False}}}
+    current=copy.deepcopy(manifest)
+    monkeypatch.setattr(activation,'load',lambda directory:(tmp_path,copy.deepcopy(manifest)))
+    monkeypatch.setattr(activation,'inventory',lambda runner:copy.deepcopy(current))
+    calls=[]
+    class Provider:
+        def tf(self,directory,*args,**kwargs):
+            calls.append(args)
+            if args[0]=='show':return {'resource_changes':[]}
+            assert args==('apply','-input=false','launch.tfplan')
+            return ''
+    return manifest,current,Provider(),calls
+
+
+def test_worker_health_recovery_does_not_block_the_saved_repair_plan(activation,repair_plan,tmp_path):
+    manifest,current,provider,calls=repair_plan
+    current['existing']['group'].update(status={'isStable':True},currentActions={'none':2},fingerprint='observed-after')
+    current['existing']['autoscaler'].update(recommendedSize=1,status='PENDING',statusDetails=[{'type':'telemetry_pending'}])
+    activation.apply_infra(provider,SimpleNamespace(directory=str(tmp_path)))
+    assert calls[-1]==('apply','-input=false','launch.tfplan')
+    assert (tmp_path/'infra-applied.json').is_file()
+    assert manifest['existing']['group']['status']=={'isStable':False}
+
+
+@pytest.mark.parametrize('resource,field,value',[
+    ('group','targetSize',3),('group','versions',[{'instanceTemplate':'another-template'}]),
+    ('group','distributionPolicy',{'zones':['another-zone']}),('group','updatePolicy',{'maxSurge':5}),
+    ('autoscaler','autoscalingPolicy',{'minNumReplicas':2,'maxNumReplicas':16}),
+    ('subscription','enableMessageOrdering',False),('subscription','topic','another-topic'),
+    ('firewall','sourceRanges',['0.0.0.0/0']),('account','disabled',True),
+])
+def test_runtime_drift_exclusion_never_hides_configuration_changes(activation,repair_plan,tmp_path,resource,field,value):
+    _,current,provider,calls=repair_plan
+    current['existing'][resource][field]=value
+    with pytest.raises(activation.SetupError,match='configuration changed after planning'):
+        activation.apply_infra(provider,SimpleNamespace(directory=str(tmp_path)))
+    assert calls==[]
+    assert not (tmp_path/'infra-applied.json').exists()
 
 
 @pytest.mark.parametrize('stage', ['metadata', 'state-list'])
