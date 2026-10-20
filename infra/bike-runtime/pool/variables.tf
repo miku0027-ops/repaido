@@ -33,3 +33,8 @@ variable "events_per_worker" {
 variable "alert_email" {
   type = string
 }
+
+variable "existing_notification_channels" {
+  type    = list(string)
+  default = []
+}

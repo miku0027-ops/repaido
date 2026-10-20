@@ -99,7 +99,7 @@ class Command(Input):
     command_id: str = Field(min_length=16, max_length=100)
     expected_version: int = Field(ge=1)
     action: Literal['accept', 'decline', 'depart', 'arrive', 'start', 'complete', 'confirm', 'cancel', 'cash_reported', 'cash_received', 'dispute']
-    otp: str = Field(default='', max_length=6)
+    otp: str = Field(default='', max_length=6, pattern=r'^[0-9]{0,6}$')
     position: Position | None = None
     note: str = Field(default='', max_length=1000)
 

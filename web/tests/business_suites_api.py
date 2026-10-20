@@ -1,9 +1,12 @@
 """Disposable SQLite fixtures; never contacts real storage, payments or routing."""
 import os,sys,time,uuid
 from pathlib import Path
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'backend'))
 os.environ.update(REPAIDO_STORAGE='sqlite',REPAIDO_DB=sys.argv[1],REPAIDO_ADMIN_KEY='test-operator-key',REPAIDO_KYC_BUCKET='test-only')
-import main,local_business,mobility_journeys,uvicorn
+with patch('firebase_admin.firestore.client',return_value=None):
+    import main
+import local_business,mobility_journeys,uvicorn
 from fastapi import Header,HTTPException
 from fastapi.testclient import TestClient
 from test_operations import onboard,PIN,auth

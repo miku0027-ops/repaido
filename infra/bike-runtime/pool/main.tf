@@ -343,7 +343,7 @@ resource "google_monitoring_alert_policy" "age" {
   project               = var.project_id
   display_name          = "Bike dispatch oldest unacknowledged event"
   combiner              = "OR"
-  notification_channels = google_monitoring_notification_channel.operations[*].name
+  notification_channels = distinct(concat(var.existing_notification_channels, google_monitoring_notification_channel.operations[*].name))
   conditions {
 
     display_name = "Oldest event over one minute"

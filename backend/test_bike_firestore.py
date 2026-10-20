@@ -79,6 +79,21 @@ def api(local_api, monkeypatch):
     client.close()
 
 
+def test_firestore_shared_bike_lifecycle_and_private_pickup_code(api,monkeypatch):
+    from test_shared_bike_lifecycle import test_shared_bike_full_lifecycle_requires_private_otp_and_real_pickup_gps as workflow
+    workflow(api,monkeypatch)
+
+
+def test_firestore_same_customer_cannot_create_two_shared_bike_requests(api,monkeypatch):
+    from test_shared_bike_lifecycle import test_concurrent_distinct_requests_from_same_customer_reserve_only_one_request as workflow
+    workflow(api,monkeypatch)
+
+
+def test_firestore_shared_publication_and_bike_dispatch_share_physical_reservation_guard(api,setup_bike,monkeypatch):
+    from test_bike_shared_conflicts import test_actual_dispatch_and_shared_publication_cannot_both_reserve_same_bike as workflow
+    workflow(api,setup_bike,monkeypatch)
+
+
 def envelopes():
     records = main.operations_store.run(lambda u: u.all('bike_dispatch_outbox'))
     return sorted(({k:v for k,v in row.items() if k not in {'active', 'published'}}

@@ -22,15 +22,16 @@ run "reviewed_pool_has_bounded_recovery_and_no_public_workers" {
   command = apply
   module { source = "./pool" }
   variables {
-    project_id           = "repaido"
-    region               = "us-central1"
-    zones                = ["us-central1-a", "us-central1-b"]
-    image                = "us-central1-docker.pkg.dev/repaido/backend/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    quota_secret_version = "projects/repaido/secrets/bike-quota/versions/1"
-    minimum_workers      = 2
-    maximum_workers      = 16
-    events_per_worker    = 32
-    alert_email          = ""
+    project_id                     = "repaido"
+    region                         = "us-central1"
+    zones                          = ["us-central1-a", "us-central1-b"]
+    image                          = "us-central1-docker.pkg.dev/repaido/backend/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    quota_secret_version           = "projects/repaido/secrets/bike-quota/versions/1"
+    minimum_workers                = 2
+    maximum_workers                = 16
+    events_per_worker              = 32
+    alert_email                    = ""
+    existing_notification_channels = ["projects/repaido/notificationChannels/123"]
   }
   assert {
     condition     = length(google_compute_instance_template.worker.network_interface[0].access_config) == 0 && google_compute_subnetwork.workers.private_ip_google_access
@@ -59,6 +60,10 @@ run "reviewed_pool_has_bounded_recovery_and_no_public_workers" {
   assert {
     condition     = strcontains(google_compute_instance_template.worker.metadata_startup_script, "--read-only --cap-drop ALL") && strcontains(google_compute_instance_template.worker.metadata_startup_script, "Restart=always") && strcontains(google_compute_instance_template.worker.metadata_startup_script, "--time 60")
     error_message = "Container restarts, hardening and graceful subscription draining must remain configured."
+  }
+  assert {
+    condition     = google_monitoring_alert_policy.age.notification_channels == tolist(["projects/repaido/notificationChannels/123"])
+    error_message = "Adopting the dispatch alert must preserve its existing notification recipients."
   }
 }
 

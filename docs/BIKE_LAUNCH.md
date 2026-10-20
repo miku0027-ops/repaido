@@ -141,6 +141,48 @@ Riders then choose their approved bike, grant precise GPS and go online in the
 rider app. An enabled policy with no online eligible rider correctly returns no
 match; it does not justify a fake availability indicator.
 
+### Prepare the designated ground-test account
+
+Use the account holder's email and the confirmed registration exactly as
+supplied. The helper does not replace letters with similar-looking digits.
+Pass these identifiers at runtime; keep personal account details out of source
+files and commits.
+
+```bash
+python3 scripts/prepare-bike-pilot-rider.py \
+  --email "$REPAIDO_PILOT_EMAIL" --registration "$REPAIDO_PILOT_REGISTRATION" \
+  --mode inventory
+```
+
+The read-only result checks both Firebase email and Repaido's saved account
+email, flags ambiguous identities, and reports actual profile, bike and
+document-metadata gaps. It omits names, phone numbers, addresses and document
+paths. A different existing owner is never reassigned automatically.
+
+When account creation is explicitly requested, add `--create-account-if-missing`
+instead of `--mode inventory`. This reuses an existing UID or creates the
+specified unverified email account. It sends no email and does not assign a
+password, verified mobile, business approval or salary funding. An uncertain
+write outcome requires a read-only inventory before retrying.
+
+The account holder signs in at `/worker?mode=cab_owner&tab=fleet` and links
+their real mobile through the existing SMS flow, retaining the same UID.
+They complete their owner-rider application and add the actual one-passenger
+bike with its supporting documents. Company review sets the earliest verified
+document expiry and its real review reference. A separate driver can instead
+use `/worker?mode=driver&tab=vehicles` and accept the owner's assignment.
+
+One approved, funded salaried rider is enough for the initial ground test;
+three is the roster limit. Configure the actual current-month funding and
+launch policy through company admin before opening normal bookings.
+
+Shared bikes use the existing scheduled shared-ride model: an approved
+owner/assigned rider publishes one passenger seat and a per-seat fare. Their
+acceptance, private customer pickup code, precise pickup/drop-off checks and
+payment acknowledgements are separate from normal on-demand quotes and free
+ride eligibility. Both models reserve the physical bike/rider to prevent
+overlapping assignments.
+
 ## 5. Verify a controlled launch and keep recovery intact
 
 Confirm actual two-wheeler routing and Firebase phone verification/SMS on real

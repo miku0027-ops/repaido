@@ -20,6 +20,22 @@ const closed=(r:any)=>['completed','cancelled','expired'].includes(r.state);
 const indiaDate=(t:number)=>new Date(t*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
 const monthNow=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}).slice(0,7);
 const only=(records:Records,test:(r:any)=>boolean):Records=>({...records,rows:records.rows.filter(test)});
+function initialMobilityPanel(role:'cab_owner'|'driver'){
+ const query=new URLSearchParams(location.search);
+ // A notification's exact ride stays ahead of a generic setup destination.
+ if(query.has('bike-ride'))return 'bikes';
+ if(query.has('shared-ride'))return 'shared';
+ const tab=query.get('tab')||'';
+ const allowed=role==='cab_owner'?['overview','bikes','shared','cabs','rentals','fleet','schedule','payments','account','more']:['overview','journeys','bikes','shared','vehicles','account'];
+ return allowed.includes(tab)?tab:'overview';
+}
+function revealCurrentDestination(rail:HTMLElement|null|undefined){
+ const selected=rail?.querySelector<HTMLElement>('[aria-current=page]');
+ if(!rail||!selected||rail.scrollWidth<=rail.clientWidth)return;
+ const bounds=rail.getBoundingClientRect(),item=selected.getBoundingClientRect();
+ if(item.left<bounds.left+6)rail.scrollLeft+=item.left-bounds.left-6;
+ else if(item.right>bounds.right-6)rail.scrollLeft+=item.right-bounds.right+6;
+}
 
 export function BusinessAppLauncher({currentRole,registeredRoles,onClose}:{currentRole:string;registeredRoles:string[];onClose:()=>void}){
  const apps=[{role:'technician',label:'Agent',description:'Visits, tasks and service work',icon:Wrench},{role:'contractor',label:'Contractor',description:'Projects, tenders and teams',icon:Building2},{role:'cab_owner',label:'Cab owner',description:'Fleet, shared rides and rentals',icon:Car},{role:'driver',label:'Driver',description:'Assigned vehicles and journeys',icon:DriverBadge},{role:'scrap_owner',label:'Scrap collector',description:'Collections, weighing and payments',icon:Recycle}];
@@ -46,12 +62,18 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   const measure=()=>{
    frame.current?.style.setProperty('--suite-nav-height',`${navigation.current?.getBoundingClientRect().height||0}px`);
    frame.current?.style.setProperty('--suite-header-height',`${panelHeader.current?.getBoundingClientRect().height||0}px`);
+   revealCurrentDestination(navigation.current);
+   revealCurrentDestination(panelHeader.current?.querySelector<HTMLElement>('.suite-booking-navigation'));
   };
   const observer=new ResizeObserver(measure);
   if(navigation.current)observer.observe(navigation.current);
   if(panelHeader.current)observer.observe(panelHeader.current);
   measure();return()=>observer.disconnect();
  },[]);
+ useEffect(()=>{
+  revealCurrentDestination(navigation.current);
+  revealCurrentDestination(panelHeader.current?.querySelector<HTMLElement>('.suite-booking-navigation'));
+ },[panel]);
  useEffect(()=>{
   const initial=first.current;first.current=false;
   if(initial&&panel!=='bikes')return;
@@ -96,7 +118,7 @@ function CalendarPanel({rows,children}:{rows:any[];children?:(month:string)=>Rea
 
 export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{partner:any;vehicles:any[];onRefresh:()=>Promise<unknown>;accountControls?:ReactNode}){
  const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
- const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).get('tab')==='bikes'||new URLSearchParams(location.search).has('bike-ride')?'bikes':new URLSearchParams(location.search).has('shared-ride')?'shared':'overview'),[editing,setEditing]=useState<any>(null);const source=useBusinessRecords('rides'),shared=useSharedRecords();
+ const [panel,setPanel]=useState(()=>initialMobilityPanel('cab_owner')),[editing,setEditing]=useState<any>(null);const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.customer_id!==source.uid&&(r.owner_id===source.uid||r.state==='requested'));
  const cabs=only(records,r=>r.mode==='cab'),rentals=only(records,r=>r.mode==='rental');
  const departures=shared.rows.filter(r=>r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r)),pending=active.filter(r=>r.state==='requested');
@@ -128,7 +150,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
 export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;vehicles?:any[];accountControls?:ReactNode}){
  const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
  const open=(row:any)=>{setRecordId(row.id);setPanel(row.vehicle_name?'shared':'journeys');};
- const [panel,setPanel]=useState(()=>new URLSearchParams(location.search).get('tab')==='bikes'||new URLSearchParams(location.search).has('bike-ride')?'bikes':new URLSearchParams(location.search).has('shared-ride')?'shared':'overview');const source=useBusinessRecords('rides'),shared=useSharedRecords();
+ const [panel,setPanel]=useState(()=>initialMobilityPanel('driver'));const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.mode==='cab'&&(r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid)),departures=shared.rows.filter(r=>r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r));
  const panels:Panel[]=[{id:'overview',label:'Today',icon:Home},{id:'journeys',label:'Cab journeys',icon:Route},{id:'bikes',label:'Bike rides',icon:TwoWheeler},{id:'shared',label:'Shared journeys',icon:Users},{id:'vehicles',label:'My vehicles',icon:Car},{id:'account',label:'Account',icon:UserRound}];
  return <SuiteFrame role="driver" title="Driver suite" description="Your pickups, passengers and journeys." partner={partner} panels={panels} panel={panel} onPanel={setPanel}><ContractError error={records.error||shared.error}/>

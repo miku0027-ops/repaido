@@ -8,8 +8,16 @@ from test_mobility_journeys import api, auth, make, join, command, latest, posit
 from test_local_business import BASE, register
 
 
-def accepted(api,monkeypatch):
-    row,_=make(api,monkeypatch,seats=3)
+def accepted(api,monkeypatch,assigned=False):
+    row,body=make(api,monkeypatch,seats=3)
+    if assigned:
+        command(api,row,'cancel');register(api,'worker2','driver')
+        assert api.put(BASE+'/vehicles/'+body['vehicle_id']+'/driver',headers=auth('worker'),json={'driver_id':'worker2'}).status_code==200
+        assert api.post(BASE+'/driver-invitations/'+body['vehicle_id'],headers=auth('worker2'),json={'accept':True}).status_code==200
+        body['request_id']=uid()
+        response=api.post(BASE+'/shared',headers=auth('worker'),json=body)
+        assert response.status_code==201,response.text
+        row=response.json()
     p=join(api,row).json();command(api,row,'accept',p)
     return latest(api,row),p
 
@@ -86,16 +94,14 @@ def test_reschedule_preserves_seats_fare_notifies_exact_time_and_rearms(api,monk
 
 
 def test_reschedule_enforces_time_reason_seats_and_operator(api,monkeypatch):
-    row,p=accepted(api,monkeypatch)
+    row,p=accepted(api,monkeypatch,assigned=True)
     command(api,row,'reschedule',status=409,starts_at=row['starts_at']+900,ends_at=row['ends_at']+900,reason='Wait for other passengers')
     with patch('time.time',return_value=row['starts_at']-600):
         command(api,row,'reschedule',status=422,starts_at=row['starts_at']+900,ends_at=row['ends_at']+900,reason='short')
-        register(api,'worker2','driver')
-        main.operations_store.run(lambda u:u.put('shared_departures',row['id'],{**u.get('shared_departures',row['id']),'driver_id':'worker2'}))
         changed=command(api,row,'reschedule',user='worker2',starts_at=row['starts_at']+900,ends_at=row['ends_at']+900,reason='Waiting for remaining passengers')
         assert changed['starts_at']==row['starts_at']+900
     with patch('time.time',return_value=changed['starts_at']):
-        position(api,changed);command(api,changed,'board',p)
+        position(api,changed,user='worker2');command(api,changed,'board',p,user='worker2')
         command(api,changed,'reschedule',status=409,starts_at=changed['starts_at']+900,ends_at=changed['ends_at']+900,reason='Waiting for remaining passengers')
 
 

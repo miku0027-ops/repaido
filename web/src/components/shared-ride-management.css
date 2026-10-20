@@ -233,3 +233,18 @@ html.reduce-motion .shared-customer-card *{animation:none!important;transition:n
 .shared-live-card:not(.shared-customer-card) .journey-tracking-compact .journey-map:has(.journey-map-tile-error):not(.is-fullscreen){display:grid;grid-template-rows:210px auto;height:auto}
 .shared-live-card:not(.shared-customer-card) .journey-map:not(.is-fullscreen) .journey-map-tile-error{position:static;left:auto;right:auto;bottom:auto;border-radius:0;border-width:1px 0 0;padding:9px;box-shadow:none;font-size:.8125rem;line-height:1.5;flex-wrap:wrap}
 .shared-live-card:not(.shared-customer-card) .journey-map-tile-error>button{min-height:44px!important;min-width:44px}
+
+/* Pickup verification stays with the passenger until the rider meets them. */
+.shared-customer-card .shared-pickup-code{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;padding:12px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-subtle);color:var(--ui-ink)}
+.shared-pickup-code>span{display:flex;align-items:center;gap:7px;font-size:.8125rem;min-width:0}
+.shared-pickup-code>span>svg{flex:none}
+.shared-pickup-code>output{font-size:1.375rem;line-height:1.4;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.14em;white-space:nowrap}
+.shared-customer-card .shared-pickup-code>p{grid-column:1/-1;font-size:.75rem;line-height:1.6;margin:0;color:var(--shared-customer-muted)}
+.shared-booking-card .shared-operator-note,.shared-booking-card .shared-refund-notice{font-size:.8125rem;line-height:1.6;padding:10px 12px;margin:0;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-subtle);color:var(--ui-ink)}
+.shared-bike-pickup-form{min-width:0;gap:14px}
+.shared-bike-pickup-form>p{font-size:.875rem;line-height:1.6;margin:0;color:var(--ui-ink)}
+.shared-bike-pickup-form input[name=pickup-code]{font-size:1.5rem;line-height:1.5;letter-spacing:.2em;font-variant-numeric:tabular-nums;width:100%;min-width:0}
+.shared-bike-pickup-form .business-consent{font-size:.8125rem;line-height:1.6;min-height:44px}
+.shared-bike-pickup-form .ops-primary{min-height:44px}
+.shared-bike-pickup-modal.modal .shared-bike-pickup-form>.ops-primary:last-child{position:static;box-shadow:none}
+@media(max-width:399px){.shared-customer-card .shared-pickup-code{grid-template-columns:minmax(0,1fr)}.shared-pickup-code>output{justify-self:start}}

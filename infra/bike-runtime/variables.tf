@@ -97,3 +97,9 @@ variable "alert_email" {
   description = "Optional reviewed operations alert recipient; blank leaves alerts visible only in Monitoring."
 
 }
+
+variable "existing_notification_channels" {
+  type        = list(string)
+  default     = []
+  description = "Existing reviewed Monitoring channel references to preserve when adopting the alert; channels remain externally owned."
+}

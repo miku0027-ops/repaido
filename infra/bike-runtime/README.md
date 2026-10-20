@@ -4,6 +4,12 @@ Reviewable configuration, **disabled and not provisioned**. A requested release
 must include a reviewed plan and real service integration checks. No CI job
 automatically applies this module.
 
+Use [the phased Cloud Shell activation guide](ACTIVATION.md) and `activate.py`
+to inventory/adopt existing resources, review a protected saved plan, and create
+a configuration-only API candidate from its existing deployed digest. That
+helper starts with a two-worker ceiling; it does not activate rider records,
+funding or booking policy.
+
 The enabled module prepares a regional Compute Engine managed instance group
 across two zones. Pub/Sub distributes different rider keys across subscribers;
 the native transaction enforces each rider's sequence and reservation. New

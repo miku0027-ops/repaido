@@ -44,6 +44,7 @@ class Action(Input):
     starts_at:float|None=None
     ends_at:float|None=None
     reason:str=Field(default='',max_length=300)
+    otp:str=Field(default='',max_length=6,pattern=r'^[0-9]{0,6}$')
 class Consent(Input):
     enabled:bool
 class Driver(Input):
@@ -87,6 +88,45 @@ def match(row,pickup,dropoff):
 def passenger_rows(u,identifier):return u.find('shared_passengers','departure_id',identifier)
 def capacity(u,row):return row['seats']-sum(p['seats'] for p in passenger_rows(u,row['id']) if p['state'] in PASSENGERS)
 def actor(row,uid):return uid in (row.get('owner_id'),row.get('driver_id'))
+def physical_actor(row,uid):
+    return uid==(row.get('driver_id') or row['owner_id'])
+
+
+def shared_vehicle_ready(u,row):
+    vehicle=u.get('mobility_vehicles',row['vehicle_id'])
+    return bool(vehicle and vehicle.get('owner_id')==row['owner_id'] and
+                vehicle.get('driver_id')==row.get('driver_id') and
+                vehicle.get('vehicle_kind','car')==row.get('vehicle_kind','car') and
+                vehicle.get('seats',0)>=row['seats'] and
+                (row.get('vehicle_kind')!='bike' or vehicle.get('seats')==row['seats']==1) and
+                live_vehicle(u,vehicle,'cab',row['starts_at'],row['ends_at'],row['id']))
+
+
+def passenger_view(row,passenger,uid):
+    result={key:copy.deepcopy(value) for key,value in passenger.items()
+            if key not in ('request_hash','pickup_otp','pickup_otp_attempts')}
+    bike=row.get('vehicle_kind')=='bike'
+    if bike and passenger['customer_id']==uid and passenger['state']=='accepted' and row['state'] in ('scheduled','in_progress') and passenger.get('pickup_otp'):
+        result['otp']=passenger['pickup_otp']
+    if bike and actor(row,uid):
+        result['pickup_code_required']=passenger['state']=='accepted'
+        result['pickup_code_locked']=passenger.get('pickup_otp_attempts',0)>=5
+    return result
+
+
+def ensure_pickup_code(u,row,passenger,uid):
+    # Older accepted bike requests predate the pickup challenge. Issue once to
+    # their authenticated passenger, without changing fare, capacity or status.
+    if row.get('vehicle_kind')=='bike' and passenger['customer_id']==uid and passenger['state']=='accepted' and row['state'] in ('scheduled','in_progress') and not passenger.get('pickup_otp'):
+        passenger.update(pickup_otp=f'{secrets.randbelow(1000000):06}',pickup_otp_attempts=0)
+        u.put('shared_passengers',passenger['id'],passenger)
+
+
+def action_fingerprint(body):
+    # Adding an empty bike-only code must preserve earlier car command retries.
+    return digest(json.dumps(body.model_dump(exclude={'otp'} if not body.otp else set()),sort_keys=True,separators=(',',':')))
+
+
 def public(row,available,include_changes=False):
     result={k:copy.deepcopy(row.get(k)) for k in ('id','vehicle_name','vehicle_kind','owner_name','origin','destination','origin_address','destination_address','starts_at','ends_at','seats','price_paise','pickup_mode','terms','state','version')}|{'available_seats':available}
     if include_changes:result['reschedule']=copy.deepcopy(row.get('reschedule'))
@@ -164,13 +204,13 @@ def native_position(u,authorization,body=None):
     if session['expires_at']<=time.time():fail('TRACKING_EXPIRED','Reopen the journey to renew location sharing.',410)
     kind=session['kind'];row=get_row(u,kind,session['record_id']);uid=session['user_id']
     consent=u.get('journey_consents',kind+':'+row['id']+':'+uid) or {}
-    if not actor(row,uid) or not consent.get('enabled') or consent.get('generation')!=session['generation']:fail('TRACKING_ENDED','Location sharing has ended.',410)
+    if not (physical_actor(row,uid) if kind=='shared' else actor(row,uid)) or not consent.get('enabled') or consent.get('generation')!=session['generation']:fail('TRACKING_ENDED','Location sharing has ended.',410)
     if body is None:
         consent['enabled']=False;u.put('journey_consents',kind+':'+row['id']+':'+uid,consent)
         loc=location_value(u,kind,row)
         if loc:loc['received_at']=0;u.put('journey_locations',kind+':'+row['id'],loc)
         return {'status':'stopped'}
-    current(u,uid,('cab_owner','driver'))
+    if not(kind=='shared' and row['state']=='in_progress'):current(u,uid,('cab_owner','driver'))
     if body.sequence<=session['sequence']:return {'status':'already_received'}
     if time.time()-session.get('last_at',0)<10:fail('POSITION_RATE_LIMIT','Wait before another reading.',429)
     live={**row,'state':'on_the_way'} if ((kind=='shared' and row['state']=='scheduled') or (kind=='rides' and row['state']=='reserved')) and row['starts_at']-3600<=time.time()<=row['ends_at'] else row
@@ -196,7 +236,7 @@ def install(core):
                 distance=metres(pin,row['origin'])
                 if row['state']!='scheduled' or row['starts_at']<=now or distance>RADIUS_METRES:continue
                 available=capacity(u,row)
-                if available and live_vehicle(u,u.get('mobility_vehicles',row['vehicle_id']),'cab',row['starts_at'],row['ends_at'],row['id']):
+                if available and shared_vehicle_ready(u,row):
                     departures.append(public(row,available)|{'distance_metres':round(distance)})
                     if len(departures)==16:break
             vehicles=[]
@@ -247,7 +287,7 @@ def install(core):
                 if body.vehicle_kind and row.get('vehicle_kind','car')!=body.vehicle_kind:continue
                 if not max(time.time(),body.starts_at)<=row['starts_at']<=body.until:continue
                 v=u.get('mobility_vehicles',row['vehicle_id'])
-                if not live_vehicle(u,v,'cab',row['starts_at'],row['ends_at'],row['id']):continue
+                if not shared_vehicle_ready(u,row):continue
                 matched=match(row,body.pickup.model_dump(),body.dropoff.model_dump());available=capacity(u,row)
                 if matched and available>=body.seats:out.append(public(row,available)|{'match':matched})
             return {'departures':sorted(out,key=lambda x:x['starts_at'])[:40]}
@@ -262,22 +302,30 @@ def install(core):
             for row in rows.values():
                 if not row:continue
                 ps=passenger_rows(u,row['id']) if actor(row,uid) else [p for p in requests if p['departure_id']==row['id']]
+                for passenger in ps:ensure_pickup_code(u,row,passenger,uid)
                 live_ps=ps if actor(row,uid) else [p for p in ps if p['state'] in PASSENGERS]
                 stops=shared_stops(u,row,live_ps) if actor(row,uid) or live_ps else None
-                out.append(public(row,capacity(u,row),True)|{'owner_id':row['owner_id'],'driver_id':row.get('driver_id'),'passengers':ps,'events':row.get('events',[]),'stop_status':stops})
+                out.append(public(row,capacity(u,row),True)|{'owner_id':row['owner_id'],'driver_id':row.get('driver_id'),'passengers':[passenger_view(row,p,uid) for p in ps],'events':row.get('events',[]),'stop_status':stops,'can_operate':physical_actor(row,uid),'physical_operator_id':row.get('driver_id') or row['owner_id']})
             return {'departures':sorted(out,key=lambda x:x['starts_at'],reverse=True)[:100]}
         return store.run(read)
     @r.post('/shared/{identifier}/join',status_code=201)
-    def join(identifier:str,body:Join,user=Depends(core.current_user)):
+    def join(identifier:str,body:Join,response:Response,user=Depends(core.current_user)):
+        response.headers.update(HEADERS)
         def save(u):
             row=get_row(u,'shared',identifier);uid=user['id'];key=digest(uid+':join:'+body.request_id);old=u.get('shared_passengers',key)
             if old:
                 if old['request_hash']!=fingerprint(body) or old['departure_id']!=identifier:fail('IDEMPOTENCY_CONFLICT','Request key belongs to different details.',409)
-                return old
+                ensure_pickup_code(u,row,old,uid)
+                return passenger_view(row,old,uid)
             if actor(row,uid):fail('SELF_BOOKING','You cannot join your own journey.',422)
             if row['version']!=body.expected_version or row['state']!='scheduled' or row['starts_at']<=time.time():fail('STALE','This departure changed. Search again.',409)
             v=u.get('mobility_vehicles',row['vehicle_id'])
-            if not live_vehicle(u,v,'cab',row['starts_at'],row['ends_at'],identifier):fail('UNAVAILABLE','This departure is unavailable.',409)
+            if not shared_vehicle_ready(u,row):fail('UNAVAILABLE','This departure is unavailable.',409)
+            # Equality-query gaps need a shared document to serialize two new
+            # requests from the same account, even when both query snapshots are empty.
+            participant_key=digest(identifier+':'+uid)
+            guard=u.get('shared_participant_locks',participant_key) or {'generation':0}
+            u.put('shared_participant_locks',participant_key,{'generation':guard['generation']+1})
             if any(p['customer_id']==uid and p['state'] in ('requested',*PASSENGERS) for p in passenger_rows(u,identifier)):fail('ALREADY_REQUESTED','You already have a request for this departure.',409)
             matched=match(row,body.pickup.model_dump(),body.dropoff.model_dump())
             if not matched or capacity(u,row)<body.seats:fail('NO_MATCH','The route direction or available seats no longer match.',409)
@@ -285,54 +333,74 @@ def install(core):
             u.put('shared_passengers',key,p)
             for recipient in {row['owner_id'],row.get('driver_id')} - {None}:
                 notify(u,row,recipient,'New shared-ride join request',key)
-            return p
+            return passenger_view(row,p,uid)
         return store.run(save)
     @r.post('/shared/{identifier}/commands')
     def command(identifier:str,body:Action,user=Depends(core.current_user)):
         def save(u):
-            row=get_row(u,'shared',identifier);uid=user['id'];driver=actor(row,uid);owner=uid==row['owner_id'];p=u.get('shared_passengers',body.passenger_id) if body.passenger_id else None
+            row=get_row(u,'shared',identifier);uid=user['id'];driver=physical_actor(row,uid);owner=uid==row['owner_id'];p=u.get('shared_passengers',body.passenger_id) if body.passenger_id else None
             if p and p['departure_id']!=identifier:fail('NOT_FOUND','Passenger unavailable.',404)
             customer=p and p['customer_id']==uid
-            if not driver and not customer:fail('NOT_FOUND','Journey unavailable.',404)
+            if not actor(row,uid) and not customer:fail('NOT_FOUND','Journey unavailable.',404)
             key=digest(uid+':shared-command:'+body.command_id);old=u.get('business_commands',key)
             if old:
-                if old['fingerprint']!=fingerprint(body) or old['record_id']!=identifier:fail('IDEMPOTENCY_CONFLICT','Use a new action key.',409)
+                if old['fingerprint']!=action_fingerprint(body) or old['record_id']!=identifier:fail('IDEMPOTENCY_CONFLICT','Use a new action key.',409)
+                if old.get('error'):return {'_error':old['error']}
                 return public(row,capacity(u,row),True)
             if row['version']!=body.expected_version:fail('STALE','Refresh this departure.',409)
             a=body.action
             if a=='reschedule':
-                if not driver or p or row['state']!='scheduled' or not row['starts_at']-900<=time.time()<=row['starts_at']+900:fail('RESCHEDULE_WINDOW','Reschedule within 15 minutes of the scheduled departure.',409)
+                if not (driver or owner) or p or row['state']!='scheduled' or not row['starts_at']-900<=time.time()<=row['starts_at']+900:fail('RESCHEDULE_WINDOW','Reschedule within 15 minutes of the scheduled departure.',409)
                 if capacity(u,row)<=0 or any(x['state']=='boarded' for x in passenger_rows(u,identifier)):fail('RESCHEDULE_UNAVAILABLE','Only a departure with empty seats and no passengers on board can be delayed.',409)
                 current(u,uid,('cab_owner',) if owner else ('driver',))
                 if len(body.reason.strip())<10:fail('REASON_REQUIRED','Give passengers a clear reason of at least 10 characters.',422)
                 schedule(body.starts_at,body.ends_at)
                 if body.starts_at<row['starts_at']+60:fail('DELAY_REQUIRED','Choose a later departure time.',422)
-                v=u.get('mobility_vehicles',row['vehicle_id']);reservation_guard(u,v)
+                v=u.get('mobility_vehicles',row['vehicle_id'])
+                if not shared_vehicle_ready(u,row):fail('UNAVAILABLE','Vehicle or rider approval changed. Review the departure before rescheduling.',409)
+                reservation_guard(u,v)
                 if not live_vehicle(u,v,'cab',body.starts_at,body.ends_at,identifier):fail('UNAVAILABLE','The vehicle or driver has another booking, or approval ends before the new arrival time.',409)
                 previous=row['starts_at'];row.update(starts_at=body.starts_at,ends_at=body.ends_at,reschedule={'previous_starts_at':previous,'starts_at':body.starts_at,'ends_at':body.ends_at,'reason':body.reason.strip(),'changed_at':time.time()})
             elif a in ('accept','decline'):
                 if not owner or not p or p['state']!='requested' or row['state']!='scheduled' or time.time()>=row['starts_at']:fail('INVALID_ACTION','Only the owner can decide a pending request before departure.',409)
                 current(u,uid,('cab_owner',))
+                if a=='accept' and not shared_vehicle_ready(u,row):fail('UNAVAILABLE','Vehicle or rider approval changed. Cancel this departure or resolve the approval before accepting passengers.',409)
                 if a=='accept' and capacity(u,row)<p['seats']:fail('FULL','The remaining seats were just reserved.',409)
                 p['state']='accepted' if a=='accept' else 'declined'
+                if a=='accept' and row.get('vehicle_kind')=='bike':
+                    p.update(pickup_otp=f'{secrets.randbelow(1000000):06}',pickup_otp_attempts=0)
             elif a=='cancel':
                 if row['state']!='scheduled':fail('STARTED','Contact support to resolve an active journey.',409)
-                if customer and p['state'] in ('requested','accepted'):p['state']='cancelled'
+                if customer and p['state'] in ('requested','accepted'):
+                    p['state']='cancelled';p['refund_review_required']=bool(p.get('payment_reported_at') or p.get('payment_received_at'))
                 elif owner and not p:
                     row['state']='cancelled'
                     for item in passenger_rows(u,identifier):
-                        if item['state'] in ('requested',*PASSENGERS):item['state']='cancelled';u.put('shared_passengers',item['id'],item);notify(u,row,item['customer_id'],'Shared ride cancelled')
+                        if item['state'] in ('requested',*PASSENGERS):
+                            item['state']='cancelled';item['refund_review_required']=bool(item.get('payment_reported_at') or item.get('payment_received_at'));u.put('shared_passengers',item['id'],item);notify(u,row,item['customer_id'],'Shared ride cancelled')
                 else:fail('INVALID_ACTION','This request cannot be cancelled.',409)
             elif a=='board':
                 if not driver or not p or p['state']!='accepted' or row['state'] not in ('scheduled','in_progress'):fail('INVALID_ACTION','Only an accepted passenger can be boarded.',409)
                 if not row['starts_at']-3600<=time.time()<=row['ends_at']:fail('PICKUP_WINDOW','Board within the departure window.',409)
+                if not shared_vehicle_ready(u,row):fail('UNAVAILABLE','This vehicle or rider is not approved for a new pickup.',409)
+                current(u,uid,('cab_owner',) if uid==row['owner_id'] else ('driver',))
                 # A scheduled departure becomes on-the-way when the operator enables live location.
-                inside(u,'shared',row,p['match']['pickup']);p['state']='boarded';p['boarded_at']=time.time()
+                inside(u,'shared',row,p['match']['pickup'])
+                if row.get('vehicle_kind')=='bike':
+                    if not p.get('pickup_otp'):fail('PICKUP_CODE_REQUIRED','Ask the passenger to open Bookings → Rides to receive their pickup code.',409)
+                    if p.get('pickup_otp_attempts',0)>=5:fail('PICKUP_CODE_LOCKED','The pickup code is locked. Ask the passenger to cancel and request again, or contact support.',409)
+                    if not p.get('pickup_otp') or not secrets.compare_digest(body.otp,p['pickup_otp']):
+                        p['pickup_otp_attempts']=p.get('pickup_otp_attempts',0)+1
+                        error=('PICKUP_CODE_INVALID','Ask the passenger for their six-digit pickup code.',409)
+                        u.put('shared_passengers',p['id'],p);event(u,row,'pickup_code_rejected',uid);row['events']=row['events'][-100:]
+                        u.put('shared_departures',identifier,row);u.put('business_commands',key,{'record_id':identifier,'fingerprint':action_fingerprint(body),'error':error})
+                        return {'_error':error}
+                p['state']='boarded';p['boarded_at']=time.time()
             elif a=='start':
                 if not row['starts_at']-3600<=time.time()<=row['ends_at']:fail('PICKUP_WINDOW','Start within the scheduled journey window.',409)
                 if not driver or row['state']!='scheduled' or not any(x['state']=='boarded' for x in passenger_rows(u,identifier)):fail('BOARDING_REQUIRED','Mark a passenger boarded before starting.',409)
                 current(u,uid,('cab_owner','driver'))
-                if not live_vehicle(u,u.get('mobility_vehicles',row['vehicle_id']),'cab',row['starts_at'],row['ends_at'],identifier):fail('UNAVAILABLE','Vehicle approval or availability changed.',409)
+                if not shared_vehicle_ready(u,row):fail('UNAVAILABLE','Vehicle approval or availability changed.',409)
                 loc=location_value(u,'shared',row)
                 if not loc or time.time()-loc['received_at']>75:fail('LOCATION_REQUIRED','Enable live location before starting.',409)
                 row.update(state='in_progress',started_at=time.time())
@@ -347,17 +415,20 @@ def install(core):
                     if item['state'] in ('requested','accepted'):item['state']='expired';u.put('shared_passengers',item['id'],item)
             elif a=='payment_reported':
                 if not customer or p['state'] not in (*PASSENGERS,'completed'):fail('INVALID_ACTION','Confirm only your accepted fare payment.',409)
+                if p.get('payment_reported_at'):return public(row,capacity(u,row),True)
                 p['payment_reported_at']=time.time()
             elif a=='payment_received':
                 if not owner or not p or not p.get('payment_reported_at'):fail('INVALID_ACTION','Confirm the passenger-reported payment after receiving it.',409)
+                if p.get('payment_received_at'):return public(row,capacity(u,row),True)
                 p['payment_received_at']=time.time();p['payment_source']='owner_confirmed_receipt'
+                if p['state'] in ('cancelled','expired','declined'):p['refund_review_required']=True
             if p:
                 u.put('shared_passengers',p['id'],p)
                 if a in ('board','dropoff','cancel','decline') and u.get('shared_arrivals',p['id']):u.put('shared_arrivals',p['id'],{'received_at':0})
             if not p and a in ('cancel','start','complete'):
                 for item in passenger_rows(u,identifier):
                     if u.get('shared_arrivals',item['id']):u.put('shared_arrivals',item['id'],{'received_at':0})
-            event(u,row,a,uid);u.put('shared_departures',identifier,row);u.put('business_commands',key,{'record_id':identifier,'fingerprint':fingerprint(body)})
+            event(u,row,a,uid);row['events']=row['events'][-100:];u.put('shared_departures',identifier,row);u.put('business_commands',key,{'record_id':identifier,'fingerprint':action_fingerprint(body)})
             if a=='reschedule':
                 from shared_departure_alerts import enqueue,india_time
                 recipients={row['owner_id'],row.get('driver_id'),*[x['customer_id'] for x in passenger_rows(u,identifier) if x['state'] in ('requested',*PASSENGERS)]}-{None}
@@ -368,10 +439,12 @@ def install(core):
             if a=='accept':
                 from shared_departure_alerts import remind_passenger
                 remind_passenger(u,row,p,time.time())
-            for target in {row['owner_id'],*([p['customer_id']] if p else [x['customer_id'] for x in passenger_rows(u,identifier) if x['state'] in (*PASSENGERS,'completed')])}:
+            for target in {row['owner_id'],row.get('driver_id'),*([p['customer_id']] if p else [x['customer_id'] for x in passenger_rows(u,identifier) if x['state'] in (*PASSENGERS,'completed')])}-{None}:
                 if target!=uid:notify(u,row,target,'Shared ride '+a.replace('_',' '))
             return public(row,capacity(u,row),True)
-        return store.run(save)
+        result=store.run(save)
+        if '_error' in result:fail(*result['_error'])
+        return result
     @r.get('/shared/{identifier}/arrival')
     def arrival_status(identifier:str,user=Depends(core.current_user)):
         def read(u):
@@ -399,7 +472,7 @@ def install(core):
         def save(u):
             row=get_row(u,kind,identifier)
             rental=kind=='rides' and row['mode']=='rental'
-            if (rental and user['id']!=row['customer_id']) or (not rental and not actor(row,user['id'])):fail('NOT_FOUND','You cannot change this location consent.',404)
+            if (rental and user['id']!=row['customer_id']) or (not rental and not (physical_actor(row,user['id']) if kind=='shared' else actor(row,user['id']))):fail('NOT_FOUND','You cannot change this location consent.',404)
             u.put('journey_consents',kind+':'+identifier+':'+user['id'],{'enabled':body.enabled,'at':time.time()})
             if not body.enabled:
                 loc=location_value(u,kind,row)
@@ -411,8 +484,9 @@ def install(core):
         response.headers.update(HEADERS);token=secrets.token_urlsafe(32)
         def save(u):
             row=get_row(u,kind,identifier);uid=user['id']
-            if not body.enabled or not actor(row,uid) or (kind=='rides' and row['mode']=='rental') or row['state'] not in ('scheduled','reserved',*ACTIVE):fail('NOT_ACTIVE','Only the assigned driver can share this journey location.',403)
-            current(u,uid,('cab_owner','driver'));generation=str(uuid.uuid4())
+            if not body.enabled or not (physical_actor(row,uid) if kind=='shared' else actor(row,uid)) or (kind=='rides' and row['mode']=='rental') or row['state'] not in ('scheduled','reserved',*ACTIVE):fail('NOT_ACTIVE','Only the assigned driver can share this journey location.',403)
+            if not(kind=='shared' and row['state']=='in_progress'):current(u,uid,('cab_owner','driver'))
+            generation=str(uuid.uuid4())
             u.put('journey_consents',kind+':'+identifier+':'+uid,{'enabled':True,'at':time.time(),'generation':generation})
             u.put('journey_tracking',digest(token),{'kind':kind,'record_id':identifier,'user_id':uid,'generation':generation,'expires_at':time.time()+8*3600,'sequence':0})
             return {'token':token,'expires_in':8*3600}
@@ -421,12 +495,12 @@ def install(core):
     def position(kind:Literal['rides','shared'],identifier:str,body:Position,user=Depends(core.current_user)):
         def save(u):
             row=get_row(u,kind,identifier);uid=user['id'];rental=kind=='rides' and row['mode']=='rental'
-            if (rental and uid!=row['customer_id']) or (not rental and not actor(row,uid)):fail('NOT_FOUND','You cannot report this vehicle’s position.',404)
+            if (rental and uid!=row['customer_id']) or (not rental and not (physical_actor(row,uid) if kind=='shared' else actor(row,uid))):fail('NOT_FOUND','You cannot report this vehicle’s position.',404)
             if not (u.get('journey_consents',kind+':'+identifier+':'+uid) or {}).get('enabled'):fail('CONSENT_REQUIRED','Enable journey location sharing first.',409)
             if ((kind=='shared' and row['state']=='scheduled') or (kind=='rides' and row['state']=='reserved')) and row['starts_at']-3600<=time.time()<=row['ends_at']:
                 live={**row,'state':'on_the_way'}
             else:live=row
-            if not rental:current(u,uid,('cab_owner','driver'))
+            if not rental and not(kind=='shared' and row['state']=='in_progress'):current(u,uid,('cab_owner','driver'))
             return write_position(u,kind,live,body,'renter_phone' if rental else 'driver_phone')
         return store.run(save)
     @r.get('/journeys/{kind}/{identifier}/tracking')
