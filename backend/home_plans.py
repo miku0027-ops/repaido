@@ -149,6 +149,10 @@ def require_plan(u,pid,uid,admin=False):
 def version(p,value):
     if p['version']!=value:fail('VERSION_CHANGED','This plan changed. Refresh before continuing.')
 
+def _visit_job(u,visit):
+    # Future visits have no job yet. An empty Firestore document ID is invalid.
+    return u.get('jobs',visit['job_id']) if visit and visit.get('job_id') else None
+
 def public(u,p,uid,admin=False):
     result=copy.deepcopy(p);result.pop('request_fingerprint',None);result.pop('location',None);result.pop('phone',None);result.pop('address',None)
     if uid==p['customer_id'] or admin:
@@ -156,7 +160,7 @@ def public(u,p,uid,admin=False):
     else:
         result.pop('recipient_name',None)
     for v in result['visits']:
-        j=u.get('jobs',v.get('job_id',''))
+        j=_visit_job(u,v)
         if j:
             v.update(status=j['state'],acknowledged_at=j.get('reminder_ack_at'),arrived_at=next((e['occurred_at_server_time'] for e in j['events'] if e['event_type']=='WorkerArrived'),None),started_at=j.get('started_at'),completed_at=j.get('completed_at'),payment_status=j['payment_status'],review=j.get('review'),daily_log=j.get('home_daily_log'),worker_name=j.get('worker_name'))
     result['brief_rows']=home_briefs.rows(p)
@@ -222,7 +226,7 @@ def invoices(u,p):
         rows=[];unresolved=False
         for v in p['visits']:
             if v['period']!=period['index']:continue
-            j=u.get('jobs',v.get('job_id',''))
+            j=_visit_job(u,v)
             if j and j['state']=='completed':
                 from parts_payments import advance_total
                 rows.append(dict(job_id=j['id'],date=v['date'],amount_paise=j['total_paise']-advance_total(u,j['id']),base_paise=j['base_price_paise'],gst_paise=j.get('home_gst_paise',0),discount_paise=j.get('vendor_discount_paise',0)))
@@ -377,11 +381,11 @@ def install(core):
                     if a=='pause' and p['state']!='active':fail('NOT_ACTIVE','Only an active, accepted plan can be paused.')
                     if len(body.reason.strip())<5:fail('REASON_REQUIRED','Add a short reason.',422)
                     for v in p['visits']:
-                        j=u.get('jobs',v.get('job_id',''))
+                        j=_visit_job(u,v)
                         if j and j['state'] not in (*CLOSED,*PRESTART):fail('VISIT_OPEN','Finish or resolve the current visit before pausing or cancelling.')
                     for v in p['visits']:
                         if v['status']!='scheduled':continue
-                        j=u.get('jobs',v.get('job_id',''))
+                        j=_visit_job(u,v)
                         if j and j['state'] in CLOSED:continue
                         if a=='cancel' or v['starts_epoch']<now+86400:
                             v['status']='cancelled' if a=='cancel' else 'paused'
@@ -395,7 +399,7 @@ def install(core):
         def save(u):
             p=require_plan(u,pid,user['id']);version(p,body.expected_version)
             if p['state'] not in ('active','paused'):fail('NOT_ACTIVE','Only accepted plans can request day changes.')
-            v=next((v for v in p['visits'] if v['id']==body.visit_id),None);j=u.get('jobs',v.get('job_id','')) if v else None
+            v=next((v for v in p['visits'] if v['id']==body.visit_id),None);j=_visit_job(u,v)
             if not v or v['status']!='scheduled' or j and j['state'] not in PRESTART or v['starts_epoch']<=time.time():fail('VISIT_STARTED','Only future, unstarted visits can be changed.')
             if any(c['status']=='pending' and c['visit_id']==v['id'] for c in p['changes']):fail('CHANGE_PENDING','This visit already has a pending change.')
             if body.new_date:
@@ -408,7 +412,7 @@ def install(core):
         def save(u):
             p=require_plan(u,pid,user['id']);version(p,body.expected_version);c=next((c for c in p['changes'] if c['id']==cid),None)
             if not c or c['status']!='pending' or c['proposer']==user['id']:fail('OTHER_PARTY_REQUIRED','The other party must review this pending change.')
-            v=next(v for v in p['visits'] if v['id']==c['visit_id']);j=u.get('jobs',v.get('job_id',''))
+            v=next(v for v in p['visits'] if v['id']==c['visit_id']);j=_visit_job(u,v)
             if j and j['state'] not in PRESTART or v['starts_epoch']<=time.time():fail('VISIT_STARTED','The visit has already begun or passed. Contact support.')
             if body.accept:
                 if c['new_date']:
@@ -500,7 +504,7 @@ def install(core):
                 dirty=False
                 for v in p['visits']:
                     if v['status']!='scheduled':continue
-                    j=u.get('jobs',v.get('job_id',''))
+                    j=_visit_job(u,v)
                     if not j and v['starts_epoch']<now:
                         v['status']='paused' if p['state']=='paused' else 'missed';dirty=True
                     elif not j and p['state']=='active' and v['starts_epoch']<=now+86400:
@@ -513,7 +517,7 @@ def install(core):
                         j.update(state='cancelled',version=j['version']+1,tracking_consent=False);j.pop('position',None);event(u,j,'RecurringVisitMissed','scheduler');u.put('jobs',j['id'],j);v['status']='missed';dirty=True
                 if dirty:
                     p['version']+=1;u.put('home_plans',p['id'],p);notify(u,p,p['customer_id'],'Home calendar updated','Open your plan for the next visit or an attendance exception.');notify(u,p,p.get('worker_id'),'Home calendar updated','Review upcoming visits and acknowledge reminders in Tasks.')
-                if day(p['periods'][-1]['end'])<iso_today() and all(v['status']!='scheduled' or (u.get('jobs',v.get('job_id','')) or {}).get('state') in CLOSED for v in p['visits']):p.update(state='completed',version=p['version']+1);u.put('home_plans',p['id'],p)
+                if day(p['periods'][-1]['end'])<iso_today() and all(v['status']!='scheduled' or (_visit_job(u,v) or {}).get('state') in CLOSED for v in p['visits']):p.update(state='completed',version=p['version']+1);u.put('home_plans',p['id'],p)
             return {'visits_created':count}
         return store.run(run)
     core.home_plans_tick=tick;core.app.include_router(r)

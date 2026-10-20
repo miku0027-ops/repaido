@@ -17,6 +17,8 @@ from fastapi.responses import Response
 from pydantic import Field
 from operations import Input, Position, fail, event, metres, at_site
 
+RECOVERED_ORDER_PAYMENT_LIMIT = 100
+
 
 def digest(value): return hashlib.sha256(value.encode()).hexdigest()
 def enabled(name): return os.getenv(name, '').lower() == 'true'
@@ -930,14 +932,21 @@ def install(core):
                     matches=razorpay('orders?receipt='+a['receipt']).get('items',[])
                     matches=[r for r in matches if r.get('receipt')==a['receipt'] and r.get('amount')==a['amount_paise'] and r.get('currency')=='INR']
                     if len(matches)!=1:continue
-                    def attach(u):
-                        saved=u.get('payments',a['id'])
-                        if saved.get('order_id') and saved['order_id']!=matches[0]['id']:fail('ORDER_CONFLICT','Multiple provider orders require review.')
-                        saved['order_id']=matches[0]['id']
-                        if saved['status']=='creating':saved['status']='created'
-                        u.put('payments',a['id'],saved)
-                    store.run(attach);a['order_id']=matches[0]['id']
-                for p in razorpay('orders/'+a['order_id']+'/payments').get('items',[]):store.run(lambda u:apply_payment(u,p))
+                    order_id=matches[0]['id']
+                    facts=razorpay('orders/'+order_id+'/payments').get('items')
+                    if not isinstance(facts,list) or len(facts)>RECOVERED_ORDER_PAYMENT_LIMIT:
+                        fail('ORDER_RECONCILIATION_LIMIT','Payment history needs reconciliation before checkout can resume.')
+                    if any(not isinstance(p,dict) or p.get('order_id')!=order_id for p in facts):
+                        fail('ORDER_MISMATCH','Payment history does not match this order.')
+                    def recover(u):
+                        # Publish the recovered order together with its known
+                        # capture/refund facts. A concurrent checkout must not
+                        # see a payable order between these two operations.
+                        attach_saved_order(u,'payments',a['id'],order_id)
+                        for payment in facts:apply_payment(u,payment)
+                    store.run(recover)
+                else:
+                    for p in razorpay('orders/'+a['order_id']+'/payments').get('items',[]):store.run(lambda u:apply_payment(u,p))
             except Exception:errors+=1
         if status()['payouts']:
             for p in store.run(lambda u:[p for p in u.all('payouts') if p['status'] not in ('failed','rejected','cancelled','reversed') and p.get('checked_at',0)<time.time()-300])[:20]:

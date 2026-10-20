@@ -2,6 +2,7 @@
 import time, uuid
 from datetime import datetime,timedelta,date
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 import pytest
 from fastapi import HTTPException
 import main,home_plans,promotions,integrations
@@ -158,7 +159,7 @@ def test_complete_visit_monthly_capture_and_no_duplicate_charge(api,monkeypatch,
     clock[0]=home_plans.epoch(p['periods'][0]['end'],'23:59')+120
     main.home_plans_tick();p=view(api)[0];inv=p['invoices'][0];assert inv['status']=='ready' and inv['total_paise']==11800 and len(inv['rows'])==1
     monkeypatch.setenv('REPAIDO_PAYMENTS_ENABLED','true');monkeypatch.setenv('RAZORPAY_KEY_ID','test_key');monkeypatch.setenv('RAZORPAY_KEY_SECRET','test-secret');monkeypatch.setenv('RAZORPAY_WEBHOOK_SECRET','test-webhook')
-    calls=[];order={};inflight_payment={}
+    calls=[];order={};inflight_payment={};payment_fetch_started=Event();continue_payment_fetch=Event()
     def provider(path,body=None):
         calls.append((path,body))
         if path=='orders':
@@ -170,12 +171,27 @@ def test_complete_visit_monthly_capture_and_no_duplicate_charge(api,monkeypatch,
                 assert main.integrations_reconcile()['errors']==0
             return order
         if path.startswith('orders?receipt='):return {'items':[order]}
-        if path=='orders/order_home_test/payments':return {'items':[inflight_payment]}
+        if path=='orders/order_home_test/payments':
+            payment_fetch_started.set()
+            assert continue_payment_fetch.wait(30),'Concurrent checkout did not complete while payment facts were being fetched'
+            return {'items':[inflight_payment]}
         raise AssertionError(path)
     monkeypatch.setattr(home_plans,'razorpay',provider)
     monkeypatch.setattr(integrations,'razorpay',provider)
     orderurl='/operations/home/plans/'+p['id']+'/invoices/0/order'
-    with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:api.post(orderurl,headers=auth('customer')),range(2)))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        if during_create=='none':
+            results=list(pool.map(lambda _:api.post(orderurl,headers=auth('customer')),range(2)))
+        else:
+            # Keep the provider fact lookup in flight while the second real
+            # checkout runs. Receipt recovery must not expose an unpaid order
+            # before applying the capture/refund returned by that same lookup.
+            first=pool.submit(lambda:api.post(orderurl,headers=auth('customer')))
+            try:
+                assert payment_fetch_started.wait(30),'Order recovery did not reach its provider payment lookup'
+                second=pool.submit(lambda:api.post(orderurl,headers=auth('customer'))).result(timeout=30)
+            finally:continue_payment_fetch.set()
+            results=[first.result(timeout=30),second]
     assert sum(path=='orders' for path,_ in calls)==1
     if during_create!='none':
         assert all(r.status_code==409 for r in results)
