@@ -23,3 +23,11 @@ export function receiveTransportNotes(notes:any[],uid:string){
  updates.forEach(n=>seen.add(n.id));if(seen.size>500){const latest=updates.map(n=>n.id);seen.clear();latest.forEach(id=>seen.add(id));}
  if(primed&&newNotes.length)chime();primed=true;
 }
+
+/** An acknowledged pickup alarm; lifecycle owner must always call the cleanup. */
+export function startPickupAlarm(uid:string){
+ let stop=()=>{};
+ const ring=()=>{if(account===uid&&transportBellEnabled()){stop();stop=startTransportChime(context);}};
+ ring();const timer=setInterval(ring,2200);
+ return()=>{clearInterval(timer);stop();};
+}

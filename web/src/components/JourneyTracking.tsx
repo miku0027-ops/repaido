@@ -1,35 +1,15 @@
 import {useEffect,useRef,useState} from 'react';
-import {createPortal} from 'react-dom';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import {MapPin,Navigation,Share2,ShieldCheck,Maximize,Minimize} from '../icons';
+import {MapPin,Navigation,Share2,ShieldCheck} from '../icons';
 import {auth} from '../firebase';
 import {business,businessPublic} from '../services/localBusiness';
 import {currentPosition} from '../services/operations';
 import {nativeAvailable,nativeCall} from '../services/native';
 import {ContractError,useCustomContractAction} from './customContractUI';
-import {Modal} from './ui';
 import './journey-tracking.css';
 
+import {GoogleJourneyMap as JourneyMap} from './GoogleJourneyMap';
+export {JourneyMap};
 type Point={lat:number;lng:number};
-export function JourneyMap({position,origin,destination,route=[],positionLabel='Latest vehicle position',mapLabel='Journey map'}:{position?:Point|null;origin?:Point;destination?:Point;route?:Point[];positionLabel?:string;mapLabel?:string}){
- const element=useRef<HTMLDivElement>(null),container=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null),marker=useRef<L.CircleMarker|null>(null),tiles=useRef<L.TileLayer|null>(null),[full,setFull]=useState(false),[tileError,setTileError]=useState(false);
- const wasFull=useRef(false),returnScroll=useRef({x:0,y:0});
- useEffect(()=>{if(!element.current)return;const m=L.map(element.current,{zoomControl:true,scrollWheelZoom:true});map.current=m;let active=true;setTileError(false);const layer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',maxZoom:19}).addTo(m);tiles.current=layer;layer.on('tileerror',()=>{if(active)setTileError(true);});const points=[origin,destination,...route].filter(Boolean) as Point[];for(const [pin,label] of [[origin,'Pickup / origin'],[destination,'Drop-off / destination']] as const){if(pin)L.circleMarker([pin.lat,pin.lng],{radius:8,color:'#142858',fillColor:'#e9c877',fillOpacity:1}).addTo(m).bindTooltip(label);}
- if(route.length)L.polyline(route.map(p=>[p.lat,p.lng]),{color:'#406dbe',weight:4}).addTo(m);let fitted=false;const resize=()=>{m.invalidateSize();if(!fitted&&element.current?.clientWidth&&element.current?.clientHeight){if(points.length>1)m.fitBounds(L.latLngBounds(points.map(p=>[p.lat,p.lng])),{padding:[24,24],maxZoom:15});else m.setView([origin?.lat??20.3,origin?.lng??85.8],13);fitted=true;}};const observer=new ResizeObserver(resize);observer.observe(element.current);resize();return()=>{active=false;observer.disconnect();layer.off('tileerror');m.remove();map.current=null;marker.current=null;tiles.current=null;};},[full,origin?.lat,origin?.lng,destination?.lat,destination?.lng,JSON.stringify(route)]);
- useEffect(()=>{if(!map.current)return;if(position){if(marker.current)marker.current.setLatLng([position.lat,position.lng]);else marker.current=L.circleMarker([position.lat,position.lng],{radius:11,color:'#fff',weight:3,fillColor:'#175ee5',fillOpacity:1}).addTo(map.current).bindTooltip(positionLabel);}else if(marker.current){marker.current.remove();marker.current=null;}},[full,position?.lat,position?.lng,origin?.lat,origin?.lng,destination?.lat,destination?.lng,JSON.stringify(route)]);
- useEffect(()=>{
-  let frame=0;
-  if(full||wasFull.current)frame=requestAnimationFrame(()=>{container.current?.querySelector<HTMLButtonElement>('[data-map-toggle]')?.focus({preventScroll:true});if(!full)window.scrollTo({left:returnScroll.current.x,top:returnScroll.current.y,behavior:'instant'});});
-  wasFull.current=full;
-  return()=>cancelAnimationFrame(frame);
- },[full]);
- const toggle=()=>{if(!full)returnScroll.current={x:window.scrollX,y:window.scrollY};setFull(value=>!value);};
- const content=<div ref={container} className={`journey-map${full?' is-fullscreen':''}`}><div ref={element} className="journey-leaflet" role="region" aria-label={mapLabel}/>{tileError&&<div className="journey-map-tile-error" role="status"><span>Map tiles could not load. Your pins and trip details are still available.</span><button type="button" onClick={()=>{setTileError(false);tiles.current?.redraw();}}>Retry map</button></div>}<div className="journey-map-tools"><button type="button" data-map-toggle aria-label={full?'Exit fullscreen map':'Fullscreen journey map'} onClick={toggle}>{full?<Minimize size={18}/>:<Maximize size={18}/>}</button>{position&&<button type="button" aria-label="Centre on vehicle" onClick={()=>map.current?.setView([position.lat,position.lng],16)}><Navigation size={18}/></button>}</div></div>;
- // A native dialog in a body portal escapes animated app panels, remains above
- // an existing booking dialog and restores its own map control on dismissal.
- return full?createPortal(<Modal title={mapLabel} frameless className="journey-fullscreen-dialog" onClose={()=>setFull(false)}>{content}</Modal>,document.body):content;
-}
 export function JourneyTracking({kind,id,canSend=false,rental=false,passengerId,canShare=false,guestToken,compact=false,mapDestination}:{kind:'rides'|'shared';id:string;canSend?:boolean;rental?:boolean;passengerId?:string;canShare?:boolean;guestToken?:string;compact?:boolean;mapDestination?:Point}){
  const [data,setData]=useState<any>(null),[error,setError]=useState(''),[sharing,setSharing]=useState(false),[background,setBackground]=useState(false),[link,setLink]=useState(''),[clock,setClock]=useState(Date.now());const receipt=useRef(0),action=useCustomContractAction(),uid=auth.currentUser?.uid;
  const path=`/journeys/${kind}/${id}`;

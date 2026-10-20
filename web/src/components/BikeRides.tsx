@@ -1,10 +1,11 @@
+import {BikePickupAlert} from './BikePickupAlert';
 import {useEffect,useId,useRef,useState,useSyncExternalStore} from 'react';
 import {onIdTokenChanged} from 'firebase/auth';
 import {auth} from '../firebase';
 import {ArrowLeft,ArrowRight,ArrowDownUp,Bell,Check,CheckCircle2,ChevronDown,Clock3,Flag,MapPin,Phone,RefreshCw,Route,ShieldCheck,Ticket,TwoWheeler,UserRound} from '../icons';
 import {money} from '../services/operations';
 import type {BusinessLocation} from '../services/localBusiness';
-import {bikeCommand,bikeFinished,bikeFreshPosition,bikePolicy,bikeQuoteExpired,bikeRideLabel,bikeStopInside,bookBike,getBikeRide,getBikeRides,mergeBikeSnapshots,saveBikeSnapshot,searchBikes,type BikePoint,type BikePolicy,type BikePromotion,type BikeQuote,type BikeRide} from '../services/bike-rides-api';
+import {nearbyBikes,bikeCommand,bikeFinished,bikeFreshPosition,bikePolicy,bikeQuoteExpired,bikeRideLabel,bikeStopInside,bookBike,getBikeRide,getBikeRides,mergeBikeSnapshots,saveBikeSnapshot,searchBikes,type BikePoint,type BikePolicy,type BikePromotion,type BikeQuote,type BikeRide} from '../services/bike-rides-api';
 import {bindTransportBell,disableTransportBell,enableTransportBell,receiveTransportRequests,subscribeTransportBell,transportBellEnabled} from '../services/transportBell';
 import {BikePhoneVerification} from './BikePhoneVerification';
 import {JourneyMap} from './JourneyTracking';
@@ -30,6 +31,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
  const [pickup,setPickup]=useState<BusinessLocation|null>(confirmedArea(initialLocation)),[dropoff,setDropoff]=useState<BusinessLocation|null>(null),[picking,setPicking]=useState<'pickup'|'dropoff'|null>(null);
  const [verifyPhone,setVerifyPhone]=useState(false);
  const [other,setOther]=useState(false),[name,setName]=useState(auth.currentUser?.displayName||''),[phone,setPhone]=useState(auth.currentUser?.phoneNumber||'');
+ const [nearby,setNearby]=useState<(BikePoint&{received_at:number})[]>([]);
  const [route,setRoute]=useState<BikePoint[]>([]);
  const [quotes,setQuotes]=useState<BikeQuote[]>([]),[promotion,setPromotion]=useState<BikePromotion|null>(null),[searched,setSearched]=useState(false),[searchReason,setSearchReason]=useState(''),[selectedQuote,setSelectedQuote]=useState<BikeQuote|null>(null),[consent,setConsent]=useState(false);
  const [recordsLoaded,setRecordsLoaded]=useState(false),[nextCursor,setNextCursor]=useState<string|null>(null),[pageBusy,setPageBusy]=useState(false),[pageError,setPageError]=useState(''),[openingRide,setOpeningRide]=useState(false);
@@ -40,6 +42,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
  const serverNow=serverClock.current.seconds+(clock-serverClock.current.at)/1000;
  const selected=rides.find(ride=>ride.id===selectedId),selection=useRef<BikeRide|undefined>(selected);selection.current=selected;
  const availabilityId=useId();
+ useEffect(()=>{setNearby([]);if(!active||!uid||!pickup||selected||!policy?.bookings_available)return;let stopped=false,timer:ReturnType<typeof setTimeout>;const controller=new AbortController();const update=async()=>{if(!document.hidden&&navigator.onLine){try{const result=await nearbyBikes(pickup,controller.signal);if(!stopped){setNearby(result.riders);syncClock(result.server_time);}}catch{if(!stopped)setNearby([]);}}if(!stopped)timer=setTimeout(()=>void update(),15000);};void update();return()=>{stopped=true;controller.abort();clearTimeout(timer);};},[active,uid,pickup?.lat,pickup?.lng,!!selected,policy?.bookings_available]);
  const canDiscover=!!policy?.bookings_available&&online&&!policyLoading&&!policyError;
  const serviceState=!online?'offline':policyLoading?'checking':policyError?'error':canDiscover?'available':'paused';
  const availabilityTitle=!online?'You’re offline':policyLoading?'Checking bike availability':policyError?'Could not check bike availability':policy?.availability?.retryable?'Bike bookings temporarily unavailable':'Bike bookings paused';
@@ -102,7 +105,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
  };
  const run=async(ride:BikeRide,action:string,note?:string)=>{
   const epoch=revision.current,key=ride.id+':'+ride.version+':'+action;let command=commandKeys.current.get(key);if(!command){command=crypto.randomUUID();commandKeys.current.set(key,command);}setBusy(true);setError('');setNotice('');
-  try{const value=await bikeCommand(ride,action,command,note);if(scope.current===uid&&revision.current===epoch){saveRide(value);commandKeys.current.delete(key);setNotice(action==='cash_reported'?'Payment reported. Your rider must confirm receipt.':action==='cancel'?'Ride cancelled.':action==='dispute'?'Support review requested.':'Arrival confirmed.');return true;}return false;}
+  try{const value=await bikeCommand(ride,action,command,note);if(scope.current===uid&&revision.current===epoch){saveRide(value);commandKeys.current.delete(key);setNotice(action==='cash_reported'?'Payment reported. Your rider must confirm receipt.':action==='request_stop'?'Early drop-off requested. Ask your rider to stop safely.':action==='cancel'?'Ride cancelled.':action==='dispute'?'Support review requested.':'Arrival confirmed.');return true;}return false;}
   catch(e){if(scope.current===uid&&revision.current===epoch){setError(message(e));window.dispatchEvent(new Event('repaido:bike-rides-updated'));}return false;}finally{if(revision.current===epoch)setBusy(false);}
  };
  const activeRides=rides.filter(ride=>!bikeFinished(ride.state)),visibleRides=history?rides.filter(ride=>bikeFinished(ride.state)):activeRides;
@@ -110,6 +113,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
  if(bookingsOnly&&embedded&&!selected&&!visibleRides.length&&!readError&&!error&&!notice&&!pageError&&!(history&&nextCursor))return null;
 
  return <section className="bike-rides" aria-label="Bike rides" data-service-state={serviceState}>
+  <BikePickupAlert key={uid} uid={uid} rides={rides} active={active&&online&&!readError} onOpen={setSelectedId}/>
   {!bookingsOnly&&!selected&&<header className="bike-heading"><span className="bike-brand-icon" aria-hidden="true"><TwoWheeler size={24}/></span><div><strong>Bike</strong><small>One passenger · helmet required</small></div>{onSharedBike&&<button className="bike-soft-button" onClick={onSharedBike}>Shared bike<ArrowRight size={18} aria-hidden="true"/></button>}</header>}
   {bookingsOnly&&!embedded&&!uid&&<button className="bike-soft-button" onClick={onSignIn}>Sign in to see your bike rides</button>}
   {!online&&(bookingsOnly||selected)&&<p className="bike-notice bike-notice-warning" role="status">You’re offline. Reconnect for current riders, fares and location.</p>}
@@ -117,7 +121,7 @@ export function BikeRides({onSignIn,initialLocation,active=true,onSearch,onShare
   {selected?<BikeRideDetail ride={selected} serverNow={serverNow} online={online} busy={busy} onBack={()=>{resumeHandled.current=true;if(embedded)setHistory(bikeFinished(selected.state));setSelectedId('');}} onAction={run}/>:<>
    {!bookingsOnly&&<>
    <div className="bike-workspace">
-    {canDiscover?<div className="bike-map"><JourneyMap origin={pickup||undefined} destination={dropoff||undefined} route={route} mapLabel="Bike pickup and drop-off map"/><span className="bike-map-label"><MapPin size={16} aria-hidden="true"/>{routeChecked?'Quoted stops':dropoff?'Selected stops':pickup?.city||'Choose your pickup'}</span></div>:<div id={availabilityId} className={'bike-service-state is-'+serviceState} role={policyError?'alert':'status'} aria-busy={policyLoading}><span className="bike-service-symbol" aria-hidden="true">{policyLoading?<RefreshCw size={30}/>:<TwoWheeler size={34}/>}</span><div><span className="bike-service-eyebrow">REPAIDO BIKE</span><h4>{availabilityTitle}</h4><p>{availabilityCopy}</p></div></div>}
+    {canDiscover?<div className="bike-map"><JourneyMap origin={pickup||undefined} destination={dropoff||undefined} route={route} nearby={nearby.filter(point=>serverNow-point.received_at<=75&&serverNow>=point.received_at)} mapLabel="Bike pickup and drop-off map"/><span className="bike-map-label"><MapPin size={16} aria-hidden="true"/>{routeChecked?'Quoted stops':dropoff?'Selected stops':pickup?.city||'Choose your pickup'}</span></div>:<div id={availabilityId} className={'bike-service-state is-'+serviceState} role={policyError?'alert':'status'} aria-busy={policyLoading}><span className="bike-service-symbol" aria-hidden="true">{policyLoading?<RefreshCw size={30}/>:<TwoWheeler size={34}/>}</span><div><span className="bike-service-eyebrow">REPAIDO BIKE</span><h4>{availabilityTitle}</h4><p>{availabilityCopy}</p></div></div>}
     <form className="bike-route-sheet" onSubmit={event=>{event.preventDefault();if(!canDiscover){if(online&&!policyLoading)checkAvailability();return;}void search();}}>
      <div className="bike-composer-heading"><h3>Where to?</h3>{canDiscover&&<span className={'bike-route-stage'+(routeChecked?' is-checked':'')}><RouteStageIcon size={15} aria-hidden="true"/>{routeStage}</span>}</div>
      <div className="bike-route-fields">
@@ -168,12 +172,13 @@ function BikeRideProgress({state}:{state:string}){
 }
 
 function BikeRideDetail({ride,serverNow,online,busy,onBack,onAction}:{ride:BikeRide;serverNow:number;online:boolean;busy:boolean;onBack:()=>void;onAction:(ride:BikeRide,action:string,note?:string)=>Promise<boolean>}){
+ const [earlyStop,setEarlyStop]=useState(false);
  const [cancel,setCancel]=useState(false),[note,setNote]=useState(''),[support,setSupport]=useState(false),[bellError,setBellError]=useState('');const bellEnabled=useSyncExternalStore(subscribeTransportBell,transportBellEnabled,()=>false),uid=auth.currentUser?.uid||'';const position=bikeFreshPosition(ride,serverNow),actions=ride.allowed_actions||[],finished=bikeFinished(ride.state),arrived=ride.state==='arrived',nearPickup=ride.state==='on_the_way'&&bikeStopInside(ride,'pickup',serverNow),nearDestination=ride.state==='in_progress'&&bikeStopInside(ride,'destination',serverNow),disabled=busy||!online;
  useEffect(()=>bindTransportBell(uid),[uid]);
  useEffect(()=>{if(bellEnabled&&(arrived||nearPickup||nearDestination))receiveTransportRequests(['bike:'+ride.id+':'+(nearDestination?'destination':'pickup')],uid);},[bellEnabled,arrived,nearPickup,nearDestination,ride.id,uid]);
  return <section className={'bike-live-ride'+(arrived||nearPickup||nearDestination?' has-arrived':'')} aria-label="Your bike ride">
   <header><button className="bike-soft-button" onClick={onBack}><ArrowLeft size={18} aria-hidden="true"/>All rides</button><span className={'bike-state'+(!finished?' is-live':'')} role="status">{bikeRideLabel(ride.state)}</span></header>
-  <div className="bike-live-map"><JourneyMap origin={ride.pickup} destination={ride.dropoff} position={finished?null:position} route={ride.route?.points||[]} positionLabel="Your rider’s latest position" mapLabel="Your bike ride map"/></div>
+  <div className="bike-live-map">{['dispatch_pending','offered'].includes(ride.state)&&<div className="bike-search-pulse" role="status"><TwoWheeler size={30}/><span>Finding your rider</span></div>}<JourneyMap origin={ride.pickup} destination={ride.dropoff} position={finished?null:position} route={ride.route?.points||[]} positionLabel="Your rider’s latest position" mapLabel="Your bike ride map"/></div>
   <div className="bike-live-sheet">
    <div className="bike-live-heading"><h4>{arrived?'Your rider is here':nearPickup?'Your rider is nearby':nearDestination?'You’re near your destination':ride.state==='in_progress'?'Enjoy the journey':ride.state==='queued'?'You requested the next slot':bikeRideLabel(ride.state)}</h4>{!finished&&<span className="bike-location-status">{position?`Location · ${Math.max(0,Math.floor(serverNow-position.received_at))}s ago`:'Waiting for a fresh rider location'}</span>}</div>
    <BikeRideProgress state={ride.state}/>
@@ -185,6 +190,8 @@ function BikeRideDetail({ride,serverNow,online,busy,onBack,onAction}:{ride:BikeR
    {ride.otp&&!finished&&ride.state!=='in_progress'&&<div className="bike-pickup-code"><span><ShieldCheck size={20} aria-hidden="true"/>Pickup code</span><strong>{ride.otp}</strong><small>Share with your rider only when you meet.</small></div>}
    <BikeFare pricing={ride.pricing}/>
    {ride.blockers?.map(blocker=><p className="bike-muted" key={blocker}>{blocker==='otp_locked_contact_support'?'Pickup code attempts are locked. Contact support for help.':'This ride needs attention. Review the latest status or contact support.'}</p>)}
+   {ride.early_dropoff&&ride.state==='in_progress'&&<p className="bike-notice" role="status">Early drop-off requested. Your rider can finish once you have stopped safely.</p>}
+   {actions.includes('request_stop')&&<button className="bike-soft-button" disabled={disabled} onClick={()=>setEarlyStop(true)}>End trip at a safe stop</button>}
    {actions.includes('confirm')&&<button className="bike-primary" disabled={disabled} onClick={()=>void onAction(ride,'confirm')}>Confirm safe arrival<CheckCircle2 size={20} aria-hidden="true"/></button>}
    {actions.includes('cash_reported')&&<><p className="bike-payment-note">Pay {money(ride.pricing.customer_total_paise)} directly to the rider. Report only after paying.</p><button className="bike-primary" disabled={disabled} onClick={()=>void onAction(ride,'cash_reported')}>I paid {money(ride.pricing.customer_total_paise)}</button></>}
    <details className="bike-trip-details"><summary><Route size={20} aria-hidden="true"/><span>Trip details<small>{ride.dropoff_address}</small></span><ChevronDown size={20} aria-hidden="true"/></summary><div className="bike-review-route"><span><MapPin size={18} aria-hidden="true"/>{ride.pickup_address}</span><span><Flag size={18} aria-hidden="true"/>{ride.dropoff_address}</span></div>{ride.for_someone_else&&<p className="bike-muted">For {ride.passenger_name}. Share ride updates and the pickup code with them.</p>}{ride.terms&&<div className="bike-trip-terms"><p>{ride.terms}</p>{ride.cancellation_terms&&<p>{ride.cancellation_terms}</p>}</div>}</details>
@@ -193,6 +200,7 @@ function BikeRideDetail({ride,serverNow,online,busy,onBack,onAction}:{ride:BikeR
    <div className="bike-live-actions">{actions.includes('cancel')&&<button className="bike-soft-button" disabled={disabled} onClick={()=>setCancel(true)}>Cancel request</button>}{actions.includes('dispute')&&<button className="bike-soft-button" disabled={disabled} aria-expanded={support} onClick={()=>setSupport(!support)}>Report an issue</button>}<a className="bike-soft-button bike-emergency" href="tel:112"><ShieldCheck size={18} aria-hidden="true"/>Emergency · 112</a></div>
    {support&&<form className="bike-inline-form" onSubmit={event=>{event.preventDefault();void onAction(ride,'dispute',note).then(saved=>{if(saved)setSupport(false);});}}><label>What went wrong?<textarea required minLength={10} maxLength={1000} value={note} onChange={event=>setNote(event.target.value)}/></label><button className="bike-primary" disabled={disabled}>Send for review</button></form>}
   </div>
+  {earlyStop&&<Modal title="Request an early drop-off?" onClose={()=>{if(!busy)setEarlyStop(false);}}><div className="bike-cancel-review"><p>Ask your rider to stop somewhere safe. This lets the rider finish away from the original destination. Your agreed fare stays {money(ride.pricing.customer_total_paise)}; you will still confirm arrival and any cash payment.</p><button className="bike-primary" disabled={disabled} onClick={()=>void onAction(ride,'request_stop').then(saved=>{if(saved)setEarlyStop(false);})}>Request safe drop-off</button><button className="bike-soft-button" disabled={busy} onClick={()=>setEarlyStop(false)}>Continue to destination</button></div></Modal>}
   {cancel&&<Modal title="Cancel this bike request?" onClose={()=>{if(!busy)setCancel(false);}}><div className="bike-cancel-review"><p>The rider will be notified. Review any cancellation terms in your fare before continuing.</p><button className="bike-primary" disabled={disabled} onClick={()=>void onAction(ride,'cancel').then(saved=>{if(saved)setCancel(false);})}>Confirm cancellation</button><button className="bike-soft-button" disabled={busy} onClick={()=>setCancel(false)}>Keep my ride</button></div></Modal>}
  </section>;
 }

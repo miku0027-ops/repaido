@@ -1,6 +1,5 @@
 import {useEffect,useId,useRef,useState} from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import {GoogleJourneyMap} from './GoogleJourneyMap';
 import {Modal} from './ui';
 import {currentPosition} from '../services/operations';
 import './operations.css';
@@ -11,8 +10,7 @@ interface Props {
   helpText?:string;pinConfirmationLabel?:string;locationLabel?:string;
   onConfirmLocation:(location:{lat:number;lng:number;address:string;city:string})=>void;
 }
-export function LocationPickerModal({isOpen,onClose,areaOnly=false,publicPlace=false,addressRequired=false,initialAddress='',initialCity='',confirmLabel,helpText,pinConfirmationLabel,locationLabel='service location',initialLat=21.4934,initialLng=86.9135,title='Confirm service location',subtitle='Tap the map, move the pin, or enter coordinates below.',onConfirmLocation}:Props) {
-  const container=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null),marker=useRef<L.Marker|null>(null);
+export function LocationPickerModal({isOpen,onClose,areaOnly=false,publicPlace=false,addressRequired=false,initialAddress='',initialCity='',confirmLabel,helpText,pinConfirmationLabel,locationLabel='service location',initialLat=21.4934,initialLng=86.9135,title='Confirm service location',subtitle='Tap the map or enter coordinates below.',onConfirmLocation}:Props) {
   const [lat,setLat]=useState(initialLat),[lng,setLng]=useState(initialLng),[address,setAddress]=useState(initialAddress),[city,setCity]=useState(initialCity);
   const [chosen,setChosen]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [attempted,setAttempted]=useState(false),addressInput=useRef<HTMLInputElement>(null),cityInput=useRef<HTMLInputElement>(null),fieldId=useId();
@@ -25,35 +23,26 @@ export function LocationPickerModal({isOpen,onClose,areaOnly=false,publicPlace=f
     if(addressError||cityError){(addressError?addressInput:cityInput).current?.focus();return;}
     onConfirmLocation({lat,lng,address:address.trim(),city:city.trim()});onClose();
   };
-  const reducedMotion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches||!!container.current?.closest('.reduce-motion,[data-reduced-motion=true]');
-  const move=(latitude:number,longitude:number)=>{locationRequest.current++;setBusy(false);setLat(latitude);setLng(longitude);setChosen(true);marker.current?.setLatLng([latitude,longitude]);map.current?.panTo([latitude,longitude],{animate:!reducedMotion()});};
+  const move=(latitude:number,longitude:number)=>{locationRequest.current++;setBusy(false);setLat(latitude);setLng(longitude);setChosen(true);};
   const locate=async()=>{
     const revision=session.current,request=++locationRequest.current;
-    const current=()=>session.current===revision&&locationRequest.current===request&&!!map.current;
+    const current=()=>session.current===revision&&locationRequest.current===request;
     setBusy(true);setError('');
     try{const p=await currentPosition(true);if(current()){move(p.lat,p.lng);setError(`GPS accuracy: about ${Math.round(p.accuracy)} metres. Check the pin before confirming.`);}}
     catch(e){if(current())setError((e as Error).message);}
     finally{if(current())setBusy(false);}
   };
   useEffect(()=>{
-    if(!isOpen||!container.current)return;
+    if(!isOpen)return;
     session.current++;locationRequest.current++;
     // The picker can stay mounted between openings. Its controls and map must
     // begin from the same supplied point, with fresh explicit confirmation.
     setLat(initialLat);setLng(initialLng);setAddress(initialAddress);setCity(initialCity);setChosen(false);setError('');setBusy(false);setAttempted(false);
-    // A short-lived picker must not leave CSS zoom callbacks queued after close.
-    const instance=L.map(container.current,{center:[initialLat,initialLng],zoom:16,zoomAnimation:false,fadeAnimation:false,markerZoomAnimation:false});map.current=instance;let active=true;
-    const tiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(instance);
-    tiles.on('tileerror',()=>{if(active)setError('Map tiles could not load. Use current location or enter coordinates; your address stays editable.');});
-    const icon=L.divIcon({className:'',html:'<span style="display:block;width:24px;height:24px;border:4px solid white;border-radius:50%;background:#123a84;outline:2px solid #123a84"></span>',iconSize:[24,24],iconAnchor:[12,12]});
-    const pin=L.marker([initialLat,initialLng],{draggable:true,icon,alt:`Selected ${locationLabel}`,title:`Selected ${locationLabel}`,keyboard:true}).addTo(instance);marker.current=pin;
-    pin.on('dragend',()=>{const p=pin.getLatLng();move(p.lat,p.lng);});instance.on('click',(e:L.LeafletMouseEvent)=>move(e.latlng.lat,e.latlng.lng));
-    const id=setTimeout(()=>{if(active)instance.invalidateSize({animate:false});},100);
-    return()=>{active=false;session.current++;locationRequest.current++;clearTimeout(id);tiles.off('tileerror');instance.stop();instance.remove();map.current=null;marker.current=null;};
+    return()=>{session.current++;locationRequest.current++;};
   },[isOpen,initialLat,initialLng,initialAddress,initialCity,locationLabel]);
   if(!isOpen)return null;
   return <Modal title={title} onClose={onClose}><div className="operations"><p>{subtitle}</p><p className="ops-help">{helpText||(areaOnly?'Choose the centre of your nearby search. This does not set a booking address.':publicPlace?'Mark the littered spot and enter its street, landmark and city.':'This map does not look up addresses. Enter the house, street and city yourself; confirm the pin at the entrance.')}</p>
-    <div ref={container} role="region" aria-label={`${locationLabel[0].toUpperCase()+locationLabel.slice(1)} map`} style={{height:240,width:'100%',borderRadius:12,overflow:'hidden'}}/>
+    <div style={{height:240}}><GoogleJourneyMap origin={{lat,lng}} onPick={point=>move(point.lat,point.lng)} mapLabel={`${locationLabel} map`}/></div>
     <button type="button" disabled={busy} className="ops-secondary" onClick={()=>void locate()}>{busy?'Finding your location…':'Use my current location'}</button>
     <div className="ops-grid"><label>Latitude<input type="number" step="any" min={-90} max={90} value={lat} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=90)move(n,lng);}}/></label><label>Longitude<input type="number" step="any" min={-180} max={180} value={lng} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=180)move(lat,n);}}/></label></div>
     {!areaOnly&&<>

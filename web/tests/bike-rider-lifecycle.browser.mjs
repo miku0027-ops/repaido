@@ -12,7 +12,7 @@ try{
  page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/api/**',route=>{apiRequests.push(route.request().url());return route.abort();});
  await page.goto(`${base}/tests/bike-rider-workspace-preview.html?offline&retry`,{waitUntil:'networkidle'});
- await page.getByText('LOCAL QA · connection lost',{exact:true}).waitFor();
+ await page.getByText('Connection interrupted. Your current ride is kept here while updates reconnect.',{exact:true}).waitFor();
  await page.getByRole('button',{name:'Retry',exact:true}).click();
  await page.getByRole('heading',{name:'Bike rides',exact:true}).waitFor();
  assert.equal(await page.getByRole('switch').getAttribute('aria-checked'),'false');
@@ -104,8 +104,7 @@ try{
  await page.locator('.bike-rider-history>details>summary').filter({hasText:'LOCAL QA · Older payment record'}).waitFor();
  assert.equal(await page.evaluate(()=>window.bikeRiderFixture.reads.olderDetails),1,'older loaded payment obligations are refreshed independently of the recent page');
  await page.getByRole('button',{name:'Active 1',exact:true}).click();
- await page.locator('.bike-rider-more-actions>summary').click();
- await page.getByRole('button',{name:'Decline',exact:true}).click();
+ await page.getByRole('button',{name:'Reject',exact:true}).click();
  await page.getByRole('dialog',{name:'Decline',exact:true}).getByRole('button',{name:'Back',exact:true}).click();
  await page.goto(`${base}/tests/bike-rider-workspace-preview.html?stale&imprecise`,{waitUntil:'networkidle'});
  await page.getByRole('button',{name:'End previous session',exact:true}).click();
@@ -130,6 +129,6 @@ try{
  await cash.getByRole('button',{name:'Confirm receipt',exact:true}).click();
  await cashDialog.getByRole('button',{name:'I received this salary',exact:true}).click();
  await cashDialog.waitFor({state:'hidden'});await cash.getByText('Receipt confirmed',{exact:true}).waitFor();await cash.close();
- assert.deepEqual(apiRequests,[]);assert.deepEqual(errors,[]);
+ assert(apiRequests.every(url=>url.endsWith('/bike-rides/map-config')),'only the read-only map config may use the API adapter');assert.deepEqual(errors,[]);
  console.log('PASS: isolated rider lifecycle, reconnect, stable versioned retries, OTP rejection/recovery, fresh GPS gating, office cash collection/receipt confirmation, zero real API writes');
 }finally{await browser.close();}

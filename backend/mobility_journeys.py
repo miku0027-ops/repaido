@@ -148,16 +148,16 @@ def allowed(u,kind,row,uid):
 def fresh(pos):
     if not all(math.isfinite(v) for v in (pos.lat,pos.lng,pos.accuracy,pos.captured_at)) or not 0<pos.accuracy<=100 or abs(time.time()-pos.captured_at)>120:fail('PRECISE_LOCATION_REQUIRED','Get a fresh, precise GPS reading within 100 metres.',422)
 def location_value(u,kind,row):return u.get('journey_locations',kind+':'+row['id'])
-def stop_proximity(loc,pin,now=None):
+def stop_proximity(loc,pin,now=None, radius=300):
     """The arrival cue and boarding/drop-off gate share the same GPS boundary."""
     now=time.time() if now is None else now
     valid=bool(loc and pin and 0<loc.get('accuracy',0)<=100 and
                0<=now-loc.get('received_at',0)<=75 and abs(now-loc.get('captured_at',0))<=120)
     distance=metres(loc,pin) if valid else None
-    inside=valid and distance+loc['accuracy']<=300
-    outside=valid and distance-loc['accuracy']>300
+    inside=valid and distance+loc['accuracy']<=radius
+    outside=valid and distance-loc['accuracy']>radius
     return {'status':'inside' if inside else 'outside' if outside else 'unknown',
-            'distance_metres':round(distance) if distance is not None else None,'radius_metres':300,
+            'distance_metres':round(distance) if distance is not None else None,'radius_metres':radius,
             'valid_until':min(loc['received_at']+75,loc['captured_at']+120) if valid else 0}
 
 def shared_stops(u,row,passengers):

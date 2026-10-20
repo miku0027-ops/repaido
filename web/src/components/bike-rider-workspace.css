@@ -211,3 +211,24 @@
 [data-theme=dark] .bike-rider-setup>header>svg{color:#f1ce89}
 [data-theme=dark] .bike-rider-setup-icon{background:#253c55;color:#c5d3e6}
 [data-theme=dark] .bike-rider-workspace .bike-rider-setup-step>button{background:#29476b;border-color:#486486;color:#e0edff}
+/* Warm, filled shift surfaces with green incoming requests. */
+.bike-rider-workspace{--br-accent:#246344;--br-accent-strong:#174830;background:#f2eee4;border-radius:18px;padding:12px}
+.bike-rider-workspace .bike-rider-control{background:#263c32;color:#fff;border-radius:16px;padding:14px}
+.bike-rider-workspace .bike-rider-control h3,.bike-rider-workspace .bike-rider-control .bike-rider-presence{color:#fff}
+.bike-rider-workspace .bike-rider-shift-panel{background:#e0e9d9;border-radius:14px}
+.bike-rider-trip.is-request{background:#d8f2df;border:2px solid #26894b;color:#143d24;box-shadow:0 8px 28px #164e2825}
+.bike-rider-trip.is-request .bike-rider-primary{background:#176f38;color:#fff;border-color:#176f38}
+.bike-rider-trip.is-request .bike-rider-decline{background:#fff1ed;color:#8b2f21;border:1px solid #ad6558;min-height:48px;border-radius:12px;padding:10px 16px;font-weight:700}
+.bike-rider-trip.is-request .bike-rider-trip-actions{display:flex;flex-wrap:wrap;gap:10px}
+.bike-rider-trip.is-request .bike-rider-trip-actions>button{flex:1;min-width:100px}
+.bike-rider-trip.is-at-stop{background:#e8f2db}.bike-rider-workspace .bike-rider-empty{background:#e7dfd0;border-radius:18px}
+[data-theme=dark] .bike-rider-workspace{background:#1d2c24}[data-theme=dark] .bike-rider-workspace .bike-rider-shift-panel{background:#283c2d}[data-theme=dark] .bike-rider-workspace .bike-rider-empty{background:#30372b}[data-theme=dark] .bike-rider-trip.is-request{background:#163c27;color:#e8ffed}
+.bike-rider-workspace .bike-rider-trip{background:#fff0d6;border-color:#cdbd98}
+.bike-rider-workspace .bike-rider-trip-fare{background:#f4e2bc;border-color:#cdbd98}
+.bike-rider-workspace .bike-rider-navigation{background:#ece3f5;color:#513575;border-color:#baa8d0}
+.bike-rider-workspace button.bike-rider-primary{background:#246344;border-color:#246344;box-shadow:0 2px 0 #153f2a}
+.bike-rider-workspace .bike-rider-trip.is-request{background:#d8f2df;border-color:#26894b}
+.bike-rider-workspace .bike-rider-trip.is-at-stop{background:#e8f2db}
+[data-theme=dark] .bike-rider-workspace .bike-rider-trip{background:#30372b;border-color:#627056}
+[data-theme=dark] .bike-rider-workspace .bike-rider-trip-fare{background:#283322;border-color:#627056}
+[data-theme=dark] .bike-rider-workspace .bike-rider-trip.is-request{background:#163c27;border-color:#47a566}

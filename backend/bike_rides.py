@@ -98,7 +98,7 @@ class Availability(Input):
 class Command(Input):
     command_id: str = Field(min_length=16, max_length=100)
     expected_version: int = Field(ge=1)
-    action: Literal['accept', 'decline', 'depart', 'arrive', 'start', 'complete', 'confirm', 'cancel', 'cash_reported', 'cash_received', 'dispute']
+    action: Literal['accept', 'decline', 'depart', 'arrive', 'start', 'complete', 'confirm', 'cancel', 'cash_reported', 'cash_received', 'dispute', 'request_stop']
     otp: str = Field(default='', max_length=6, pattern=r'^[0-9]{0,6}$')
     position: Position | None = None
     note: str = Field(default='', max_length=1000)
@@ -432,7 +432,7 @@ def _save(u, row, action, actor):
         key = digest('bike:'+row['id']+':'+str(row['version'])+':'+uid)
         u.put('notifications', key, dict(id=key, user_id=uid, kind='local_business', destination='mobility', business_id=row['id'],
               bike_ride_id=row['id'], title={'offered': 'New bike request', 'next_slot_ready': 'Your next bike ride is ready',
-              'arrive': 'Your rider has arrived', 'complete': 'Bike ride complete', 'start': 'Bike ride started'}.get(action, 'Bike ride updated'),
+              'request_stop': 'Passenger requested an early drop-off', 'arrive': 'Your rider has arrived', 'complete': 'Bike ride complete', 'start': 'Bike ride started'}.get(action, 'Bike ride updated'),
               body='Open your bike ride for the latest details.', created_at=time.time(), read=False))
 
 
@@ -449,6 +449,7 @@ def allowed_actions(row, uid):
         if state == 'in_progress': actions += ['complete']
         if state == 'payment_reported': actions += ['cash_received']
     if customer:
+        if state == 'in_progress' and not row.get('early_dropoff'): actions += ['request_stop']
         if state == 'completion_pending': actions += ['confirm']
         if state == 'payment_due': actions += ['cash_reported']
     if state in ('dispatch_pending', 'offered', 'queued', 'accepted', 'on_the_way', 'arrived'): actions += ['cancel']
@@ -480,9 +481,15 @@ def view(row, uid, now=None, *, u=None):
     result['allowed_actions'] = allowed_actions(row, uid)
     result['server_time'] = now
     live = row.get('position') if row['state'] in TRAVELLING else None
+    if u and row['state'] == 'accepted' and row.get('accepted_by_driver') and not row.get('queued'):
+        presence = u.get('bike_rider_presence', row['vehicle_id'])
+        if _presence_live(presence, now) and presence['driver_id'] == row['driver_id']:
+            live = presence['position']
     result['position'] = live if live and 0 <= now-live.get('received_at', 0) <= 75 else None
     result['stop_status'] = {'pickup': stop_proximity(result['position'], row['pickup'], now),
-                             'destination': stop_proximity(result['position'], row['dropoff'], now)}
+                             'destination': stop_proximity(result['position'], row['dropoff'], now, radius=150)}
+    if uid == row['driver_id'] and 'complete' in result['allowed_actions'] and not row.get('early_dropoff') and result['stop_status']['destination']['status'] != 'inside':
+        result['allowed_actions'].remove('complete')
     result['blockers'] = ['otp_locked_contact_support'] if row.get('otp_attempts', 0) >= 5 else []
     return result
 
@@ -615,6 +622,36 @@ def admin_history(u, limit=30, after=None):
 def install(core):
     store = core.operations_store
     r = APIRouter(prefix='/operations/bike-rides', tags=['Bike rides'])
+
+    @r.get('/map-config')
+    def map_config(response: Response):
+        response.headers.update(HEADERS)
+        # This key is deliberately public and must be restricted to our website
+        # referrers and Maps JavaScript API. Never fall back to the Routes key.
+        config = store.run(lambda u: u.get('public_maps_config', 'google')) or {}
+        key = os.getenv('GOOGLE_MAPS_BROWSER_KEY', '').strip() or config.get('browser_key', '')
+        return {'provider': 'google', 'browser_key': key or None, 'configured': bool(key)}
+
+    @r.get('/nearby')
+    def nearby(response: Response, lat: float=Query(ge=-90, le=90), lng: float=Query(ge=-180, le=180), user=Depends(core.current_user)):
+        from bike_dispatch import candidate_ids
+        response.headers.update(HEADERS)
+        def read(u):
+            p = policy(u); now = time.time(); pickup = {'lat': lat, 'lng': lng}
+            if not public_policy(p, u)['bookings_available'] or metres(pickup, p['service_center']) > p['service_area_radius_metres']:
+                return {'riders': [], 'server_time': now}
+            riders = []
+            for identifier in candidate_ids(u, pickup, p['pickup_radius_metres'], now, policy_version=p['version']):
+                candidate = _candidate(u, identifier, pickup, p, now, 0)
+                if not candidate or candidate['queued']: continue
+                presence = u.get('bike_rider_presence', identifier)
+                pos = presence['position']
+                # Discovery never discloses exact tracks, account/vehicle IDs,
+                # contacts or the location of a passenger on an occupied bike.
+                riders.append({'lat': round(pos['lat'], 3), 'lng': round(pos['lng'], 3), 'received_at': pos['received_at']})
+                if len(riders) == 20: break
+            return {'riders': riders, 'server_time': now}
+        return store.run(read)
 
     @r.get('/policy')
     def get_policy(response: Response):
@@ -858,7 +895,7 @@ def install(core):
         row['position'] = pos
         # Arrival is a cue; only an explicit command changes lifecycle state.
         from mobility_journeys import stop_proximity
-        if row['state'] == 'in_progress' and stop_proximity(pos, row['dropoff'])['status'] == 'inside' and not row.get('destination_alerted_at'):
+        if row['state'] == 'in_progress' and stop_proximity(pos, row['dropoff'], radius=150)['status'] == 'inside' and not row.get('destination_alerted_at'):
             row['destination_alerted_at'] = time.time(); _save(u, row, 'destination_nearby', row['driver_id'])
         else: u.put('bike_rides', row['id'], row)
         presence = u.get('bike_rider_presence', row['vehicle_id'])
@@ -910,12 +947,17 @@ def install(core):
                 slot = _slot(u, row['driver_id'])
                 if slot.get('current_id') != row['id']: fail('CURRENT_RIDE_ACTIVE', 'Finish your current ride before the next pickup.', 409)
                 update_position(u, row, body.position, throttle=False); row['state'] = 'on_the_way'; row['departed_at'] = now
+            elif action == 'request_stop':
+                row['early_dropoff'] = dict(requested_by=user['id'], requested_at=now)
             elif action in ('arrive', 'start', 'complete'):
                 from mobility_journeys import stop_proximity
                 update_position(u, row, body.position, throttle=False)
                 pin = row['dropoff'] if action == 'complete' else row['pickup']
                 now = time.time()  # Measure after the server has received this GPS reading.
-                if stop_proximity(row['position'], pin, now)['status'] != 'inside': fail('GEOFENCE_REQUIRED', 'Send fresh GPS within 300 metres of the agreed stop.', 409)
+                radius = 150 if action == 'complete' else 300
+                early_stop = action == 'complete' and row.get('early_dropoff', {}).get('requested_by') == row['customer_id']
+                if not early_stop and stop_proximity(row['position'], pin, now, radius=radius)['status'] != 'inside':
+                    fail('GEOFENCE_REQUIRED', f'Send fresh GPS within {radius} metres of the agreed stop.', 409)
                 if action == 'arrive': row['state'] = 'arrived'; row['arrived_at'] = now
                 elif action == 'start':
                     if not secrets.compare_digest(body.otp, row['otp_value']):
@@ -938,6 +980,7 @@ def install(core):
                     row['ends_at'] = now+row['route_duration_seconds']+300
                 else:
                     row['state'] = 'completion_pending'; row['completed_work_at'] = now
+                    row['actual_dropoff'] = copy.deepcopy(row['position'])
                     # Physical capacity is released at dropoff; money remains a separate obligation.
                     _release_slot(u, row)
             elif action == 'confirm':
