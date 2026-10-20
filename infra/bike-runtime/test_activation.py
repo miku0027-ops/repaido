@@ -432,6 +432,76 @@ def test_nested_state_bucket_rest_metadata_is_supported(activation):
         'versioning': {'enabled': True}, 'projectNumber': activation.PROJECT_NUMBER})
 
 
+def canonical_bucket(name='repaido-state-fixture', **changes):
+    return {'name': name, 'projectNumber': '133610574058',
+            'iamConfiguration': {'uniformBucketLevelAccess': {'enabled': True}, 'publicAccessPrevention': 'enforced'},
+            'versioning': {'enabled': True}, **changes}
+
+
+def test_canonical_bucket_ownership_is_read_independently_of_transformed_cli_output(activation):
+    calls=[]
+    class Provider:
+        def api_read(self,url): calls.append(url); return canonical_bucket()
+        def cloud(self,*args,**kwargs): pytest.fail('CLI projection cannot establish bucket ownership')
+    value=activation.verified_bucket(Provider(),'repaido-state-fixture')
+    assert value['projectNumber']=='133610574058'
+    assert calls==['https://storage.googleapis.com/storage/v1/b/repaido-state-fixture?fields=name,projectNumber,iamConfiguration,versioning']
+
+
+@pytest.mark.parametrize('changes', [{'projectNumber':None}, {'projectNumber':'another-project'},
+    {'name':'repaido-different-bucket'}, {'versioning':{'enabled':False}},
+    {'iamConfiguration':{'uniformBucketLevelAccess':{'enabled':True},'publicAccessPrevention':'inherited'}}])
+def test_canonical_metadata_never_weakens_project_or_state_protection_guards(activation,changes):
+    class Provider:
+        def api_read(self,url): return canonical_bucket(**changes)
+    with pytest.raises(activation.SetupError):activation.verified_bucket(Provider(),'repaido-state-fixture')
+
+
+def test_bootstrap_resumes_existing_numeric_key_and_bucket_without_recreation(activation,service,revision,monkeypatch,tmp_path,capsys):
+    serving=activation.select_serving(service,revision)
+    monkeypatch.setattr(activation,'baseline',lambda runner:(serving,revision))
+    monkeypatch.setattr(activation,'inventory',lambda runner:{'baseline':serving})
+    bucket='repaido-state-fixture'; calls=[]
+    class Provider:
+        def cloud(self,*args,**kwargs):
+            calls.append(args)
+            assert not any(word in args for word in ('create','add','update'))
+            if args[:2]==('services','enable'):return {}
+            if args==('secrets','describe',activation.QUOTA):return {'name':activation.QUOTA}
+            if args==('secrets','versions','describe',SECRET):return {'state':'ENABLED'}
+            if args==('storage','buckets','describe','gs://'+bucket):
+                return {'name':bucket,'uniform_bucket_level_access':True,'versioning_enabled':True,'public_access_prevention':'enforced'}
+            pytest.fail('Unexpected bootstrap mutation/read: '+repr(args))
+        def api_read(self,url):return canonical_bucket(bucket)
+    record=tmp_path/'bootstrap-progress.json'
+    activation.bootstrap(Provider(),SimpleNamespace(state_bucket=bucket,quota_secret_version=SECRET,record_file=str(record)))
+    output=json.loads(capsys.readouterr().out)
+    assert output['quota_secret_version']==SECRET and output['state_bucket']==bucket
+    assert json.loads(record.read_text())['phase']=='prerequisites_verified'
+    assert json.loads(record.read_text())['quota_secret_version']==SECRET
+
+
+def test_failed_bucket_verification_preserves_numeric_key_progress_for_recovery(activation,service,revision,monkeypatch,tmp_path):
+    serving=activation.select_serving(service,revision)
+    monkeypatch.setattr(activation,'baseline',lambda runner:(serving,revision))
+    monkeypatch.setattr(activation,'inventory',lambda runner:{'baseline':serving})
+    class Provider:
+        def cloud(self,*args,**kwargs):
+            if args[:2]==('services','enable'):return {}
+            if args==('secrets','describe',activation.QUOTA):return None
+            if args[:2]==('secrets','create'):return {}
+            if args[:3]==('secrets','versions','add'):return {'name':SECRET}
+            if args[:3]==('storage','buckets','describe'):return {'name':'repaido-state-fixture'}
+            pytest.fail(repr(args))
+        def api_read(self,url):return canonical_bucket(projectNumber='different-project')
+    record=tmp_path/'bootstrap-progress.json'
+    with pytest.raises(activation.SetupError):
+        activation.bootstrap(Provider(),SimpleNamespace(state_bucket='repaido-state-fixture',quota_secret_version=None,record_file=str(record)))
+    value=json.loads(record.read_text())
+    assert value['phase']=='quota_secret_ready' and value['quota_secret_version']==SECRET
+    assert 'data-file' not in record.read_text()
+
+
 def pool_instance(zone, *, health='HEALTHY', action='NONE', status='RUNNING'):
     return {'instance': f'https://www.googleapis.com/compute/v1/projects/repaido/zones/{zone}/instances/fixture',
             'instanceStatus': status, 'currentAction': action,
@@ -756,6 +826,7 @@ def test_metadata_rest_read_preserves_provider_json_without_printing_oauth(activ
 @pytest.mark.parametrize('url', [
     'https://compute.googleapis.com/compute/v1/projects/repaido/regions/us-central1/autoscalers/bike-fixture',
     'https://monitoring.googleapis.com/v3/projects/repaido/alertPolicies?pageSize=1000',
+    'https://storage.googleapis.com/storage/v1/b/repaido-state-fixture?fields=name,projectNumber,iamConfiguration,versioning',
 ])
 def test_metadata_rest_sets_resource_quota_project_while_preserving_existing_oauth(
         activation, monkeypatch, url, capsys):
@@ -781,6 +852,10 @@ def test_metadata_rest_sets_resource_quota_project_while_preserving_existing_oau
     'https://compute.googleapis.com.evil.example/compute/v1/projects/repaido/regions/us-central1/autoscalers/fixture',
     'https://compute.googleapis.com/compute/v1/projects/another-project/regions/us-central1/autoscalers/fixture',
     'https://untrusted.example/metadata',
+    'https://storage.googleapis.com.evil.example/storage/v1/b/repaido-state-fixture?fields=name,projectNumber,iamConfiguration,versioning',
+    'https://storage.googleapis.com/storage/v1/b/unrelated-bucket?fields=name,projectNumber,iamConfiguration,versioning',
+    'https://storage.googleapis.com/storage/v1/b/repaido-state-fixture/iam',
+    'https://storage.googleapis.com/storage/v1/b/repaido-state-fixture?fields=name,projectNumber,iamConfiguration,versioning&other=true',
 ])
 def test_metadata_rest_never_sends_oauth_to_an_unapproved_host_or_project(activation, monkeypatch, url):
     monkeypatch.setattr(activation.Runner, 'run', lambda *args, **kwargs: pytest.fail('No OAuth read allowed'))

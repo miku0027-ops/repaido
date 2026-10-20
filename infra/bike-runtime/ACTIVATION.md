@@ -72,6 +72,25 @@ be created; retain the printed records if a later phase stops. Inspect any error
 before retrying, particularly an existing unbound secret or an uncertain default
 commit. Never remove a secret to get past a setup check.
 
+Bucket ownership is checked against `projectNumber` from the canonical Storage
+JSON API, because Cloud Shell's transformed bucket display can omit that field.
+A bucket name or the selected CLI project does not prove ownership. The
+bootstrap's optional `--record-file` preserves metadata and the numeric key
+reference before later checks, including partial setup failures.
+
+After inspecting an interrupted preparation and its numeric secret-version
+metadata, reuse its verified Terraform and run directory with:
+
+```bash
+bash scripts/resume-bike-runtime-plan.sh EXISTING_RUN_DIRECTORY \
+  VERIFIED_SERVING_BUILD_ID REVIEWED_NUMERIC_SECRET_VERSION
+```
+
+This continuation preserves saved launch defaults and refuses to overwrite an
+existing release/plan directory. It repeats prerequisite verification with the
+reviewed existing key, then prepares a fresh plan; it never creates a replacement
+key simply because an earlier bootstrap did not finish printing its receipt.
+
 From the release repository root, use official Terraform 1.7+ compatible with
 the committed provider lock. Confirm the selected account belongs to this
 release operator. Do not paste OAuth output or secret bytes into chat.

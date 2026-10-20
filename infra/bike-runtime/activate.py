@@ -108,8 +108,9 @@ class Runner:
 
     def api_read(self, url, *, optional=False):
         # Cloud Shell's existing OAuth identity only; token stays in memory.
-        if not url.startswith(('https://compute.googleapis.com/compute/v1/projects/repaido/',
-                               'https://monitoring.googleapis.com/v3/projects/repaido/')):
+        storage_metadata = re.fullmatch(r'https://storage\.googleapis\.com/storage/v1/b/repaido-[a-z0-9-]{3,50}\?fields=name,projectNumber,iamConfiguration,versioning', url)
+        if not storage_metadata and not url.startswith(('https://compute.googleapis.com/compute/v1/projects/repaido/',
+                                                       'https://monitoring.googleapis.com/v3/projects/repaido/')):
             raise SetupError('Unexpected Google Cloud metadata API URL')
         token = self.run(['gcloud', 'auth', 'print-access-token'], raw=True).strip()
         request = urllib.request.Request(url, headers={'Authorization': 'Bearer '+token,
@@ -305,6 +306,11 @@ def bootstrap(runner, args):
     selected = validate_secret(args.quota_secret_version) if args.quota_secret_version else None
     if version and selected and selected != version:
         raise SetupError('Refusing to change the existing API quota key during prerequisite setup')
+    def record(phase):
+        if getattr(args, 'record_file', None):
+            write_json(args.record_file, {'project': PROJECT, 'state_bucket': bucket,
+                'quota_secret_version': version, 'phase': phase, 'baseline': serving})
+    record('bootstrap_started')
     runner.cloud('services', 'enable', 'compute.googleapis.com', 'pubsub.googleapis.com',
                  'secretmanager.googleapis.com', 'artifactregistry.googleapis.com', 'monitoring.googleapis.com',
                  'logging.googleapis.com', 'iam.googleapis.com')
@@ -325,12 +331,14 @@ def bootstrap(runner, args):
         result = runner.cloud('secrets', 'versions', 'add', QUOTA, '--data-file=-',
                               data=secrets.token_urlsafe(48).encode())
         version = validate_secret(result['name'])
+    record('quota_secret_ready')
     existing_bucket = runner.cloud('storage', 'buckets', 'describe', 'gs://'+bucket, optional=True)
     if existing_bucket is None:
         runner.cloud('storage', 'buckets', 'create', 'gs://'+bucket, '--location='+REGION,
                      '--uniform-bucket-level-access', '--public-access-prevention')
         runner.cloud('storage', 'buckets', 'update', 'gs://'+bucket, '--versioning')
-    validate_bucket(runner.cloud('storage', 'buckets', 'describe', 'gs://'+bucket))
+    verified_bucket(runner, bucket)
+    record('prerequisites_verified')
     print(json.dumps({'quota_secret_version': version, 'state_bucket': bucket,
                       'next': 'prepare with this numeric version; no API traffic or worker pool changed'}, indent=2))
 
@@ -345,6 +353,20 @@ def validate_bucket(value):
     number = value.get('projectNumber') or value.get('project_number')
     if str(number) != PROJECT_NUMBER:
         raise SetupError('State bucket ownership is not verified as the repaido project')
+
+
+def verified_bucket(runner, bucket):
+    # gcloud's transformed bucket DTO can omit projectNumber. Read the canonical
+    # JSON API field before establishing ownership; never infer it from a name,
+    # the current gcloud project, or the ability to read the bucket.
+    if not re.fullmatch(r'repaido-[a-z0-9-]{3,50}', bucket or ''):
+        raise SetupError('Use an explicit project-owned repaido-* Terraform state bucket name')
+    value = runner.api_read('https://storage.googleapis.com/storage/v1/b/'+bucket+
+                           '?fields=name,projectNumber,iamConfiguration,versioning')
+    if not isinstance(value, dict) or value.get('name') != bucket:
+        raise SetupError('State bucket identity could not be verified from canonical metadata')
+    validate_bucket(value)
+    return value
 
 
 def source_hash(directory=ROOT):
@@ -394,7 +416,7 @@ def prepare(runner, args):
     bucket = args.state_bucket
     if not re.fullmatch(r'repaido-[a-z0-9-]{3,50}', bucket or ''):
         raise SetupError('Choose an explicit repaido-* protected state bucket')
-    validate_bucket(runner.cloud('storage', 'buckets', 'describe', 'gs://'+bucket))
+    verified_bucket(runner, bucket)
     if not 2 <= args.maximum_workers <= 16:
         raise SetupError('This launch helper caps steady worker count at 2-16; pilot default is2')
     current_workers = (value['existing'].get('group') or {}).get('targetSize', 0)
@@ -722,6 +744,7 @@ def main():
     bootstrap_parser = commands.add_parser('bootstrap')
     bootstrap_parser.add_argument('--state-bucket', required=True)
     bootstrap_parser.add_argument('--quota-secret-version')
+    bootstrap_parser.add_argument('--record-file', help='Private metadata-only progress receipt for interrupted setup.')
     prepare_parser = commands.add_parser('prepare')
     prepare_parser.add_argument('--state-bucket', required=True)
     prepare_parser.add_argument('--quota-secret-version')

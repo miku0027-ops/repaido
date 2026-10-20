@@ -57,6 +57,7 @@ python3 scripts/configure-bike-launch-defaults.py --apply | tee "$REPAIDO_BIKE_R
 
 python3 infra/bike-runtime/activate.py bootstrap \
   --state-bucket repaido-bike-runtime-tfstate-133610574058 \
+  --record-file "$REPAIDO_BIKE_RECORDS/bootstrap-progress.json" \
   | tee "$REPAIDO_BIKE_RECORDS/bootstrap.json"
 REPAIDO_BIKE_QUOTA_VERSION=$(python3 - "$REPAIDO_BIKE_RECORDS/bootstrap.json" <<'PY'
 import json, re, sys
