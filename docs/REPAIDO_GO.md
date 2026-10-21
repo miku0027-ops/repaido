@@ -25,10 +25,38 @@ they never expose a driver's private journey coordinates or invent supply.
 
 ## Motion
 
-MotionPage animates customer and business destination changes for 260 ms without
-remounting their contents. The random logo overlays have been removed. Shared
-dialogs enter in 280 ms, sheets settle in 360 ms, and ordinary state changes use
-140 ms. No transition delays a command, steals focus or gates network work.
+Go uses solid violet, lime, coral and teal surfaces. Colour distinguishes
+navigation, primary actions, fares and rider readiness, alongside explicit text
+and icons. Driver duty, incoming offers, vehicle assignments and actual finance
+records use the same system. Other business roles retain their own styling.
+
+The supplied references contribute different interaction patterns:
+
+| Reference pattern | Repaido Go behaviour |
+| --- | --- |
+| Map-led Jugnoo / Ola discovery | Bike and Cab choices above Google Maps, with pickup and route controls in a rounded sheet |
+| Ola searching waves | Three moving rings and the appropriate bike/car icon while the server is searching; cancellation stays available |
+| Rapido duty and earnings | Compact duty control, prominent map, real company-cash/salary details, and green incoming offers |
+| GoCab trip cards | A shared full-screen ride, rider details, route, fare and completion actions |
+| Supplied motion video | Finger-following ride sheets, slide-to-search, and animated transitions between booking steps |
+
+These are adapted interaction patterns, not pixel-identical copies. Repaido
+retains its own identity and actual service capabilities: scheduled cab slots,
+office-cash salary records and server-reported availability. It does not display
+sample balances, invented arrival times or pretend to provide turn-by-turn
+navigation.
+
+MotionPage animates Go modes, booking steps and driver sections for 520 ms,
+without remounting maps or animating periodic reads. Other destinations use
+260 ms. Go dialogs and sheets enter in roughly 600 ms; ordinary control feedback
+uses 140–240 ms. No transition delays a command or gates network work.
+
+The ride-sheet handle follows vertical pointer movement before release, snaps
+after a deliberate drag, and supports click and arrow keys. Small or cancelled
+drags reset without changing the sheet state. Search and final request controls
+require a completed horizontal swipe, or native Enter/Space activation. A tap,
+partial swipe or cancelled touch never submits. Native form validation, consent
+and busy/idempotency protections remain in force.
 
 Vehicle markers interpolate only between confirmed readings over 450 ms. A new
 reading interrupts from the displayed point; stale or removed GPS clears the
@@ -49,6 +77,7 @@ node tests/ride-workspace.browser.mjs
 node tests/modal-interactions.browser.mjs
 node tests/customer-shell.browser.mjs
 node tests/worker-compact-layout.browser.mjs
+node tests/go-driver-design.browser.mjs
 npm test
 npm run build
 ```
@@ -60,3 +89,11 @@ stops, mode drafts, requests and cancellation, history, Back/reload/deep links,
 responsive layout and WCAG A/AA checks. This does not constitute a production
 GPS or payment test. Releasing these changes requires a requested website
 release under AGENTS.md; no backend deployment is needed for this batch.
+
+Go also exercises real browser touch cancellation and completed swipes, keyboard
+form validation and single-request submission. Ride-workspace checks measure
+sheet movement before pointer release, map-instance preservation, and actual
+search-ring animations with reduced motion enabled and disabled. Driver checks
+cover idle and incoming-offer states at 320/466 px, 100/200% text, light and dark
+themes. Set `REPAIDO_QA_VIDEO=1` on the Go test to record a local browser preview
+(requires Playwright's ffmpeg executable).

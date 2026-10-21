@@ -9,6 +9,8 @@ import {JourneyMap} from './JourneyTracking';
 import {BikeIndependentEarnings} from './BikeIndependentEarnings';
 import {pollDelay} from '../services/resilientReads.mjs';
 import './bike-rider-workspace.css';
+import './driver-go.css';
+import {MotionPage} from './MotionPage';
 
 export interface BikeRiderPosition {lat:number;lng:number;accuracy:number;captured_at:number;received_at?:number}
 export interface BikeRiderVehicle {id:string;name:string;status:string;active:boolean;vehicle_kind:string;valid_until?:number}
@@ -111,7 +113,7 @@ export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehic
   {earningPanel}
   {cashPanel}
  </div>;
- return <>{focusRide&&!showRide&&<ResumeRide kind="bike" status={labels[focusRide.state]||'Ride update'} onOpen={()=>setMinimized('')}/>}<section hidden={background} className="bike-rider-workspace" aria-label="Bike rider workspace" aria-busy={busy}>
+ return <>{focusRide&&!showRide&&<ResumeRide kind="bike" status={labels[focusRide.state]||'Ride update'} onOpen={()=>setMinimized('')}/>}<section hidden={background} data-duty={setupNeeded?'setup':online?'online':'offline'} className="bike-rider-workspace" aria-label="Bike rider workspace" aria-busy={busy}>
   <header className="bike-rider-control"><div className="bike-rider-title"><span className="bike-rider-emblem"><TwoWheeler size={23} aria-hidden="true"/></span><div><h3>Bike rides</h3><span className={`bike-rider-presence${online?' is-online':''}`}><i aria-hidden="true"/>{sections.current.some((ride:BikeRiderRide)=>ride.state==='in_progress')?'On your trip':setupNeeded?'Setup needed':!serviceReady?'Requests paused':online?'Ready for requests':'Offline'}</span></div></div><div className="bike-rider-control-actions"><button type="button" className={`bike-rider-online-toggle${online?' is-online':''}`} role="switch" aria-label="Available for bike rides" aria-checked={online} disabled={busy||(!presenceOnline&&(!approved.length||!canWork||!serviceReady))} onClick={()=>onOnline(!presenceOnline)}><span aria-hidden="true"/>{presenceOnline?'Go offline':'Go online'}</button><button type="button" className="bike-rider-icon-button" aria-label="Refresh bike rides" disabled={busy} onClick={onRefresh}><RefreshCw size={20} aria-hidden="true"/></button></div></header>
   <button type="button" className="bike-rider-earnings-strip" onClick={()=>setFinanceOpen(true)}><Wallet size={19} aria-hidden="true"/><span>{payroll?.company_cash?'Company cash held':'Earnings & company cash'}</span>{payroll?.company_cash&&<strong>{money(payroll.company_cash.outstanding_held_paise)}</strong>}<ChevronDown size={18} aria-hidden="true"/></button>
   {!background&&!focusRide&&approved.length>0&&<div className="bike-rider-duty-map"><JourneyMap position={presenceOnline?data.availability?.position:null} mapLabel="Rider duty map" positionLabel="Your latest duty location"/><span className="bike-rider-map-state">{!serviceReady?'Requests paused':online?'On duty · waiting for requests':'Off duty · plan your next trip'}</span></div>}
@@ -129,6 +131,7 @@ export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehic
   {locationError&&<p className="bike-rider-info" role="status">{locationError}</p>}
   {error&&<div className="bike-rider-error" role="alert"><span>{error}</span><button type="button" disabled={busy} onClick={onRefresh}>Retry</button></div>}
   <div className="bike-rider-section-tools"><div className="bike-rider-view-tabs" role="group" aria-label="Bike ride records"><button type="button" aria-pressed={!history} onClick={()=>setHistory(false)}>Active <span>{sections.current.length+sections.next.length+sections.offers.length}</span></button><button type="button" aria-pressed={history} onClick={()=>setHistory(true)}>History <span>{sections.history.length}</span></button></div><button type="button" className="bike-rider-money-button" onClick={()=>setFinanceOpen(true)}><Wallet size={18} aria-hidden="true"/>Money</button></div>
+  <MotionPage step={history?'history':'active'} variant="ride" className="driver-records-motion">
   {history?<div className="bike-rider-history">{sections.history.length?sections.history.map((ride:BikeRiderRide)=><details key={ride.id}><summary><span>{ride.dropoff_address||'Bike ride'}<small>{labels[ride.state]||ride.state} · #{shortId(ride.id)}</small></span><strong>{ride.pricing?.customer_total_paise==null?'—':money(ride.pricing.customer_total_paise)}</strong></summary><BikeRideCard ride={ride} now={now} busy={busy} onAction={onAction}/></details>):<p className="bike-rider-empty">Completed ride records will appear here.</p>}{historyError&&<p className="bike-rider-error" role="status">{historyError}</p>}{historyMore&&onMoreHistory&&<button type="button" className="bike-rider-load-history" disabled={historyLoading} onClick={onMoreHistory}>{historyLoading?'Loading earlier rides…':'Earlier rides'}</button>}</div>:<>
    {sections.current.length>0&&<section className="bike-rider-section" aria-label="Current bike ride"><h4>Current ride</h4>{sections.current.map((ride:BikeRiderRide)=><BikeRideCard key={ride.id} ride={ride} now={now} busy={busy} onAction={onAction}/>)}</section>}
    {sections.next.length>0&&<section className="bike-rider-section" aria-label="Next reserved bike ride"><h4>Reserved next</h4>{sections.next.map((ride:BikeRiderRide)=><BikeRideCard key={ride.id} ride={ride} now={now} busy={busy} onAction={onAction}/>)}</section>}
@@ -136,7 +139,7 @@ export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehic
    {setup}
    {!setupNeeded&&!sections.current.length&&!sections.next.length&&!sections.offers.length&&<div className="bike-rider-empty"><span className="bike-rider-empty-icon"><TwoWheeler size={30} aria-hidden="true"/></span><h4>{!serviceReady?'Requests are paused':online?'Ready for your next request':'Your next ride starts here'}</h4><p>{!serviceReady?'You can still review your rides and earning records.':online?'Keep this screen open for new ride requests.':'Choose your bike and enable precise GPS to go online.'}</p></div>}
   </>}
-
+  </MotionPage>
  </section>
   {focusRide&&<RideWorkspace open={showRide} key={focusRide.id} kind="bike" title={offer?'New bike request':'Your bike ride'} status={labels[focusRide.state]||'Ride update'} locked={!!offer} onMinimize={()=>{if(!busy)setMinimized(focusRide.id);}}><div className="bike-rider-workspace">{(error||locationError)&&<div className="bike-rider-error" role="alert"><span>{error||locationError}</span><button type="button" disabled={busy} onClick={onRefresh}>Retry</button></div>}<BikeRideCard ride={focusRide} now={now} busy={busy} onAction={onAction} fullscreen/></div></RideWorkspace>}
   {financeOpen&&<Modal className="ride-finance-dialog" title={payroll?.rostered?"Salary & company cash":"Ride earnings & company cash"} onClose={()=>setFinanceOpen(false)}>{finances}</Modal>}
