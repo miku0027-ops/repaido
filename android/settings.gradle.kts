@@ -5,3 +5,4 @@ include(":app")
 
 include(":preview")
 include(":agent")
+include(":go")

@@ -50,6 +50,11 @@ try{
  await page.locator('.repaido-go-entry').waitFor();assert.equal(await page.locator('.home-discovery-hub .mobility-experience').count(),0);assert.equal(await page.locator('.android-explore-screen .mobility-mode-switch').count(),0);assert.equal(await page.evaluate(()=>window.__mapsCreated),0);
  assert.equal(requests.filter(row=>/bike-rides\/(?:policy|nearby|map-config)/.test(row.path)).length,0,'Home does not mount transport discovery');
  checks.push('Home has one compact Go entry, no booking map or five-mode ride panel, and no ride-discovery network work.');
+ const bottom=page.getByRole('navigation',{name:'Bottom Navigation',exact:true});
+ assert.deepEqual(await bottom.locator('button').allTextContents(),['Explore','Services','Go','Bookings','Market']);
+ await bottom.getByRole('button',{name:'Services',exact:true}).click();assert.equal(await bottom.getByRole('button',{name:'Services',exact:true}).getAttribute('aria-current'),'page');
+ await bottom.getByRole('button',{name:'Explore',exact:true}).click();
+ checks.push('Services and Go are separate visible destinations in the five-item mobile navigation.');
  await page.locator('.repaido-go-entry').click();const go=page.getByRole('region',{name:'Repaido Go',exact:true});await go.waitFor();await go.getByText('Routes up to 4 km',{exact:false}).waitFor();assert.equal(new URL(page.url()).pathname,'/go');assert.equal(await page.locator('.repaido-home-header').count(),0);assert.equal(await page.locator('.repaido-customer-footer').count(),0);
  const modes=go.getByRole('group',{name:'Transport service type'});assert.equal(await modes.getByRole('button').count(),3);
  await go.locator('.bike-location-dropoff').click();const dropoff={lat:pin.lat+.008,lng:pin.lng};await choosePin(page,'Bike drop-off','Local hospital drop-off entrance',dropoff);
@@ -100,5 +105,7 @@ try{
  await page.goto(origin+'/go?ride=bike');await go.waitFor();assert.equal(await modes.getByRole('button',{name:/^Bike/}).getAttribute('aria-pressed'),'true');
  checks.push('Direct Go links and legacy Market ride links open the intended ride type.');
  await go.getByRole('button',{name:'Back to Repaido home',exact:true}).click();await page.locator('.repaido-go-entry').waitFor();await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:work+'/home-go-entry-466.png',fullPage:true});await page.locator('.repaido-go-entry').screenshot({path:work+'/home-go-entry-card.png'});
+ const historyCab=(await call('/local-business/rides')).rides[0];await page.goto(origin+'/go?ride=cab&view=rides&ride-booking='+historyCab.id);await page.locator('#ride-booking-'+historyCab.id).waitFor({state:'visible'});assert.equal(await page.getByRole('dialog',{name:'Your cab ride',exact:true}).count(),0);
+ checks.push('A terminal cab notification opens its actual account-owned history record, rather than an empty live ride screen.');
  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks,work}));
 }catch(error){await page?.screenshot({path:work+'/failure.png',fullPage:true}).catch(()=>{});console.error(error);console.error(log.slice(-2500));process.exitCode=1;}finally{await browser?.close();server.kill('SIGTERM');await writeFile(work+'/report.json',JSON.stringify({checks,errors,requests,server_log:log},null,2));console.log('Evidence: '+work);}

@@ -11,6 +11,7 @@ import {pollDelay} from '../services/resilientReads.mjs';
 import './bike-rider-workspace.css';
 import './driver-go.css';
 import {MotionPage} from './MotionPage';
+import {RideNotificationControl} from './RideNotificationControl';
 
 export interface BikeRiderPosition {lat:number;lng:number;accuracy:number;captured_at:number;received_at?:number}
 export interface BikeRiderVehicle {id:string;name:string;status:string;active:boolean;vehicle_kind:string;valid_until?:number}
@@ -93,7 +94,7 @@ function BikeRideCard({ride,now,busy,onAction,fullscreen=false}:{ride:BikeRiderR
 
 export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehicles,payroll,payrollError='',historyMore=false,historyLoading=false,historyError='',onMoreHistory,cashPanel,earningPanel,alertControl,now,busy,error,locationError,sharing,onVehicle,onOnline,onLocation,onRefresh,onAction,onConfirmSalary,background=false}:{data:AvailabilityResponse;rides:BikeRiderRide[];vehicleRole?:'owner'|'driver';onManageVehicles?:()=>void;payroll?:BikeDriverPayroll|null;payrollError?:string;historyMore?:boolean;historyLoading?:boolean;historyError?:string;onMoreHistory?:()=>void;cashPanel?:ReactNode;earningPanel?:ReactNode;alertControl?:ReactNode;now:number;busy:boolean;error:string;locationError:string;sharing:boolean;onVehicle:(id:string)=>void;onOnline:(online:boolean)=>void;onLocation:()=>void;onRefresh:()=>void;onAction:(ride:BikeRiderRide,action:BikeAction)=>void;onConfirmSalary?:(obligation:BikeSalaryObligation)=>void;background?:boolean}){
  const [minimized,setMinimized]=useState('');
- const sections=bikeRiderSections(rides),presenceOnline=riderIsOnline(data.availability,now),serviceReady=data.dispatch_ready&&data.service_ready,[history,setHistory]=useState(false);
+ const sections=bikeRiderSections(rides),presenceOnline=riderIsOnline(data.availability,now),serviceReady=data.dispatch_ready&&data.service_ready,[history,setHistory]=useState(()=>new URLSearchParams(location.search).get('ride-history')==='1');
  const offer=sections.offers.find((ride:BikeRiderRide)=>(ride.expires_at||0)>now),focusRide=offer||sections.current[0]||sections.next[0];
  const showRide=!!focusRide&&(!!offer||minimized!==focusRide.id);
  const approved=data.vehicles.filter(vehicle=>vehicle.vehicle_kind==='bike'&&vehicle.status==='approved'&&vehicle.active&&(!vehicle.valid_until||vehicle.valid_until>now));
@@ -123,6 +124,7 @@ export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehic
     <div className="bike-rider-availability"><label>Your bike<select value={selected} disabled={busy||data.availability?.online||!approved.length} onChange={e=>onVehicle(e.target.value)}>{approved.length?approved.map(vehicle=><option key={vehicle.id} value={vehicle.id}>{vehicle.name}</option>):<option value="">Approved bike needed</option>}</select></label></div>
     {approved.length>0&&<div className="bike-rider-location"><LocateFixed size={20} aria-hidden="true"/><span>{sharing?'GPS updates while this screen is open':'Share precise GPS for pickup and arrival'}</span><button type="button" disabled={busy} onClick={onLocation}>{sharing?'Update GPS':'Share GPS'}</button></div>}
     {alertControl}
+    <RideNotificationControl/>
     <p className="bike-rider-driving-note">Set up before moving. Stop safely to use ride controls.</p>
    </div></details>
   </div>

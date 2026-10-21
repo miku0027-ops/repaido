@@ -1,4 +1,6 @@
-import {ArrowLeft,ArrowRight,CarFront,History,TwoWheeler} from '../icons';
+import {ArrowLeft,ArrowRight,Bell,CarFront,History,TwoWheeler} from '../icons';
+import {RideNotificationControl} from './RideNotificationControl';
+import {nativeAvailable} from '../services/native';
 import {MobilityExperience,type TravelMode} from './MobilityExperience';
 import type {TransportArea} from './TransportRail';
 import './repaido-go.css';
@@ -19,6 +21,7 @@ export function RepaidoGo({location,onSignIn,onHome,onBookings,onModeSelect,onSe
    <div className="go-wordmark"><h1>repaido <span>Go</span><i aria-hidden="true">.</i></h1><p>Bike & cab rides</p></div>
    <button type="button" className="go-history" onClick={onBookings}><History size={20} aria-hidden="true"/><span>My rides</span></button>
   </header>
+  {nativeAvailable()&&<details className="go-alerts-menu"><summary><Bell size={17} aria-hidden="true"/>Ride alerts</summary><RideNotificationControl onSignIn={onSignIn}/></details>}
   <MobilityExperience presentation="go" active={active} initialMode={initialMode} initialLocation={location} onSignIn={onSignIn} onModeSelect={onModeSelect} onSearch={onSearch}/>
  </section>;
 }

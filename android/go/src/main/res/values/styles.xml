@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.Go" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#FBBC04</item>
+        <item name="android:statusBarColor">#202124</item>
+        <item name="android:navigationBarColor">#202124</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

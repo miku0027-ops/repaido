@@ -12,7 +12,7 @@ ANDROID = Path(__file__).resolve().parents[1]
 
 class ReleaseSigningTests(unittest.TestCase):
     def test_release_variants_never_use_the_development_signer(self):
-        for module in ('app', 'agent', 'preview'):
+        for module in ('app', 'agent', 'preview', 'go'):
             with self.subTest(module=module):
                 source = (ANDROID / module / 'build.gradle.kts').read_text()
                 start = re.search(r'\brelease\s*\{', source)

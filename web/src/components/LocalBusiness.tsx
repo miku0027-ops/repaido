@@ -75,9 +75,9 @@ export function RideBusinessRecords({kind,records,onSignIn,owner=false,dateFilte
  const setFilter=(value:'active'|'history')=>{setLocalFilter(value);onHistoryChange?.(value==='history');};
  const openedFocus=useRef('');
  useEffect(()=>{
-  if(owner||!initialRecordId||!records.uid)return;
+  if(!initialRecordId||!records.uid)return;
   const key=records.uid+':'+initialRecordId;if(openedFocus.current===key)return;
-  const target=records.rows.find(row=>row.id===initialRecordId&&row.customer_id===records.uid);if(!target)return;
+  const target=records.rows.find(row=>row.id===initialRecordId&&(owner?row.customer_id!==records.uid:row.customer_id===records.uid));if(!target)return;
   openedFocus.current=key;const history=['completed','cancelled','expired','declined'].includes(target.state);setLocalFilter(history?'history':'active');onHistoryChange?.(history);setPendingFocus(target.id);
  },[records.uid,records.rows,initialRecordId,owner,onHistoryChange]);
  const rows=records.rows.filter(row=>owner?row.customer_id!==records.uid:row.customer_id===records.uid).filter(row=>filter==='history'?['completed','cancelled','expired','declined'].includes(row.state):!['completed','cancelled','expired','declined'].includes(row.state)).filter(row=>!dateFilter||new Date(row.starts_at*1000).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}).startsWith(dateFilter));

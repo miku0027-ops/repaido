@@ -10,6 +10,7 @@ import {useBusinessRecords} from '../src/components/LocalBusiness';
 import '../src/styles.css';
 import '../src/design-system.css';
 import '../src/components/operations.css';
+import '../src/material-surfaces.css';
 await auth.authStateReady();
 const mode=new URLSearchParams(location.search).get('mode')||'customer',listeners=new Set<(user:any)=>void>();
 function emit(uid:string){(auth as any).currentUser=uid?{uid,displayName:'Local rider test',phoneNumber:'+919999999999',getIdToken:async()=>uid}:null;if(uid)localStorage.setItem('repaido.token',uid);else localStorage.removeItem('repaido.token');for(const next of listeners)next(auth.currentUser);}

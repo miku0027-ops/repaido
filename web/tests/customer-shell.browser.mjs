@@ -45,7 +45,7 @@ async function layout(page,variant){
   return {issues,header,names,overlap:helpBox.bottom-navBox.top,navHeight:navBox.height,helpSize:{width:helpBox.width,height:helpBox.height},helpColor:getComputedStyle(help.querySelector('.support-brand-mark')).color,overflow:document.documentElement.scrollWidth>innerWidth+1};
  });
  assert.deepEqual(result.issues,[],JSON.stringify({variant,...result}));assert.equal(result.overflow,false,JSON.stringify(variant));assert(result.overlap<0,'Header Help must stay clear of bottom navigation: '+JSON.stringify({variant,overlap:result.overlap,navHeight:result.navHeight}));assert(result.helpSize.width>=43&&result.helpSize.height>=43);assert(result.navHeight<=(variant.scale===100?105:120),'The dock stays compact, including its safe-area reserve');assert.equal(result.helpColor,result.header[0].color,'Support follows the accessible header color in each theme');
- assert.deepEqual(result.names,['Explore','Go','Bookings','Market','Hire']);assert.equal(result.header.length,3);
+ assert.deepEqual(result.names,['Explore','Services','Go','Bookings','Market']);assert.equal(result.header.length,3);
  for(const icon of result.header){assert.equal(icon.filled,'1',icon.symbol+' uses official filled geometry');assert.deepEqual(icon.paths,filled[icon.symbol]);assert.equal(icon.size.width,24);assert.equal(icon.size.height,24);assert(icon.button.width>=43&&icon.button.height>=43&&icon.button.x>=0&&icon.button.right<=variant.width);const rgb=icon.color.match(/\d+/g).map(Number);assert(rgb[2]>rgb[0]&&rgb[2]>rgb[1],'Header actions retain their blue theme');}
  variants.push({...variant,navHeight:result.navHeight});
 }

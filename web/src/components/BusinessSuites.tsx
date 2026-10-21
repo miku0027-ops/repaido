@@ -30,6 +30,7 @@ function initialMobilityPanel(role:'cab_owner'|'driver'){
  const query=new URLSearchParams(location.search);
  // A notification's exact ride stays ahead of a generic setup destination.
  if(query.has('bike-ride'))return 'bikes';
+ if(query.has('cab-ride'))return role==='cab_owner'?'cabs':'journeys';
  if(query.has('shared-ride'))return 'shared';
  const tab=query.get('tab')||'';
  const allowed=role==='cab_owner'?['overview','bikes','shared','cabs','rentals','fleet','schedule','payments','account','more']:['overview','journeys','bikes','shared','vehicles','account'];
@@ -126,7 +127,7 @@ function AccountPanel({partner,accountControls}:{partner:any;accountControls?:Re
 function CalendarPanel({rows,children}:{rows:any[];children?:(month:string)=>ReactNode}){const [month,setMonth]=useState(monthNow);return <><label className="business-month">Schedule · India time<input aria-label="Schedule month" type="month" value={month} onChange={e=>setMonth(e.target.value)}/></label><BusinessCalendar month={month} rows={rows}/>{children?.(month)}</>;}
 
 export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{partner:any;vehicles:any[];onRefresh:()=>Promise<unknown>;accountControls?:ReactNode}){
- const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
+ const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('cab-ride')||new URLSearchParams(location.search).get('shared-ride')||'');
  const [panel,setPanel]=useState(()=>initialMobilityPanel('cab_owner')),[editing,setEditing]=useState<any>(null);const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.customer_id!==source.uid&&(r.owner_id===source.uid||r.state==='requested'));
  const cabs=only(records,r=>r.mode==='cab'),rentals=only(records,r=>r.mode==='rental');
@@ -158,7 +159,7 @@ export function CabOwnerSuite({partner,vehicles,onRefresh,accountControls}:{part
 }
 
 export function DriverSuite({partner,vehicles=[],accountControls}:{partner:any;vehicles?:any[];accountControls?:ReactNode}){
- const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('shared-ride')||'');
+ const [recordId,setRecordId]=useState(()=>new URLSearchParams(location.search).get('cab-ride')||new URLSearchParams(location.search).get('shared-ride')||'');
  const open=(row:any)=>{setRecordId(row.id);setPanel(row.vehicle_name?'shared':'journeys');};
  const [panel,setPanel]=useState(()=>initialMobilityPanel('driver'));const source=useBusinessRecords('rides'),shared=useSharedRecords();
  const records=only(source,r=>r.mode==='cab'&&(r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid)),departures=shared.rows.filter(r=>r.driver_id===source.uid||!r.driver_id&&r.owner_id===source.uid),active=records.rows.filter(r=>!closed(r));

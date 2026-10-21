@@ -32,6 +32,7 @@ public class PushService extends FirebaseMessagingService {
         manager.createNotificationChannel(new NotificationChannel("repaido_tracking", "Location sharing", NotificationManager.IMPORTANCE_LOW));
     }
     @Override public void onMessageReceived(RemoteMessage message) {
+        if(com.repaido.ride.RideNotifications.show(this,AgentActivity.class,message.getData()))return;
         channels(this);
         boolean arrival = "arrival".equals(message.getData().get("alert_kind"));
         boolean shared = "mobility".equals(message.getData().get("destination"));

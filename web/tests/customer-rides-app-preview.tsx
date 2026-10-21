@@ -22,3 +22,5 @@ if(!/^[A-Za-z0-9_-]{1,100}$/.test(uid))throw Error('Use an isolated fixture acco
 emit(uid);
 (window as any).__customerRidesFixture={emit};
 createRoot(document.getElementById('root')!).render(<App/>);
+
+import '../src/material-surfaces.css';

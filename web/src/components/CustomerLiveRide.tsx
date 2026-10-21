@@ -26,6 +26,7 @@ export function CustomerLiveRide({children,onHome}:{children:ReactNode;onHome?:(
  useEffect(()=>{const seconds=bikes.data?.server_time||bikes.data?.rides.find(row=>row.server_time)?.server_time;if(seconds)serverClock.current={at:Date.now(),seconds};},[bikes.data]);
  useEffect(()=>{const update=()=>setOnline(navigator.onLine),timer=setInterval(()=>setClock(Date.now()),1000);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{clearInterval(timer);window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
  const open=useCallback((kind:RideKind,id:string)=>{const current=auth.currentUser?.uid;if(!current)return;setSelection({uid:current,kind,id});setMinimized('');},[]);
+ useEffect(()=>{if(!uid)return;const query=new URLSearchParams(location.search);for(const kind of ['bike','cab'] as const){const id=query.get(kind+'-ride');if(id&&/^[a-f0-9]{64}$/.test(id)){open(kind,id);break;}}},[uid,open]);
  const currentSaved=saved.uid===uid?saved.rides:[];
  const rows=auth.currentUser?.uid!==uid||[401,402,403,404].includes(bikes.errorStatus)?[]:(bikes.data?.rides||[]).reduce((all,row)=>saveBikeSnapshot(all,row),currentSaved);
  const bike=rows.filter(row=>!bikeFinished(row.state)&&bikeRank[row.state]!==undefined).sort((a,b)=>bikeRank[a.state]-bikeRank[b.state]||a.created_at-b.created_at);

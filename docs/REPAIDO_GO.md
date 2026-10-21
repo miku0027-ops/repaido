@@ -1,9 +1,19 @@
 # Repaido Go
 
 Customer travel now has its own destination at `/go?ride=bike` or
-`/go?ride=cab`. Home has one Go entry, and the second mobile navigation item
-opens Go. Home services remain available from the home service grid and its
-catalogue actions, plus All Services in desktop navigation.
+`/go?ride=cab`. Home has one Go entry. The main mobile navigation has five
+destinations: **Explore, Services, Go, Bookings, Market**. Services is always
+present; larger text uses a horizontal navigation rail rather than hiding it.
+Hire remains available through home/account shortcuts and desktop navigation.
+The dock uses neutral elevation and a warm-yellow selected state. Ordinary
+popups share a borderless elevated surface; inputs and keyboard focus remain
+clearly outlined, and forced-colour modes retain visible panel boundaries.
+
+Separate [Go Android apps](../android/go/README.md) launch customer booking and
+driver duty screens with the same backend. Customer Go uses Ride, My rides,
+Account and a Repaido handoff in its dock. The main app retains its five sections.
+Package-specific Firebase registration and production signing are required for
+release; test APKs without that registration cannot receive push notifications.
 
 Existing Market links with `marketSub=mobility` or `sub=mobility` open Go. The
 Market Rides shortcut also opens Go. Shared rides, self-drive, cab rental and
@@ -79,6 +89,7 @@ node tests/repaido-go.browser.mjs
 node tests/map-motion.browser.mjs
 node tests/ride-workspace.browser.mjs
 node tests/modal-interactions.browser.mjs
+node tests/go-native.browser.mjs
 node tests/customer-shell.browser.mjs
 node tests/worker-compact-layout.browser.mjs
 node tests/go-driver-design.browser.mjs
@@ -91,8 +102,12 @@ browser test uses a disposable SQLite API, native bike and cab booking commands,
 and an explicit Google Maps SDK double. It covers home separation, confirmed
 stops, mode drafts, requests and cancellation, history, Back/reload/deep links,
 responsive layout and WCAG A/AA checks. This does not constitute a production
-GPS or payment test. Releasing these changes requires a requested website
-release under AGENTS.md; no backend deployment is needed for this batch.
+GPS or payment test. Native Go browser checks use a bridge double to exercise
+navigation, notification consent and account isolation; actual Android delivery
+requires physical-device testing. The ride push addition requires backend,
+website and Android releases under AGENTS.md. Backend delivery/expiry tests live
+in `backend/test_ride_alerts.py`; Android payload and build-configuration tests
+are documented in the Go setup.
 
 Go also exercises real browser touch cancellation and completed swipes, keyboard
 form validation and single-request submission. Ride-workspace checks measure

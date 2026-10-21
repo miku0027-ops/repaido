@@ -434,6 +434,8 @@ def _save(u, row, action, actor):
               bike_ride_id=row['id'], title={'offered': 'New bike request', 'next_slot_ready': 'Your next bike ride is ready',
               'request_stop': 'Passenger requested an early drop-off', 'arrive': 'Your rider has arrived', 'complete': 'Bike ride complete', 'start': 'Bike ride started'}.get(action, 'Bike ride updated'),
               body='Open your bike ride for the latest details.', created_at=time.time(), read=False))
+        from ride_alerts import enqueue as enqueue_alert
+        enqueue_alert(u, row, uid, key, 'bike')
 
 
 def allowed_actions(row, uid):

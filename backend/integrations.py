@@ -66,6 +66,7 @@ class Device(Input):
     platform: Literal['android', 'web']
     audience: Literal['customer','agent','unspecified'] = 'unspecified'
     promotional_capable: bool = False
+    ride_push_capable: bool = False
 class Consent(Input):
     consent: Literal[True]
 class BankLink(Input):
@@ -422,7 +423,7 @@ def install(core):
     @router.post('/devices')
     def register_device(body: Device,user=Depends(core.current_user)):
         did=digest(body.token)
-        store.run(lambda u:u.put('devices',did,dict(id=did,user_id=user['id'],token=body.token,platform=body.platform,audience=body.audience,promotional_capable=body.promotional_capable,updated_at=time.time(),active=True)))
+        store.run(lambda u:u.put('devices',did,dict(id=did,user_id=user['id'],token=body.token,platform=body.platform,audience=body.audience,promotional_capable=body.promotional_capable,ride_push_capable=body.ride_push_capable,updated_at=time.time(),active=True)))
         return {'id':did,'user_id':user['id']}
 
     @router.delete('/devices/{device_id}')

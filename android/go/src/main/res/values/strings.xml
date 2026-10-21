@@ -1,0 +1,5 @@
+<resources>
+    <string name="reconnect_title">Reconnect to continue</string>
+    <string name="reconnect_message">Your ride stays on your account. Check your connection, then retry.</string>
+    <string name="retry">Retry</string>
+</resources>

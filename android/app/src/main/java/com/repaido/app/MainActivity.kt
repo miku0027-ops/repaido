@@ -269,6 +269,8 @@ class MainActivity : Activity() {
     }
 
     private fun openNotification(source: Intent) {
+        val ridePath=com.repaido.ride.RideNotifications.pathFromIntent(this,source)
+        if(ridePath!=null) { web.loadUrl(customerPortalUrl.trimEnd('/')+ridePath); return }
         val project=source.getStringExtra("project_id")
         val projectRole=source.getStringExtra("project_role")
         if(source.getStringExtra("destination")=="contractor" && project!=null && project.matches(Regex("[A-Za-z0-9_-]{1,100}")) && projectRole in listOf("technician","contractor")) {
@@ -287,7 +289,7 @@ class MainActivity : Activity() {
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent);setIntent(intent)
-        if(intent.hasExtra("job_id") || intent.hasExtra("campaign_id") || intent.hasExtra("plan_id") || intent.hasExtra("business_id") || intent.hasExtra("project_id")) openNotification(intent)
+        if(intent.hasExtra(com.repaido.ride.RideNotifications.EXTRA) || intent.hasExtra("job_id") || intent.hasExtra("campaign_id") || intent.hasExtra("plan_id") || intent.hasExtra("business_id") || intent.hasExtra("project_id")) openNotification(intent)
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)

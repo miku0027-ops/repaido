@@ -45,7 +45,8 @@ import {useServiceHydration,ServiceHydration,HydrationControls} from './componen
 import {RentalManager} from './components/Rentals';
 import { apiFetch } from './services/api';
 import SearchDiscovery from './components/SearchDiscovery';
-import {stopNativeSession} from './services/native';
+import {stopNativeSession,nativeCall} from './services/native';
+import {useNativeApp} from './hooks/useNativeApp';
 import {SupportCenter,NotificationInbox} from './components/Lifecycle';
 import {SupportDialog,SupportQuickButton} from './components/SupportWorkspace';
 import {ContributeBookings,CustomerBookingNavigation} from './components/ContributeBookings';
@@ -214,6 +215,7 @@ const androidCategories: { id: CategoryId; name: string; icon: any }[] = [
 ];
 
 export default function App() {
+  const nativeKind=useNativeApp(),nativeGo=nativeKind==='go_customer';
   const [repaidiansOpen,setRepaidiansOpen]=useState(()=>new URLSearchParams(location.search).has('repaidians'));
   const [quickHireOpen,setQuickHireOpen]=useState(false);
   const [publicSeller,setPublicSeller]=useState<{listingId?:string;chatId?:string}|null>(null),[publicShop,setPublicShop]=useState<string>(()=>new URLSearchParams(location.search).get('shop-profile')||'');
@@ -664,7 +666,7 @@ export default function App() {
     if(next==='Go'||url.pathname==='/go'||(url.searchParams.get('marketSub')||url.searchParams.get('sub'))==='mobility'){
       history.replaceState({...history.state,customerTab:tab},'',location.href);
       url.pathname=next==='Go'?'/go':'/';
-      for(const name of ['tab','marketSub','sub','ride','view','booking','bike-ride','ride-booking','shared-ride','home-plan','hiring','custom-contract'])url.searchParams.delete(name);
+      for(const name of ['tab','marketSub','sub','ride','view','booking','bike-ride','cab-ride','ride-booking','shared-ride','home-plan','hiring','custom-contract'])url.searchParams.delete(name);
       if(next==='Go')url.searchParams.set('ride',goMode);else if(next!=='Explore')url.searchParams.set('tab',next==='ShopSpares'?'market':next.toLowerCase());
       history.pushState({...history.state,customerTab:next},'',url);
     }
@@ -1278,6 +1280,12 @@ export default function App() {
           {/* Mobile Bottom Navigation Bar */}
           <nav data-captain-gold={captainMembership.gold} className="android-bottom-nav md:hidden" aria-label="Bottom Navigation">
             <div className="android-nav-links" ref={bottomNavLinks} onFocusCapture={event=>revealBottomDestination(event.currentTarget,(event.target as HTMLElement).closest<HTMLElement>('.android-nav-item'))}>
+            {nativeGo?<>
+              <button className={`android-nav-item ${tab==='Go'?'active':''}`} aria-current={tab==='Go'?'page':undefined} onClick={()=>navigate('Go')}><Car size={24} aria-hidden="true"/><span>Ride</span></button>
+              <button className={`android-nav-item ${tab==='Bookings'?'active':''}`} aria-current={tab==='Bookings'?'page':undefined} onClick={()=>{setRideBookings(true);navigate('Bookings');}}><CalendarCheck size={24} aria-hidden="true"/><span>My rides</span></button>
+              <button className={`android-nav-item ${tab==='You'?'active':''}`} aria-current={tab==='You'?'page':undefined} onClick={()=>navigate('You')}><User size={24} aria-hidden="true"/><span>Account</span></button>
+              <button className="android-nav-item" onClick={()=>void nativeCall('openRepaido').catch(()=>navigate('Explore'))}><HomeRepair size={24} aria-hidden="true"/><span>Repaido</span></button>
+            </>:<>
             <button
               className={`android-nav-item ${tab === 'Explore' ? 'active' : ''}`}
               onClick={() => navigate('Explore')}
@@ -1285,6 +1293,15 @@ export default function App() {
             >
               <Explore size={24} aria-hidden="true" />
               <span>Explore</span>
+            </button>
+
+            <button
+              className={`android-nav-item ${tab === 'Services' ? 'active' : ''}`}
+              onClick={() => navigate('Services')}
+              aria-current={tab === 'Services' ? 'page' : undefined}
+            >
+              <HomeRepair size={24} aria-hidden="true" />
+              <span>Services</span>
             </button>
 
             <button
@@ -1314,7 +1331,7 @@ export default function App() {
               <span>Market</span>
             </button>
 
-            <button className={`android-nav-item ${tab === 'Hire' ? 'active' : ''}`} onClick={() => navigate('Hire')} aria-current={tab === 'Hire' ? 'page' : undefined}><PersonSearch size={24} aria-hidden="true"/><span>Hire</span></button>
+            </>}
             </div>
           </nav>
         </div>

@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {BikeRiderDashboard,type BikeRiderRide,type BikeDriverPayroll} from '../src/components/BikeRiderWorkspace';
 import '../src/styles.css';
 import '../src/design-system.css';
+import '../src/material-surfaces.css';
 const params=new URLSearchParams(location.search),now=1792400000;
 document.documentElement.dataset.theme=params.get('theme')==='dark'?'dark':'light';
 if(params.get('text')==='200')document.documentElement.style.fontSize='200%';

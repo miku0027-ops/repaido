@@ -22,6 +22,9 @@ DISPATCH_SECONDS = 30
 
 
 def _delivery_allowed(u, row):
+    if row.get('event') == 'ride_update':
+        from ride_alerts import delivery_allowed
+        return delivery_allowed(u, row)
     if row.get('event') == 'project_team_confirmed' and not (
             isinstance(row.get('target_id'), str) and
             re.fullmatch(r'[A-Za-z0-9_-]{1,100}', row['target_id'])):
@@ -180,7 +183,10 @@ def _prepare(u, key, lease, device_id, now):
     if (row.get('created_at', 0) + 86400 <= now or not _delivery_allowed(u, row)
             or not device or not device.get('active') or not device.get('token')
             or device.get('user_id') != row['recipient_id'] or device.get('updated_at', 0) <= now - DEVICE_MAX_AGE
-            or not _owns_token(u, device)):
+            or not _owns_token(u, device)
+            or (row.get('event') == 'ride_update' and
+                (device.get('platform') != 'android' or not device.get('ride_push_capable') or
+                 device.get('audience') != ('customer' if row.get('ride_role') == 'customer' else 'agent')))):
         row['device_states'][device_id] = 'skipped'
         u.put('rp_work_delivery', key, row)
         return None
@@ -268,6 +274,14 @@ def process_deliveries(core, limit=50):
                         'expires_at': str(int(time.time() + ttl))}
                 transport = row.get('event') == 'shared_transport'
                 project = row.get('event') == 'project_team_confirmed'
+                ride = row.get('event') == 'ride_update'
+                if ride:
+                    ttl = max(1, min(ttl, int(row['expires_at'] - time.time())))
+                    data = {'notification_id': row['notification_id'], 'destination': 'ride',
+                            'ride_id': row['target_id'], 'ride_kind': row['ride_kind'],
+                            'ride_role': row['ride_role'], 'ride_state': row['ride_state'],
+                            'ride_version': str(row['ride_version']), 'recipient_id': row['recipient_id'],
+                            'alert_kind': row['alert_kind'], 'expires_at': str(int(time.time() + ttl))}
                 if transport:
                     ttl = max(1,min(ttl,int(row['expires_at']-time.time())))
                     data.update(destination='mobility', business_id=row['target_id'], business_role=row['business_role'],
@@ -279,9 +293,9 @@ def process_deliveries(core, limit=50):
                 # Source details are loaded after authorization on tap; salary,
                 # full addresses and private contract terms never enter the push.
                 messaging.send(messaging.Message(token=device['token'], data=data,
-                    notification=messaging.Notification(title=('Departure time changed' if row['transport_event']=='rescheduled' else 'Your shared ride departs soon' if row['transport_event']=='departure_reminder' else 'Shared ride update') if transport else 'Project team update' if project else 'Repaidians work update', body='Open your shared ride for departure and passenger details.' if transport else 'Open Project teams for your joining and next steps.' if project else 'Open Repaidians to view your latest work update.'),
-                    android=messaging.AndroidConfig(priority='high' if transport else 'normal', ttl=timedelta(seconds=ttl),
-                        notification=messaging.AndroidNotification(channel_id='repaido_requests_v2' if transport else 'repaido_tasks', sound='repaido_task_bell' if transport else 'default', tag=key, visibility='private'))),
+                    notification=None if ride else messaging.Notification(title=('Departure time changed' if row['transport_event']=='rescheduled' else 'Your shared ride departs soon' if row['transport_event']=='departure_reminder' else 'Shared ride update') if transport else 'Project team update' if project else 'Repaidians work update', body='Open your shared ride for departure and passenger details.' if transport else 'Open Project teams for your joining and next steps.' if project else 'Open Repaidians to view your latest work update.'),
+                    android=messaging.AndroidConfig(priority='high' if transport or ride else 'normal', ttl=timedelta(seconds=ttl),
+                        notification=None if ride else messaging.AndroidNotification(channel_id='repaido_requests_v2' if transport else 'repaido_tasks', sound='repaido_task_bell' if transport else 'default', tag=key, visibility='private'))),
                     app=_messaging_app())
             except messaging.UnregisteredError:
                 state = 'invalid'

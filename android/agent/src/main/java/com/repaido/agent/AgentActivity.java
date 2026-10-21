@@ -253,7 +253,12 @@ public class AgentActivity extends Activity {
                 id = data.getString("id");
                 String action = data.getString("action");
                 final String requestId = id;
-                if (action.equals("captureEvidence")) {
+                if(action.equals("appKind")) { nativeReply(reply,id,"agent",null);
+                } else if(action.equals("ridePushVersion")) { nativeReply(reply,id,"1",null);
+                } else if(action.equals("pushStatus")) { nativeReply(reply,id,androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled()?"enabled":"disabled",null);
+                } else if(action.equals("bindPushAccount")) { String uid=data.optString("uid","");if(!uid.isEmpty()&&!uid.matches("[A-Za-z0-9:_-]{1,128}"))throw new IllegalArgumentException();com.repaido.ride.RideNotifications.bind(this,uid);nativeReply(reply,id,"saved",null);
+                } else if(action.equals("clearRideAlerts")) { com.repaido.ride.RideNotifications.clear(this);nativeReply(reply,id,"cleared",null);
+                } else if (action.equals("captureEvidence")) {
                     if(cameraReply!=null){nativeReply(reply,id,null,"A camera capture is already open.");return;}
                     org.json.JSONObject session=data.getJSONObject("session");
                     for(String key:new String[]{"id","job_id","visit_id"})if(!session.getString(key).matches("[A-Za-z0-9_-]{1,100}"))throw new IllegalArgumentException();
@@ -306,6 +311,8 @@ public class AgentActivity extends Activity {
     }
 
     private String destinationQuery(Intent intent) {
+        String ridePath=com.repaido.ride.RideNotifications.pathFromIntent(this,intent);
+        if(ridePath!=null&&ridePath.startsWith("/worker?"))return ridePath.substring("/worker".length());
         String destination=intent.getStringExtra("destination");
         String plan=intent.getStringExtra("plan_id");
         String project=intent.getStringExtra("project_id"),projectRole=intent.getStringExtra("project_role");

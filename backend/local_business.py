@@ -175,6 +175,9 @@ def notice(u,uid,row,title):
     nid=digest('business:'+row['id']+':'+str(row['version'])+':'+uid+':'+title)
     cleanup='public_place' in row
     u.put('notifications',nid,{'id':nid,'user_id':uid,'title':title,'body':'Open your cleanup report for the latest review, points and reward status.' if cleanup else 'Open your Repaido transport or scrap workspace for the current details.','kind':'local_business','destination':'cleanup' if cleanup else 'mobility' if 'quotes' in row else 'scrap','business_id':row['id'],**({'cleanup_id':row['id']} if cleanup else {}),'created_at':time.time(),'read':False})
+    if 'quotes' in row and row.get('mode') == 'cab':
+        from ride_alerts import enqueue as enqueue_alert
+        enqueue_alert(u,row,uid,nid,'cab')
 def replay(u,uid,body):
     key=digest(uid+':business:'+body.command_id);old=u.get('business_commands',key)
     if old and old['fingerprint']!=fingerprint(body):fail('IDEMPOTENCY_CONFLICT','Use a new action key for a changed action.',409)

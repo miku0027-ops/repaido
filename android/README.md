@@ -6,7 +6,11 @@ the hosted web application. Both default to `https://repaido.web.app`; set
 Compose screens remain in the customer source tree, but they are not its current
 launcher. `preview` serves its bundled website assets offline.
 
-All three modules use compile/target SDK 35, minimum SDK 26, Android Gradle
+The `go` module adds separate **Repaido Go** customer and **Go Driver** rider
+packages, using `https://repaido.com`. See [Go setup](go/README.md) for builds,
+package-specific Firebase configuration and ride push verification.
+
+All four modules use compile/target SDK 35, minimum SDK 26, Android Gradle
 Plugin 8.7.3, Gradle 8.9, and Java 17 bytecode. Use a Java 17 or 21 Gradle runtime
 with Android SDK 35 and its build tools installed. Install SDK components through
 Android Studio or the official Android SDK tools, reviewing their license terms.

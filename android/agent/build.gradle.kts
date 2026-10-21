@@ -11,6 +11,7 @@ android {
         buildConfigField("String", "WEB_URL", "\"${providers.gradleProperty("REPAIDO_WEB_URL").getOrElse("https://repaido.web.app")}\"")
     }
     buildFeatures { buildConfig = true }
+    sourceSets.getByName("main").java.srcDir("../ride-common/src/main/java")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

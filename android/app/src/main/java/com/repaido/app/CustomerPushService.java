@@ -19,6 +19,7 @@ public class CustomerPushService extends FirebaseMessagingService {
         manager.createNotificationChannel(new NotificationChannel("repaido_offers","Optional offers & suggestions",NotificationManager.IMPORTANCE_DEFAULT));
     }
     @Override public void onMessageReceived(RemoteMessage message) {
+        if(com.repaido.ride.RideNotifications.show(this,MainActivity.class,message.getData()))return;
         channels(this);
         Map<String,String> data=message.getData();
         boolean arrival="arrival".equals(data.get("alert_kind"));

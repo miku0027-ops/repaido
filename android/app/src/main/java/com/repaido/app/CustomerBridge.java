@@ -25,6 +25,10 @@ public final class CustomerBridge {
                 JSONObject data=new JSONObject(message.getData());id=data.getString("id");
                 String action=data.getString("action");final String requestId=id;
                 if (action.equals("appKind")) { respond(reply,id,"customer",null);
+                } else if(action.equals("ridePushVersion")) { respond(reply,id,"1",null);
+                } else if(action.equals("pushStatus")) { respond(reply,id,androidx.core.app.NotificationManagerCompat.from(activity).areNotificationsEnabled()?"enabled":"disabled",null);
+                } else if(action.equals("bindPushAccount")) { String uid=data.optString("uid","");if(!uid.isEmpty()&&!uid.matches("[A-Za-z0-9:_-]{1,128}"))throw new IllegalArgumentException();com.repaido.ride.RideNotifications.bind(activity,uid);respond(reply,id,"saved",null);
+                } else if(action.equals("clearRideAlerts")) { com.repaido.ride.RideNotifications.clear(activity);respond(reply,id,"cleared",null);
                 } else if (action.equals("setOffersEnabled")) { activity.getSharedPreferences("repaido_offers",Activity.MODE_PRIVATE).edit().putBoolean("enabled",data.optBoolean("enabled",false)).apply();respond(reply,id,"saved",null);
                 } else if (action.equals("pushToken")) {
                     if (Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(activity,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) {
