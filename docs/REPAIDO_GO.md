@@ -25,10 +25,14 @@ they never expose a driver's private journey coordinates or invent supply.
 
 ## Motion
 
-Go uses solid violet, lime, coral and teal surfaces. Colour distinguishes
-navigation, primary actions, fares and rider readiness, alongside explicit text
-and icons. Driver duty, incoming offers, vehicle assignments and actual finance
-records use the same system. Other business roles retain their own styling.
+Go uses a restrained Material-style palette: charcoal text, neutral surfaces and
+one warm-yellow accent for primary actions and selected controls. Green and red
+are reserved for operational status and errors. Light and dark schemes share
+semantic colour roles in `go-material-theme.css`. Rounded surfaces use subtle
+elevation; decorative tilts and thick offset shadows have been removed. Driver
+duty, assignments, offers and finance records use the same roles. Typography
+uses the native system sans-serif stack, with Roboto preferred where installed.
+Other business roles retain their own styling.
 
 The supplied references contribute different interaction patterns:
 
@@ -36,7 +40,7 @@ The supplied references contribute different interaction patterns:
 | --- | --- |
 | Map-led Jugnoo / Ola discovery | Bike and Cab choices above Google Maps, with pickup and route controls in a rounded sheet |
 | Ola searching waves | Three moving rings and the appropriate bike/car icon while the server is searching; cancellation stays available |
-| Rapido duty and earnings | Compact duty control, prominent map, real company-cash/salary details, and green incoming offers |
+| Rapido duty and earnings | Compact duty control, prominent map, real company-cash/salary details, and status-marked incoming offers |
 | GoCab trip cards | A shared full-screen ride, rider details, route, fare and completion actions |
 | Supplied motion video | Finger-following ride sheets, slide-to-search, and animated transitions between booking steps |
 

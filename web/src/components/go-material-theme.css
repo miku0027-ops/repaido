@@ -1,0 +1,57 @@
+/* Shared Material-style colour roles for Go and driver journeys.
+   Warm yellow is the only brand accent; other hues communicate status. */
+:root {
+  --go-font: Roboto, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --go-primary: #fbbc04;
+  --go-primary-pressed: #e8aa00;
+  --go-on-primary: #202124;
+  --go-primary-container: #fff3c4;
+  --go-on-primary-container: #342b00;
+  --go-ink: #202124;
+  --go-muted: #5f6368;
+  --go-surface: #ffffff;
+  --go-surface-variant: #f1f3f4;
+  --go-canvas: #f8f9fa;
+  --go-line: #dadce0;
+  --go-outline: #80868b;
+  --go-inverse: #202124;
+  --go-inverse-container: #303134;
+  --go-inverse-outline: #80868b;
+  --go-on-inverse: #ffffff;
+  --go-inverse-muted: #e8eaed;
+  --go-success: #137333;
+  --go-success-container: #e6f4ea;
+  --go-on-success-container: #0d5526;
+  --go-danger: #b3261e;
+  --go-focus: #806000;
+  --go-elevation: 0 1px 2px #20212414, 0 2px 6px #2021240d;
+  --go-sheet-elevation: 0 -2px 12px #20212412;
+}
+[data-theme=dark] {
+  --go-primary: #fdd663;
+  --go-primary-pressed: #fbbc04;
+  --go-primary-container: #3f3210;
+  --go-on-primary-container: #ffdf85;
+  --go-ink: #e8eaed;
+  --go-muted: #bdc1c6;
+  --go-surface: #202124;
+  --go-surface-variant: #292a2d;
+  --go-canvas: #171819;
+  --go-line: #3c4043;
+  --go-outline: #9aa0a6;
+  --go-success: #81c995;
+  --go-success-container: #1d3526;
+  --go-on-success-container: #b6e7c5;
+  --go-danger: #f28b82;
+  --go-focus: #fdd663;
+  --go-elevation: 0 1px 3px #0003;
+  --go-sheet-elevation: 0 -2px 12px #0003;
+}
+
+/* Keep typography and focus treatment scoped to the travel experience. */
+#root :is(.repaido-go,.repaido-go-entry,.is-repaido-go,.suite-driver,.bike-rider-workspace,.ride-workspace-dialog,.ride-booking-workspace,.bike-review-modal,.go-options-dialog,.go-booking-dialog,.ride-finance-dialog),
+#root .ops-worker:has(.suite-driver) {
+  --ui-font: var(--go-font);
+  --ui-focus: var(--go-focus);
+  font-family: var(--go-font);
+}

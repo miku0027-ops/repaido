@@ -1,50 +1,50 @@
-/* One solid-colour ride language: violet navigation, lime action, coral fare,
-   teal confirmation. Maps and location truth remain owned by their providers. */
-#root :is(.ride-booking-workspace,.bike-review-modal){--ui-ink:#21162e;--ui-muted:#574565;--ui-surface:#f6efff;--ui-line:#bca7d9;color:var(--ui-ink)}
-#root .modal:has(>.ride-booking-workspace),#root .modal.bike-review-modal,#root .modal.go-options-dialog{background:#e8dcff;color:#21162e;border:2px solid #624293;border-radius:28px;box-shadow:0 12px 0 #21162e25;padding:20px}
-#root .modal:has(>.ride-booking-workspace)>.app-modal-heading,#root .bike-review-modal>.app-modal-heading,#root .go-options-dialog>.app-modal-heading{padding:0 0 14px;border-bottom:1px solid #aa8bcf;color:#21162e}
-#root .ride-booking-workspace>header{padding:12px 14px;border-radius:18px;background:#5b2cdf;color:#fff;gap:10px}#root .ride-booking-workspace>header>button{background:#4320aa;color:#fff;border-color:#a58aff;border-radius:12px;min-height:44px}
+@import './go-material-theme.css';
+/* Shared Material surfaces, consistent action colour and restrained elevation. */
+#root :is(.ride-booking-workspace,.bike-review-modal){--ui-ink:var(--go-ink);--ui-muted:var(--go-muted);--ui-surface:var(--go-surface);--ui-line:var(--go-line);color:var(--ui-ink)}
+#root .modal:has(>.ride-booking-workspace),#root .modal.bike-review-modal,#root .modal.go-options-dialog{background:var(--go-surface);color:var(--go-ink);border:1px solid var(--go-line);border-radius:28px;box-shadow:var(--go-elevation);padding:20px}
+#root .modal:has(>.ride-booking-workspace)>.app-modal-heading,#root .bike-review-modal>.app-modal-heading,#root .go-options-dialog>.app-modal-heading{padding:0 0 14px;border-bottom:1px solid var(--go-line);color:var(--go-ink)}
+#root .ride-booking-workspace>header{padding:12px 14px;border-radius:16px;background:var(--go-inverse);color:var(--go-on-inverse);gap:10px}#root .ride-booking-workspace>header>button{background:var(--go-inverse-container);color:var(--go-on-inverse);border-color:var(--go-inverse-outline);border-radius:12px;min-height:44px}
 #root .ride-booking-workspace .wizard-stage{min-width:0;padding:18px 0;display:grid;gap:14px}.ride-wizard-stage-body{min-width:0}
-#root .ride-booking-workspace .ride-stage-title{font-size:1.4rem;letter-spacing:-.035em;line-height:1.4;color:#21162e}
-#root .ride-booking-workspace :is(input,select,textarea){border:1px solid #a78dcb;background:#f8f3ff;color:#21162e;border-radius:14px;min-height:48px}
-#root .ride-booking-workspace :is(.ride-location-button,.ride-calendar-field,.business-location){background:#f8f3ff;color:#21162e;border:1px solid #a78dcb;border-radius:18px}
-#root .ride-booking-workspace .business-note{color:#574565;font-size:.8125rem;line-height:1.6}
-#root .ride-booking-workspace .wizard-actions{position:sticky;bottom:0;z-index:2;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;padding:14px 0 6px;background:#e8dcff;border-top:1px solid #bca7d9}
-#root .ride-booking-workspace .wizard-actions>button{min-height:48px;border:1px solid #8362ab;border-radius:16px;background:#d7c2ff;color:#21162e;padding:10px 16px}
-#root .ride-booking-workspace .wizard-actions>button.ops-primary{background:#5b2cdf;color:#fff;border-color:#5b2cdf;min-height:54px}
-#root .ride-booking-workspace .business-vehicle-list>article{border:2px solid #bca7d9;border-radius:22px;padding:16px;background:#f8f3ff;box-shadow:none;transition:background-color 240ms ease,border-color 240ms ease}
-#root .ride-booking-workspace .business-vehicle-list>article:has(button[aria-pressed=true]){background:#efffc5;border-color:#5b2cdf}
-#root .ride-booking-workspace .business-vehicle-list>article>button{background:#5b2cdf;color:#fff;border:1px solid #5b2cdf;border-radius:14px;min-height:48px}
-#root :is(.ride-booking-workspace,.bike-review-modal) .ride-quote{border:1px solid #9779b8;border-radius:18px;background:#f8f3ff;overflow:hidden}
-#root .ride-booking-workspace .ride-quote-total{background:#ff967d;color:#21162e;padding:14px}.ride-booking-workspace .ride-quote-total :is(small,strong,b){color:#21162e!important}
-#root .ride-booking-workspace .ride-quote-payments>div{background:#e0f8ef;border-color:#8abfb3;color:#183b32}
-#root .bike-review-modal .bike-fare-total-card{background:#5b2cdf;border-color:#5b2cdf;color:#fff;border-radius:20px}.bike-review-modal .bike-fare-total-card :is(small,strong,span){color:#fff}
-#root .bike-review-modal :is(.bike-review-route,.bike-payment-note){background:#d9fc68;border-color:#93ad49;color:#29371d;border-radius:17px}
-#root .bike-review-modal .bike-consent{background:#f8f3ff;border-color:#a78dcb;color:#21162e;border-radius:16px;padding:12px}
-#root :is(.ride-booking-workspace,.bike-review-modal) input[type=checkbox]{min-height:20px;accent-color:#5b2cdf}
-#root .ride-workspace-dialog{background:#e8dcff;color:#21162e}
-#root .ride-workspace-shell{--ride-ink:#21162e;--ride-muted:#574565;--ride-line:#bca7d9;--ride-surface:#f6efff;background:#e8dcff}
-#root .ride-workspace-topbar{background:#5b2cdf;color:#fff;border-bottom:4px solid #d9fc68;box-shadow:none}.ride-workspace-brand>svg{color:#d9fc68}.ride-workspace-brand small{color:#eee4ff}
-#root .ride-workspace-status{color:#fff;background:#4320aa;border-radius:14px;padding:7px 9px}.ride-workspace-status i{background:#d9fc68}
-#root .ride-workspace-dialog .ride-workspace-icon{background:#4320aa;color:#fff;border:1px solid #b296ff;border-radius:14px}
-#root .ride-workspace-content :is(.bike-live-sheet,.bike-rider-trip-body){border-radius:28px 28px 0 0;background:var(--ride-surface);border-top:2px solid #7e55ba;box-shadow:none}
-#root .ride-workspace-content .bike-live-rider{background:#73e2d1;border-color:#328879;border-radius:20px;color:#153c35}#root .ride-workspace-content .bike-live-rider :is(strong,small){color:#153c35}
-#root .ride-workspace-dialog :is(.bike-primary,.ops-primary){background:#d9fc68!important;color:#21162e!important;border:2px solid #21162e!important;box-shadow:0 3px 0 #21162e!important;border-radius:17px;min-height:52px}
-#root .ride-workspace-dialog .ride-workspace-content .business-records .business-actions>button.ops-primary{background:#d9fc68!important;color:#21162e!important;border-color:#21162e!important}
-#root .ride-workspace-dialog :is(.bike-soft-button,.bike-icon-button){background:#e2d1ff;border-color:#ad8bcf;color:#392350;border-radius:14px}
-#root .ride-workspace-dialog .ride-sheet-handle{color:#5b2cdf}.ride-workspace-dialog .ride-sheet-handle>span{width:46px;background:#8c65bf}
-#root .ride-cab-waiting{background:#73e2d1;color:#153c35;border-radius:20px}
-#root .ride-resume-banner{background:#5b2cdf;border-bottom-color:#d9fc68;color:#fff}.ride-resume-banner small{color:#eee4ff}
-#root .ride-workspace-content :is(.bike-trip-progress,.bike-rider-progress){padding:12px;border-radius:16px;background:#e8dcff}
-#root .ride-workspace-dialog .ride-record-summary{background:#f6efff;border:1px solid #bca7d9;border-radius:24px}
+#root .ride-booking-workspace .ride-stage-title{font-size:1.4rem;letter-spacing:-.035em;line-height:1.4;color:var(--go-ink)}
+#root .ride-booking-workspace :is(input,select,textarea){border:1px solid var(--go-line);background:var(--go-surface);color:var(--go-ink);border-radius:14px;min-height:48px}
+#root .ride-booking-workspace :is(.ride-location-button,.ride-calendar-field,.business-location){background:var(--go-surface);color:var(--go-ink);border:1px solid var(--go-line);border-radius:16px}
+#root .ride-booking-workspace .business-note{color:var(--go-muted);font-size:.8125rem;line-height:1.6}
+#root .ride-booking-workspace .wizard-actions{position:sticky;bottom:0;z-index:2;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;padding:14px 0 6px;background:var(--go-surface);border-top:1px solid var(--go-line)}
+#root .ride-booking-workspace .wizard-actions>button{min-height:48px;border:1px solid var(--go-line);border-radius:16px;background:var(--go-surface-variant);color:var(--go-ink);padding:10px 16px}
+#root .ride-booking-workspace .wizard-actions>button.ops-primary{background:var(--go-inverse);color:var(--go-on-inverse);border-color:var(--go-inverse);min-height:54px}
+#root .ride-booking-workspace .business-vehicle-list>article{border:2px solid var(--go-line);border-radius:16px;padding:16px;background:var(--go-surface);box-shadow:none;transition:background-color 240ms ease,border-color 240ms ease}
+#root .ride-booking-workspace .business-vehicle-list>article:has(button[aria-pressed=true]){background:var(--go-surface);border-color:var(--go-inverse)}
+#root .ride-booking-workspace .business-vehicle-list>article>button{background:var(--go-inverse);color:var(--go-on-inverse);border:1px solid var(--go-inverse);border-radius:14px;min-height:48px}
+#root :is(.ride-booking-workspace,.bike-review-modal) .ride-quote{border:1px solid var(--go-line);border-radius:16px;background:var(--go-surface);overflow:hidden}
+#root .ride-booking-workspace .ride-quote-total{background:var(--go-surface-variant);color:var(--go-ink);padding:14px}.ride-booking-workspace .ride-quote-total :is(small,strong,b){color:var(--go-ink)!important}
+#root .ride-booking-workspace .ride-quote-payments>div{background:var(--go-surface);border-color:var(--go-line);color:var(--go-ink)}
+#root .bike-review-modal .bike-fare-total-card{background:var(--go-inverse);border-color:var(--go-inverse);color:var(--go-on-inverse);border-radius:20px}.bike-review-modal .bike-fare-total-card :is(small,strong,span){color:var(--go-on-inverse)}
+#root .bike-review-modal :is(.bike-review-route,.bike-payment-note){background:var(--go-surface-variant);border-color:var(--go-line);color:var(--go-ink);border-radius:12px}
+#root .bike-review-modal .bike-consent{background:var(--go-surface);border-color:var(--go-line);color:var(--go-ink);border-radius:16px;padding:12px}
+#root :is(.ride-booking-workspace,.bike-review-modal) input[type=checkbox]{min-height:20px;accent-color:var(--go-inverse)}
+#root .ride-workspace-dialog{background:var(--go-canvas);color:var(--go-ink)}
+#root .ride-workspace-shell{--ride-ink:var(--go-ink);--ride-muted:var(--go-muted);--ride-line:var(--go-line);--ride-surface:var(--go-surface);background:var(--go-canvas)}
+#root .ride-workspace-topbar{background:var(--go-inverse);color:var(--go-on-inverse);border-bottom:1px solid var(--go-inverse-outline);box-shadow:none}.ride-workspace-brand>svg{color:var(--go-primary)}.ride-workspace-brand small{color:var(--go-inverse-muted)}
+#root .ride-workspace-status{color:var(--go-on-inverse);background:var(--go-inverse-container);border-radius:14px;padding:7px 9px}.ride-workspace-status i{background:var(--go-primary)}
+#root .ride-workspace-dialog .ride-workspace-icon{background:var(--go-inverse-container);color:var(--go-on-inverse);border:1px solid var(--go-inverse-outline);border-radius:14px}
+#root .ride-workspace-content :is(.bike-live-sheet,.bike-rider-trip-body){border-radius:28px 28px 0 0;background:var(--ride-surface);border-top:1px solid var(--go-line);box-shadow:var(--go-sheet-elevation)}
+#root .ride-workspace-content .bike-live-rider{background:var(--go-surface-variant);border-color:var(--go-line);border-radius:20px;color:var(--go-ink)}#root .ride-workspace-content .bike-live-rider :is(strong,small){color:var(--go-ink)}
+#root .ride-workspace-dialog :is(.bike-primary,.ops-primary){background:var(--go-primary)!important;color:var(--go-on-primary)!important;border:1px solid var(--go-primary)!important;box-shadow:none!important;border-radius:12px;min-height:52px}
+#root .ride-workspace-dialog .ride-workspace-content .business-records .business-actions>button.ops-primary{background:var(--go-primary)!important;color:var(--go-on-primary)!important;border-color:var(--go-ink)!important;border:1px solid var(--go-primary)!important;box-shadow:none!important}
+#root .ride-workspace-dialog :is(.bike-soft-button,.bike-icon-button){background:var(--go-surface-variant);border-color:var(--go-line);color:var(--go-ink);border-radius:14px}
+#root .ride-workspace-dialog .ride-sheet-handle{color:var(--go-muted)}.ride-workspace-dialog .ride-sheet-handle>span{width:46px;background:var(--go-outline)}
+#root .ride-cab-waiting{background:var(--go-surface-variant);color:var(--go-ink);border-radius:20px}
+#root .ride-resume-banner{background:var(--go-inverse);border-bottom-color:var(--go-primary);color:var(--go-on-inverse)}.ride-resume-banner small{color:var(--go-inverse-muted)}
+#root .ride-workspace-content :is(.bike-trip-progress,.bike-rider-progress){padding:12px;border-radius:16px;background:var(--go-canvas)}
+#root .ride-workspace-dialog .ride-record-summary{background:var(--go-surface);border:1px solid var(--go-line);border-radius:20px}
 .modal.motion-dialog[open]:is(.go-booking-dialog,.bike-review-modal,.go-options-dialog,.ride-finance-dialog){animation:go-sheet-rise 600ms cubic-bezier(.16,1,.3,1) both}
 .ride-workspace-dialog[open] :is(.bike-live-sheet,.bike-rider-trip-body){animation:go-sheet-rise 620ms cubic-bezier(.16,1,.3,1) both}
 #root .ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:height 580ms cubic-bezier(.16,1,.3,1)}
 @keyframes go-sheet-rise{from{opacity:.3;translate:0 80px;scale:.97}to{opacity:1;translate:0 0;scale:1}}
-@media(min-width:900px){#root .ride-workspace-content :is(.bike-live-sheet,.bike-rider-trip-body){border-radius:0;border-top:0;border-left:2px solid #7e55ba}}
+@media(min-width:900px){#root .ride-workspace-content :is(.bike-live-sheet,.bike-rider-trip-body){border-radius:0;border-top:0;border-left:2px solid var(--go-line)}}
 @media(max-width:380px){#root .modal:has(>.ride-booking-workspace),#root .modal.bike-review-modal{padding:14px}#root .ride-booking-workspace .wizard-actions{grid-template-columns:minmax(0,1fr)}#root .ride-booking-workspace .wizard-actions>button:first-child{justify-self:start;padding:7px 13px}.ride-workspace-status{max-width:32%}}
-[data-theme=dark] #root .ride-workspace-shell{--ride-ink:#f3edff;--ride-muted:#d8c9e9;--ride-line:#806899;--ride-surface:#302344;background:#261a3b}
-[data-theme=dark] #root .ride-workspace-content :is(.bike-trip-progress,.bike-rider-progress){background:#3d2c54}
+[data-theme=dark] #root .ride-workspace-shell{--ride-ink:var(--go-ink);--ride-muted:var(--go-muted);--ride-line:var(--go-line);--ride-surface:var(--go-surface);background:var(--go-canvas)}
+[data-theme=dark] #root .ride-workspace-content :is(.bike-trip-progress,.bike-rider-progress){background:var(--go-surface-variant)}
 @media(prefers-reduced-motion:reduce){.modal.motion-dialog[open]:is(.go-booking-dialog,.bike-review-modal,.go-options-dialog,.ride-finance-dialog),.ride-workspace-dialog[open] :is(.bike-live-sheet,.bike-rider-trip-body){animation:none!important}#root .ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:none!important}}
 :is(.reduce-motion,[data-reduced-motion=true]) :is(.go-booking-dialog,.bike-review-modal,.go-options-dialog,.ride-finance-dialog,.bike-live-sheet,.bike-rider-trip-body){animation:none!important;transition:none!important}
 :is(.reduce-motion,[data-reduced-motion=true]) .ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:none!important}

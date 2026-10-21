@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdir,writeFile} from 'node:fs/promises';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'/opt/codex/runtimes/cua/lib/node_modules/playwright');
-const origin=process.env.REPAIDO_QA_URL||'http://127.0.0.1:5187',out='/workspace/artifacts/go-bold/driver';
+const origin=process.env.REPAIDO_QA_URL||'http://127.0.0.1:5187',out=process.env.REPAIDO_DRIVER_ARTIFACTS||'/workspace/artifacts/go-material/driver';
 assert.equal(new URL(origin).hostname,'127.0.0.1');await mkdir(out,{recursive:true});
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const errors=[],checks=[];let page;
 try{

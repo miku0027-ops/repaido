@@ -1,71 +1,72 @@
+@import './go-material-theme.css';
 /* Driver Go: a compact, high-contrast cockpit with distinct work surfaces. */
-#root .suite-driver{--ui-ink:#21162e;--ui-muted:#574565;--ui-subtle:#e8dcff;--ui-surface:#f6efff;--ui-line:#bca7d9;background:#e8dcff;color:#21162e;border-radius:24px}
-#root .suite-driver .suite-content{background:#e8dcff;color:#21162e}
-#root .suite-driver .suite-panel-header{background:#e8dcff;border-bottom:1px solid #bca7d9;padding-bottom:12px}
-#root .suite-driver .suite-panel-title{font-size:1.35rem;color:#21162e;letter-spacing:-.035em}
-#root .suite-driver .suite-booking-navigation{gap:5px;padding:5px;border-radius:17px;background:#d2bafa}
-#root .suite-driver .suite-booking-navigation button{border:0;background:transparent;color:#3b225c;border-radius:12px;min-height:44px;padding:8px 12px;font-weight:700}
-#root .suite-driver .suite-booking-navigation button[aria-current=page]{background:#5b2cdf;color:#fff;box-shadow:0 3px 0 #392064}
-#root .suite-driver .suite-navigation{background:#21162e;border-color:#21162e;box-shadow:0 -3px 0 #c3a6fc;backdrop-filter:none}
-#root .suite-driver .suite-navigation button{color:#f2ebff;background:transparent;border-color:transparent;border-radius:17px}
-#root .suite-driver .suite-navigation button[aria-current=page]{background:#d9fc68;color:#21162e;border-color:#d9fc68;box-shadow:none}
-#root .suite-driver .suite-metric{background:#d9fc68;border:1px solid #9bb744;color:#21162e;border-radius:22px;box-shadow:0 4px 0 #bad744;padding:17px}
-#root .suite-driver .suite-metric:nth-child(2){background:#ff967d;border-color:#d17058;box-shadow:0 4px 0 #d17058}
-#root .suite-driver .suite-metric:nth-child(3){background:#73e2d1;border-color:#409e91;box-shadow:0 4px 0 #409e91}
-#root .suite-driver .suite-metric:nth-child(4){background:#bfa0ff;border-color:#9373ca;box-shadow:0 4px 0 #9373ca}
-#root .suite-driver .suite-metric :is(span,strong){color:#21162e}.suite-driver .suite-metric strong{font-size:2rem;letter-spacing:-.04em}
-#root .suite-driver :is(.suite-card,.suite-empty,.driver-invitations,.driver-assignment-help){background:#f6efff;border:1px solid #bca7d9;border-radius:22px;box-shadow:none;color:#21162e}
-#root .suite-driver .suite-next-work{background:#e0f8ef;border-color:#87bcb0;color:#23493d;border-radius:17px}
-#root .suite-driver :is(.suite-card,.suite-empty,.driver-invitations) h3{color:#21162e}
-#root .suite-driver .driver-assignment-help>summary{background:#d7c2ff;color:#392350;border-radius:17px}
-#root .suite-driver .business-record{border:1px solid #bca7d9;background:#f6efff;border-radius:22px;color:#21162e}
-#root .suite-driver .business-actions>button.ops-primary{background:#5b2cdf;color:#fff;border-color:#5b2cdf;border-radius:15px}
-#root .ops-worker:has(.suite-driver){background:#e8dcff;min-height:100dvh}
-#root .ops-worker:has(.suite-driver)>.ops-heading{background:#e8dcff;border-bottom:2px solid #bca7d9;border-radius:0;padding-bottom:12px}
-#root .ops-worker:has(.suite-driver) .worker-suite-identity{color:#21162e}.ops-worker:has(.suite-driver) .worker-suite-identity :is(h1,span,small){color:#392350}
-#root .ops-worker:has(.suite-driver) .worker-app-link{background:#d7c2ff;color:#392350;border-color:#b394dc;border-radius:14px}
-#root .bike-rider-workspace{--bike-ink:#21162e;--bike-muted:#574565;--bike-line:#bca7d9;--bike-blue:#5b2cdf;--bike-surface:#f6efff;--br-accent:#5b2cdf;--br-accent-strong:#4320aa;gap:14px;background:#e8dcff;border-radius:24px;padding:12px;color:var(--bike-ink)}
-#root .bike-rider-workspace .bike-rider-control{padding:14px 12px;background:#21162e;color:#fff;border-radius:22px 22px 0 0;margin-bottom:-14px;gap:8px}
-#root .bike-rider-workspace .bike-rider-control :is(h3,.bike-rider-presence){color:#f4edff}.bike-rider-control .bike-rider-presence>i{background:#ff967d}
-#root .bike-rider-workspace .bike-rider-emblem{background:#bfa0ff;color:#21162e;border-radius:14px;rotate:-7deg}
-#root .bike-rider-workspace .bike-rider-online-toggle{min-height:48px;background:#ff967d;color:#21162e;border:1px solid #ff967d;border-radius:16px;padding:10px 12px;box-shadow:none}
-#root .bike-rider-workspace .bike-rider-online-toggle>span{height:13px;width:13px;background:#8b3829;border-radius:50%;box-shadow:0 0 0 4px #ef7c62}
-#root .bike-rider-workspace .bike-rider-online-toggle.is-online{background:#d9fc68;color:#243315;border-color:#d9fc68}.bike-rider-online-toggle.is-online>span{background:#296e3b!important;box-shadow:0 0 0 4px #b7e24b!important}
-#root .bike-rider-workspace .bike-rider-icon-button{background:#47305f;color:#fff;border-color:#8f72ae;border-radius:15px}
-#root .bike-rider-workspace .bike-rider-earnings-strip{background:#5b2cdf;color:#fff;padding:14px;border-radius:0 0 20px 20px;gap:9px;margin:0;box-shadow:0 4px 0 #4320aa}
-#root .bike-rider-earnings-strip>svg{color:#d9fc68}#root .bike-rider-earnings-strip>strong{font-size:1.15rem}
-#root .bike-rider-duty-map{margin:0;border:2px solid #bca7d9;border-radius:22px;height:clamp(240px,36dvh,480px)}
-#root .bike-rider-map-state{background:#21162e;color:#fff;border-color:#21162e;border-radius:13px;padding:8px 10px}
-#root .bike-rider-workspace .bike-rider-shift-panel{background:#73e2d1;border:1px solid #389386;border-radius:19px;box-shadow:none}
-#root .bike-rider-workspace .bike-rider-settings summary{color:#143b35;background:#73e2d1;min-height:56px}.bike-rider-workspace .bike-rider-settings summary :is(span,small){color:#143b35!important}
-#root .bike-rider-workspace .bike-rider-settings-name{color:#143b35}#root .bike-rider-settings summary>small{background:#c8f7e9;border:1px solid #449787;border-radius:10px;padding:4px 7px}
-#root .bike-rider-workspace .bike-rider-view-tabs{padding:5px;background:#d2bafa;border:0;border-radius:18px;gap:5px}
-#root .bike-rider-workspace .bike-rider-view-tabs button{background:transparent;color:#392350;border:0;border-radius:13px;min-height:44px}
-#root .bike-rider-workspace .bike-rider-view-tabs button[aria-pressed=true]{background:#5b2cdf;color:#fff;box-shadow:none}#root .bike-rider-view-tabs button>span{background:#e8dcff;color:#392350;border-radius:7px}
-#root .bike-rider-workspace .bike-rider-money-button{background:#ff967d;border:1px solid #c45a47;border-radius:14px;color:#361b23;min-height:44px}
-#root .bike-rider-workspace .bike-rider-empty{background:#d9fc68;border:1px solid #96b144;border-radius:23px;padding:24px 16px;color:#334420;box-shadow:0 4px 0 #bad744}
-#root .bike-rider-workspace .bike-rider-empty :is(h4,p){color:#334420}#root .bike-rider-empty-icon{background:#5b2cdf;color:#fff;border-radius:19px;rotate:-7deg}
-#root .bike-rider-setup{background:#d9fc68;border:1px solid #96b144;border-radius:22px;color:#334420}#root .bike-rider-setup :is(h4,p){color:#334420}#root .bike-rider-setup-step>button{background:#5b2cdf;color:#fff;border-color:#5b2cdf;border-radius:14px}
-#root .bike-rider-workspace .bike-rider-trip{background:var(--bike-surface);border:1px solid var(--bike-line);border-radius:22px;box-shadow:0 4px 0 #c5b1e2;padding:16px}
-#root .bike-rider-workspace .bike-rider-trip.is-request{background:#73e2a2;border:2px solid #236f43;color:#173b26;box-shadow:0 5px 0 #236f43}
-#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-trip-body{background:#73e2a2;color:#173b26;border-color:#236f43}
-#root .bike-rider-workspace .bike-rider-trip.is-request :is(dt,dd,.bike-rider-trip-state,.bike-rider-request-clock){color:#173b26}
-#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-trip-state{background:#c9f8d9;color:#173b26;border-color:#3c8a56}
-#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-passenger :is(strong,small){color:#173b26}
-#root .bike-rider-workspace .bike-rider-trip-fare{background:#ffb69f;border-color:#c9826c;color:#361b23;border-radius:16px}.bike-rider-workspace .bike-rider-trip-fare :is(small,strong,span){color:#361b23!important}
-#root .bike-rider-workspace .bike-rider-navigation{background:#5b2cdf;color:#fff;border-color:#5b2cdf;border-radius:15px;min-height:48px}
-#root .bike-rider-workspace .bike-rider-trip-actions{background:var(--bike-surface);border-color:var(--bike-line);border-radius:18px;gap:10px}
-#root .bike-rider-workspace .bike-rider-trip-actions>button.bike-rider-primary{background:#d9fc68;color:#21162e;border:2px solid #21162e;border-radius:15px;min-height:52px;box-shadow:0 3px 0 #21162e}
-#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-trip-actions>button.bike-rider-primary{background:#1e613a;color:#fff;border-color:#1e613a;box-shadow:0 3px 0 #153d26}
-#root .bike-rider-workspace .bike-rider-decline{background:#ffb69f;color:#5c231d;border:1px solid #b8715c;border-radius:15px}
-#root .bike-rider-history>details{background:var(--bike-surface);border-color:var(--bike-line);border-radius:19px}
-#root .ride-finance-dialog{background:#e8dcff;color:#21162e}#root .ride-finance-dialog>.app-modal-heading{background:#5b2cdf;color:#fff;border-bottom-color:#d9fc68}#root .ride-finance-dialog>.bike-rider-finance{background:#e8dcff}
-#root .ride-finance-dialog .bike-earnings-totals>div{background:#d9fc68;border:1px solid #96b144;border-radius:22px;color:#334420}#root .ride-finance-dialog .bike-earnings-totals>div:nth-child(2){background:#ffb69f;border-color:#c9826c}#root .ride-finance-dialog .bike-earnings-totals>div:nth-child(3){background:#73e2d1;border-color:#389386}.ride-finance-dialog .bike-earnings-totals :is(dt,dd){color:#21162e!important}
+#root .suite-driver{--ui-ink:var(--go-ink);--ui-muted:var(--go-muted);--ui-subtle:var(--go-canvas);--ui-surface:var(--go-surface);--ui-line:var(--go-line);background:var(--go-canvas);color:var(--go-ink);border-radius:20px}
+#root .suite-driver .suite-content{background:var(--go-canvas);color:var(--go-ink)}
+#root .suite-driver .suite-panel-header{background:var(--go-canvas);border-bottom:1px solid var(--go-line);padding-bottom:12px}
+#root .suite-driver .suite-panel-title{font-size:1.35rem;color:var(--go-ink);letter-spacing:-.035em}
+#root .suite-driver .suite-booking-navigation{gap:5px;padding:5px;border-radius:12px;background:var(--go-surface-variant)}
+#root .suite-driver .suite-booking-navigation button{border:0;background:transparent;color:var(--go-ink);border-radius:12px;min-height:44px;padding:8px 12px;font-weight:700}
+#root .suite-driver .suite-booking-navigation button[aria-current=page]{background:var(--go-inverse);color:var(--go-on-inverse);box-shadow:none}
+#root .suite-driver .suite-navigation{background:var(--go-surface);border-color:var(--go-line);box-shadow:none;backdrop-filter:none}
+#root .suite-driver .suite-navigation button{color:var(--go-muted);background:transparent;border-color:transparent;border-radius:12px}
+#root .suite-driver .suite-navigation button[aria-current=page]{background:var(--go-primary-container);color:var(--go-on-primary-container);border-color:transparent;box-shadow:none}
+#root .suite-driver .suite-metric{background:var(--go-surface);border:1px solid var(--go-line);color:var(--go-ink);border-radius:16px;box-shadow:var(--go-elevation);padding:17px}
+#root .suite-driver .suite-metric:nth-child(2){background:var(--go-surface);border-color:var(--go-line);box-shadow:var(--go-elevation)}
+#root .suite-driver .suite-metric:nth-child(3){background:var(--go-surface);border-color:var(--go-line);box-shadow:var(--go-elevation)}
+#root .suite-driver .suite-metric:nth-child(4){background:var(--go-surface);border-color:var(--go-line);box-shadow:var(--go-elevation)}
+#root .suite-driver .suite-metric :is(span,strong){color:var(--go-ink)}.suite-driver .suite-metric strong{font-size:2rem;letter-spacing:-.04em}
+#root .suite-driver :is(.suite-card,.suite-empty,.driver-invitations,.driver-assignment-help){background:var(--go-surface);border:1px solid var(--go-line);border-radius:16px;box-shadow:none;color:var(--go-ink)}
+#root .suite-driver .suite-next-work{background:var(--go-surface);border-color:var(--go-line);color:var(--go-ink);border-radius:12px}
+#root .suite-driver :is(.suite-card,.suite-empty,.driver-invitations) h3{color:var(--go-ink)}
+#root .suite-driver .driver-assignment-help>summary{background:var(--go-surface-variant);color:var(--go-ink);border-radius:12px}
+#root .suite-driver .business-record{border:1px solid var(--go-line);background:var(--go-surface);border-radius:16px;color:var(--go-ink)}
+#root .suite-driver .business-actions>button.ops-primary{background:var(--go-inverse);color:var(--go-on-inverse);border-color:var(--go-inverse);border-radius:12px}
+#root .ops-worker:has(.suite-driver){background:var(--go-canvas);min-height:100dvh}
+#root .ops-worker:has(.suite-driver)>.ops-heading{background:var(--go-canvas);border-bottom:2px solid var(--go-line);border-radius:0;padding-bottom:12px}
+#root .ops-worker:has(.suite-driver) .worker-suite-identity{color:var(--go-ink)}.ops-worker:has(.suite-driver) .worker-suite-identity :is(h1,span,small){color:var(--go-ink)}
+#root .ops-worker:has(.suite-driver) .worker-app-link{background:var(--go-surface-variant);color:var(--go-ink);border-color:var(--go-line);border-radius:14px}
+#root .bike-rider-workspace{--bike-ink:var(--go-ink);--bike-muted:var(--go-muted);--bike-line:var(--go-line);--bike-blue:var(--go-inverse);--bike-surface:var(--go-surface);--br-accent:var(--go-inverse);--br-accent-strong:var(--go-inverse-container);gap:14px;background:var(--go-canvas);border-radius:20px;padding:12px;color:var(--bike-ink)}
+#root .bike-rider-workspace .bike-rider-control{padding:14px 12px;background:var(--go-inverse);color:var(--go-on-inverse);border-radius:16px 16px 0 0;margin-bottom:-14px;gap:8px}
+#root .bike-rider-workspace .bike-rider-control :is(h3,.bike-rider-presence){color:var(--go-on-inverse)}.bike-rider-control .bike-rider-presence>i{background:var(--go-surface-variant)}
+#root .bike-rider-workspace .bike-rider-emblem{background:var(--go-primary);color:var(--go-on-primary);border-radius:14px;rotate:0deg}
+#root .bike-rider-workspace .bike-rider-online-toggle{min-height:48px;background:var(--go-inverse-container);color:var(--go-on-inverse);border:1px solid var(--go-inverse-outline);border-radius:16px;padding:10px 12px;box-shadow:none}
+#root .bike-rider-workspace .bike-rider-online-toggle>span{height:13px;width:13px;background:var(--go-muted);border-radius:50%;box-shadow:none}
+#root .bike-rider-workspace .bike-rider-online-toggle.is-online{background:var(--go-primary);color:var(--go-on-primary);border-color:var(--go-primary)}.bike-rider-online-toggle.is-online>span{background:var(--go-success)!important;box-shadow:none!important}
+#root .bike-rider-workspace .bike-rider-icon-button{background:var(--go-inverse-container);color:var(--go-on-inverse);border-color:var(--go-inverse-outline);border-radius:12px}
+#root .bike-rider-workspace .bike-rider-earnings-strip{background:var(--go-surface);color:var(--go-ink);padding:14px;border-radius:0 0 20px 20px;gap:9px;margin:0;box-shadow:none;border:1px solid var(--go-line)}
+#root .bike-rider-earnings-strip>svg{color:var(--go-ink)}#root .bike-rider-earnings-strip>strong{font-size:1.15rem}
+#root .bike-rider-duty-map{margin:0;border:2px solid var(--go-line);border-radius:16px;height:clamp(240px,36dvh,480px)}
+#root .bike-rider-map-state{background:var(--go-inverse);color:var(--go-on-inverse);border-color:var(--go-ink);border-radius:13px;padding:8px 10px}
+#root .bike-rider-workspace .bike-rider-shift-panel{background:var(--go-surface-variant);border:1px solid var(--go-line);border-radius:16px;box-shadow:none}
+#root .bike-rider-workspace .bike-rider-settings summary{color:var(--go-ink);background:var(--go-surface-variant);min-height:56px}.bike-rider-workspace .bike-rider-settings summary :is(span,small){color:var(--go-ink)!important}
+#root .bike-rider-workspace .bike-rider-settings-name{color:var(--go-ink)}#root .bike-rider-settings summary>small{background:var(--go-surface-variant);border:1px solid var(--go-line);border-radius:10px;padding:4px 7px}
+#root .bike-rider-workspace .bike-rider-view-tabs{padding:5px;background:var(--go-surface-variant);border:0;border-radius:16px;gap:5px}
+#root .bike-rider-workspace .bike-rider-view-tabs button{background:transparent;color:var(--go-ink);border:0;border-radius:13px;min-height:44px}
+#root .bike-rider-workspace .bike-rider-view-tabs button[aria-pressed=true]{background:var(--go-inverse);color:var(--go-on-inverse);box-shadow:none}#root .bike-rider-view-tabs button>span{background:var(--go-canvas);color:var(--go-ink);border-radius:7px}
+#root .bike-rider-workspace .bike-rider-money-button{background:var(--go-surface-variant);border:1px solid var(--go-line);border-radius:14px;color:var(--go-ink);min-height:44px}
+#root .bike-rider-workspace .bike-rider-empty{background:var(--go-surface);border:1px solid var(--go-line);border-radius:16px;padding:24px 16px;color:var(--go-ink);box-shadow:none}
+#root .bike-rider-workspace .bike-rider-empty :is(h4,p){color:var(--go-ink)}#root .bike-rider-empty-icon{background:var(--go-primary-container);color:var(--go-on-primary-container);border-radius:50%;rotate:0deg}
+#root .bike-rider-setup{background:var(--go-surface);border:1px solid var(--go-line);border-radius:16px;color:var(--go-ink)}#root .bike-rider-setup :is(h4,p){color:var(--go-ink)}#root .bike-rider-setup-step>button{background:var(--go-inverse);color:var(--go-on-inverse);border-color:var(--go-inverse);border-radius:14px}
+#root .bike-rider-workspace .bike-rider-trip{background:var(--bike-surface);border:1px solid var(--bike-line);border-radius:16px;box-shadow:none;padding:16px}
+#root .bike-rider-workspace .bike-rider-trip.is-request{background:var(--go-surface);border:1px solid var(--go-success);color:var(--go-ink);box-shadow:none;border-top:4px solid var(--go-success)}
+#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-trip-body{background:var(--go-surface);color:var(--go-ink);border-color:var(--go-line)}
+#root .bike-rider-workspace .bike-rider-trip.is-request :is(dt,dd,.bike-rider-trip-state,.bike-rider-request-clock){color:var(--go-ink)}
+#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-trip-state{background:var(--go-success-container);color:var(--go-on-success-container);border-color:var(--go-success)}
+#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-passenger :is(strong,small){color:var(--go-ink)}
+#root .bike-rider-workspace .bike-rider-trip-fare{background:var(--go-surface-variant);border-color:var(--go-line);color:var(--go-ink);border-radius:16px}.bike-rider-workspace .bike-rider-trip-fare :is(small,strong,span){color:var(--go-ink)!important}
+#root .bike-rider-workspace .bike-rider-navigation{background:var(--go-inverse);color:var(--go-on-inverse);border-color:var(--go-inverse);border-radius:12px;min-height:48px}
+#root .bike-rider-workspace .bike-rider-trip-actions{background:var(--bike-surface);border-color:var(--bike-line);border-radius:16px;gap:10px}
+#root .bike-rider-workspace .bike-rider-trip-actions>button.bike-rider-primary{background:var(--go-primary);color:var(--go-on-primary);border:1px solid var(--go-primary);border-radius:12px;min-height:52px;box-shadow:none}
+#root .bike-rider-workspace .bike-rider-trip.is-request .bike-rider-trip-actions>button.bike-rider-primary{background:var(--go-primary);color:var(--go-on-primary);border-color:var(--go-success);box-shadow:none;border:1px solid var(--go-primary)}
+#root .bike-rider-workspace .bike-rider-decline{background:var(--go-surface);color:var(--go-danger);border:1px solid var(--go-line);border-radius:12px}
+#root .bike-rider-history>details{background:var(--bike-surface);border-color:var(--bike-line);border-radius:16px}
+#root .ride-finance-dialog{background:var(--go-canvas);color:var(--go-ink)}#root .ride-finance-dialog>.app-modal-heading{background:var(--go-inverse);color:var(--go-on-inverse);border-bottom-color:var(--go-primary)}#root .ride-finance-dialog>.bike-rider-finance{background:var(--go-canvas)}
+#root .ride-finance-dialog .bike-earnings-totals>div{background:var(--go-surface);border:1px solid var(--go-line);border-radius:16px;color:var(--go-ink)}#root .ride-finance-dialog .bike-earnings-totals>div:nth-child(2){background:var(--go-surface);border-color:var(--go-line)}#root .ride-finance-dialog .bike-earnings-totals>div:nth-child(3){background:var(--go-surface);border-color:var(--go-line)}.ride-finance-dialog .bike-earnings-totals :is(dt,dd){color:var(--go-ink)!important}
 #root .ride-workspace-content>.bike-rider-workspace{padding:0;border-radius:0}#root .ride-workspace-content .bike-rider-workspace .bike-rider-trip{padding:0;border:0;border-radius:0;box-shadow:none}
-#root .bike-rider-workspace :is(button,a,summary,select):focus-visible,#root .suite-driver :is(button,a,summary):focus-visible{outline:3px solid #6a35d9;outline-offset:3px}#root .bike-rider-control button:focus-visible{outline-color:#d9fc68}
-[data-theme=dark] #root .bike-rider-workspace{--bike-ink:#f3edff;--bike-muted:#d8c9e9;--bike-line:#806899;--bike-blue:#c9aaff;--bike-surface:#302344;background:#261a3b}
-[data-theme=dark] #root .suite-driver,[data-theme=dark] #root .suite-driver .suite-content{--ui-ink:#f3edff;--ui-muted:#d8c9e9;--ui-subtle:#261a3b;--ui-surface:#302344;--ui-line:#806899;background:#261a3b;color:#f3edff}
-[data-theme=dark] #root .ops-worker:has(.suite-driver){background:#261a3b}
+#root .bike-rider-workspace :is(button,a,summary,select):focus-visible,#root .suite-driver :is(button,a,summary):focus-visible{outline:3px solid var(--go-focus);outline-offset:3px}#root .bike-rider-control button:focus-visible{outline-color:var(--go-primary)}
+[data-theme=dark] #root .bike-rider-workspace{--bike-ink:var(--go-ink);--bike-muted:var(--go-muted);--bike-line:var(--go-line);--bike-blue:var(--go-ink);--bike-surface:var(--go-surface);background:var(--go-canvas)}
+[data-theme=dark] #root .suite-driver,[data-theme=dark] #root .suite-driver .suite-content{--ui-ink:var(--go-ink);--ui-muted:var(--go-muted);--ui-subtle:var(--go-canvas);--ui-surface:var(--go-surface);--ui-line:var(--go-line);background:var(--go-canvas);color:var(--go-ink)}
+[data-theme=dark] #root .ops-worker:has(.suite-driver){background:var(--go-canvas)}
 @media(max-width:380px){#root .bike-rider-workspace{padding:8px}#root .bike-rider-workspace .bike-rider-control{padding:12px 8px}.bike-rider-control .bike-rider-presence{font-size:.6875rem}#root .bike-rider-workspace .bike-rider-online-toggle{padding:9px;font-size:.75rem}.bike-rider-section-tools{gap:7px}#root .suite-driver .suite-booking-navigation button{padding:8px}}
 @media(prefers-reduced-motion:no-preference){.driver-records-motion .bike-rider-offer-rail>.bike-rider-trip{animation:go-offer-arrive 580ms cubic-bezier(.16,1,.3,1) both}@keyframes go-offer-arrive{from{opacity:0;translate:0 40px;scale:.95}to{opacity:1;translate:0 0;scale:1}}}
 :is(.reduce-motion,[data-reduced-motion=true]) .driver-records-motion *{animation:none!important;transition:none!important}
