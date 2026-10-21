@@ -1,6 +1,7 @@
 import { useEffect, useRef, type InputHTMLAttributes, type ReactNode } from 'react';
 import { X, ArrowUpRight, Search, CheckCircle2, AlertCircle, Info } from '../icons';
 import './app-experience.css';
+import './motion-system.css';
 import RepaidoBrand from './RepaidoBrand';
 import {acquireModalScrollLock} from '../services/modalScrollLock';
 
@@ -58,7 +59,7 @@ export function Modal({title,children,onClose,className='',frameless=false,dismi
     dialog?.addEventListener('keydown',containFocus);
     return()=>dialog?.removeEventListener('keydown',containFocus);
   },[]);
-  return <dialog ref={ref} className={`modal w-[calc(100%-32px)] max-w-lg rounded-2xl border bg-white p-6 text-ink md:p-8 ${className}`} aria-label={title} onCancel={e=>{e.preventDefault();e.stopPropagation();if(dismissible)onClose();}} onPointerDown={e=>{backdropPress.current=e.button===0&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY);}} onPointerCancel={()=>{backdropPress.current=false;}} onClick={e=>{const beganOutside=backdropPress.current;backdropPress.current=false;if(dismissible&&beganOutside&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY))onClose();}}>{!frameless&&<div className="app-modal-heading mb-6 flex items-start justify-between gap-4"><h2 className="pt-4 text-2xl font-semibold tracking-tight">{title}</h2>{dismissible&&<button type="button" onClick={onClose} className="button-secondary shrink-0" aria-label="Close dialog"><X size={20}/></button>}</div>}{children}</dialog>;
+  return <dialog ref={ref} className={`modal motion-dialog w-[calc(100%-32px)] max-w-lg rounded-2xl border bg-white p-6 text-ink md:p-8 ${className}`} aria-label={title} onCancel={e=>{e.preventDefault();e.stopPropagation();if(dismissible)onClose();}} onPointerDown={e=>{backdropPress.current=e.button===0&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY);}} onPointerCancel={()=>{backdropPress.current=false;}} onClick={e=>{const beganOutside=backdropPress.current;backdropPress.current=false;if(dismissible&&beganOutside&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY))onClose();}}>{!frameless&&<div className="app-modal-heading mb-6 flex items-start justify-between gap-4"><h2 className="pt-4 text-2xl font-semibold tracking-tight">{title}</h2>{dismissible&&<button type="button" onClick={onClose} className="button-secondary shrink-0" aria-label="Close dialog"><X size={20}/></button>}</div>}{children}</dialog>;
 }
 export function Empty({title,description,action}:{title:string;description:string;action?:ReactNode}) {return <div className="app-empty-state rounded-2xl border px-6 py-16 text-center"><h2 className="text-xl font-semibold">{title}</h2><p className="mx-auto mt-2 max-w-md text-muted">{description}</p>{action&&<div className="mt-6">{action}</div>}</div>;}
 export function ArrowLink(){return <ArrowUpRight size={18} strokeWidth={1.8} aria-hidden="true"/>;}

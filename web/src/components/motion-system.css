@@ -1,0 +1,21 @@
+/* Short, consistent motion. Never animate an entire map or periodic reads. */
+:root{--motion-fast:140ms;--motion-panel:280ms;--motion-settle:360ms;--motion-ease:cubic-bezier(.22,1,.36,1);--motion-soft:cubic-bezier(.2,.7,.2,1)}
+.motion-page{min-width:0}
+.modal.motion-dialog[open]:not(.ride-workspace-dialog):not(.journey-fullscreen-dialog){animation:fluid-dialog-enter var(--motion-panel) var(--motion-ease) both}
+.modal.motion-dialog[open]::backdrop{animation:fluid-backdrop-enter 180ms ease-out both}
+.modal.motion-dialog.ride-workspace-dialog[open]{animation:fluid-screen-enter 200ms ease-out both}
+:where(.repaido-customer-shell,.ops-worker,.operations) :where(button,a,input,select,textarea){transition:background-color var(--motion-fast) ease,color var(--motion-fast) ease,border-color var(--motion-fast) ease,box-shadow var(--motion-fast) ease,opacity var(--motion-fast) ease}
+.modal.motion-dialog :where(button,input,select,textarea){transition:background-color var(--motion-fast) ease,border-color var(--motion-fast) ease,box-shadow var(--motion-fast) ease}
+.ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:height var(--motion-settle) var(--motion-ease)}
+.go-mobility :is(.bike-route-sheet,.mobility-trip-sheet){animation:fluid-sheet-enter var(--motion-settle) var(--motion-ease) both}
+.go-options-dialog .go-more-options>button{animation:fluid-card-enter var(--motion-panel) var(--motion-ease) both}
+.go-options-dialog .go-more-options>button:nth-child(2){animation-delay:35ms}.go-options-dialog .go-more-options>button:nth-child(3){animation-delay:70ms}.go-options-dialog .go-more-options>button:nth-child(4){animation-delay:105ms}
+@keyframes fluid-dialog-enter{from{opacity:0;translate:0 14px;scale:.99}to{opacity:1;translate:0 0;scale:1}}
+@keyframes fluid-backdrop-enter{from{opacity:0}to{opacity:1}}
+@keyframes fluid-screen-enter{from{opacity:.3}to{opacity:1}}
+@keyframes fluid-sheet-enter{from{opacity:.65;translate:0 14px}to{opacity:1;translate:0 0}}
+@keyframes fluid-card-enter{from{opacity:.5;translate:0 7px}to{opacity:1;translate:0 0}}
+@media(hover:hover) and (pointer:fine){.repaido-go-entry:hover .go-entry-arrow{translate:3px 0}.go-more-options>button:hover{background:var(--ui-subtle)}}
+@media(prefers-reduced-motion:reduce){.motion-page,.motion-dialog,.go-mobility :is(.bike-route-sheet,.mobility-trip-sheet),.go-options-dialog .go-more-options>button{animation:none!important;transition:none!important}.ride-workspace-content :is(.bike-live-map,.bike-rider-live-map,.ride-cab-planned-map){transition:none!important}}
+:is(.reduce-motion,[data-reduced-motion=true]) :is(.motion-page,.motion-dialog,.go-mobility .bike-route-sheet,.go-mobility .mobility-trip-sheet,.go-options-dialog .go-more-options>button){animation:none!important;transition:none!important}
+:is(.reduce-motion,[data-reduced-motion=true]) .motion-dialog::backdrop{animation:none!important}

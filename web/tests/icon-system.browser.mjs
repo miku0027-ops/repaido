@@ -66,14 +66,14 @@ try{
  checks.push('Production search, tabs, filters, header, modal and dock retain aligned square icons, 44px targets and accessible labels across 16 viewport/theme/text variants plus Gold');
  await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:60000});await page.getByRole('navigation',{name:'Bottom Navigation'}).waitFor({timeout:45000});
  const actualNav=page.getByRole('navigation',{name:'Bottom Navigation'});
- for(const name of ['Explore','Services','Bookings','Market','Hire']){
+ for(const name of ['Explore','Go','Bookings','Market','Hire']){
   await theme(page);await actualNav.getByRole('button',{name,exact:true}).click();await pause(250);
   const problems=await iconAudit(page);issues.push(...problems.map(issue=>({...issue,scope:'App '+name})));assert.deepEqual(await touchAudit(page,'.android-bottom-nav'),[],name+' actual dock targets');
   const icons=await page.locator('svg[data-icon]').count();assert(icons>5,name+' renders adapter icons');variants.push({scope:'App '+name,icons});
  }
  await actualNav.getByRole('button',{name:'Market',exact:true}).click();
  for(const name of ['Marketplace','B2B Wholesale','Contracts','Rides','Sell scrap']){
-  await page.getByRole('tablist',{name:'Marketplace destination'}).getByRole('tab',{name,exact:true}).click();await pause(200);issues.push(...(await iconAudit(page)).map(issue=>({...issue,scope:'Market '+name})));variants.push({scope:'Market '+name});
+  await actualNav.getByRole('button',{name:'Market',exact:true}).click();await page.getByRole('tablist',{name:'Marketplace destination'}).getByRole('tab',{name,exact:true}).click();await pause(200);issues.push(...(await iconAudit(page)).map(issue=>({...issue,scope:'Market '+name})));variants.push({scope:'Market '+name});
  }
  for(const settings of [{width:320,scale:200,theme:'dark'},{width:480,gold:true},{width:1440,theme:'light'}]){await theme(page,settings);issues.push(...await iconAudit(page));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Actual App icon reflow');}
  await theme(page,{width:390,gold:true});await page.screenshot({path:work+'/actual-app-gold-390.png'});

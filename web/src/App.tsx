@@ -5,13 +5,14 @@ import {CustomerLiveActivity,type LiveActivityTarget} from './components/Custome
 import {publicProfessionalDetails} from './services/hireProfileCache';
 import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
 import {HomeDiscoveryLayout} from './components/HomeDiscoveryLayout';
-import {HomeBikePromotion} from './components/HomeBikePromotion';
+import {RepaidoGo,RepaidoGoEntry} from './components/RepaidoGo';
+import {MotionPage} from './components/MotionPage';
 import type {TravelMode} from './components/MobilityExperience';
 import {HomeDiscoveryPreferences} from './components/HomeDiscoveryPreferences';
-import {TransportRail} from './components/TransportRail';
-import {MobilityHub,ScrapHub,TransportBookings} from './components/LocalBusiness';
+import {ScrapHub,TransportBookings} from './components/LocalBusiness';
 import {CustomerLiveRide} from './components/CustomerLiveRide';
 import './components/market-refinement.css';
+import './components/customer-experience.css';
 import {CouponWelcome} from './components/Coupons';
 import OpportunityCarousel,{CustomerContractMatches,opportunities} from './components/OpportunityCarousel';
 import HomeQuickActions,{type QuickMarket} from './components/HomeQuickActions';
@@ -125,7 +126,6 @@ import { OperationalJobs } from './components/OperationalJobs';
 import { SparePartsShop } from './components/SparePartsShop';
 import { B2BMarketplace } from './components/B2BMarketplace';
 import { LocationPickerModal } from './components/LocationPickerModal';
-import BrandTabTransition from './components/BrandTabTransition';
 import { listenCustomerVisits } from './services/customerBrowseTracker';
 import './reference.css';
 
@@ -140,7 +140,7 @@ const LiveWorkerPortal=lazy(()=>import('./components/LiveWorkerPortal'));
 const OperationsAdmin=lazy(()=>import('./components/OperationsAdmin'));
 const PartnerRegistration=lazy(()=>import('./components/PartnerRegistration'));
 
-type Tab = 'Explore' | 'Services' | 'Bookings' | 'ShopSpares' | 'You' | 'Hire';
+type Tab = 'Explore' | 'Go' | 'Services' | 'Bookings' | 'ShopSpares' | 'You' | 'Hire';
 type Place = { city: string; address: string; landmark: string; label: string; lat?: number; lng?: number; accuracy?: number; confirmed: boolean };
 
 function revealBottomDestination(links:HTMLDivElement,button:HTMLElement|null){
@@ -243,14 +243,16 @@ export default function App() {
   const setRideBookings=(value:boolean)=>{setContributeBookings(false);updateRideBookings(value);};
   const setHireBookings=(value:boolean)=>{setContributeBookings(false);updateHireBookings(value);};
   const setHomePlans=(value:boolean)=>{setContributeBookings(false);updateHomePlans(value);};
-  const [tab,setTab]=useSavedTab<Tab>('repaido.customer.tab',['Explore','Services','Bookings','ShopSpares','You','Hire'],'Explore',(()=>{
+  const [tab,setTab]=useSavedTab<Tab>('repaido.customer.tab',['Explore','Go','Services','Bookings','ShopSpares','You','Hire'],'Explore',(()=>{
     const sp = new URLSearchParams(location.search);
     if(sp.get('view')==='account'||sp.get('view')==='support_case')return 'You';
     if (sp.has('booking') || sp.has('home-plan') || sp.has('hiring') || sp.has('custom-contract') || ['contracts','rides','contribute'].includes(sp.get('view')||'')) return 'Bookings';
     const t = sp.get('tab')?.toLowerCase();
+    if(location.pathname.replace(/\/$/,'')==='/go'||t==='go'||['mobility'].includes(sp.get('marketSub')||sp.get('sub')||''))return 'Go';
     if (t === 'hire') return 'Hire';
     if (t === 'shop' || t === 'shopspares' || t === 'marketplace' || t === 'market') return 'ShopSpares';
     if (t === 'services') return 'Services';
+    if (t === 'bookings') return 'Bookings';
     if (t === 'explore') return 'Explore';
     if (t === 'you') return 'You';
     return undefined;
@@ -273,13 +275,14 @@ export default function App() {
   });
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [cartCount, setCartCount] = useState(() => cartService.getItemCount());
-  const [bikeLaunch,setBikeLaunch]=useState(0);
-  const [marketRideIntent,setMarketRideIntent]=useState<TravelMode|undefined>(()=>new URLSearchParams(window.location.search).get('ride')==='bike'?'bike':undefined);
-  const [marketSubTab, setMarketSubTab] = useState<'spares' | 'tenders' | 'b2b' | 'mobility' | 'scrap'>(() => {
+  const [goVisited,setGoVisited]=useState(tab==='Go');
+  const [goMode,setGoMode]=useState<TravelMode>(()=>{const value=new URLSearchParams(location.search).get('ride');return ['bike','cab','shared','self_drive','rental'].includes(value||'')?value as TravelMode:'bike';});
+  useEffect(()=>{if(tab==='Go'){setGoVisited(true);if(location.pathname==='/'||location.pathname==='/go'){const url=new URL(location.href);url.pathname='/go';for(const name of ['tab','marketSub','sub'])url.searchParams.delete(name);url.searchParams.set('ride',goMode);history.replaceState(history.state,'',url);}}},[tab,goMode]);
+  const [marketSubTab, setMarketSubTab] = useState<'spares' | 'tenders' | 'b2b' | 'scrap'>(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       const sub = p.get('marketSub') || p.get('sub');
-      if (sub === 'mobility' || sub === 'scrap') return sub;
+      if (sub === 'scrap') return sub;
       if (sub === 'b2b' || sub === 'wholesale') return 'b2b';
       if (sub === 'tenders' || sub === 'contracts') return 'tenders';
     }
@@ -411,6 +414,9 @@ export default function App() {
       else if (path.includes('company-admin') || qPortal === 'company-admin') setPortal('company-admin');
       else setPortal('customer');
       if(params.get('view')==='rides'){setRideBookings(true);setTab('Bookings');}
+      else if(path.replace(/\/$/,'')==='/go'||params.get('tab')==='go'||(params.get('marketSub')||params.get('sub'))==='mobility'){const mode=params.get('ride');if(['bike','cab','shared','self_drive','rental'].includes(mode||''))setGoMode(mode as TravelMode);setTab('Go');}
+      else if(['Explore','Go','Services','Bookings','ShopSpares','You','Hire'].includes(history.state?.customerTab))setTab(history.state.customerTab);
+      else if(path==='/'||path===''){const target=({services:'Services',bookings:'Bookings',hire:'Hire',market:'ShopSpares',shop:'ShopSpares',you:'You'} as Record<string,Tab>)[params.get('tab')||''];setTab(target||'Explore');}
       if(params.has('custom-contract')||params.get('view')==='contracts'){setCustomContractId(params.get('custom-contract')||undefined);setCustomProjectId(params.get('project_id')||undefined);setCustomProposalId(params.get('custom-proposal')||undefined);setRideBookings(false);setContractBookings(true);setTab('Bookings');}
     };
     window.addEventListener('popstate', handleUrlChange);
@@ -654,6 +660,14 @@ export default function App() {
   }
 
   function navigate(next: Tab) {
+    const url=new URL(location.href);
+    if(next==='Go'||url.pathname==='/go'||(url.searchParams.get('marketSub')||url.searchParams.get('sub'))==='mobility'){
+      history.replaceState({...history.state,customerTab:tab},'',location.href);
+      url.pathname=next==='Go'?'/go':'/';
+      for(const name of ['tab','marketSub','sub','ride','view','booking','bike-ride','ride-booking','shared-ride','home-plan','hiring','custom-contract'])url.searchParams.delete(name);
+      if(next==='Go')url.searchParams.set('ride',goMode);else if(next!=='Explore')url.searchParams.set('tab',next==='ShopSpares'?'market':next.toLowerCase());
+      history.pushState({...history.state,customerTab:next},'',url);
+    }
     setFocusedHire(undefined);
     setTab(next);
     setError('');
@@ -794,8 +808,7 @@ export default function App() {
   }
 
   return (
-    <CustomerLiveRide onHome={()=>setTab('Explore')}><div className="repaido-customer-shell">
-      <BrandTabTransition tab={tab} reduced={reduce}/>
+    <CustomerLiveRide onHome={()=>navigate('Explore')}><div className={'repaido-customer-shell'+(tab==='Go'?' is-repaido-go':'')}>
       {emailProfileOpen&&<AccountEmailAccess key={user?.id||'guest'} account={accountProfile} onClose={()=>setEmailProfileOpen(false)} onSignIn={()=>{setEmailProfileOpen(false);setSheet('auth');}}/>}
       <AccountEmailNotice account={accountProfile} onOpen={()=>setEmailProfileOpen(true)}/>
       {/* Invisible reCAPTCHA container for Phone Auth */}
@@ -806,7 +819,7 @@ export default function App() {
         <a href="#android-main-content" className="sr-only focus:not-sr-only">Skip to main content</a>
 
         {/* ===== TOP HEADER ===== */}
-        <header className="repaido-home-header">
+        {tab!=='Go'&&<header className="repaido-home-header">
           <div className="repaido-header-top-row">
             {/* Logo */}
             <button
@@ -900,7 +913,7 @@ export default function App() {
             </div>
           </div>
 
-        </header>
+        </header>}
 
         {/* ===== MAIN LAYOUT: sidebar + content on desktop, single column on mobile ===== */}
         <main
@@ -931,6 +944,7 @@ export default function App() {
             {/* Nav links */}
             {([
               { id: 'Explore', label: 'Explore', icon: Explore },
+              { id: 'Go', label: 'Repaido Go', icon: Car },
               { id: 'Services', label: 'All Services', icon: HomeRepair },
               { id: 'Bookings', label: 'My Bookings', icon: CalendarCheck },
               { id: 'ShopSpares', label: 'Market', icon: StoresIcon },
@@ -939,7 +953,7 @@ export default function App() {
               <button
                 key={id}
                 aria-current={tab===id?'page':undefined}
-                onClick={() => { if (id === 'Explore') { setActiveCategory('all'); } setTab(id); }}
+                onClick={() => { if (id === 'Explore') { setActiveCategory('all'); } navigate(id); }}
                 className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   tab === id
                     ? 'bg-[#e8edfa] text-[#17285c]'
@@ -993,7 +1007,8 @@ export default function App() {
           </aside>
 
           {/* ===== MAIN PAGE CONTENT (flex-1 on desktop) ===== */}
-          <div className="flex-1 min-w-0">
+          <MotionPage step={tab} className="flex-1 min-w-0">
+          {goVisited&&<div hidden={tab!=='Go'} className="go-page-host"><RepaidoGo key={user?.id||'guest'} active={tab==='Go'} location={place} initialMode={goMode} onHome={()=>navigate('Explore')} onBookings={()=>{setRideBookings(true);navigate('Bookings');const url=new URL(location.href);url.searchParams.set('view','rides');history.replaceState(history.state,'',url);}} onSignIn={()=>setSheet('auth')} onModeSelect={mode=>{setGoMode(mode);hydration.event({kind:'category_view',category:'transport_'+mode});}} onSearch={mode=>hydration.event({kind:'search',category:'transport_'+mode})}/></div>}
 
           {/* 1. EXPLORE TAB */}
           {tab === 'Explore' && (
@@ -1023,6 +1038,7 @@ export default function App() {
               </div>
 
               <CustomerLiveActivity key={user?.id||auth.currentUser?.uid||'guest'} accountId={user?.id||auth.currentUser?.uid||''} onOpen={openLiveActivity}/>
+              {!query&&<RepaidoGoEntry onOpen={()=>navigate('Go')}/>}
               {!query && (
                 <>
                   <HomeDiscoveryLayout
@@ -1030,7 +1046,7 @@ export default function App() {
                     marketPersonalised={hydration.marketEnabled}
                     repairVisits={hydration.feed?.repair_category_visits}
                     discovery={{
-                      location:place,accountKey:user?.id||'guest',
+                      separateTransport:true,location:place,accountKey:user?.id||'guest',
                       onLocation:()=>setCustomerMapModalOpen(true),onSignIn:()=>setSheet('auth'),
                       onPreferences:()=>setHomeDiscoverySettings(true),
                       personalised:hydration.enabled,transportInterest:hydration.feed?.transport_interest,
@@ -1053,7 +1069,6 @@ export default function App() {
                   {user?.id&&<CustomerContractMatches key={user.id} accountKey={user.id} onOpen={openCustomContract}/>}
                   <HomeQuickActions city={place.city} location={place.confirmed&&typeof place.lat==='number'&&typeof place.lng==='number'?{lat:place.lat,lng:place.lng}:undefined} onLocation={()=>setCustomerMapModalOpen(true)} onMarket={(section,options)=>{openStoreSection(section,options?.sell);setMarketQuick(options||{});}} onHire={()=>setTab('Hire')} onHome={(service,professional)=>{setHomePreferred(professional);setHomeHub(service);}} onService={handleOpenBooking} onCatalogue={()=>{setActiveCategory('all');setTab('Services');}} onOpenCart={()=>setShowCartDrawer(true)}/>
                   <div className="home-promotion-slot"><HomeEntry city={place.city} services={servicesList} onOpen={()=>{setHomePreferred(undefined);setHomeHub('');}}/></div>
-                  <HomeBikePromotion city={place.city} onOpen={()=>{setMarketRideIntent('bike');setBikeLaunch(value=>value+1);setMarketSubTab('mobility');navigate('ShopSpares');}}/>
 
                   </HomeDiscoveryLayout>
                   {/* Marketplace Sliding Notifier: Buy, Rent, Exchange, Sell */}
@@ -1183,8 +1198,8 @@ export default function App() {
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
-              <MarketWorkspace value={marketSubTab} onChange={setMarketSubTab}>
-                {marketSubTab === 'mobility' ? <MobilityHub initialMode={marketRideIntent||hydration.feed?.preferred_transport_mode||undefined} onModeSelect={mode=>{setMarketRideIntent(mode);hydration.event({kind:'category_view',category:'transport_'+mode});}} onSearch={mode=>hydration.event({kind:'search',category:'transport_'+mode})} key={'mobility:'+(auth.currentUser?.uid||'guest')+':'+bikeLaunch} initialLocation={place} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'scrap' ? <ScrapHub key={'scrap:'+(auth.currentUser?.uid||'guest')} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'spares' ? (
+              <MarketWorkspace value={marketSubTab} onChange={value=>{if(value==='mobility')navigate('Go');else setMarketSubTab(value);}}>
+                {marketSubTab === 'scrap' ? <ScrapHub key={'scrap:'+(auth.currentUser?.uid||'guest')} onSignIn={()=>setSheet('auth')}/> : marketSubTab === 'spares' ? (
                   <SparePartsShop
                     onContracts={()=>setMarketSubTab('tenders')}
                     onSignIn={()=>setSheet('auth')}
@@ -1257,7 +1272,7 @@ export default function App() {
                 {offerSettings && <Modal title="Notifications & offers" className="customer-offer-settings" onClose={() => setOfferSettings(false)}><PromotionPreferences city={place.city} onSignIn={() => { setOfferSettings(false); setSheet('auth'); }}/></Modal>}
               </>
             )}
-          </div> {/* end desktop-main-content */}
+          </MotionPage> {/* end desktop-main-content */}
           </main>
 
           {/* Mobile Bottom Navigation Bar */}
@@ -1273,12 +1288,12 @@ export default function App() {
             </button>
 
             <button
-              className={`android-nav-item ${tab === 'Services' ? 'active' : ''}`}
-              onClick={() => navigate('Services')}
-              aria-current={tab === 'Services' ? 'page' : undefined}
+              className={`android-nav-item ${tab === 'Go' ? 'active' : ''}`}
+              onClick={() => navigate('Go')}
+              aria-current={tab === 'Go' ? 'page' : undefined}
             >
-              <HomeRepair size={24} aria-hidden="true" />
-              <span>Services</span>
+              <Car size={24} aria-hidden="true" />
+              <span>Go</span>
             </button>
 
             <button
@@ -1305,7 +1320,7 @@ export default function App() {
         </div>
 
       {/* Customer Trust & Safety Footer */}
-      <footer className="repaido-customer-footer py-12 px-6 border-t border-line">
+      {tab!=='Go'&&<footer className="repaido-customer-footer py-12 px-6 border-t border-line">
         <div className="page-width">
           <div className="customer-footer-rail" aria-label="Repaido service information" tabIndex={0}>
             {(tab==='Hire'?[
@@ -1313,11 +1328,6 @@ export default function App() {
               ['Compare your shortlist','Compare experience, specialties and customer feedback.'],
               ['Choose your plan','Day hiring and recurring Home plans have separate terms.'],
               ['Private profiles','Professional phone numbers and exact locations stay private.']
-            ]:tab==='ShopSpares'&&marketSubTab==='mobility'?[
-              ['Plan your pickup','Use a checked map pin and a clear landmark.'],
-              ['Review the full quote','Check owner rates and terms before sending your request.'],
-              ['Follow your ride','See acceptance and trip updates in Bookings → Rides.'],
-              ['Private documents','Self-drive licence uploads go to the accepted owner.']
             ]:tab==='ShopSpares'?[
               ['Buy, rent or exchange','Choose the option that fits your needs.'],
               ['Review item details','Check condition, warranty and seller information.'],
@@ -1333,7 +1343,7 @@ export default function App() {
               ['Pay after service','Review completed work and approved charges before payment.'],
               ['Review the work','Confirm completion or report a concern from your booking.'],
               ['Clear service prices','Review service scope and extras in your itemized bill.']
-            ]).map(([title,copy],index)=>{const Icon=(tab==='Hire'?[VerifiedUser,PersonSearch,EventAvailable,ShieldCheck]:tab==='ShopSpares'&&marketSubTab==='mobility'?[MapPin,RequestQuote,Navigation,ShieldCheck]:tab==='ShopSpares'?[SwapHoriz,FactCheck,EventAvailable,Payments]:tab==='Bookings'?[CalendarCheck,FactCheck,CheckCircle2,SupportAgent]:[VerifiedUser,Payments,FactCheck,ReceiptLong])[index];return <div className="trust-pillar-card" key={title}><Icon size={20} aria-hidden="true"/><h2>{title}</h2><p>{copy}</p></div>;})}
+            ]).map(([title,copy],index)=>{const Icon=(tab==='Hire'?[VerifiedUser,PersonSearch,EventAvailable,ShieldCheck]:tab==='ShopSpares'?[SwapHoriz,FactCheck,EventAvailable,Payments]:tab==='Bookings'?[CalendarCheck,FactCheck,CheckCircle2,SupportAgent]:[VerifiedUser,Payments,FactCheck,ReceiptLong])[index];return <div className="trust-pillar-card" key={title}><Icon size={20} aria-hidden="true"/><h2>{title}</h2><p>{copy}</p></div>;})}
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-8 border-t border-slate-200 text-xs text-slate-500">
@@ -1354,7 +1364,7 @@ export default function App() {
             © 2026 Repaido Technologies Private Limited. All rights reserved.
           </p>
         </div>
-      </footer>
+      </footer>}
 
       {communityReturn&&!repaidiansOpen&&<div className="community-return-bar"><button className="btn-outline" onClick={backToCommunity}><ArrowLeft size={18}/>Back to Repaidians</button></div>}
       {communityRouteBusy&&<p className="community-route-status" role="status">Checking this listing’s latest details…</p>}

@@ -45,7 +45,7 @@ async function layout(page,variant){
   return {issues,header,names,overlap:helpBox.bottom-navBox.top,navHeight:navBox.height,helpSize:{width:helpBox.width,height:helpBox.height},helpColor:getComputedStyle(help.querySelector('.support-brand-mark')).color,overflow:document.documentElement.scrollWidth>innerWidth+1};
  });
  assert.deepEqual(result.issues,[],JSON.stringify({variant,...result}));assert.equal(result.overflow,false,JSON.stringify(variant));assert(result.overlap<0,'Header Help must stay clear of bottom navigation: '+JSON.stringify({variant,overlap:result.overlap,navHeight:result.navHeight}));assert(result.helpSize.width>=43&&result.helpSize.height>=43);assert(result.navHeight<=(variant.scale===100?105:120),'The dock stays compact, including its safe-area reserve');assert.equal(result.helpColor,result.header[0].color,'Support follows the accessible header color in each theme');
- assert.deepEqual(result.names,['Explore','Services','Bookings','Market','Hire']);assert.equal(result.header.length,3);
+ assert.deepEqual(result.names,['Explore','Go','Bookings','Market','Hire']);assert.equal(result.header.length,3);
  for(const icon of result.header){assert.equal(icon.filled,'1',icon.symbol+' uses official filled geometry');assert.deepEqual(icon.paths,filled[icon.symbol]);assert.equal(icon.size.width,24);assert.equal(icon.size.height,24);assert(icon.button.width>=43&&icon.button.height>=43&&icon.button.x>=0&&icon.button.right<=variant.width);const rgb=icon.color.match(/\d+/g).map(Number);assert(rgb[2]>rgb[0]&&rgb[2]>rgb[1],'Header actions retain their blue theme');}
  variants.push({...variant,navHeight:result.navHeight});
 }
@@ -57,7 +57,11 @@ try{
  browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  const context=await browser.newContext({viewport:{width:485,height:850},reducedMotion:'reduce',timezoneId:'Asia/Kolkata'});
  await context.route('**/@vite/client',async route=>{const response=await route.fetch(),body=(await response.text()).replace(/new WebSocket\(/g,'new PreviewSocket(');await route.fulfill({response,body:'class PreviewSocket{addEventListener(){}removeEventListener(){}send(){}close(){}}\n'+body});});
- await context.route('**/api/**',async route=>{const url=new URL(route.request().url());try{const response=await route.fetch({url:api+url.pathname+url.search});await route.fulfill({response});}catch{await route.abort().catch(()=>{});}});
+ await context.route('**/api/**',async route=>{const request=route.request(),url=new URL(request.url());try{const response=await route.fetch({url:api+url.pathname+url.search});
+  // This suite audits the idle shell. Pending rides intentionally lock the
+  // whole screen and are covered by repaido-go/ride-workspace browser checks.
+  if(request.method()==='GET'&&url.pathname.endsWith('/local-business/rides')){const data=await response.json();return route.fulfill({response,json:{...data,rides:[]}});}
+  await route.fulfill({response});}catch{await route.abort().catch(()=>{});}});
  const page=await context.newPage();page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
  await page.goto(origin+'/tests/customer-rides-app-preview.html?uid=customer&tab=bookings&view=rides');await page.getByRole('group',{name:'Booking shortcuts',exact:true}).waitFor();
  for(const width of [320,390,485,522])for(const scale of [100,200])for(const theme of ['light','dark'])for(const gold of [false,true])for(const safeArea of [8,24])await layout(page,{width,scale,theme,gold,safeArea});
@@ -65,12 +69,12 @@ try{
  const services=page.getByRole('group',{name:'Booking service type',exact:true});
  for(const motion of ['reduce','no-preference'])for(const theme of ['light','dark'])for(const scale of [100,200]){
   await page.emulateMedia({reducedMotion:motion});await layout(page,{width:320,scale,theme,gold:false,safeArea:8});
-  for(const [name,target] of [['Visits','.reference-bookings'],['Home plans','.home-plans'],['Hiring','.hire-requests'],['Contracts','.cc-hub'],['Rides','.transport-bookings-records'],['Contribute','.contribution-bookings']]){
+  for(const [name,target] of [['Visits','.reference-bookings'],['Home plans','.home-plans'],['Hiring','.hire-requests'],['Contracts','.cc-hub'],['Rides','.transport-bookings'],['Contribute','.contribution-bookings']]){
    const button=services.getByRole('button',{name,exact:true});await button.focus();await page.keyboard.press('Enter');await page.locator('.customer-bookings-page '+target).first().waitFor();assert.equal(await button.getAttribute('aria-pressed'),'true');assert.equal(await services.locator('[aria-pressed=true]').count(),1);await page.waitForFunction(()=>{const rail=document.querySelector('.customer-booking-navigation'),item=rail.querySelector('[aria-pressed=true]'),r=rail.getBoundingClientRect(),b=item.getBoundingClientRect();return b.x>=r.x-.5&&b.right<=r.right+.5;});
   }
  }
  checks.push('All six service selectors open their native sections and reveal the selected whole label at 320px, 100/200% text, both themes and motion settings');
- await services.getByRole('button',{name:'Rides',exact:true}).click();await page.locator('.transport-bookings-records').waitFor();await page.emulateMedia({reducedMotion:'reduce'});
+ await services.getByRole('button',{name:'Rides',exact:true}).click();await page.locator('.transport-bookings').waitFor();await page.emulateMedia({reducedMotion:'reduce'});
  await layout(page,{width:485,scale:100,theme:'light',gold:false,safeArea:8});
  const dock=page.getByRole('navigation',{name:'Bottom Navigation',exact:true}),bookings=dock.getByRole('button',{name:'Bookings',exact:true}),help=page.getByRole('button',{name:'Chat with Repaido support',exact:true});
  await bookings.focus();await page.keyboard.press('Enter');assert.equal(await bookings.getAttribute('aria-current'),'page');assert.equal(await bookings.evaluate(el=>getComputedStyle(el).outlineStyle),'solid');

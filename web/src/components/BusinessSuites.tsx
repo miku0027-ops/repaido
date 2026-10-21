@@ -1,3 +1,4 @@
+import {MotionPage} from './MotionPage';
 import {ScrapLocationProvider} from './ScrapLocation';
 import {CaptainClub,useCaptain} from './CaptainClub';
 import {CleanupWorkspace} from './CleanupWorkspace';
@@ -105,14 +106,14 @@ function SuiteFrame({role,title,description,partner,panels,panel,onPanel,action,
   {headerTarget?createPortal(<div className="worker-suite-identity"><h1>{role==='driver'?'Driver':role==='cab_owner'?'Cab owner':'Scrap collector'}</h1><span>{partner.name}</span><small><ShieldCheck size={12} aria-hidden="true"/>{partner.city}</small></div>,headerTarget):<header className="suite-hero"><span className="suite-emblem" aria-hidden="true">{role==='cab_owner'?<Car/>:role==='driver'?<DriverBadge/>:<Recycle/>}</span><div><small>REPAIDO BUSINESS</small><h1>{title}</h1><span className="suite-business-name"><ShieldCheck size={16} aria-hidden="true"/>{partner.name} · {partner.city}</span></div></header>}
   <div className="suite-layout">
     <nav ref={navigation} className="suite-navigation" aria-label={title+' navigation'}>{primary.map(({id,label,icon:Icon})=><button key={id} aria-label={scrap&&id==='requests'?'Collections':scrap&&id==='weighing'?'Inspection':role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label} aria-current={group===id?'page':undefined} onClick={()=>select(id)}><Icon size={24} aria-hidden="true"/><span>{role==='driver'&&id==='journeys'?'Cab rides':role==='driver'&&id==='shared'?'Shared rides':role==='driver'&&id==='vehicles'?'Vehicles':label}</span></button>)}</nav>
-   <div className="suite-content">
+   <MotionPage step={panel} className="suite-content">
     <div ref={panelHeader} className={"suite-panel-header"+(inBookings?' has-ride-tabs':'')}>
 
      <div className="suite-title-row"><h2 ref={heading} tabIndex={-1} className="suite-panel-title">{label}</h2>{action}</div>
      {inBookings&&<nav className="suite-booking-navigation" aria-label="Booking types">{bookingPanels.map(p=><button key={p.id} aria-current={panel===p.id?'page':undefined} onClick={()=>onPanel(p.id)}><span aria-hidden="true">{({journeys:'Cab',cabs:'Cab',bikes:'Bike',shared:'Shared',rentals:'Self-drive'} as Record<string,string>)[p.id]||p.label}</span><span className="sr-only">{p.label}</span></button>)}</nav>}
     </div>
     {children}
-   </div>
+   </MotionPage>
   </div>
  </section>;
 }
