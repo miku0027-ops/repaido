@@ -8,7 +8,7 @@ RUN --mount=type=secret,id=proxy_ca \
     if [ -f /run/secrets/proxy_ca ]; then export PIP_CERT=/run/secrets/proxy_ca; fi; \
     pip install --no-cache-dir -r requirements.txt && useradd --create-home appuser && mkdir /data && chown appuser:appuser /data
 COPY main.py legacy_bookings.py shared_departure_alerts.py mobility_journeys.py transport_discovery.py local_business.py http_boundary.py operations.py integrations.py rewards.py lifecycle.py refunds.py evidence.py shops.py procurement.py shop_payouts.py discovery.py search_index.py rentals.py workspace.py marketplace.py parts_payments.py worker_records.py hiring.py hourly_hiring.py promotions.py home_plans.py home_briefs.py partner_program.py hire_discovery.py tenders.py contract_work.py coupons.py opportunities.py retail_checkout.py worker_network.py ./
-COPY public_cab_availability.py ./
+COPY public_cab_availability.py ride_alerts.py ./
 COPY legacy_checkout.py ./
 COPY bike_rides.py bike_payroll.py bike_dispatch.py bike_dispatch_worker.py bike_kafka_worker.py ./
 COPY bike_economics.py bike_runtime.py bike_worker_health.py routing_cache.py bike_earnings.py catalog_ratings.py ./
