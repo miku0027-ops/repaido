@@ -663,7 +663,7 @@ export default function App() {
 
   function navigate(next: Tab) {
     const url=new URL(location.href);
-    if(next==='Go'||url.pathname==='/go'||(url.searchParams.get('marketSub')||url.searchParams.get('sub'))==='mobility'){
+    if(next==='Go'||next==='Services'||next==='Hire'||tab==='Services'||tab==='Hire'||url.pathname==='/go'||(url.searchParams.get('marketSub')||url.searchParams.get('sub'))==='mobility'){
       history.replaceState({...history.state,customerTab:tab},'',location.href);
       url.pathname=next==='Go'?'/go':'/';
       for(const name of ['tab','marketSub','sub','ride','view','booking','bike-ride','cab-ride','ride-booking','shared-ride','home-plan','hiring','custom-contract'])url.searchParams.delete(name);
@@ -1040,7 +1040,7 @@ export default function App() {
               </div>
 
               <CustomerLiveActivity key={user?.id||auth.currentUser?.uid||'guest'} accountId={user?.id||auth.currentUser?.uid||''} onOpen={openLiveActivity}/>
-              {!query&&<RepaidoGoEntry onOpen={()=>navigate('Go')}/>}
+              {!query&&<RepaidoGoEntry city={place.city} onOpen={()=>navigate('Go')}/>}
               {!query && (
                 <>
                   <HomeDiscoveryLayout
@@ -1189,6 +1189,7 @@ export default function App() {
               </div>
             )}
 
+            {(tab==='Services'||tab==='Hire')&&<nav className="services-destinations" aria-label="Services and hiring"><button type="button" aria-current={tab==='Services'?'page':undefined} onClick={()=>navigate('Services')}><HomeRepair size={18} aria-hidden="true"/>Services</button><button type="button" aria-current={tab==='Hire'?'page':undefined} onClick={()=>{setFocusedHire(undefined);navigate('Hire');}}><PersonSearch size={18} aria-hidden="true"/>Hire a professional</button></nav>}
             {/* 2. SERVICES TAB: Urban Company Style Layout */}
             {tab === 'Services' && (
               <div className="catalogue-container">
@@ -1296,9 +1297,9 @@ export default function App() {
             </button>
 
             <button
-              className={`android-nav-item ${tab === 'Services' ? 'active' : ''}`}
+              className={`android-nav-item ${tab === 'Services'||tab==='Hire' ? 'active' : ''}`}
               onClick={() => navigate('Services')}
-              aria-current={tab === 'Services' ? 'page' : undefined}
+              aria-current={tab === 'Services'||tab==='Hire' ? 'page' : undefined}
             >
               <HomeRepair size={24} aria-hidden="true" />
               <span>Services</span>

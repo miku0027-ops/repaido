@@ -94,6 +94,49 @@
 .professional-profile-reviews .professional-profile-reply { padding-left:10px;border-left:2px solid var(--ui-control); }
 .professional-profile .hire-rating-bar { font-size:.6875rem;color:var(--ui-muted); }
 .professional-profile .hire-rating-bar progress { accent-color:var(--ui-link); }
+.hire-profile-modal.modal,.hire-professional-page.modal{border:0;box-shadow:0 28px 90px #0003,0 4px 18px #00000014;padding:20px!important}
+.hire-profile-modal.modal>.app-modal-heading,.hire-professional-page.modal>.app-modal-heading{margin:0 0 12px!important;padding:0!important;border:0}
+#root .professional-profile-actions :is(.professional-profile-primary,.professional-profile-secondary){border:0!important}
+.professional-profile-identity{gap:14px;padding:4px 0 16px}
+.professional-profile-identity .hire-repaidian-avatar{width:68px!important;height:68px!important;flex-basis:68px!important;border-radius:20px;box-shadow:0 5px 14px #00000012;overflow:hidden}
+.professional-profile .professional-profile-name h3{font-size:1.2rem;line-height:1.35;letter-spacing:-.035em}
+.professional-profile .professional-profile-name>.repaidian-badge{margin-top:7px;font-size:.625rem;padding:3px 7px;border-radius:8px;box-shadow:none}
+.professional-profile-name>.repaidian-badge .repaidian-badge-seal{width:17px;height:17px}
+.professional-profile-status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.professional-profile-status .hire-availability{margin:0}
+.professional-profile-verified{border:0;border-radius:9px;padding:5px 8px;font-size:.6875rem}
+.professional-profile-trust{padding-bottom:4px}
+.professional-profile-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0 16px!important}
+.professional-profile-facts>span{display:flex;flex-direction:column;align-items:flex-start;gap:0;padding:11px 12px;background:var(--ui-subtle);border-radius:13px;font-size:.6875rem;line-height:1.6}
+.professional-profile-facts strong{font-size:1.2rem;line-height:1.4;letter-spacing:-.04em}
+.professional-profile-actions{padding:16px;margin:14px 0 10px;border:0;border-radius:18px;background:var(--ui-subtle);box-shadow:0 4px 14px #00000008}
+.professional-profile-action-heading{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.professional-profile-action-heading>svg{flex:none;margin-top:2px;color:var(--ui-link)}
+.professional-profile .professional-profile-action-heading h4{margin:0;font-size:.875rem;line-height:1.5;font-weight:650}
+.professional-profile .professional-profile-action-heading p{margin:3px 0 0;font-size:.75rem;line-height:1.6;color:var(--ui-muted)}
+.professional-profile-action-row{gap:10px}
+.professional-profile-actions .professional-profile-primary{background:var(--ui-ink);color:var(--ui-surface);border:0;box-shadow:0 4px 10px #00000018}
+.professional-profile-actions .professional-profile-secondary{background:var(--ui-surface);color:var(--ui-ink);border:0;box-shadow:0 2px 8px #0000000d}
+.professional-profile-actions button{border-radius:12px;padding:12px 14px;justify-content:space-between;transition:transform 200ms ease,box-shadow 200ms ease}
+.professional-profile-actions button:active{transform:scale(.985)}
+.professional-profile-actions .professional-profile-recommendation{display:block;margin:-5px 0 8px;color:var(--ui-muted)}
+.professional-profile-recommendation>summary{cursor:pointer;min-height:44px;padding:10px 0;font-size:.6875rem;color:var(--ui-muted)}
+.professional-profile-recommendation>p{margin:0 0 10px;font-size:.6875rem}
+.professional-profile-follow{display:flex;justify-content:flex-end;margin-bottom:16px}
+.professional-profile-follow .market-save-control>button{min-height:44px;border:0;border-radius:10px;background:transparent;color:var(--ui-link);font-size:.75rem;box-shadow:none;padding:8px 2px}
+.professional-profile-expertise{margin:0 0 16px}
+.professional-profile-expertise>h4{margin:0 0 12px;font-size:.875rem;line-height:1.5;letter-spacing:-.02em}
+.professional-profile .professional-profile-attributes{display:grid;gap:12px;padding:0;margin:0;border:0}
+.professional-profile-attributes>div{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;padding:14px;background:var(--ui-subtle);border-radius:14px}
+.professional-profile-attributes dt{display:flex;align-items:flex-start;gap:7px;font-size:.75rem!important;line-height:1.6!important;font-weight:600}
+.professional-profile-attributes dt>svg{flex:none;margin-top:2px;color:var(--ui-muted)}
+.professional-profile-attributes dt::after{content:none}
+.professional-profile-attributes dd{display:block;min-width:0;font-size:.75rem!important;line-height:1.6!important}
+.professional-profile-attributes ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
+.professional-profile-attributes li{max-width:100%;padding:4px 8px;border-radius:7px;background:var(--ui-surface);color:var(--ui-ink);font-size:.6875rem;line-height:1.6;overflow-wrap:anywhere}
+.professional-attribute-more>summary{cursor:pointer;min-height:44px;padding:11px 0 7px;font-size:.6875rem;color:var(--ui-link)}
+.professional-attribute-more[open]>ul{margin-top:5px}
+@media(max-width:520px){.professional-profile-attributes>div{grid-template-columns:minmax(0,1fr);gap:8px}.professional-profile-identity .hire-repaidian-avatar{width:60px!important;height:60px!important;flex-basis:60px!important}}
 .professional-profile-highlights { min-width:0; }
 .professional-profile :focus-visible,.professional-profile-highlights :focus-visible { outline:3px solid var(--ui-focus)!important;outline-offset:3px!important; }
 @media (max-width:400px) {

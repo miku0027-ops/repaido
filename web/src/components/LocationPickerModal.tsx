@@ -5,12 +5,12 @@ import {currentPosition} from '../services/operations';
 import './operations.css';
 
 interface Props {
-  isOpen:boolean;onClose:()=>void;initialLat?:number;initialLng?:number;title?:string;subtitle?:string;areaOnly?:boolean;confirmLabel?:string;
+  isOpen:boolean;onClose:()=>void;initialLat?:number;initialLng?:number;title?:string;subtitle?:string;areaOnly?:boolean;confirmLabel?:string;className?:string;
   publicPlace?:boolean;addressRequired?:boolean;initialAddress?:string;initialCity?:string;
   helpText?:string;pinConfirmationLabel?:string;locationLabel?:string;
   onConfirmLocation:(location:{lat:number;lng:number;address:string;city:string})=>void;
 }
-export function LocationPickerModal({isOpen,onClose,areaOnly=false,publicPlace=false,addressRequired=false,initialAddress='',initialCity='',confirmLabel,helpText,pinConfirmationLabel,locationLabel='service location',initialLat=21.4934,initialLng=86.9135,title='Confirm service location',subtitle='Tap the map or enter coordinates below.',onConfirmLocation}:Props) {
+export function LocationPickerModal({isOpen,onClose,areaOnly=false,publicPlace=false,addressRequired=false,initialAddress='',initialCity='',confirmLabel,helpText,pinConfirmationLabel,locationLabel='service location',initialLat=21.4934,initialLng=86.9135,title='Confirm service location',subtitle='Tap the map or enter coordinates below.',onConfirmLocation,className}:Props) {
   const [lat,setLat]=useState(initialLat),[lng,setLng]=useState(initialLng),[address,setAddress]=useState(initialAddress),[city,setCity]=useState(initialCity);
   const [chosen,setChosen]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [attempted,setAttempted]=useState(false),addressInput=useRef<HTMLInputElement>(null),cityInput=useRef<HTMLInputElement>(null),fieldId=useId();
@@ -41,7 +41,7 @@ export function LocationPickerModal({isOpen,onClose,areaOnly=false,publicPlace=f
     return()=>{session.current++;locationRequest.current++;};
   },[isOpen,initialLat,initialLng,initialAddress,initialCity,locationLabel]);
   if(!isOpen)return null;
-  return <Modal title={title} onClose={onClose}><div className="operations"><p>{subtitle}</p><p className="ops-help">{helpText||(areaOnly?'Choose the centre of your nearby search. This does not set a booking address.':publicPlace?'Mark the littered spot and enter its street, landmark and city.':'This map does not look up addresses. Enter the house, street and city yourself; confirm the pin at the entrance.')}</p>
+  return <Modal title={title} className={className} onClose={onClose}><div className="operations"><p>{subtitle}</p><p className="ops-help">{helpText||(areaOnly?'Choose the centre of your nearby search. This does not set a booking address.':publicPlace?'Mark the littered spot and enter its street, landmark and city.':'This map does not look up addresses. Enter the house, street and city yourself; confirm the pin at the entrance.')}</p>
     <div style={{height:240}}><GoogleJourneyMap origin={{lat,lng}} onPick={point=>move(point.lat,point.lng)} mapLabel={`${locationLabel} map`}/></div>
     <button type="button" disabled={busy} className="ops-secondary" onClick={()=>void locate()}>{busy?'Finding your location…':'Use my current location'}</button>
     <div className="ops-grid"><label>Latitude<input type="number" step="any" min={-90} max={90} value={lat} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=90)move(n,lng);}}/></label><label>Longitude<input type="number" step="any" min={-180} max={180} value={lng} onChange={e=>{const n=Number(e.target.value);if(Number.isFinite(n)&&Math.abs(n)<=180)move(lat,n);}}/></label></div>

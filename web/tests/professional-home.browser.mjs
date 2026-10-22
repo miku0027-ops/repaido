@@ -45,7 +45,9 @@ try{
  page=await context.newPage();page.setDefaultTimeout(18000);page.on('pageerror',error=>errors.push(error.message));
  await page.goto(origin+'/tests/professional-home-preview.html');await page.addScriptTag({path:web+'/node_modules/axe-core/axe.min.js'});
  await page.getByRole('button',{name:'View Fixture Electrical Professional’s profile',exact:true}).waitFor();
+ await variants('.catalog-professionals','professional-cards');
  const profile=await openProfile();await variants('.catalog-professional-dialog','professional-profile');
+ await profile.locator('.professional-attribute-more>summary').click();assert(await profile.locator('.professional-profile-attributes').getByText('Wiring cable',{exact:true}).isVisible());await profile.locator('.professional-profile-expertise').scrollIntoViewIfNeeded();await page.screenshot({path:work+'/professional-expertise.png'});await profile.locator('.professional-attribute-more>summary').click();
  await profile.locator('.professional-profile-primary').click();
  const selected=JSON.parse(await page.getByLabel('Last profile action').innerText());assert.equal(selected.kind,'service');assert.equal(selected.professional.id,'worker');
  await page.locator('.reference-detail-sheet').getByRole('button',{name:'Close dialog',exact:true}).click();checks.push('The catalogue profile opens its current published package with the same preferred professional');

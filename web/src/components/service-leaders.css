@@ -72,3 +72,34 @@ html.reduce-motion .catalog-professionals *{transition:none!important}
 .catalog-discovery .compact-service-price{font-size:.9375rem}
 .catalog-discovery .compact-service-actions button{min-height:44px}
 @media(min-width:840px){.catalog-discovery .service-story{flex-basis:96px}.catalog-discovery .story-art{width:64px;height:64px}}
+
+/* Profiles have one identity, a quiet evidence row and one clear next step. */
+.catalog-professionals:not(.catalog-leaders-overview){border:0;border-radius:20px;background:var(--ui-subtle);box-shadow:0 4px 18px #00000008;overflow:visible}
+.catalog-professionals-heading{border-radius:20px 20px 0 0;background:transparent}
+.catalog-professionals-toggle{background:transparent;padding:13px 14px;border-radius:20px}
+.catalog-professionals-panel{padding:0 12px 12px;border:0}
+.catalog-professionals-note{padding:4px 2px 10px;margin:0;font-size:.6875rem;line-height:1.65}
+.catalog-professionals-list{gap:12px}
+.catalog-professional,.catalog-professional:last-child{position:relative;grid-template-columns:52px minmax(0,1fr);gap:12px;padding:16px;border:0;border-radius:17px;background:var(--ui-surface);box-shadow:0 2px 4px #00000004,0 8px 22px #00000009;transition:transform 240ms ease,box-shadow 240ms ease;animation:professional-card-enter 420ms cubic-bezier(.2,.8,.2,1) both}
+.catalog-professional:nth-child(2){animation-delay:70ms}.catalog-professional:nth-child(3){animation-delay:140ms}
+.catalog-professional-avatar,.catalog-professional-avatar img{width:52px;height:52px;border-radius:15px}
+.catalog-professional-avatar{box-shadow:0 3px 10px #0000000d}
+.catalog-professional-info h3{font-size:.9375rem;letter-spacing:-.025em;line-height:1.45;margin:0}
+.catalog-professional-info p{font-size:.6875rem;line-height:1.65;margin:4px 0 0}
+.catalog-professional-badges{gap:5px;margin:9px 0 0;align-items:center}
+.catalog-professional-badges>span{font-size:.625rem;padding:3px 6px;color:var(--ui-muted);background:var(--ui-subtle);border:0}
+.catalog-professional-badges>.catalog-professional-rank{color:var(--ui-link)}
+.catalog-professional-badges>.repaidian-badge{box-shadow:none;border:0;padding:3px 6px;border-radius:6px;font-size:.625rem}
+.catalog-professional-badges .repaidian-badge-seal{width:16px;height:16px}
+.catalog-professional-footer{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid var(--ui-line)}
+.catalog-professional-footer .catalog-professional-record{display:flex;align-items:center;flex-wrap:wrap;gap:4px;min-width:0;margin:0;font-size:.6875rem;color:var(--ui-muted);line-height:1.6}
+.catalog-professional-record>svg{color:var(--ui-ink);flex:none}.catalog-professional-record strong{font-weight:650;color:var(--ui-ink)}
+.catalog-professional-record>span{flex-basis:100%}
+#root .catalog-professional-open{grid-column:auto;flex:none;justify-self:end;border:0;border-radius:11px;padding:9px 10px;background:var(--ui-subtle);color:var(--ui-ink);box-shadow:none;font-size:.6875rem;white-space:normal}
+.catalog-professionals-footnote{padding:0 2px;margin:6px 0 0;font-size:.6875rem;line-height:1.7}
+.catalog-professionals-footnote>summary{min-height:44px;padding:12px 0;cursor:pointer}.catalog-professionals-footnote>p{margin:0 0 4px}
+@keyframes professional-card-enter{from{opacity:0;transform:translateY(9px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(hover:hover){.catalog-professional:hover{transform:translateY(-2px);box-shadow:0 4px 8px #00000006,0 12px 30px #00000013}}
+@media(max-width:359px){.catalog-professional,.catalog-professional:last-child{padding:12px;gap:10px;grid-template-columns:44px minmax(0,1fr)}.catalog-professional-avatar,.catalog-professional-avatar img{width:44px;height:44px}.catalog-professional-footer{align-items:flex-start;flex-wrap:wrap}.catalog-professional-open{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){.catalog-professional{animation:none!important;transition:none!important}}
+:is(.reduce-motion,[data-reduced-motion=true]) .catalog-professional{animation:none!important;transition:none!important}

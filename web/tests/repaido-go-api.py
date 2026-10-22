@@ -21,5 +21,6 @@ with TestClient(fixture['main'].app) as api:
     # The bike fixture has already registered and approved this same owner.
     with patch('test_local_business.register'):
         vehicle(api, name='Local Go cab')
+        vehicle(api, name='Local Go self-drive', mode='rental')
 
 uvicorn.run(fixture['main'].app, host='127.0.0.1', port=int(fixture['sys'].argv[2]))

@@ -17,6 +17,7 @@ with TestClient(main.app) as api:
     setup_worker(api)
     def seed(u):
         w=u.get('workers','worker');w.update(name='Fixture Electrical Professional',categories=['electrician','cleaning','ac'],skills=['Electrical inspection','Home cleaning','AC service'],tools=['Insulated toolkit'],completed_tasks=7,rating_count=7,rating_sum=33);u.put('workers','worker',w)
+        w['tools']=['Insulated screwdriver','Voltage tester','Pliers','Wire cutter','Hammer','Drill','Wiring cable'];u.put('workers','worker',w)
         u.put('worker_profiles','worker',dict(bio='A local test profile for electrical and household work.',languages=['Odia','Hindi'],specialties=['Switchboard inspection']))
         for index,rating in enumerate([5,5,5,5,4,5,4]):
             category='electrician' if index<5 else 'home:maid'

@@ -13,10 +13,10 @@ export function RideLocationButton({label,value,onClick,stop='pickup'}:{label:st
  </button>;
 }
 
-export function RideDateTimeField({label,name,value,onChange,min}:{label:string;name?:string;value:string;onChange:(value:string)=>void;min?:string}){
+export function RideDateTimeField({label,name,value,onChange,min,disabled=false}:{label:string;name?:string;value:string;onChange:(value:string)=>void;min?:string;disabled?:boolean}){
  const id=useId();
  const chosen=value&&Number.isFinite(new Date(value).getTime())?new Date(value).toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
- return <div className="ride-date-control"><label htmlFor={id}><CalendarDays size={16} aria-hidden="true"/>{label}</label><input id={id} name={name} type="datetime-local" required value={value} min={min} onChange={e=>onChange(e.target.value)}/>{chosen&&<span className="ride-date-readable" aria-hidden="true">{chosen}</span>}</div>;
+ return <div className="ride-date-control"><label htmlFor={id}><CalendarDays size={16} aria-hidden="true"/>{label}</label><input id={id} name={name} type="datetime-local" required disabled={disabled} value={value} min={min} onChange={e=>onChange(e.target.value)}/>{chosen&&<span className="ride-date-readable" aria-hidden="true">{chosen}</span>}</div>;
 }
 
 export function RideSeatControl({value,onChange}:{value:number;onChange:(value:number)=>void}){

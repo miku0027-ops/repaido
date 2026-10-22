@@ -101,7 +101,7 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
     </button>
     {refreshButton}</div>
     {open&&<div id={id} className="catalog-professionals-panel" aria-busy={loading}>
-      <p className="catalog-professionals-note"><MapPin size={14} aria-hidden="true"/>{location?'Within your selected radius and each professional’s service range.':'City listings. Choose your location to check service coverage.'} Availability is confirmed when requesting.</p>
+      <p className="catalog-professionals-note"><MapPin size={14} aria-hidden="true"/>{location?`Within ${radiusKm} km and their service range.`:`${city} listings.`} Confirm availability when requesting.</p>
       {loading&&<p role="status">Loading {name.toLowerCase()} profiles…</p>}
       {error&&<div role="alert"><p>{error}</p><button className="catalog-professionals-retry" onClick={()=>setRetry(v=>v+1)}>Retry</button></div>}
       {!loading&&!error&&!rows.length&&<p className="catalog-professionals-empty">No matching professionals are listed here yet. You can still review the services below.</p>}
@@ -110,16 +110,15 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
         const reviewCount=record?.review_count||0;
         const rating=record?.rating;
         return <article className="catalog-professional" key={p.id}>
-          <span className="repaidian-avatar-frame catalog-repaidian-avatar"><span className="catalog-professional-avatar" aria-hidden="true"><User size={24}/>{p.portrait_url&&<img src={apiAssetUrl(p.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><RepaidianBadge badge={p.repaidianBadge} variant="avatar"/></span>
-          <div className="catalog-professional-info"><div className="repaidian-professional-name"><h3>{p.name}</h3><RepaidianBadge badge={p.repaidianBadge}/></div><p>{p.role==='specialist'?'Specialist':'Technician'}{p.experience_years!=null?` · ${p.experience_years} years’ experience`:''}</p>
-            <div className="catalog-professional-badges"><span><VerifiedUser size={14} aria-hidden="true"/>Team-reviewed</span>{!!p.rank&&reviewCount>0&&<span>Category rank #{p.rank}</span>}</div>
-            <p className="catalog-professional-record">{reviewCount>0&&rating!=null?<><Star size={14} aria-hidden="true"/>{rating.toFixed(1)} · {reviewCount} category reviews</>:'No category reviews yet'}{record?.completed?` · ${record.completed} completed`:''}</p>
+          <span className="catalog-professional-avatar" aria-hidden="true"><User size={24}/>{p.portrait_url&&<img src={apiAssetUrl(p.portrait_url)} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+          <div className="catalog-professional-info"><h3>{p.name}</h3><p>{p.role==='specialist'?'Specialist':'Technician'}{p.experience_years!=null?` · ${p.experience_years} years’ experience`:''}</p>
+            <div className="catalog-professional-badges"><span><VerifiedUser size={14} aria-hidden="true"/>Profile reviewed</span>{!!p.rank&&reviewCount>0&&<span className="catalog-professional-rank"><Trophy size={13} aria-hidden="true"/>Rank #{p.rank}</span>}<RepaidianBadge badge={p.repaidianBadge}/></div>
           </div>
-          <button className="catalog-professional-open" onClick={()=>setSelected(p)} aria-label={`View ${p.name}’s profile`}>Profile<ArrowRight size={14} aria-hidden="true"/></button>
+          <div className="catalog-professional-footer"><p className="catalog-professional-record">{reviewCount>0&&rating!=null?<><Star size={14} aria-hidden="true"/><strong>{rating.toFixed(1)}</strong><span>{reviewCount} category reviews{record?.completed?` · ${record.completed} completed`:''}</span></>:<span>No category reviews yet</span>}</p><button className="catalog-professional-open" onClick={()=>setSelected(p)} aria-label={`View ${p.name}’s profile`}>View profile<ArrowRight size={15} aria-hidden="true"/></button></div>
         </article>;
       })}</div>
       {count>rows.length&&<p className="catalog-professionals-note">Showing {rows.length} of {count}. Use the Hire directory to search more profiles.</p>}
-      {!!rows.length&&<p className="catalog-professionals-footnote">Category ranks reflect verified completed-work reviews. New professionals are listed without a rank.</p>}
+      {!!rows.length&&<details className="catalog-professionals-footnote"><summary>How rankings work</summary><p>Category ranks use verified completed-work reviews. Professionals without category reviews are listed without a rank.</p></details>}
     </div>}
     {selected&&<Modal title={selected.name} className="hire-profile-modal catalog-professional-dialog" onClose={()=>setSelected(null)}><ProfessionalDetails p={selected} category={category} renderActions={p=><ProfessionalQuickActions p={p} category={category} onNavigate={()=>setSelected(null)}/>}/></Modal>}
   </section>;
