@@ -1,8 +1,10 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowRight,BadgeCheck,BriefcaseBusiness,Building2,CalendarDays,Check,CheckCircle2,Clock,MapPin,RefreshCw,Search,SlidersHorizontal,Users} from '../../icons';
+import {ArrowRight,BadgeCheck,Bell,ChevronDown,BriefcaseBusiness,Building2,CalendarDays,Check,CheckCircle2,Clock,MapPin,RefreshCw,Search,SlidersHorizontal,Users} from '../../icons';
 import {Modal} from '../ui';
+import {PreferenceCheckbox} from '../PreferenceCheckbox';
+import type {WorkReadChange} from '../../services/repaidiansWorkService';
 import {Avatar,tradeName} from './common';
-import {trades,peekCommunityView,communityViewScope,rememberCommunityView,dropCommunityView} from '../../services/repaidiansService';
+import {trades,peekCommunityView,communityIdentityKey,rememberCommunityView,dropCommunityView} from '../../services/repaidiansService';
 import {applyForWork,congratulatePlacement,peekWorkApplications,peekWorkCompanies,peekWorkJobs,peekWorkPreferences,respondToWorkOffer,subscribeWorkReads,trackWorkBehavior,updateWorkPreferences,withdrawWorkApplication,workApplication,workApplications,workCompanies,workCompanyDetails,workJob,workJobs,workPlacement,workPreferences} from '../../services/repaidiansWorkService';
 import type {WorkApplication,WorkApplicationsPage,WorkCompaniesPage,WorkCompany,WorkCompanyDetails,WorkCongratulations,WorkJob,WorkJobFilters,WorkJobsPage,WorkPlacement,WorkPreferences as Preferences} from '../../types/repaidiansWork';
 import {disableWorkPush,enableWorkPush,subscribeWorkPush,syncWorkPushAccount,workPushStatus,type WorkPushStatus} from '../../services/repaidiansPushService';
@@ -25,20 +27,26 @@ const canOpenProject=(application:WorkApplication)=>!!application.invitation_id&
 const unique=<T extends {id:string},>(items:T[])=>[...new Map(items.map(item=>[item.id,item])).values()];
 
 // Abort is per observer. Shared reads keep their own lifetime so leaving a tab
-// cannot cancel another consumer; generation guards discard obsolete responses.
-function useWorkResource<T>(key:string,peek:()=>T|null,load:(force:boolean,signal:AbortSignal)=>Promise<T>,revision=0){
-  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>(()=>({key,data:peekCommunityView<T>('work-panel:'+key)||peek(),busy:true,error:''}));
+// cannot cancel another consumer; service generation guards discard obsolete
+// responses. Unrelated content receipts must not strand a private panel loading.
+function useWorkResource<T>(key:string,peek:()=>T|null,load:(force:boolean,signal:AbortSignal)=>Promise<T>,revision=0,selectUpdate?:(change?:WorkReadChange)=>T|null){
+  const [state,setState]=useState<{key:string;data:T|null;busy:boolean;error:string}>(()=>({key,data:peek()||peekCommunityView<T>('work-panel:'+key),busy:true,error:''}));
   const loader=useRef(load),sequence=useRef(0),controller=useRef<AbortController|null>(null),mountedKey=useRef(key);
+  const updateSelector=useRef(selectUpdate);updateSelector.current=selectUpdate;
   loader.current=load;mountedKey.current=key;
   const refresh=useCallback(async(force=true)=>{
-    const seq=++sequence.current,owner=communityViewScope();controller.current?.abort();const next=new AbortController();controller.current=next;
+    const seq=++sequence.current,owner=communityIdentityKey();controller.current?.abort();const next=new AbortController();controller.current=next;
     setState(old=>({key,data:old.key===key?old.data:null,busy:true,error:''}));
-    try{const data=await loader.current(force,next.signal);if(!next.signal.aborted&&sequence.current===seq&&mountedKey.current===key&&owner===communityViewScope()){rememberCommunityView('work-panel:'+key,data);setState({key,data,busy:false,error:''});}}
+    try{const data=await loader.current(force,next.signal);if(!next.signal.aborted&&sequence.current===seq&&mountedKey.current===key&&owner===communityIdentityKey()){rememberCommunityView('work-panel:'+key,data);setState({key,data,busy:false,error:''});}}
     catch(error){if([401,402,403,404].includes((error as {status?:number}).status||0))dropCommunityView('work-panel:'+key);if(!next.signal.aborted&&sequence.current===seq&&mountedKey.current===key)setState(old=>({key,data:![401,402,403,404].includes((error as {status?:number}).status||0)&&old.key===key?old.data:null,busy:false,error:(error as Error).message}));}
   },[key]);
   useEffect(()=>{
-    setState({key,data:peekCommunityView<T>('work-panel:'+key)||peek(),busy:true,error:''});void refresh(revision>0);
-    const unsubscribe=subscribeWorkReads(()=>void refresh(true));
+    setState({key,data:peek()||peekCommunityView<T>('work-panel:'+key),busy:true,error:''});void refresh(revision>0);
+    const unsubscribe=subscribeWorkReads(change=>{
+      const data=updateSelector.current?.(change);
+      if(data){sequence.current++;controller.current?.abort();rememberCommunityView('work-panel:'+key,data);setState({key,data,busy:false,error:''});}
+      else void refresh(true);
+    });
     const visible=()=>{if(!document.hidden)void refresh(false);};
     const timer=setInterval(visible,60000);document.addEventListener('visibilitychange',visible);
     return()=>{sequence.current++;controller.current?.abort();unsubscribe();clearInterval(timer);document.removeEventListener('visibilitychange',visible);};
@@ -61,6 +69,7 @@ export function WorkHub(props:WorkHubProps){
 
 function JobsPanel({accountKey,revision=0,onOpenProject,onManage,jobId}:WorkHubProps){
   const [filters,setFilters]=useState<WorkJobFilters>({trade:'all',workType:'all'}),[query,setQuery]=useState(''),[filterOpen,setFilterOpen]=useState(false),[extra,setExtra]=useState<WorkJob[]>([]),[cursor,setCursor]=useState<string|null>(null),[moreBusy,setMoreBusy]=useState(false),[moreError,setMoreError]=useState(''),[selected,setSelected]=useState<WorkJob|null>(null);
+  const [sort,setSort]=useState<'match'|'deadline'|'pay'>('match');
   const [focusedBusy,setFocusedBusy]=useState(false),[focusedError,setFocusedError]=useState(''),[focusAttempt,setFocusAttempt]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();let active=true;setSelected(null);setFocusedError('');setFocusedBusy(!!jobId);
@@ -71,13 +80,22 @@ function JobsPanel({accountKey,revision=0,onOpenProject,onManage,jobId}:WorkHubP
   const resource=useWorkResource<WorkJobsPage>(key,()=>peekWorkJobs(accountKey,filters),(force,signal)=>workJobs(accountKey,filters,force,signal),revision);
   useEffect(()=>{generation.current++;setExtra([]);setCursor(null);setMoreBusy(false);setMoreError('');moreGate.current=false;},[key]);
   useEffect(()=>{generation.current++;setExtra([]);setCursor(resource.data?.nextCursor||null);setMoreBusy(false);moreGate.current=false;},[resource.data]);
-  const jobs=unique([...(resource.data?.items||[]),...extra]);
+  const jobs=useMemo(()=>unique([...(resource.data?.items||[]),...extra]).sort((a,b)=>{
+    const order=sort==='deadline'?(a.deadline||Infinity)-(b.deadline||Infinity):sort==='pay'?(b.dailyRatePaise||0)-(a.dailyRatePaise||0):0;
+    return order||b.match.score-a.match.score||a.id.localeCompare(b.id);
+  }),[resource.data,extra,sort]);
   const active=Object.entries(filters).filter(([name,value])=>name!=='query'&&value!==undefined&&value!==''&&(value!==0||name==='experience')&&value!=='all').length;
   const search=()=>{const value=query.trim();setFilters(old=>({...old,query:value}));if(filters.trade&&filters.trade!=='all')void trackWorkBehavior(accountKey,{trade:filters.trade,type:'search',query:value}).catch(()=>{});};
   const more=async()=>{if(!cursor||moreGate.current)return;moreGate.current=true;const seq=generation.current;setMoreBusy(true);setMoreError('');try{const data=await workJobs(accountKey,{...filters,cursor});if(seq===generation.current){setExtra(old=>unique([...old,...data.items]));setCursor(data.nextCursor);}}catch(error){if(seq===generation.current)setMoreError((error as Error).message);}finally{if(seq===generation.current){setMoreBusy(false);moreGate.current=false;}}};
   return <>
     <header className="rp-work-heading"><div><span className="rp-work-eyebrow">Your next opportunity</span><h2>My jobs</h2><p>Work matched to your trade, skills and location.</p></div><WorkRefresh busy={resource.busy} label="Refresh jobs" onRefresh={()=>void resource.refresh()}/></header>
-    <form className="rp-work-search" onSubmit={event=>{event.preventDefault();search();}}><div><Search size={20} aria-hidden="true"/><input type="search" value={query} maxLength={120} onChange={event=>setQuery(event.target.value)} aria-label="Search jobs by skill or project" placeholder="Skills, project or contractor"/><button type="submit" aria-label="Search jobs"><ArrowRight size={20} aria-hidden="true"/></button></div><button type="button" className="rp-work-filter-button" aria-haspopup="dialog" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={16} aria-hidden="true"/>Filter{active>0&&<span>{active}</span>}</button></form>
+    <form className="rp-work-search" onSubmit={event=>{event.preventDefault();search();}}><div><Search size={20} aria-hidden="true"/><input type="search" value={query} maxLength={120} onChange={event=>setQuery(event.target.value)} aria-label="Search jobs by skill or project" placeholder="Skills, project or contractor"/><button type="submit" aria-label="Search jobs"><ArrowRight size={20} aria-hidden="true"/></button></div></form>
+    <div className="rp-work-results-controls" role="group" aria-label="Job filters and sorting">
+      <button type="button" className="rp-work-filter-button" aria-haspopup="dialog" onClick={()=>setFilterOpen(true)}><SlidersHorizontal size={16} aria-hidden="true"/>Filters{active>0&&<span>{active}</span>}</button>
+      <label className="rp-work-sort"><span className="sr-only">Sort jobs</span><select value={sort} onChange={event=>setSort(event.target.value as typeof sort)}><option value="match">Best match</option><option value="deadline">Closing soon</option><option value="pay">Highest daily pay</option></select><ChevronDown size={16} aria-hidden="true"/></label>
+      {active>0&&<button type="button" className="rp-work-link" aria-label="Clear job filters" onClick={()=>setFilters({trade:'all',workType:'all',query:filters.query})}>Clear</button>}
+    </div>
+    {cursor&&<p className="rp-work-sort-scope">Sorting applies to the jobs shown.</p>}
     {resource.data&&<p className="rp-work-result-note">{resource.data.personalized?'Matched using your profile and opted-in activity.':'Matched using your profile and selected filters.'} {resource.data.indexing?'New notices are being indexed.':''}</p>}
     <WorkError error={resource.error} onRetry={()=>void resource.refresh()}/>
     <WorkError error={focusedError} onRetry={()=>setFocusAttempt(attempt=>attempt+1)}/>
@@ -141,13 +159,26 @@ export function PlacementDetails({placementId,accountKey,onClose,onOpenMember}:{
 }
 
 export function WorkPreferences({accountKey}:{accountKey:string}){
-  const resource=useWorkResource<{preferences:Preferences}>(accountKey+':preferences',()=>peekWorkPreferences(accountKey),(force,signal)=>workPreferences(accountKey,force,signal)),action=useWorkAction(accountKey),[saved,setSaved]=useState(''),[pending,setPending]=useState<{key:keyof Preferences;value:boolean}|null>(null);
+  const resource=useWorkResource<{preferences:Preferences}>(accountKey+':preferences',()=>peekWorkPreferences(accountKey),(force,signal)=>workPreferences(accountKey,force,signal),0,change=>change?.preferences?{preferences:change.preferences}:null),action=useWorkAction(accountKey),[saved,setSaved]=useState(''),[pending,setPending]=useState<{key:keyof Preferences;value:boolean}|null>(null);
   const controls:[keyof Preferences,string,string][]=[['personalizedDiscovery','Personalized work discovery','Use your searches and interactions to order relevant trades and opportunities.'],['jobDiscovery','Matching job discoveries','Show relevant open jobs in your bell, up to three new discoveries per day. Search history contributes only when personalized discovery is enabled.'],['contractUpdates','Contract updates','Get updates for watched contracts and relevant opportunities, up to three contracts per day.'],['sharePlacements','Share accepted placements','Let followers see your accepted role, project and work area, and send congratulations.'],['shareSalary','Share placement pay','Include your agreed daily rate in a shared placement. Your pay stays private when this is off.']];
-  return <section className="rp-work-preferences" aria-labelledby="rp-work-preferences-title"><h3 id="rp-work-preferences-title">Work discovery & sharing</h3><WorkError error={resource.error} onRetry={()=>void resource.refresh()}/>{resource.busy&&!resource.data&&<p className="rp-work-loading" role="status">Opening work preferences…</p>}{resource.data&&controls.map(([key,label,description])=><label className="rp-work-preference" key={key}><input type="checkbox" checked={pending?.key===key?pending.value:resource.data!.preferences[key]} disabled={action.busy||(key==='shareSalary'&&!resource.data!.preferences.sharePlacements)} onChange={event=>{const value=event.target.checked;setSaved('');setPending({key,value});void action.run(async()=>{await updateWorkPreferences({[key]:value});await resource.refresh();setSaved(label+' updated.');}).finally(()=>setPending(null));}}/><span><strong>{label}</strong><small>{description}</small></span></label>)}<WorkError error={action.error}/>{saved&&<p className="rp-work-note" role="status">{saved}</p>}<BrowserWorkPush accountKey={accountKey}/></section>;
+  return <section className="rp-work-preferences" aria-labelledby="rp-work-preferences-title"><h3 id="rp-work-preferences-title">Work discovery & sharing</h3><WorkError error={resource.error} onRetry={()=>void resource.refresh()}/>{resource.busy&&!resource.data&&<p className="rp-work-note" role="status">Checking your saved choices…</p>}{controls.map(([key,label,description])=><label className="rp-work-preference" key={key}><PreferenceCheckbox checked={pending?.key===key?pending.value:resource.data?.preferences[key]} disabled={action.busy||!!pending||(key==='shareSalary'&&!resource.data?.preferences.sharePlacements)} onChange={event=>{const value=event.target.checked;setSaved('');setPending({key,value});void action.run(async()=>{await updateWorkPreferences({[key]:value});}).then(success=>{setPending(null);if(success)setSaved(label+' updated.');});}}/><span><strong>{label}</strong><small>{description}</small></span></label>)}<WorkError error={action.error}/>{action.busy&&<p className="rp-work-note" role="status">Saving your choice…</p>}{saved&&<p className="rp-work-note" role="status">{saved}</p>}<BrowserWorkPush accountKey={accountKey}/></section>;
 }
 
 function BrowserWorkPush({accountKey}:{accountKey:string}) {
   const [status,setStatus]=useState<WorkPushStatus|null>(null),[error,setError]=useState(''),action=useWorkAction(accountKey),generation=useRef(0);
   useEffect(()=>{const seq=++generation.current;setStatus(null);setError('');const refresh=()=>{void workPushStatus().then(next=>{if(seq===generation.current)setStatus(next);}).catch(error=>{if(seq===generation.current)setError((error as Error).message);});};void syncWorkPushAccount().finally(refresh);const unsubscribe=subscribeWorkPush(refresh);return()=>{generation.current++;unsubscribe();};},[accountKey]);
-  return <div className="rp-work-browser-push"><h3>Browser notifications</h3><p className="rp-work-note">Receive real work updates while the app is closed. Contract updates follow your preferences and daily limit.</p>{error&&<WorkError error={error}/>}<WorkError error={action.error}/>{!status&&!error&&<p className="rp-work-note" role="status">Checking browser support…</p>}{status&&!status.supported&&<p className="rp-work-note">{status.reason}</p>}{status?.supported&&<><p className="rp-work-note" role="status">{status.enabled?'Work notifications are enabled for this account.':status.permission==='denied'?'Notifications are blocked in browser settings. Allow notifications for this site to enable them.':status.permission==='granted'?'Browser permission is granted. Enable notifications for this account to connect this device.':'You choose whether this browser can receive work notifications.'}</p><button type="button" className="rp-work-secondary" disabled={action.busy||accountKey==='guest'} onClick={()=>void action.run(async()=>{const next=await (status.enabled?disableWorkPush():enableWorkPush());setStatus(next);})}>{action.busy?'Updating notifications…':status.enabled?'Disable browser notifications':'Enable browser notifications'}</button></>}</div>;
+  const state=error?'Unavailable':!status?'Checking…':!status.supported?'In-app only':status.enabled?'On':status.permission==='denied'?'Blocked':'Off';
+  return <details className="rp-work-browser-push">
+    <summary><Bell size={19} aria-hidden="true"/><span>Browser notifications</span><small data-enabled={status?.enabled||undefined}>{state}</small><ChevronDown size={16} aria-hidden="true"/></summary>
+    <div className="rp-work-browser-push-content">
+      <p className="rp-work-note">Get work updates while the app is closed. Your preferences and daily limits still apply.</p>
+      <WorkError error={error}/><WorkError error={action.error}/>
+      {status&&!status.supported&&<p className="rp-work-note">{status.reason}</p>}
+      {status?.supported&&<>
+        <p className="rp-work-note" role="status">{status.enabled?'Connected to this account.':status.permission==='denied'?'Allow notifications in your browser settings to connect this device.':'Enable notifications to connect this device to your account.'}</p>
+        <button type="button" className="rp-work-secondary" disabled={action.busy||accountKey==='guest'||status.permission==='denied'} onClick={()=>void action.run(async()=>{const next=await (status.enabled?disableWorkPush():enableWorkPush());setStatus(next);})}>{action.busy?'Updating notifications…':status.enabled?'Disable browser notifications':'Enable browser notifications'}</button>
+      </>}
+    </div>
+  </details>;
+
 }

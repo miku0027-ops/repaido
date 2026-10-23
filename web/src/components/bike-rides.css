@@ -267,7 +267,7 @@
 [data-theme=dark] .bike-rides .bike-route-stage.is-checked{background:#224734;border-color:#5f8e70;color:#d4f1df}
 [data-theme=dark] .bike-rides[data-service-state=paused] .bike-route-stage,[data-theme=dark] .bike-rides[data-service-state=error] .bike-route-stage{background:#3f331e;border-color:#876f45;color:#ffe5b6}
 
-.bike-rides{--bike-ink:#26312a;--bike-muted:#536251;--bike-blue:#275b39;--bike-line:#d6dfcf;--bike-surface:#fff;--bike-wash:#f4f5eb;--bike-green:#246440}
+.bike-rides{--bike-ink:#26312a;--bike-muted:#465343;--bike-blue:#275b39;--bike-line:#d6dfcf;--bike-surface:#fff;--bike-wash:#f4f5eb;--bike-green:#246440}
 .bike-rides .bike-primary,.bike-review .bike-primary{background:#ffda45;color:#282d21;border-color:#c5a62c;box-shadow:none}
 .bike-rides .bike-choice-action{background:#283c2e;border-color:#283c2e;color:#fff}
 .bike-live-ride.is-finished{border:0;background:transparent;box-shadow:none}.bike-live-ride.is-finished .bike-live-sheet{padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;gap:16px}.bike-live-ride.is-finished .bike-live-rider{padding:14px;border:1px solid var(--bike-line);border-radius:16px;background:var(--bike-surface)}

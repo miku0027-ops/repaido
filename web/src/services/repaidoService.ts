@@ -6,6 +6,7 @@ import {AccountProfileError,establishAccountSession} from './accountProfileServi
 import { auth, db } from '../firebase';
 import {
   GoogleAuthProvider,
+  getAdditionalUserInfo,
   signInWithPopup,
   signInWithPhoneNumber,
   signInWithCredential,
@@ -193,6 +194,16 @@ export async function continueWithPhoneAccount(): Promise<void> {
 }
 let confirmationResultRef: ConfirmationResult | null = null;
 let recaptchaVerifierRef: RecaptchaVerifier | null = null;
+let recaptchaContainerRef: HTMLElement | null = null;
+let phoneVerificationEpoch = 0;
+export function cancelPhoneVerification() {
+  phoneVerificationEpoch++;
+  confirmationResultRef=null;
+  phoneAccountRecovery.clear();
+  try{recaptchaVerifierRef?.clear();}catch{/* A completed verifier may already be removed. */}
+  recaptchaVerifierRef=null;
+  recaptchaContainerRef?.remove();recaptchaContainerRef=null;
+}
 
 function ensureRecaptchaContainer(containerId: string): HTMLElement | null {
   if (typeof document === 'undefined') return null;
@@ -220,7 +231,7 @@ function ensureRecaptchaContainer(containerId: string): HTMLElement | null {
 /**
  * One-click Google Sign-In / Sign-Up
  */
-export async function signInWithGoogle(mode:'login'|'register'='login'): Promise<{ token: string; user: RepaidoUser; profileError?:string }> {
+export async function signInWithGoogle(mode:'login'|'register'='login',deferSession=false): Promise<{ token: string; user: RepaidoUser; profileError?:string; isNewAccount?:boolean }> {
   try {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
@@ -236,6 +247,8 @@ export async function signInWithGoogle(mode:'login'|'register'='login'): Promise
     assertAuthIdentity(user.id);
     writeLocal(KEYS.USER, user);
     writeLocal(KEYS.TOKEN, token);
+    const isNewAccount=getAdditionalUserInfo(cred)?.isNewUser===true;
+    if(deferSession)return {token,user,isNewAccount};
     try{await establishAccountSession(user.id,mode);assertAuthIdentity(user.id);return {token,user};}
     catch(problem){assertAuthIdentity(user.id);if(problem instanceof AccountProfileError&&problem.code==='ACCOUNT_CHANGED')throw problem;return {token,user,profileError:problem instanceof Error?problem.message:'Signed in. Open account details to complete your email.'};}
   } catch (err: any) {
@@ -258,6 +271,8 @@ export async function sendPhoneOtp(
   containerId = 'recaptcha-container',
   preserveCurrentAccount = false
 ): Promise<void> {
+  const epoch = ++phoneVerificationEpoch;
+  const assertActive = () => { if(epoch !== phoneVerificationEpoch) throw new Error('Verification was cancelled. Request a new code.'); };
   confirmationResultRef = null;
   phoneAccountRecovery.clear();
   const cleanDigits = phoneNumber.replace(/\D/g, '');
@@ -281,7 +296,9 @@ export async function sendPhoneOtp(
       recaptchaVerifierRef = null;
     }
 
+    recaptchaContainerRef?.remove();
     const target = ensureRecaptchaContainer(uniqueContainerId);
+    recaptchaContainerRef=target;
     if (!target) {
       throw new Error('Phone verification is unavailable here. Open Repaido in Chrome or the Android app and try again.');
     }
@@ -295,6 +312,7 @@ export async function sendPhoneOtp(
     if (existing) {
       if(existing.phoneNumber && existing.phoneNumber !== e164) throw new Error('Use the mobile number already linked to this account, or sign out to switch accounts.');
       const verificationId = await new PhoneAuthProvider(auth).verifyPhoneNumber(e164, recaptchaVerifierRef);
+      assertActive();
       confirmationResultRef = {verificationId, confirm: async code => {
         if(auth.currentUser?.uid !== existing.uid) throw new Error('Your account changed. Request a new code.');
         const credential = PhoneAuthProvider.credential(verificationId, code);
@@ -304,11 +322,16 @@ export async function sendPhoneOtp(
           return result;
         } catch (err: any) {
           // Firebase supplies a verified temporary proof when the number has another UID.
+          assertActive();
           phoneAccountRecovery.capture(err, PhoneAuthProvider.credentialFromError(err), existing.uid);
           throw err;
         }
       }};
-    } else confirmationResultRef = await signInWithPhoneNumber(auth, e164, recaptchaVerifierRef);
+    } else {
+      const confirmation = await signInWithPhoneNumber(auth, e164, recaptchaVerifierRef);
+      assertActive();
+      confirmationResultRef = confirmation;
+    }
   } catch (err: any) {
     if (err?.code === 'auth/invalid-phone-number') {
       throw new Error('Invalid phone number. Enter a valid 10-digit mobile number.');
@@ -326,8 +349,9 @@ export async function sendPhoneOtp(
 export async function confirmPhoneOtp(
   otpCode: string,
   customerName?: string,
-  registrationEmail?:string
-): Promise<{ token: string; user: RepaidoUser; profileError?:string }> {
+  registrationEmail?:string,
+  deferSession=false
+): Promise<{ token: string; user: RepaidoUser; profileError?:string; isNewAccount?:boolean }> {
   if (!confirmationResultRef) {
     throw new Error('Request a verification code first.');
   }
@@ -337,7 +361,9 @@ export async function confirmPhoneOtp(
   }
 
   try {
+    const epoch = phoneVerificationEpoch;
     const cred = await confirmationResultRef.confirm(code);
+    if(epoch !== phoneVerificationEpoch) throw new Error('Verification was cancelled. Request a new code.');
     assertAuthIdentity(cred.user.uid);
     if (customerName && customerName.trim().length >= 2 && cred.user) {
       try {
@@ -353,8 +379,11 @@ export async function confirmPhoneOtp(
     };
     const token = await cred.user.getIdToken();
     assertAuthIdentity(user.id);
+    if(epoch !== phoneVerificationEpoch) throw new Error('Verification was cancelled. Request a new code.');
     writeLocal(KEYS.USER, user);
     writeLocal(KEYS.TOKEN, token);
+    const isNewAccount=getAdditionalUserInfo(cred)?.isNewUser===true;
+    if(deferSession)return {token,user,isNewAccount};
     try{await establishAccountSession(user.id,registrationEmail?'register':'login',registrationEmail);assertAuthIdentity(user.id);return {token,user};}
     catch(problem){assertAuthIdentity(user.id);if(problem instanceof AccountProfileError&&problem.code==='ACCOUNT_CHANGED')throw problem;return {token,user,profileError:problem instanceof Error?problem.message:'Signed in. Open account details to complete your email.'};}
   } catch (err: any) {
@@ -372,8 +401,7 @@ export async function confirmPhoneOtp(
 }
 
 export async function logoutUser(): Promise<void> {
-  confirmationResultRef = null;
-  phoneAccountRecovery.clear();
+  cancelPhoneVerification();
   try {
     await firebaseSignOut(auth);
   } catch {}

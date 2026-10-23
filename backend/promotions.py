@@ -133,6 +133,8 @@ def recommendations(u,catalog,body,uid=None,now=None):
     now=time.time() if now is None else now;config=controls(u);p=prefs(u,uid) if uid else {}
     if body.placement=='launch' and not p.get('launch',True):return []
     services=campaign_services(catalog);out=[]
+    from customer_onboarding import interests
+    selected_categories, main_category = interests(u, uid) if uid else ([], '')
     interest=u.get('discovery_preferences',uid) or {} if uid and p.get('personalised') else {}
     signals=interest.get('signals',{}) if interest.get('enabled') and interest.get('consent_version') in (2,3) else {}
     paid=history(u,uid) if uid and p.get('personalised') else []
@@ -144,6 +146,8 @@ def recommendations(u,catalog,body,uid=None,now=None):
         if body.service_id and s['id']==body.service_id and not c['discount_paise']:continue
         if body.placement=='push' and s['category'] in active_categories:continue
         interest_score=signals.get(s['category'],{});affinity=min(1,interest_score.get('score',0)*math.exp(-max(0,now-interest_score.get('at',0))/(7*86400))/10)
+        if s['category'] in selected_categories:
+            affinity=max(affinity,1 if s['category']==main_category else .8)
         recent=[j for j in paid if j['category']==s['category']]
         # Don't frame recently completed work as needing another service.
         if recent and max(j.get('completed_at',0) for j in recent)>now-14*86400:continue

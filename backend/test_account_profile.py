@@ -146,7 +146,7 @@ def test_missing_verification_configuration_is_honest_and_does_not_block_capture
 
 def test_firebase_explicit_session_records_once_without_spamming_api_reads_and_handles_max_request_id(identity):
     client,core,actors=identity
-    actors['one'].update(auth_provider='firebase',auth_email=None,auth_email_verified=False,auth_time=123456)
+    actors['one'].update(auth_provider='firebase',auth_email=None,auth_email_verified=False,auth_time=123456,phone='+919876543210',phone_verified=True)
     body=accounts.Session(request_id='r'*100,mode='register',email='first@example.com')
     current=core.operations_store.run(lambda u:accounts.establish_session(u,actors['one'],body))
     assert current['email']=='first@example.com' and not current['email_verified']

@@ -15,9 +15,19 @@ let ownChange=false;
 function identityNow(){return communityIdentityKey();}
 function syncIdentity(){const current=identityNow();if(current!==identityScope){identityScope=current;generation++;reads.invalidate();void syncWorkPushAccount();}return current;}
 export function clearWorkReads(){generation++;reads.invalidate();}
-function changed(){clearWorkReads();ownChange=true;try{window.dispatchEvent(new Event(UPDATE));window.dispatchEvent(new CustomEvent('repaidians:update',{detail:{path:'/work',contentChanged:false}}));}finally{ownChange=false;}}
+export type WorkReadChange={identity:string;preferences?:WorkPreferences};
+function changed(preferences?:WorkPreferences){
+  clearWorkReads();ownChange=true;
+  try{
+    // Retire dependent content before observers capture their refresh scope.
+    window.dispatchEvent(new CustomEvent('repaidians:update',{detail:{path:'/work',contentChanged:false}}));
+    const identity=syncIdentity();
+    if(preferences)reads.remember(keyFor(identity,'/work/preferences'),{preferences});
+    window.dispatchEvent(new CustomEvent<WorkReadChange>(UPDATE,{detail:{identity,preferences}}));
+  }finally{ownChange=false;}
+}
 window.addEventListener('repaidians:update',event=>{const change=(event as CustomEvent<{contentChanged?:boolean;path?:string}>).detail;if(change?.contentChanged===false)return;if(!ownChange){clearWorkReads();window.dispatchEvent(new Event(UPDATE));}});
-export function subscribeWorkReads(listener:()=>void){window.addEventListener(UPDATE,listener);return()=>window.removeEventListener(UPDATE,listener);}
+export function subscribeWorkReads(listener:(change?:WorkReadChange)=>void){const receive=(event:Event)=>{const change=(event as CustomEvent<WorkReadChange>).detail;listener(change?.identity===syncIdentity()?change:undefined);};window.addEventListener(UPDATE,receive);return()=>window.removeEventListener(UPDATE,receive);}
 function queryString(filters:Record<string,unknown>){const params=new URLSearchParams();for(const [key,value] of Object.entries(filters))if(value!==undefined&&value!==null&&value!=='')params.set(key,String(value));return params.toString();}
 function keyFor(account:string,path:string){syncIdentity();return account+':'+path;}
 function observeAbort<T>(request:Promise<T>,signal?:AbortSignal):Promise<T>{
@@ -52,13 +62,13 @@ export const workCompanyDetails=(account:string,id:string,force=false,signal?:Ab
 export const workPlacement=(account:string,id:string,force=false,signal?:AbortSignal)=>read<WorkPlacement>(account,'/placements/'+encodeURIComponent(id),force,signal);
 export const workCachedRead=<T,>(account:string,path:string,force=false,signal?:AbortSignal)=>read<T>(account,path,force,signal);
 export const workCachedPeek=<T,>(account:string,path:string)=>peek<T>(account,path);
-export const workPreferences=(account:string,force=false,signal?:AbortSignal)=>read<{preferences:WorkPreferences}>(account,'/work/preferences',force,signal);
-export const peekWorkPreferences=(account:string)=>peek<{preferences:WorkPreferences}>(account,'/work/preferences');
-async function mutation<T>(run:()=>Promise<T>){await auth.authStateReady();const scope=syncIdentity();const result=await run();if(syncIdentity()!==scope)throw new Error('Your account changed. Reopen this view.');changed();return result;}
+export const workPreferences=(_account:string,force=false,signal?:AbortSignal)=>read<{preferences:WorkPreferences}>(syncIdentity(),'/work/preferences',force,signal);
+export const peekWorkPreferences=(_account:string)=>peek<{preferences:WorkPreferences}>(syncIdentity(),'/work/preferences');
+async function mutation<T>(run:()=>Promise<T>,publish:(result:T)=>void=()=>changed()){await auth.authStateReady();const scope=syncIdentity();const result=await run();if(syncIdentity()!==scope)throw new Error('Your account changed. Reopen this view.');publish(result);return result;}
 export const applyForWork=(id:string,hiringVersion:number,note:string,workerType?:string)=>mutation(()=>operation('/contractor/projects/'+encodeURIComponent(id)+'/apply',{method:'POST',body:JSON.stringify({hiring_version:hiringVersion,note:note.trim(),available:true,...(workerType?{worker_type:workerType}:{})})},{background:true}));
 export const withdrawWorkApplication=(id:string,version:number)=>mutation(()=>operation('/contractor/hiring/applications/'+encodeURIComponent(id)+'/withdraw',{method:'POST',body:JSON.stringify({expected_version:version})},{background:true}));
 export const respondToWorkOffer=(projectId:string,projectVersion:number,invitationId:string,action:'accept'|'decline')=>mutation(()=>operation('/contractor/projects/'+encodeURIComponent(projectId)+'/commands',{method:'POST',body:JSON.stringify({expected_version:projectVersion,action,target_id:invitationId})},{background:true}));
-export const updateWorkPreferences=(preferences:Partial<WorkPreferences>)=>mutation(()=>communityRequest<{preferences:WorkPreferences}>('/work/preferences',{method:'PATCH',body:JSON.stringify(preferences)}));
+export const updateWorkPreferences=(preferences:Partial<WorkPreferences>)=>mutation(()=>communityRequest<{preferences:WorkPreferences}>('/work/preferences',{method:'PATCH',body:JSON.stringify(preferences)}),result=>changed(result.preferences));
 export const workCall=<T,>(path:string,body?:object,method=body?'POST':'GET')=>method==='GET'?communityRequest<T>(path):mutation(()=>communityRequest<T>(path,{method,...(body?{body:JSON.stringify(body)}:{})}));
 export const contractDiscovery=<T,>(account:string,filters:{trade?:string;query?:string;city?:string;sector?:string;limit?:number;cursor?:string}={},force=false,signal?:AbortSignal)=>read<T>(account,'/work/contracts?'+queryString(filters),force,signal);
 export const watchContract=(id:string,active:boolean)=>workCall<{active:boolean}>('/work/contracts/'+encodeURIComponent(id)+'/watch',{active},'PUT');

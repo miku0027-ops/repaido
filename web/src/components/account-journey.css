@@ -1,0 +1,93 @@
+/* Account entry uses one clear task per screen, with a quiet dimensional backdrop. */
+.modal.account-journey-dialog{width:min(820px,calc(100% - 24px))!important;max-width:820px!important;max-height:calc(100dvh - 24px);overflow:auto;padding:0!important;background:var(--ui-surface)!important;color:var(--ui-ink)!important;border:1px solid var(--ui-line);border-radius:24px;box-shadow:0 30px 90px #11296045,0 2px 0 #ffffff88 inset}
+.account-journey-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 22px;border-bottom:1px solid var(--ui-line)}
+.account-journey-dialog button,.account-welcome-dialog button{font:inherit;cursor:pointer;touch-action:manipulation;min-height:44px!important;border-radius:12px;line-height:1.4}
+.account-journey-dialog .account-journey-close{display:grid;place-items:center;width:44px;min-width:44px!important;height:44px;padding:0!important;border:1px solid var(--ui-line);background:var(--ui-subtle);color:var(--ui-ink)}
+.account-journey-layout{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1fr)}
+.account-journey-story{padding:28px 26px;display:flex;flex-direction:column;justify-content:center;gap:15px;overflow:hidden;background:radial-gradient(ellipse at 5% 5%,#fff8d5,transparent 55%),linear-gradient(150deg,#eef5ff,#dbe9ff);color:#142d55;border-inline-end:1px solid var(--ui-line)}
+.account-journey-story>div>span{font-size:.625rem;letter-spacing:.14em;font-weight:750;color:#365276}
+.account-journey-story h2{font-size:1.875rem;line-height:1.15;letter-spacing:-.04em;font-weight:750;margin:12px 0;color:#142d55}
+.account-journey-story p{font-size:.8125rem;line-height:1.7;margin:0;color:#3e5575}
+.account-journey-main{padding:26px;min-width:0;display:flex;flex-direction:column}
+.account-journey-step{min-width:0}
+.account-journey-step h2{font-size:1.5rem;line-height:1.25;letter-spacing:-.035em;font-weight:750;color:var(--ui-ink);margin:0;outline:none}
+.account-journey-step .account-journey-intro{font-size:.875rem;line-height:1.65;color:var(--ui-muted);margin:9px 0 22px;overflow-wrap:anywhere}
+.account-journey-step form{display:grid;gap:10px}
+.account-journey-step label{font-size:.8125rem;font-weight:650;color:var(--ui-ink);line-height:1.5}
+.account-journey-dialog .account-journey-step input:not([type=checkbox]),.account-journey-dialog .account-journey-step select{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px 14px;min-height:48px!important;margin:0;border:1px solid var(--ui-control);background:var(--ui-surface);color:var(--ui-ink);border-radius:12px;font:inherit;font-size:1rem;line-height:1.5;box-shadow:0 3px 8px #17386104}
+.account-journey-step input::placeholder{color:var(--ui-muted);opacity:.85}
+.account-journey-phone{display:flex;align-items:center;gap:0;border:1px solid var(--ui-control);border-radius:12px;background:var(--ui-surface);overflow:clip}
+.account-journey-phone>span{font-size:.9375rem;font-weight:600;padding:0 12px;border-inline-end:1px solid var(--ui-line);color:var(--ui-ink)}
+.account-journey-dialog .account-journey-phone input{border:0!important;box-shadow:none;border-radius:0;padding-left:12px!important}
+.account-journey-dialog .account-journey-primary,.account-welcome-dialog .account-journey-primary{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--ui-primary)!important;color:#fff!important;border:1px solid var(--ui-primary);padding:13px 16px!important;font-size:.875rem!important;font-weight:700;box-shadow:0 4px 0 color-mix(in srgb,var(--ui-primary) 75%,#000),0 8px 18px #12378119;margin-top:10px;text-decoration:none}
+.account-journey-primary:disabled{opacity:.55;cursor:default;box-shadow:none}
+.account-journey-or{display:flex;align-items:center;gap:12px;color:var(--ui-muted);font-size:.75rem;margin:22px 0 15px}
+.account-journey-or::before,.account-journey-or::after{content:'';height:1px;flex:1;background:var(--ui-line)}
+.account-journey-dialog .account-journey-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:12px 16px;border:1px solid var(--ui-control);background:var(--ui-surface);color:var(--ui-ink);font-size:.875rem;font-weight:650}
+.account-journey-step .account-journey-switch{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;font-size:.75rem;margin:12px 0;color:var(--ui-muted)}
+.account-journey-switch>button{font-size:.75rem!important;padding:6px 3px;border:0;background:transparent;color:var(--ui-link);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.account-journey-step .account-journey-assurance{display:flex;align-items:flex-start;justify-content:center;gap:7px;font-size:.6875rem;line-height:1.5;color:var(--ui-muted);margin:10px 0 0}
+.account-journey-assurance svg{flex:none}
+.account-journey-dialog .account-journey-browse{margin:20px auto 0;padding:8px 12px;background:transparent;border:0;color:var(--ui-muted);font-size:.75rem}
+.account-journey-progress{display:flex;list-style:none;gap:8px;margin:0 0 24px;padding:0}
+.account-journey-progress li{flex:1;display:grid;gap:6px;font-size:.625rem;line-height:1.5;color:var(--ui-muted);border-top:2px solid var(--ui-line);padding-top:8px}
+.account-journey-progress li>span{display:grid;place-items:center;width:20px;height:20px;background:var(--ui-subtle);color:var(--ui-muted);border-radius:50%;font-weight:700}
+.account-journey-progress li[aria-current],.account-journey-progress li[data-complete]{color:var(--ui-link);border-color:var(--ui-link);font-weight:700}
+.account-journey-progress li[aria-current]>span{background:var(--ui-primary);color:#fff}
+.account-journey-dialog input.account-journey-code{font-size:1.5rem;letter-spacing:.28em;font-variant-numeric:tabular-nums;text-align:center;padding:12px}
+.account-journey-code-actions{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px}
+.account-journey-code-actions>button,.account-journey-dialog .account-journey-back{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px 0;border:0;background:transparent;color:var(--ui-link);font-size:.75rem!important}
+.account-journey-code-actions>button:disabled{color:var(--ui-muted);cursor:default}
+.account-journey-step .account-journey-help{font-size:.75rem;line-height:1.6;color:var(--ui-muted);margin:2px 0 8px}
+.account-interest-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:15px}
+.account-journey-dialog .account-interest-grid>button{display:flex;align-items:center;gap:8px;text-align:left;padding:10px;border:1px solid var(--ui-line);background:var(--ui-surface);color:var(--ui-ink);font-size:.75rem!important;min-width:0;box-shadow:0 3px 0 #0c265306;transition:background 180ms ease,border-color 180ms ease,transform 180ms ease}
+.account-journey-dialog .account-interest-grid>button[aria-pressed=true]{background:color-mix(in srgb,var(--ui-link) 8%,var(--ui-surface));border-color:var(--ui-link)}
+.account-interest-check{width:24px;height:24px;display:grid;place-items:center;flex:none;border-radius:8px;background:var(--ui-subtle);color:var(--ui-link)}
+[aria-pressed=true]>.account-interest-check{background:var(--ui-primary);color:#fff}
+.account-primary-interest{display:grid;gap:7px;margin-bottom:15px}
+.account-journey-step .account-journey-consent{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-subtle);font-size:.8125rem;font-weight:600;cursor:pointer}
+.account-journey-consent>input{margin:3px 0 0;width:20px;height:20px;flex:none;accent-color:var(--ui-primary)}
+.account-journey-dialog .account-journey-consent small{display:block;font-size:.6875rem;color:var(--ui-muted);font-weight:400;line-height:1.6;margin-top:5px}
+.account-journey-error{margin-top:16px;border:1px solid var(--ui-danger-line);border-radius:12px;padding:12px;background:var(--ui-danger-surface);color:var(--ui-danger);font-size:.8125rem;line-height:1.6;overflow-wrap:anywhere}
+.account-journey-error>button{background:var(--ui-surface);color:var(--ui-ink);border:1px solid var(--ui-control);padding:10px;margin-top:10px}
+.account-journey-checking{display:grid;justify-items:center;gap:12px;padding:24px 0;font-size:.875rem;color:var(--ui-muted)}
+.account-checking-icon{width:56px;height:56px;display:grid;place-items:center;background:var(--ui-subtle);color:var(--ui-link);border:1px solid var(--ui-line);border-radius:18px}
+.account-art-house{position:relative;width:100%;height:100%;filter:drop-shadow(0 12px 9px #2455a818)}
+.account-journey-art{position:relative;isolation:isolate;max-width:280px;width:100%;height:220px;margin-inline:auto;perspective:600px}
+.account-art-orbit{position:absolute;inset:12% 5%;border:1px solid #b8cee8;border-radius:50%;transform:rotate(-22deg);background:radial-gradient(ellipse,#fff9,#fff0 65%)}
+.account-art-tile{position:absolute;display:grid;place-items:center;width:48px;height:48px;border-radius:16px;border:1px solid #ffffffdd;background:linear-gradient(150deg,#fff,#eaf0ff);color:#1651bd;box-shadow:0 4px 0 #b1c7e5,0 12px 22px #1d4b9524;transform:rotate(-12deg)}
+.account-art-tools{top:24%;left:0}
+.account-art-spark{top:5%;right:4%;color:#765314;background:linear-gradient(150deg,#fff8d3,#ffdc7d);box-shadow:0 4px 0 #d4b152,0 12px 20px #a9802324;transform:rotate(12deg)}
+.account-art-check{bottom:6%;right:3%;color:#145c4c;background:linear-gradient(150deg,#eefff7,#b9e8d5);box-shadow:0 4px 0 #86bfa8,0 12px 20px #145c4c20;transform:rotate(7deg)}
+.account-art-dot{position:absolute;display:block;width:7px;height:7px;border-radius:50%;background:#88afe8}
+.account-art-dot.one{left:20%;top:5%}.account-art-dot.two{right:0;top:50%;width:5px;height:5px;background:#e8bd57}.account-art-dot.three{left:14%;bottom:5%;background:#8dbaa9}
+@media(hover:hover){.account-journey-dialog .account-interest-grid>button:hover{transform:translateY(-2px)}.account-journey-primary:not(:disabled):hover{filter:brightness(1.1)}}
+.account-journey-dialog :is(button,input,select):focus-visible,.account-welcome-dialog :is(button,a):focus-visible{outline:3px solid var(--ui-focus)!important;outline-offset:3px!important}
+@media(max-width:650px){
+ .account-journey-layout{grid-template-columns:minmax(0,1fr)}
+ .account-journey-header{padding:12px 16px}
+ .account-journey-story{flex-direction:row;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-inline-end:0;border-bottom:1px solid var(--ui-line)}
+ .account-journey-story .account-journey-art{order:2;max-width:130px;height:108px;margin:0;flex:none}
+ .account-journey-story h2{font-size:1.3125rem;margin:7px 0 0}
+ .account-journey-story p{display:none}
+ .account-journey-story>div>span{font-size:.5625rem;letter-spacing:.09em}
+ .account-journey-story .account-art-tile{width:30px;height:30px;border-radius:10px}
+ .account-journey-story .account-art-tile svg{width:17px;height:17px}
+ .account-journey-main{padding:22px 18px 16px}
+ .account-journey-step h2{font-size:1.375rem}
+ .account-journey-progress{margin-bottom:18px}
+}
+@media(max-width:360px){.account-journey-story .account-journey-art{max-width:94px;height:96px}.account-journey-story{padding:10px 14px}.account-journey-main{padding:20px 14px 12px}.account-interest-grid{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:no-preference){
+ .account-journey-step{animation:account-step-in 220ms ease-out}
+ .account-journey-art .account-art-house{animation:account-home-float 5s ease-in-out 2}
+ .account-journey-art .account-art-tile{animation:account-tile-float 4s ease-in-out 2}
+ .account-journey-art .account-art-spark{animation-delay:-1s}.account-journey-art .account-art-check{animation-delay:-2s}
+ @keyframes account-step-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+ @keyframes account-home-float{50%{transform:translateY(-7px)}}
+ @keyframes account-tile-float{50%{translate:0 -7px}}
+}
+.reduce-motion :is(.account-journey-step,.account-art-house,.account-art-tile){animation:none!important;transition:none!important}
+@media(prefers-reduced-motion:reduce){.account-journey-dialog .account-interest-grid>button{transition:none}}
+
+@media(max-width:650px){.account-journey-profile .account-journey-story,.account-journey-interests .account-journey-story{display:none}.account-journey-story>div{min-width:0}}

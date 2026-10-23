@@ -297,7 +297,7 @@ def rate_limit(request):
         c.execute('INSERT INTO rate_limits VALUES(?,?)', (key, now))
 
 
-def current_user(authorization: str = Header(default='')):
+def current_user(authorization: str = Header(default=''), request: Request = None):
     if not authorization.startswith('Bearer '):
         raise HTTPException(401, 'Please sign in to continue.')
     raw_token = authorization[7:].strip()
@@ -319,8 +319,13 @@ def current_user(authorization: str = Header(default='')):
         if USE_FIRESTORE:
             ref = fs_doc('users', uid)
             if not ref.get().exists:
+                operations_store.run(lambda u: u.put('account_creation_policy', uid, {'phone_required': True, 'created_at': time.time()}))
                 ref.set({'id': uid, 'name': name, 'email': internal_email, 'created_at': fs_now()})
         else:
+            with db() as c:
+                is_new = not c.execute('SELECT 1 FROM users WHERE id=?', (uid,)).fetchone()
+            if is_new:
+                operations_store.run(lambda u: u.put('account_creation_policy', uid, {'phone_required': True, 'created_at': time.time()}))
             with db() as c:
                 c.execute('INSERT OR IGNORE INTO users VALUES(?,?,?,?,?)', (uid, name, internal_email, 'firebase_auth_token', int(time.time())))
                 if not c.execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone():
@@ -329,7 +334,13 @@ def current_user(authorization: str = Header(default='')):
             'auth_email_verified': decoded.get('email_verified') is True, 'auth_time': decoded.get('auth_time'),
             'phone': decoded.get('phone_number'), 'phone_verified': bool(decoded.get('phone_number')),
             'phone_authenticated': bool(decoded.get('phone_number')) and decoded.get('firebase', {}).get('sign_in_provider') == 'phone'}
-        contact = operations_store.run(lambda u: ensure(u,actor))
+        contact, creation = operations_store.run(lambda u: (ensure(u,actor), u.get('account_creation_policy', uid) or {}))
+        if creation.get('phone_required') and not actor['phone_verified'] and request is not None:
+            path = request.url.path.removeprefix('/api')
+            account_path = path.startswith('/account/') or path in ('/auth/session', '/auth/logout')
+            read_path = path in ('/operations/campaigns/feed/personal', '/operations/hiring/recommendations', '/operations/shop-discovery/recommendations/personal')
+            if request.method not in ('GET', 'HEAD', 'OPTIONS') and not account_path and not read_path:
+                raise HTTPException(403, {'code': 'PHONE_VERIFICATION_REQUIRED', 'message': 'Verify your mobile number to finish account setup before continuing.'})
         actor.update(email=actual_email(contact.get('email')),email_verified=bool(contact.get('email_verified')),email_required=not bool(actual_email(contact.get('email'))))
         return actor
 
@@ -382,6 +393,8 @@ def health():
 
 @app.post('/auth/register', status_code=201)
 def register(body: Registration, request: Request):
+    if USE_FIRESTORE:
+        raise HTTPException(403, 'Create your account with mobile OTP or Google and verify your mobile number.')
     rate_limit(request)
     email = valid_email(body.email)
     if len(body.name.strip()) < 2: raise HTTPException(422, 'Enter your name.')
@@ -1287,6 +1300,8 @@ import contract_records
 contract_records.install(sys.modules[__name__])
 import account_profile
 account_profile.install(sys.modules[__name__])
+import customer_onboarding
+customer_onboarding.install(sys.modules[__name__])
 import transactional_mail
 
 import local_business

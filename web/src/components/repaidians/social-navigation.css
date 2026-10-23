@@ -68,6 +68,8 @@
 .rp-settings-heading{display:flex;align-items:center;gap:8px;padding:4px 0 16px;font-size:.875rem;}
 .rp-options-body .rp-account-settings form{padding:0;}
 .rp-options-body .rp-account-settings :is(input,select,textarea){font-size:1rem;}
+.rp-account-settings :is(label.rp-work-preference,label.rp-network-check){display:grid;grid-template-columns:24px minmax(0,1fr);align-items:start;gap:10px;}
+.rp-account-settings :is(.rp-work-preference,.rp-network-check) input[type=checkbox]{width:20px;height:20px;min-width:20px;max-width:20px;min-height:20px;padding:0;margin:3px 0 0;}
 .rp-options-body .rp-blocked-members{padding-inline:0;margin-top:20px;}
 @keyframes rp-drawer-enter{from{transform:translateX(24px);opacity:.5;}to{transform:translateX(0);opacity:1;}}
 @media(max-width:360px){.rp-post-media{width:calc(100% - var(--ui-space)*2);}.rp-feed-modes{gap:13px;}}

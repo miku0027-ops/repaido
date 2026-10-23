@@ -75,3 +75,23 @@ test('a discovery target refreshes the exact job and preserves an unavailable re
   await assert.rejects(service.workJob('a','project/one',true),/no longer available/);
   assert.deepEqual(calls.map(call=>call.path),['/work/jobs/project%2Fone','/work/jobs/project%2Fone']);
 });
+
+test('saved choices are reusable without a second GET and retire older reads',async()=>{
+  const slow=deferred(),persisted={personalizedDiscovery:false,jobDiscovery:true,contractUpdates:true,sharePlacements:false,shareSalary:false};
+  transport=async(_path,init)=>init?.method==='PATCH'?{preferences:persisted}:slow.promise;
+  const old=service.workPreferences('a');await tick();
+  const order=[];window.addEventListener('repaidians:update',()=>order.push('content'));
+  const unsubscribe=service.subscribeWorkReads(change=>{order.push('work');assert.deepEqual(change.preferences,persisted);assert.deepEqual(service.peekWorkPreferences('a'),{preferences:persisted});});
+  await service.updateWorkPreferences({personalizedDiscovery:false});
+  assert.deepEqual(order,['content','work']);assert.deepEqual(await service.workPreferences('a'),{preferences:persisted});assert.equal(calls.length,2,'One GET and one PATCH; saving needs no extra GET.');
+  slow.resolve({preferences:{...persisted,personalizedDiscovery:true}});await assert.rejects(old,/work details changed/);
+  assert.deepEqual(service.peekWorkPreferences('a'),{preferences:persisted});unsubscribe();
+  values.set('repaido.token','account-b-session');assert.equal(service.peekWorkPreferences('b'),null,'Saved choices do not cross accounts.');
+});
+test('failed preference saves preserve confirmed choices without publishing an update',async()=>{
+  const persisted={personalizedDiscovery:false,sharePlacements:false,shareSalary:false};
+  transport=async()=>({preferences:persisted});await service.workPreferences('a');
+  let changes=0;service.subscribeWorkReads(()=>changes++);
+  transport=async()=>{throw Error('Save unavailable');};await assert.rejects(service.updateWorkPreferences({shareSalary:true}),/Save unavailable/);
+  assert.equal(changes,0);assert.deepEqual(service.peekWorkPreferences('a'),{preferences:persisted});
+});

@@ -13,7 +13,7 @@ COPY legacy_checkout.py ./
 COPY bike_rides.py bike_payroll.py bike_dispatch.py bike_dispatch_worker.py bike_kafka_worker.py ./
 COPY bike_economics.py bike_runtime.py bike_worker_health.py routing_cache.py bike_earnings.py catalog_ratings.py ./
 COPY b2b.py professional_offers.py shop_prime.py repaidians.py repaidians_milestones.py repaidians_live.py repaidians_network.py repaidians_media.py repaidians_billing.py repaidians_opportunities.py ./
-COPY cleanup.py captain_rewards.py captain_policy.py custom_contracts.py contract_records.py account_profile.py transactional_mail.py repaidians_work.py work_runtime.py work_service.py work_worker.py work_push.py ./
+COPY cleanup.py captain_rewards.py captain_policy.py custom_contracts.py contract_records.py account_profile.py customer_onboarding.py transactional_mail.py repaidians_work.py work_runtime.py work_service.py work_worker.py work_push.py ./
 COPY repaidians_tools.py community_service.py work_dispatch.py ./
 COPY hire_ranking.py hire_ranking_client.py hire_ranking_service.py ./
 COPY scrap_experience.py housing.py customer_hub.py saved_alerts.py shop_tools.py business_accounts.py campaign_outcomes.py community_missions.py ./

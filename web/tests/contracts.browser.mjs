@@ -69,6 +69,23 @@ try{
  await form.getByRole('checkbox').check();await form.getByRole('button',{name:'Save & continue',exact:true}).click();await form.waitFor({state:'hidden'});
  const tenders=(await api('/operations/contractor/published')).tenders;assert.equal(tenders.length,1);const tender=tenders[0];assert.equal(tender.budget_paise,2500000);
  await publisher.getByRole('dialog',{name:tender.title,exact:true}).waitFor();await layout(publisher);
+ // The brief remains useful before expansion; native disclosures keep all exact terms reachable.
+ const ownerBrief=publisher.getByRole('region',{name:'Tender information',exact:true});
+ assert.equal(await ownerBrief.locator('details[open]').count(),0);
+ await ownerBrief.getByText('PRIVATE Workshop entrance Balasore',{exact:true}).waitFor();
+ const scopeToggle=ownerBrief.locator('summary').filter({hasText:'Scope of work'});
+ await scopeToggle.focus();await publisher.keyboard.press('Enter');
+ await ownerBrief.getByText('Inspect circuits and replace the agreed damaged fixtures with documented safety checks.',{exact:true}).waitFor();
+ await publisher.keyboard.press('Space');assert.equal(await scopeToggle.evaluate(node=>node.parentElement.open),false);
+ await projectSection(publisher.getByRole('dialog',{name:tender.title,exact:true}),'Eligibility & terms');
+ await ownerBrief.getByText('CONFIDENTIAL Evaluation requires a safe inspection plan and an accepted project crew.',{exact:true}).waitFor();
+ await projectSection(publisher.getByRole('dialog',{name:tender.title,exact:true}),'Dates & timeline');
+ assert.equal(await ownerBrief.locator('time').count(),4,'All published bidding and work timestamps remain available');
+ for(const width of [320,495,1024])for(const text of [100,200])for(const theme of ['light','dark']){
+  await publisher.setViewportSize({width,height:850});await publisher.evaluate(({text,theme})=>{document.documentElement.style.fontSize=text+'%';document.documentElement.dataset.theme=theme;},{text,theme});await layout(publisher);await audit(publisher);
+ }
+ await publisher.setViewportSize({width:390,height:850});await publisher.evaluate(()=>{document.documentElement.style.fontSize='100%';document.documentElement.dataset.theme='light';});
+ console.log('PASS: compact tender facts, keyboard disclosures, exact terms/dates, mobile/desktop, dark/light and 200% text.');
  await guest.getByRole('button',{name:'Refresh opportunities',exact:true}).click();await guest.locator('.tender-opportunity').waitFor();await guest.getByRole('button',{name:'View opportunity',exact:true}).click();const summary=guest.getByRole('dialog',{name:tender.title,exact:true});await summary.waitFor();
  assert(!String(await summary.innerText()).includes('PRIVATE'));assert(!String(await summary.innerText()).includes('CONFIDENTIAL'));await summary.getByText('Full scope is available to approved contractors',{exact:true}).waitFor();await layout(guest);await guest.keyboard.press('Escape');
  const lead=await newPage(contractor);await lead.locator('.tender-opportunity').waitFor();await lead.getByRole('button',{name:'View opportunity',exact:true}).click();const full=lead.getByRole('dialog',{name:tender.title,exact:true});await full.getByText('PRIVATE Workshop entrance Balasore',{exact:true}).waitFor();await full.getByRole('button',{name:'Prepare team & bid',exact:true}).click();
@@ -125,6 +142,7 @@ try{
  const watch=privacy.getByRole('button',{name:'Watch contract',exact:true});await watch.waitFor();await watch.click();const preferences=privacy.getByRole('dialog',{name:'Opportunity preferences',exact:true});await preferences.getByRole('checkbox',{name:'Daily contract updates',exact:false}).check();await preferences.getByRole('checkbox',{name:'Relevant opportunities',exact:false}).check();await preferences.getByRole('button',{name:'Save preferences',exact:true}).click();await preferences.waitFor({state:'hidden'});await privacy.getByRole('button',{name:'Watching · stop',exact:true}).waitFor();const watchedTender=(await api('/operations/contractor/published')).tenders[0];assert.equal((await api('/repaidians/work/contracts/'+watchedTender.id+'/watch',contractor)).watched,true);await privacy.getByRole('button',{name:'Watching · stop',exact:true}).click();await watch.waitFor();assert.equal((await api('/repaidians/work/contracts/'+watchedTender.id+'/watch',contractor)).watched,false);
  console.log('PASS: explicit personalization/update consent, actual watch persistence, unwatch and daily three-contract limit copy.');
  const protectedText='Inspect and repair agreed workshop requirements';
+ await projectSection(privacy.getByRole('dialog',{name:watchedTender.title,exact:true}),'Scope of work');
  await privacy.getByText(protectedText,{exact:true}).waitFor();
  const switchActor=async(page,token)=>page.evaluate(token=>{const oldValue=localStorage.getItem('repaido.token');if(token)localStorage.setItem('repaido.token',token);else localStorage.removeItem('repaido.token');window.dispatchEvent(new StorageEvent('storage',{key:'repaido.token',oldValue,newValue:token||null}));},token);
  await switchActor(privacy,owner.token);await privacy.getByText('Full scope is available to approved contractors',{exact:true}).waitFor();assert.equal(await privacy.getByText(protectedText,{exact:true}).count(),0);

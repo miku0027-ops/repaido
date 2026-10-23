@@ -41,6 +41,14 @@ await call('PATCH','services/service',roleAdmin,{name:'Authorized role admin'},2
 await call('GET','users/alice',alice,null,200);
 await call('GET','users/alice',bob,null,403);
 await call('GET','users/alice',emailOnly,null,403);
+// Provisioning must run through the API so its new-account phone policy is
+// recorded before a user document can be mistaken for a legacy account.
+await call('PATCH','users/new-google',token('new-google'),{name:'Cannot bypass setup'},403);
+await call('PATCH','users/new-phone',token('new-phone',{phone_number:'+919876543210'}),{name:'Use the API'},403);
+for (const collection of ['ops_account_creation_policy','ops_customer_onboarding']) {
+  await call('PATCH',collection+'/alice',alice,{phone_required:false,completed_at:'forged'},403);
+  await call('GET',collection+'/alice',alice,null,403);
+}
 // An owner-editable profile field never becomes a server-issued auth claim.
 await call('PATCH','users/alice',alice,{name:'Alice',role:'admin',admin:true},200);
 await call('PATCH','services/service',alice,{name:'Profile role is not authority'},403);

@@ -1,0 +1,56 @@
+/* Passenger cards use Go's own charcoal, warm glass and yellow action language. */
+.local-business-hub .shared-customer-card{--ui-ink:#202124;--ui-line:#dbdcd8;--ui-subtle:#f3f3ee;--ui-surface:#fffefb;--ui-primary:#202124;--ui-link:#393720;--ui-control:#74776c;--shared-customer-muted:#54584e;gap:12px;padding:16px;border:1px solid #e0dfd5;border-radius:24px;background:linear-gradient(130deg,#fffefbf2,#fafbf5ed 60%,#fff6d7eb);backdrop-filter:blur(20px) saturate(120%);-webkit-backdrop-filter:blur(20px) saturate(120%);box-shadow:inset 0 1px 0 #fff,0 3px 1px #c9c9bb55,0 14px 34px #22271912;color:#202124;transition:box-shadow .2s,border-color .2s}
+.local-business-hub .shared-customer-card .shared-customer-hero{margin:-16px -16px 0;padding:19px 16px 17px;border-radius:23px 23px 0 0;background:radial-gradient(ellipse at 100% 0,#ffcc3330,transparent 70%),linear-gradient(130deg,#292c2c,#1c1e20);color:#fff;gap:12px}
+.local-business-hub .shared-customer-card .shared-customer-eyebrow{color:#e2e4dc;font-size:.67rem;letter-spacing:.015em;gap:4px;flex-wrap:wrap}
+.shared-customer-eyebrow b{color:#ffcf3c;font-size:.82rem}
+.shared-customer-eyebrow i{width:3px;height:3px;border-radius:50%;background:#b4b8ae;margin:0 5px}
+.local-business-hub .shared-customer-card .shared-customer-hero h3{color:#fff;font-size:1.35rem;line-height:1.25;margin:7px 0 0;letter-spacing:-.035em;animation:shared-go-state .24s ease-out}
+.local-business-hub .shared-customer-card .shared-customer-hero p{color:#e0e3d9;font-size:.75rem;line-height:1.5;margin:6px 0 0;max-width:30ch}
+.shared-customer-card .shared-customer-art{position:relative;transform:none;flex:0 0 82px;width:82px;height:70px;background:linear-gradient(150deg,#ffffff27,#ffffff08);border:1px solid #ffffff3b;border-radius:20px;box-shadow:inset 0 1px 0 #ffffff42,0 8px 14px #0002;color:#ffc400;transition:transform .24s}
+.shared-customer-art>.go-vehicle-art{filter:drop-shadow(0 4px 3px #0005)}
+.shared-customer-art>span{position:absolute;bottom:-5px;right:-5px;background:#ffce36;border:2px solid #272925;border-radius:50%;color:#202124;padding:3px;display:grid;place-items:center}
+.shared-customer-card .shared-customer-route{background:#fffdf3bd;border:1px solid #dfdfd4;border-radius:15px;padding:12px;gap:9px 9px;box-shadow:inset 0 1px 0 #fff}
+.shared-customer-card .shared-customer-route strong{font-size:.875rem;color:#202124;font-weight:650}
+.shared-customer-card .shared-customer-route small{font-size:.67rem;color:#54584e}
+.shared-customer-card .shared-customer-route-node{color:#625323}
+.shared-customer-card .shared-customer-route-node.is-destination{color:#205e48}
+.shared-customer-card .shared-customer-meta{color:#54584e;font-size:.73rem;gap:7px 10px}
+.shared-customer-card .shared-customer-meta strong{color:#202124;font-size:1.05rem}
+.local-business-hub .shared-customer-card .shared-customer-actions>button{font-size:.8rem;border-color:#b1b4a7;color:#202124;background:#ffffffb3;box-shadow:inset 0 1px 0 #fff;transition:transform .16s,box-shadow .16s}
+.local-business-hub .shared-customer-card .shared-customer-actions>.ops-primary{background:#ffce36;color:#202124;border-color:#e4b322;box-shadow:0 3px 0 #ac820020;font-weight:700}
+.local-business-hub .shared-customer-card button:not(:disabled):active{transform:scale(.98)}
+.shared-customer-card :is(button,a,summary):focus-visible{outline:3px solid #997000;outline-offset:3px}
+.shared-customer-card .shared-activity{border:0;border-bottom:1px solid #dbdcd8;padding:0 0 12px;margin:0}
+.shared-activity>summary{list-style:none;cursor:pointer;display:grid;gap:9px;min-height:44px;border-radius:8px}
+.shared-activity>summary::-webkit-details-marker{display:none}
+.shared-activity-heading{display:flex;align-items:center;gap:6px;font-size:.72rem;line-height:1.5;color:#54584e}
+.shared-activity-heading>svg:last-child{margin-left:auto;transition:transform .2s}
+.shared-activity[open] .shared-activity-heading>svg:last-child{transform:rotate(180deg)}
+.shared-progress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:0!important;margin:0!important;gap:4px;list-style:none}
+.shared-progress li{position:relative;display:grid;justify-items:center;gap:5px;color:#54584e;min-width:0}
+.shared-progress li:before{content:'';position:absolute;height:2px;background:#d4d6cb;top:9px;left:calc(-50% - 2px);width:100%;z-index:-1}
+.shared-progress li:first-child:before{display:none}
+.shared-progress li>span{width:20px;height:20px;display:grid;place-items:center;border:1px solid #b1b4a7;border-radius:50%;background:#fffefb;font-size:.62rem}
+.shared-progress li[data-done=true]>span{background:#202124;color:#ffce36;border-color:#202124}
+.shared-progress li[data-done=true]:before{background:#625323}
+.shared-progress li[aria-current=step]>span{outline:3px solid #f3d368;outline-offset:2px}
+.shared-progress small{font-size:.64rem;line-height:1.5;color:#54584e;text-align:center}
+.shared-progress li[aria-current=step] small{font-weight:700;color:#202124}
+.shared-activity-body{padding:14px 0 2px;color:#54584e;animation:shared-go-state .2s ease-out}
+.shared-activity-body>p{font-size:.78rem;line-height:1.55;margin:0 0 12px}
+.shared-activity-body>small{font-size:.65rem;line-height:1.5}
+.shared-activity-body ol{padding:0;margin:0 0 10px;list-style:none;display:grid;gap:14px}
+.shared-activity-body li{display:flex;gap:10px;align-items:flex-start;font-size:.78rem}
+.shared-activity-body li>span{width:8px;height:8px;margin:5px 0;border-radius:50%;background:#8d741c;flex:none}
+.shared-activity-body li>div{display:grid;gap:2px}
+.shared-activity-body strong{font-size:.78rem;color:#202124;font-weight:600}
+.shared-activity-body time{font-size:.7rem;color:#54584e}
+.shared-customer-card .shared-departure-pending{display:flex;align-items:flex-start;gap:6px;border-radius:10px;background:#fff1cd;padding:8px 10px;font-size:.72rem;line-height:1.5;color:#634800;margin:0}
+.shared-departure-pending>svg{flex:none}
+.local-business-hub .shared-customer-card[data-status=arrival] .shared-customer-hero,.local-business-hub .shared-customer-card[data-status=complete] .shared-customer-hero{background:radial-gradient(ellipse at 100% 0,#f6d66c30,transparent 70%),#163d31}
+.shared-customer-card[data-status=closed] .shared-customer-art{filter:grayscale(.8)}
+@media(hover:hover){.local-business-hub .shared-customer-card:hover{box-shadow:inset 0 1px 0 #fff,0 3px 1px #c9c9bb55,0 18px 38px #2227191c}.shared-customer-card:hover .shared-customer-art{transform:translateY(-2px) rotate(-2deg)}}
+@media(max-width:370px){.shared-customer-card .shared-customer-art{flex-basis:64px;width:64px;height:60px}.shared-customer-art>.go-vehicle-art{width:68px}.local-business-hub .shared-customer-card .shared-customer-hero h3{font-size:1.22rem}}
+@keyframes shared-go-state{from{opacity:.6;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.shared-customer-card,.shared-customer-card *{animation:none!important;transition:none!important;scroll-behavior:auto!important}.shared-customer-card:hover .shared-customer-art{transform:none}}
+.reduce-motion .shared-customer-card,.reduce-motion .shared-customer-card *{animation:none!important;transition:none!important}

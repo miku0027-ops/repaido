@@ -8,7 +8,7 @@ import {cabWindowValid,soonestCabWindow,validateRideStops} from '../services/rid
 import {usePublicCabAreas} from '../hooks/usePublicCabAreas';
 import {GoogleJourneyMap} from './GoogleJourneyMap';
 import {GoVehicleArt} from './GoVehicleArt';
-import {LocationPickerModal} from './LocationPickerModal';
+import {GoLocationPicker} from './GoLocationPicker';
 import {RideDateTimeField} from './MobilityFormControls';
 import {QuoteBreakdown} from './LocalBusiness';
 import {RideRouteFields} from './RideRouteFields';
@@ -26,12 +26,15 @@ const shortTime=(value:number)=>new Date(value*1000).toLocaleTimeString('en-IN',
 
 /** Route, actual availability, fare and consent remain in one Go screen.
  * Cab uses the API's soonest permitted slot; rental dates stay explicit. */
-export function GoCabBooking({mode,initialLocation,active,onSignIn,onSearch}:{mode:Mode;initialLocation?:TransportArea;active:boolean;onSignIn:()=>void;onSearch:()=>void}){
+export function GoCabBooking({pickupRequest=0,onPickup,mode,initialLocation,active,onSignIn,onSearch}:{pickupRequest?:number;onPickup?:(area:TransportArea)=>void;mode:Mode;initialLocation?:TransportArea;active:boolean;onSignIn:()=>void;onSearch:()=>void}){
  const rental=mode==='self_drive',scheduled=mode!=='cab',openRide=useCustomerRideWorkspace(),help=useId();
  const [uid,setUid]=useState(auth.currentUser?.uid||''),[pickup,setPickup]=useState(location(initialLocation)),[dropoff,setDropoff]=useState<BusinessLocation|null>(null);
  const [picking,setPicking]=useState<'pickup'|'dropoff'|null>(null),[start,setStart]=useState(''),[end,setEnd]=useState('');
+ const handledPickup=useRef(pickupRequest);
+ useEffect(()=>{if(!active)setPicking(null);},[active]);
  const [bookingWindow,setBookingWindow]=useState<Window|null>(null),[vehicles,setVehicles]=useState<Vehicle[]>([]),[quote,setQuote]=useState<Quote|null>(null);
  const [phase,setPhase]=useState<'planning'|'searching'|'found'|'empty'>('planning'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[consent,setConsent]=useState(false);
+ useEffect(()=>{if(active&&pickupRequest&&handledPickup.current!==pickupRequest&&!busy){handledPickup.current=pickupRequest;setPicking('pickup');}},[pickupRequest,active,busy]);
  const [phone,setPhone]=useState(auth.currentUser?.phoneNumber||''),[license,setLicense]=useState<File|null>(null),[now,setNow]=useState(Date.now()),[online,setOnline]=useState(navigator.onLine);
  const account=useRef(uid),generation=useRef(0),running=useRef(false),intent=useRef({body:'',key:crypto.randomUUID()}),uploadedLicense=useRef<{file:File;id:string}|null>(null);
  const publicCabs=usePublicCabAreas(pickup||undefined,active&&!rental,uid||'guest',0);
@@ -44,7 +47,7 @@ export function GoCabBooking({mode,initialLocation,active,onSignIn,onSearch}:{mo
  const reset=()=>{generation.current++;setPhase('planning');setVehicles([]);setQuote(null);setConsent(false);setError('');setBookingWindow(null);intent.current={body:'',key:crypto.randomUUID()};};
  useEffect(()=>onIdTokenChanged(auth,user=>{
   const next=user?.uid||'';
-  if(account.current!==next){account.current=next;reset();setPickup(location(initialLocation));setDropoff(null);setStart('');setEnd('');setBusy(false);running.current=false;setPhone(user?.phoneNumber||'');setLicense(null);uploadedLicense.current=null;}setUid(next);
+  if(account.current!==next){account.current=next;reset();setPicking(null);setPickup(location(initialLocation));setDropoff(null);setStart('');setEnd('');setBusy(false);running.current=false;setPhone(user?.phoneNumber||'');setLicense(null);uploadedLicense.current=null;}setUid(next);
  }),[]);
  const areaKey=JSON.stringify(initialLocation),appliedArea=useRef(areaKey);
  useEffect(()=>{if(appliedArea.current===areaKey||busy)return;appliedArea.current=areaKey;reset();setPickup(location(initialLocation));},[areaKey,busy]);
@@ -106,7 +109,8 @@ export function GoCabBooking({mode,initialLocation,active,onSignIn,onSearch}:{mo
 
  return <section className="bike-rides go-vehicle-booking" aria-label={rental?'Self-drive booking':scheduled?'Cab rental booking':'Quick cab booking'}>
   <header className="bike-heading"><div><small>{rental?'Your dates · your keys':scheduled?'Your route · your driver':'With a driver · fare before you request'}</small></div></header>
-  <div className="bike-workspace">
+  {picking&&<GoLocationPicker key={uid+':'+picking} stop={picking} initial={picking==='pickup'?pickup:dropoff} near={pickup||initialLocation} onClose={()=>setPicking(null)} onConfirm={value=>{reset();if(picking==='pickup'){setPickup(value);onPickup?.({...value,confirmed:true});}else setDropoff(value);setPicking(null);}}/>}
+  <div className="bike-workspace" hidden={!!picking}>
    <div className="bike-map go-booking-map" data-phase={phase}>
     <GoogleJourneyMap origin={pickup||undefined} destination={dropoff||undefined} nearby={publicCabs.areas.map(row=>row.position)} nearbyLabel="Driver-shared cab area · approximate location" vehicleKind={rental?'self_drive':'cab'} cameraPhase={phase} mapLabel="Repaido Go pickup map"/>
     <span className="bike-map-label"><GoVehicleArt kind={mode} size={35}/>{phase==='searching'?'Checking your route':phase==='found'?'Available options':phase==='empty'?'Try another route':pickup?.city||'Choose your pickup'}</span>
@@ -127,7 +131,6 @@ export function GoCabBooking({mode,initialLocation,active,onSignIn,onSearch}:{mo
    </form>
   </div>
   {!rental&&publicCabs.areas.length>0&&<p className="go-live-availability">Driver-shared cab areas · approximate positions. Exact tracking follows your assigned ride.</p>}
-  {picking&&<LocationPickerModal isOpen addressRequired className="go-location-dialog" title={picking==='pickup'?'Choose pickup area':'Choose destination'} initialLat={(picking==='pickup'?pickup:dropoff)?.lat} initialLng={(picking==='pickup'?pickup:dropoff)?.lng} initialAddress={(picking==='pickup'?pickup:dropoff)?.address} initialCity={(picking==='pickup'?pickup:dropoff)?.city||pickup?.city} onClose={()=>setPicking(null)} onConfirmLocation={value=>{reset();if(picking==='pickup')setPickup(value);else setDropoff(value);setPicking(null);}}/>}
  </section>;
 }
 

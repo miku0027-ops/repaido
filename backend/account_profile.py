@@ -205,6 +205,8 @@ def establish_session(u,user,body):
     if old:return profile(u,user)
     contact=ensure(u,user)
     if body.mode=='register':
+        if user.get('auth_provider')=='firebase' and not (user.get('phone_verified') and user.get('phone')):
+            fail('PHONE_VERIFICATION_REQUIRED','Verify your mobile number before completing account creation.',403)
         if body.email:
             contact=save_email(u,user,Change(request_id=social.digest('session-email:'+body.request_id),expected_version=contact['version'],email=body.email))
         require_email(u,user)

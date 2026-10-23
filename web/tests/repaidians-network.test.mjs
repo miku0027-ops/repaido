@@ -83,3 +83,12 @@ test('typed APIs keep server versions and encode member references; expired priv
   await service.updateConnection('member/one','accept',3);assert.equal(calls[1].url,'/api/repaidians/network/members/member%2Fone/connection');assert.equal(JSON.parse(calls[1].init.body).expectedVersion,3);
   await service.decideRecommendation('recommendation/one','approve',5);assert.equal(calls[2].url,'/api/repaidians/network/recommendations/recommendation%2Fone');assert.equal(calls[2].init.method,'PUT');assert.equal(JSON.parse(calls[2].init.body).expectedVersion,5);
 });
+
+test('network preference confirmation populates the cache before refresh observers run',async()=>{
+  const preferences={connectionPrivacy:'nobody',allowEndorsements:false,allowRecommendations:true,networkNotifications:true};
+  transport=async()=>({preferences});
+  const order=[];window.addEventListener('repaidians:update',()=>order.push('content'));
+  const stop=service.subscribeNetworkReads(()=>{order.push('network');assert.deepEqual(service.peekNetworkRead('/network/preferences'),{preferences});});
+  await service.updateNetworkPreferences(preferences);
+  assert.deepEqual(order,['content','network']);assert.deepEqual(await service.networkPreferences(),{preferences});assert.equal(calls.length,1,'Confirmed changes need no second read.');stop();
+});

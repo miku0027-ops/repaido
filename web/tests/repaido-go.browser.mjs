@@ -1,3 +1,4 @@
+import {chooseRidePin} from './ride-location.browser-helper.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {spawn} from 'node:child_process';
@@ -20,12 +21,8 @@ async function slide(button,portion=1){
  await button.scrollIntoViewIfNeeded();const box=await button.boundingBox();assert(box);const x=box.x+29,y=box.y+box.height/2;
  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+(box.width-66)*portion,y,{steps:16});await page.mouse.up();
 }
-async function choosePin(page,title,label,point){
- const dialog=page.getByRole('dialog',{name:title,exact:true});await dialog.waitFor();
- await dialog.getByLabel('Latitude',{exact:true}).fill(String(point.lat));await dialog.getByLabel('Longitude',{exact:true}).fill(String(point.lng));
- await dialog.getByLabel('House, street and landmark',{exact:true}).fill(label);await dialog.getByLabel('City',{exact:true}).fill('Balasore');
- await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:/Use this drop-off|Confirm this location/}).click();
-}
+async function choosePin(page,title,label,point){await chooseRidePin(page,label,point,title==='Your pickup area'?'pickup':'dropoff');}
+
 try{
  let ready=false;for(let attempt=0;attempt<300;attempt++){try{if((await fetch(api+'/health')).ok){ready=true;break;}}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}assert(ready,'Isolated Go API starts');
  await call('/coupons/launch',{});

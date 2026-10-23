@@ -7,7 +7,6 @@ import ts from 'typescript';
 // Extracting declarations avoids initializing unrelated catalogue services.
 const serviceSource=await readFile(new URL('../src/services/repaidoService.ts',import.meta.url),'utf8');
 const accountSource=await readFile(new URL('../src/services/accountProfileService.ts',import.meta.url),'utf8');
-const appSource=await readFile(new URL('../src/App.tsx',import.meta.url),'utf8');
 const parse=(source,name='fixture.ts')=>ts.createSourceFile(name,source,ts.ScriptTarget.Latest,true);
 const transpile=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replaceAll('export ','');
 const serviceAst=parse(serviceSource),accountAst=parse(accountSource);
@@ -27,14 +26,14 @@ function fixture(){
   const control={token:async()=> 'fresh-account-a-token',session:async()=> {}};
   const user={uid:'account-a',displayName:'Account A',email:'actual@example.com',phoneNumber:'+919876543210',
     getIdToken:force=>{tokenCalls.push(force);return control.token(force);}};
-  const dependencies={auth,GoogleAuthProvider:class {setCustomParameters(){}},
+  const dependencies={auth,phoneVerificationEpoch:0,getAdditionalUserInfo:()=>({isNewUser:true}),GoogleAuthProvider:class {setCustomParameters(){}},
     signInWithPopup:async()=>({user}),confirmationResultRef:{confirm:async()=>({user})},
     phoneAccountRecovery:{continue:async()=>({user})},
     updateProfile:async(...args)=>{profileWrites.push(args);},canContinueWithPhoneAccount:()=>false,
     KEYS:{USER:'user',TOKEN:'token'},writeLocal:(key,value)=>writes.push({key,value}),
     establishAccountSession:async(...args)=>{sessions.push(args);return control.session(...args);}};
   const methods=new Function('dependencies',
-    'const {auth,GoogleAuthProvider,signInWithPopup,confirmationResultRef,phoneAccountRecovery,updateProfile,canContinueWithPhoneAccount,KEYS,writeLocal,establishAccountSession}=dependencies;\n'+
+    'const {auth,phoneVerificationEpoch,getAdditionalUserInfo,GoogleAuthProvider,signInWithPopup,confirmationResultRef,phoneAccountRecovery,updateProfile,canContinueWithPhoneAccount,KEYS,writeLocal,establishAccountSession}=dependencies;\n'+
     compiled+'\nreturn {AccountProfileError,signInWithGoogle,confirmPhoneOtp,continueWithPhoneAccount};')(dependencies);
   return {auth,writes,tokenCalls,sessions,profileWrites,control,...methods};
 }
@@ -85,30 +84,12 @@ test('phone recovery caches the freshly refreshed bearer and establishes only th
   assert.equal(state.writes.find(entry=>entry.key==='token').value,'fresh-account-a-token');
 });
 
-function actualAppCallback(functionName){
-  const ast=parse(appSource,'App.tsx');let callback;
-  const visit=node=>{
-    if(ts.isCallExpression(node)&&ts.isIdentifier(node.expression)&&node.expression.text===functionName){
-      let parent=node.parent;while(parent&&!ts.isArrowFunction(parent))parent=parent.parent;
-      if(parent)callback=parent;
-    }
-    ts.forEachChild(node,visit);
-  };
-  visit(ast);assert.ok(callback,'Actual App callback calls '+functionName);
-  return transpile('const callback='+callback.getText(ast)+';');
-}
-for(const functionName of ['signInWithGoogle','confirmPhoneOtp']){
-  test('App '+functionName+' callback independently refuses a stale returned account before updating UI identity',async()=>{
-    const changes=[],auth={currentUser:{uid:'account-b'}},errors=[];
-    const old=async()=>({token:'old-token',user:{id:'account-a',name:'Account A'}});
-    const noop=()=>{};
-    const deps={auth,signInWithGoogle:old,confirmPhoneOtp:old,authMode:'create',otpCode:'123456',otpUserName:'Account A',otpEmail:'actual@example.com',
-      setBusy:noop,setError:error=>errors.push(error),setToken:value=>changes.push(['token',value]),setUser:value=>changes.push(['user',value]),
-      setSheet:noop,setOtpCode:noop,setOtpStep:noop,setOtpEmail:noop,setOtpUserName:noop,setEmailProfileOpen:noop,accountProfile:{refresh:async()=>{}}};
-    const keys=Object.keys(deps);
-    const callback=new Function('deps','const {'+keys.join(',')+'}=deps;'+actualAppCallback(functionName)+'return callback;')(deps);
-    await callback({preventDefault:noop});
-    assert.deepEqual(changes,[]);assert.match(errors.at(-1),/account changed/i);
+for(const name of ['google','phone']){
+  test(name+' can defer account registration until verified customer setup completes',async()=>{
+    const state=fixture();
+    const result=await (name==='google'?state.signInWithGoogle('login',true):state.confirmPhoneOtp('123456',undefined,undefined,true));
+    assert.equal(result.user.id,'account-a');assert.equal(result.isNewAccount,true);
+    assert.deepEqual(state.sessions,[]);assert.deepEqual(state.profileWrites,[]);
   });
 }
 

@@ -5,7 +5,6 @@ import {useVisibleMotion} from '../hooks/useVisibleMotion';
 import {homeBikePolicy} from '../services/homeBikePolicy';
 import {bikeOfferText} from '../services/bikeOffer.mjs';
 import type {BikePolicy} from '../services/bike-rides-api';
-import {LocationPickerModal} from './LocationPickerModal';
 import {RideNotificationControl} from './RideNotificationControl';
 import {nativeAvailable} from '../services/native';
 import {MobilityExperience,type TravelMode} from './MobilityExperience';
@@ -46,16 +45,15 @@ export function RepaidoGoEntry({onOpen,city=''}:{onOpen:()=>void;city?:string}){
 }
 
 export function RepaidoGo({location,onSignIn,onHome,onBookings,onModeSelect,onSearch,initialMode='bike',active=true}:{location:TransportArea;onSignIn:()=>void;onHome:()=>void;onBookings:()=>void;onModeSelect:(mode:TravelMode)=>void;onSearch:(mode:TravelMode)=>void;initialMode?:TravelMode;active?:boolean}){
- const [area,setArea]=useState(location),[picking,setPicking]=useState(false);
+ const [area,setArea]=useState(location),[pickupRequest,setPickupRequest]=useState(0);
  useEffect(()=>setArea(location),[location.lat,location.lng,location.confirmed,location.address,location.city]);
  return <section className="repaido-go" aria-label="Repaido Go">
   <header className="go-header">
    <button type="button" className="go-back" aria-label="Back to Repaido home" onClick={onHome}><ArrowLeft size={21} aria-hidden="true"/></button>
-   <div className="go-wordmark"><h1>repaido <span>Go</span><i aria-hidden="true">.</i></h1><button type="button" className="go-header-area" aria-label={`Change transport pickup area: ${area?.city||area?.address||'Choose pickup area'}`} onClick={()=>setPicking(true)}><MapPin size={13} aria-hidden="true"/><span>{area?.city||area?.address?.split(',')[0]||'Choose pickup area'}</span><ChevronDown size={13} aria-hidden="true"/></button></div>
+   <div className="go-wordmark"><h1>repaido <span>Go</span><i aria-hidden="true">.</i></h1><button type="button" className="go-header-area" aria-label={`Change transport pickup area: ${area?.city||area?.address||'Choose pickup area'}`} onClick={()=>setPickupRequest(n=>n+1)}><MapPin size={13} aria-hidden="true"/><span>{area?.city||area?.address?.split(',')[0]||'Choose pickup area'}</span><ChevronDown size={13} aria-hidden="true"/></button></div>
    <button type="button" className="go-history" aria-label="My rides" title="My rides" onClick={onBookings}><History size={20} aria-hidden="true"/><span>My rides</span></button>
   </header>
   {nativeAvailable()&&<details className="go-alerts-menu"><summary><Bell size={17} aria-hidden="true"/>Ride alerts</summary><RideNotificationControl onSignIn={onSignIn}/></details>}
-  <MobilityExperience presentation="go" active={active} initialMode={initialMode} initialLocation={area} onLocationChange={setArea} onSignIn={onSignIn} onModeSelect={onModeSelect} onSearch={onSearch}/>
-  {picking&&<LocationPickerModal isOpen className="go-location-dialog" title="Your pickup area" initialLat={area?.lat} initialLng={area?.lng} initialAddress={area?.address} initialCity={area?.city} onClose={()=>setPicking(false)} onConfirmLocation={value=>{setArea({...value,confirmed:true});setPicking(false);}}/>}
+  <MobilityExperience pickupRequest={pickupRequest} presentation="go" active={active} initialMode={initialMode} initialLocation={area} onLocationChange={setArea} onSignIn={onSignIn} onModeSelect={onModeSelect} onSearch={onSearch}/>
  </section>;
 }

@@ -98,10 +98,9 @@ try{
     assert.ok(Math.abs(bounds.left-bounds.right)<2,JSON.stringify({width,theme,text,bounds}));assert.ok(bounds.contained);assert.equal(bounds.fit,'contain');assert.equal(bounds.overflow,false);
   }
   await page.setViewportSize({width:390,height:850});await page.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.fontSize='100%';});await audit(page);
-  await nav(page,'Work & market');await shell(page).getByRole('button',{name:/^Matching jobs/}).click();await shell(page).getByRole('region',{name:'My jobs',exact:true}).waitFor();
+  await nav(page,'Work & market');await shell(page).getByRole('navigation',{name:'Work and market sections',exact:true}).getByRole('combobox',{name:'Browse',exact:true}).selectOption('jobs');await shell(page).getByRole('region',{name:'My jobs',exact:true}).waitFor();
   const workNavigation=shell(page).getByRole('navigation',{name:'Work and market sections',exact:true});
-  await workNavigation.getByRole('button',{name:'My work',exact:true}).click();
-  await workNavigation.getByRole('group',{name:'My work',exact:true}).getByRole('button',{name:'Applications',exact:true}).click();await shell(page).getByRole('region',{name:'Apply Status',exact:true}).waitFor();
+  await workNavigation.getByRole('combobox',{name:'My work',exact:true}).selectOption('applications');await shell(page).getByRole('region',{name:'Apply Status',exact:true}).waitFor();
   await profile(page);assert.equal(await shell(page).locator('.rp-profile .rp-account-settings').count(),0,'Settings are in the drawer.');
   assert.equal(await shell(page).getByText('Professional details shared by this member.',{exact:true}).count(),0);
   await shell(page).locator('.rp-portfolio-tabs').getByRole('button',{name:'Photos',exact:true}).waitFor();
@@ -118,8 +117,49 @@ try{
   const fail=route=>route.request().method()==='PATCH'?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'Temporarily unavailable. Retry your status update.'})}):route.fallback();
   await context.route('**/api/repaidians/profile',fail);await status.click();await shell(page).locator('.rp-work-status-control [role=alert]').waitFor();assert.equal(await status.getAttribute('aria-checked'),'true');await context.unroute('**/api/repaidians/profile',fail);
   assert.equal((await api('/repaidians/members/'+alice.user.id,bob)).member.workStatus,'open_to_work','A failed write leaves persisted availability unchanged.');
-  let drawer=await settings(page);await drawer.getByLabel('Allow messages from',{exact:true}).selectOption('following');await drawer.getByRole('button',{name:'Save settings',exact:true}).click();await drawer.getByText('Privacy and notification settings saved.',{exact:true}).waitFor();assert.equal((await api('/repaidians/settings',alice)).settings.messagePrivacy,'following');
-  await drawer.getByRole('checkbox',{name:/Personalized work discovery/}).uncheck();await drawer.getByText('Personalized work discovery updated.',{exact:true}).waitFor();await audit(page,'.rp-options-drawer');
+  // Hold the real API responses to prove static explanations do not depend on
+  // the network, and that an unrelated slow list does not lock privacy controls.
+  const holds=new Map(),readCounts=new Map();
+  for(const path of ['/settings','/blocks','/work/preferences','/network/preferences']){
+    let release,arrived;const barrier=new Promise(resolve=>{release=resolve;}),reached=new Promise(resolve=>{arrived=resolve;});releaseReads.push(release);
+    const handler=async route=>{if(route.request().method()!=='GET')return route.fallback();readCounts.set(path,(readCounts.get(path)||0)+1);const response=await route.fetch({url:apiOrigin+'/repaidians'+path});arrived();await barrier;await route.fulfill({response});};
+    holds.set(path,{release,reached,handler});await context.route('**/api/repaidians'+path,handler);
+  }
+  let drawer=await settings(page);
+  const messages=drawer.getByLabel('Allow messages from',{exact:true}),personalized=drawer.getByRole('checkbox',{name:/Personalized work discovery/});
+  await personalized.waitFor();assert.equal(await personalized.isDisabled(),true);assert.equal(await personalized.evaluate(input=>input.indeterminate),true,'Unknown consent is not shown as opted out.');
+  assert.equal(await messages.isDisabled(),true);await drawer.getByText('Use your searches and interactions to order relevant trades and opportunities.',{exact:true}).waitFor();
+  await drawer.locator('summary').filter({hasText:'Network preferences'}).click();
+  const invitation=drawer.getByLabel('Connection invitations',{exact:true});await invitation.waitFor();assert.equal(await invitation.isDisabled(),true);
+  await drawer.getByText('Allow accepted connections to endorse skills on your profile.',{exact:true}).waitFor();
+  await Promise.all([...holds.values()].map(hold=>hold.reached));
+  for(const width of [320,495])for(const text of [100,200]){
+    await page.setViewportSize({width,height:850});await page.evaluate(text=>document.documentElement.style.fontSize=text+'%',text);
+    const clipped=await drawer.locator('.rp-network-check,.rp-work-preference').evaluateAll(rows=>rows.some(row=>{const box=row.getBoundingClientRect(),copy=row.querySelector('span').getBoundingClientRect();return copy.left<box.left-1||copy.right>box.right+1||row.scrollWidth>row.clientWidth+1;}));
+    assert.equal(clipped,false,'Preference descriptions fit at '+width+'px and '+text+'% text.');
+  }
+  await page.setViewportSize({width:390,height:850});await page.evaluate(()=>document.documentElement.style.fontSize='100%');await audit(page,'.rp-options-drawer');
+  await page.screenshot({path:resolve(artifacts,'preferences-before-responses.png')});
+  holds.get('/settings').release();await messages.selectOption('following');assert.equal(await personalized.isDisabled(),true,'Privacy settings open independently of work settings.');
+  assert.equal(await drawer.getByText('Checking blocked members…',{exact:true}).count(),1,'A pending blocked list does not gate the settings form.');
+  holds.get('/network/preferences').release();await invitation.selectOption('nobody');
+  await drawer.locator('summary').filter({hasText:'Network preferences'}).click();await drawer.locator('summary').filter({hasText:'Network preferences'}).click();
+  assert.equal(await invitation.inputValue(),'nobody','Reopening the accordion preserves its draft.');assert.equal(readCounts.get('/network/preferences'),1,'Reopening does not fetch the same form again.');
+  await drawer.getByRole('button',{name:'Save network preferences',exact:true}).click();await drawer.getByText('Network preferences saved.',{exact:true}).waitFor();
+  assert.equal(readCounts.get('/network/preferences'),1,'The server save response supplies the updated network choices.');
+  holds.get('/work/preferences').release();await personalized.check();
+  holds.get('/blocks').release();await drawer.getByText('You haven’t blocked anyone.',{exact:true}).waitFor();
+  for(const [path,hold] of holds)await context.unroute('**/api/repaidians'+path,hold.handler);
+  await messages.selectOption('following');await drawer.getByRole('button',{name:'Save settings',exact:true}).click();await drawer.getByText('Privacy and notification settings saved.',{exact:true}).waitFor();assert.equal((await api('/repaidians/settings',alice)).settings.messagePrivacy,'following');
+  let preferenceReads=0;const countPreferences=route=>{if(route.request().method()==='GET')preferenceReads++;return route.fallback();};
+  await context.route('**/api/repaidians/work/preferences',countPreferences);
+  await drawer.getByRole('checkbox',{name:/Personalized work discovery/}).uncheck();await drawer.getByText('Personalized work discovery updated.',{exact:true}).waitFor();
+  assert.equal(preferenceReads,0,'A confirmed preference save updates the form without a second GET.');
+  assert.equal((await api('/repaidians/work/preferences',alice)).preferences.personalizedDiscovery,false);
+  await context.unroute('**/api/repaidians/work/preferences',countPreferences);
+  const failChoice=route=>route.request().method()==='PATCH'?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({detail:'Could not save this work choice. Retry.'})}):route.fallback();
+  await context.route('**/api/repaidians/work/preferences',failChoice);await personalized.click();await drawer.getByText('Could not save this work choice. Retry.',{exact:true}).waitFor();assert.equal(await personalized.isChecked(),false,'A failed save restores the last confirmed choice.');assert.equal(await personalized.isEnabled(),true);
+  await context.unroute('**/api/repaidians/work/preferences',failChoice);await audit(page,'.rp-options-drawer');
   await page.keyboard.press('Escape');assert.equal(await drawer.count(),0);assert.equal(await shell(page).getByRole('button',{name:'Open profile tools and settings',exact:true}).evaluate(button=>button===document.activeElement),true);
   await nav(page,'Home');await shell(page).getByRole('tab',{name:'For you',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.rp-genres button[aria-pressed]')[1]?.textContent==='Cleaning');
   application=await api('/operations/contractor/hiring/applications/'+application.id+'/view',bob,'POST',{expected_version:application.version,action:'profile_viewed',request_id:randomUUID()});
@@ -130,7 +170,9 @@ try{
   await timeline.waitFor();await timeline.getByText('Profile viewed',{exact:true}).waitFor();await timeline.getByRole('button',{name:'Close dialog',exact:true}).click();
   application=await api('/operations/contractor/hiring/applications/'+application.id+'/decision',bob,'POST',{expected_version:application.version,project_version:project.version,action:'offer',daily_rate_paise:123400,terms:'Eight hours daily, weekly payment and agreed safety equipment.'});
   project=(await api('/operations/contractor/workspace',alice)).projects.find(row=>row.id===project.id);
-  await api('/operations/contractor/projects/'+project.id+'/commands',alice,'POST',{expected_version:project.version,action:'accept',target_id:application.invitation_id});
+  project=await api('/operations/contractor/projects/'+project.id+'/commands',alice,'POST',{expected_version:project.version,action:'accept',target_id:application.invitation_id});
+  project=await api('/operations/contractor/projects/'+project.id+'/commands',bob,'POST',{expected_version:project.version,action:'confirm_joining',target_id:alice.user.id,request_id:randomUUID()});
+  await api('/operations/contractor/projects/'+project.id+'/commands',bob,'POST',{expected_version:project.version,action:'confirm_team',request_id:randomUUID()});
   processUpdates();
   const announcement=(await api('/repaidians/notifications',bob)).notifications.find(note=>note.type==='placement');assert.ok(announcement,'A real accepted placement creates its follower notification.');
   const placement=await api('/repaidians/placements/'+announcement.targetId,bob);assert.equal('dailyRatePaise' in placement,false,'Pay is private until independently shared.');assert.equal(JSON.stringify(placement).includes('PRIVATE exact worksite'),false);
@@ -151,6 +193,6 @@ try{
   await milestone.getByRole('button',{name:'Close dialog',exact:true}).click();
   assert.deepEqual(errors,[]);success=true;
   await page.screenshot({path:resolve(artifacts,'profile.png')});
-  console.log(JSON.stringify({passed:true,checks:['real liked feed','centered media across 12 phone/theme/text variants','profile availability persistence and failed-write recovery','unsaved draft preservation','drawer privacy and work opt-ins','personalized rail and opt-out fallback','jobs/status navigation','account isolation','real application update timeline','accepted placement notification with private pay and congratulations','WCAG AA audits'],artifacts},null,2));
+  console.log(JSON.stringify({passed:true,checks:['real liked feed','centered media across 12 phone/theme/text variants','profile availability persistence and failed-write recovery','unsaved draft preservation','instant privacy/work/network forms with held API responses','independent privacy and blocked-member loads','accordion draft retention without repeated reads','confirmed saves without redundant GET','drawer privacy and work opt-ins','personalized rail and opt-out fallback','jobs/status navigation','account isolation','real application update timeline','accepted placement notification with private pay and congratulations','WCAG AA audits'],artifacts},null,2));
 }catch(error){if(browser){for(const context of browser.contexts())for(const page of context.pages()){try{await page.screenshot({path:resolve(artifacts,'failure.png')});await writeFile(resolve(artifacts,'failure.html'),await page.content());}catch{}}}throw error;
 }finally{for(const release of releaseReads)release();if(browser)await browser.close();if(server)server.kill('SIGTERM');await writeFile(resolve(artifacts,'backend.log'),serverLog);if(!success)console.error('Social navigation artifacts: '+artifacts);}

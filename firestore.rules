@@ -30,10 +30,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 3. User Profiles: Authenticated users can read/write their own document
+    // Account creation goes through the API, which records the verified-phone
+    // policy before provisioning the user. A client-created users document must
+    // not be able to masquerade as a pre-existing account and skip that policy.
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create, update: if isOwner(userId) || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 

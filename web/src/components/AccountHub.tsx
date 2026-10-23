@@ -1,5 +1,5 @@
 import {useState, type ComponentType, type ReactNode} from 'react';
-import {Bell, BookOpen, CalendarCheck, ChevronDown, ChevronRight, CircleHelp, FileText, Home, MapPin, ShieldCheck, ShoppingBag, Groups, HomeRepair, PersonSearch, Storefront, LocalShipping, SwapHoriz, Sell, EventAvailable, ManageAccounts, User, SupportAgent, Payments, FactCheck, WorkOutline, RequestQuote} from '../icons';
+import {Bell, BookOpen, CalendarCheck, ChevronDown, ChevronRight, CircleHelp, FileText, Home, MapPin, ShieldCheck, ShoppingBag, Groups, HomeRepair, PersonSearch, Storefront, LocalShipping, SwapHoriz, Sell, EventAvailable, ManageAccounts, User, SupportAgent, Payments, Sparkles, FactCheck, WorkOutline, RequestQuote} from '../icons';
 import {AccountCard, AccountSignOut, type AccountCardProps} from './AccountCard';
 import {AppPolicies, type AppPolicyId} from './AppPolicies';
 import './account-hub.css';
@@ -32,6 +32,7 @@ export type AccountHubProps = AccountCardProps & {
   onRentals: () => void;
   onLocation: () => void;
   onOffers: () => void;
+  onInterests?: () => void;
   onAgentAccount: () => void;
   onShopAccount: () => void;
   onSupport: () => void;
@@ -63,6 +64,7 @@ export function AccountHub(props: AccountHubProps) {
         {props.identity && props.onCompleteEmail && <AccountAction icon={ManageAccounts} label="Account details & email" onClick={props.onCompleteEmail}/>}
         {props.identity&&<AccountAction icon={User} label="Profile photo & leaderboard privacy" onClick={()=>setPhotoSettings(true)}/>}
         <AccountAction icon={MapPin} label="Service location" description={props.city} onClick={props.onLocation}/>
+        {props.onInterests&&<AccountAction icon={Sparkles} label="Your service interests" description="Choose your most-needed services" onClick={props.onInterests}/>}
         <AccountAction icon={Bell} label="Notifications & offers" description="Choose your offer preferences" onClick={props.onOffers}/>
         <AccountAction icon={WorkOutline} label="Professional account" description="Register or switch to your professional workspace" onClick={props.onAgentAccount}/>
         <AccountAction icon={ShieldCheck} label="Privacy policy" onClick={() => setPolicy('privacy')}/>

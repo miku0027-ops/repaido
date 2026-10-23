@@ -20,9 +20,9 @@ import HomeQuickActions,{type QuickMarket} from './components/HomeQuickActions';
 import {CompactActionLauncher} from './components/CompactActionLauncher';
 import {AccountHub} from './components/AccountHub';
 import {AccountEmailAccess,AccountEmailNotice} from './components/AccountEmailAccess';
-import './components/customer-auth-dialog.css';
+import {CustomerWelcome,CustomerInterestRail,HomeEntrance,useCustomerSetup} from './components/CustomerWelcome';
+import type {AccountJourneyComplete} from './components/CustomerAuthJourney';
 import {useAccountProfile} from './hooks/useAccountProfile';
-import {accountEmailError} from './services/accountProfileService';
 import {emailVerificationLink} from './services/emailVerificationLink.mjs';
 import './services/repaidiansPushService';
 import HomeServiceFinder from './components/HomeServiceFinder';
@@ -105,9 +105,6 @@ import ServiceImage from './components/ServiceImage';
 import { cities, formatMoney, formatDuration, getTechnicianProgress } from './data';
 import type { BookingDraft, BookingRecord, CategoryId, ConfirmBooking, Service, WorkerProfile } from './types';
 import {
-  signInWithGoogle,
-  sendPhoneOtp,
-  confirmPhoneOtp,
   logoutUser,
   saveBooking,
   updateBookingStatus,
@@ -131,6 +128,7 @@ import { LocationPickerModal } from './components/LocationPickerModal';
 import { listenCustomerVisits } from './services/customerBrowseTracker';
 import './reference.css';
 
+const CustomerAuthJourney=lazy(()=>import('./components/CustomerAuthJourney').then(module=>({default:module.CustomerAuthJourney})));
 const RepaidiansModal=lazy(()=>import('./components/repaidians/RepaidiansModal'));
 const CustomContractHub=lazy(()=>import('./components/CustomContracts').then(module=>({default:module.CustomContractHub})));
 const BusinessAccounts=lazy(()=>import('./components/BusinessAccounts').then(m=>({default:m.BusinessAccounts})));
@@ -486,6 +484,10 @@ export default function App() {
   useEffect(()=>{setCommunityNative(null);setCommunityReference(undefined);setCommunityJobId(undefined);setCommunityReturn(false);setCommunityTenderId(undefined);setCommunityRouteError('');},[user?.id]);
   const customerIdentity=useCustomerIdentity(user,portal);
   const accountProfile=useAccountProfile(user?.id);
+  const customerSetup=useCustomerSetup(portal==='customer');
+  const [accountWelcome,setAccountWelcome]=useState<AccountJourneyComplete|null>(null);
+  const [editInterests,setEditInterests]=useState(false);
+  useEffect(()=>{setAccountWelcome(null);setEditInterests(false);},[user?.id]);
   const captainMembership=useCaptain();
   const captainPhoto=useCaptainPhoto(captainMembership.data?.profile.photo_id);
   const [emailProfileOpen,setEmailProfileOpen]=useState(()=>!!emailVerificationLink());
@@ -498,13 +500,7 @@ export default function App() {
   useEffect(()=>setHomeDiscoverySettings(false),[user?.id]);
   const homeCampaigns=useCampaigns(place.city,'home','',tab==='Explore'&&!query);
 
-  // Customer Auth Flow: Create account vs Already Have Account
-  const [authMode, setAuthMode] = useState<'create' | 'signin'>('create');
-  const [otpPhone, setOtpPhone] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpStep, setOtpStep] = useState<'phone' | 'code'>('phone');
-  const [otpUserName, setOtpUserName] = useState('');
-  const [otpEmail,setOtpEmail]=useState('');
+  const [authMode, setAuthMode] = useState<'create' | 'signin'>('signin');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [bookingError, setBookingError] = useState('');
@@ -906,7 +902,7 @@ export default function App() {
                 </button>
               ) : (
                 <button
-                  onClick={() => { setAuthMode('signin'); setSheet('auth'); setError(''); setOtpStep('phone'); setOtpCode(''); }}
+                  onClick={() => { setAuthMode('signin'); setEditInterests(false); setSheet('auth'); setError(''); }}
                   className="repaido-header-signin-btn relative" aria-label="Sign in" title="Sign in"
                 >
                   <User size={24} filled aria-hidden="true"/>
@@ -1041,6 +1037,7 @@ export default function App() {
 
               <CustomerLiveActivity key={user?.id||auth.currentUser?.uid||'guest'} accountId={user?.id||auth.currentUser?.uid||''} onOpen={openLiveActivity}/>
               {!query&&<RepaidoGoEntry city={place.city} onOpen={()=>navigate('Go')}/>}
+              {!query&&customerSetup.data&&<CustomerInterestRail setup={customerSetup.data} services={servicesList} onService={service=>{setSelectedPromotion(undefined);setSelectedService(service);hydration.event({kind:'service_view',service_id:service.id});}} onDestination={destination=>setTab(destination==='transport'?'Go':destination==='market'?'ShopSpares':'Services')} onEdit={()=>{setEditInterests(true);setSheet('auth');}}/>}
               {!query && (
                 <>
                   <HomeDiscoveryLayout
@@ -1264,6 +1261,7 @@ export default function App() {
                   onRentals={() => setMyRentalsOpen(true)}
                   onLocation={() => setCityModalOpen(true)}
                   onOffers={() => setOfferSettings(true)}
+                  onInterests={user?()=>{setEditInterests(true);setSheet('auth');}:undefined}
                   onAgentAccount={() => navigatePortal('worker')}
                   onShopAccount={() => navigatePortal('shop-admin')}
                   onSupport={() => { setSheet('support_ticket'); setError(''); }}
@@ -2327,259 +2325,13 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Auth Modal: Create account vs Already have an account? Sign in */}
-      {sheet === 'auth' && (
-        <Modal
-          title={authMode === 'create' ? 'Create account' : 'Sign in'}
-          className="customer-auth-dialog"
-          onClose={() => { setSheet(''); setError(''); setOtpStep('phone'); setOtpCode(''); }}
-        >
-          {/* Segmented Switch: Create account vs Sign in */}
-          <div className="auth-segmented-switch">
-            <button
-              type="button"
-              className={`auth-segment-btn ${authMode === 'create' ? 'active' : ''}`}
-              onClick={() => { setAuthMode('create'); setError(''); setOtpStep('phone'); }}
-            >
-              Create account
-            </button>
-            <button
-              type="button"
-              className={`auth-segment-btn ${authMode === 'signin' ? 'active' : ''}`}
-              onClick={() => { setAuthMode('signin'); setError(''); setOtpStep('phone'); }}
-            >
-              Already have an account? Sign in
-            </button>
-          </div>
-
-          <div className="text-center mb-4">
-            <RepaidoBrand size="sm" className="mx-auto mb-1.5" />
-            <p className="text-xs text-muted">
-              {authMode === 'create'
-                ? 'Join Repaido for fast bookings with verified local specialists'
-                : 'Sign in to access your bookings, tracking, and invoices'}
-            </p>
-          </div>
-
-          {error && <p className="error-banner mb-4" role="alert">{error}</p>}
-
-          {/* 1. Google 1-Click Sign-In / Sign-Up */}
-          <button
-            type="button"
-            onClick={async () => {
-              setBusy(true);
-              setError('');
-              try {
-                const res = await signInWithGoogle(authMode==='create'?'register':'login');
-                if(auth.currentUser?.uid!==res.user.id)throw Error('Your account changed. Sign in again to continue.');
-                setToken(res.token);
-                setUser(res.user);
-                setSheet('');
-                if(res.profileError){setError(res.profileError);setEmailProfileOpen(true);}else void accountProfile.refresh().catch(()=>{});
-              } catch (err: any) {
-                setError(err.message || 'Google sign-in failed. Please try Phone OTP.');
-              } finally {
-                setBusy(false);
-              }
-            }}
-            disabled={busy}
-            className="google-sign-in-btn"
-          >
-            <svg className="google-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-            </svg>
-            <span>{authMode === 'create' ? 'Sign up with Google' : 'Sign in with Google'}</span>
-          </button>
-
-          <div className="auth-divider">
-            <span>{authMode === 'create' ? 'or register with mobile OTP' : 'or sign in with a text message'}</span>
-          </div>
-
-          {/* 2. Mobile Phone OTP Verification */}
-          {otpStep === 'phone' ? (
-            <form
-              onSubmit={async e => {
-                e.preventDefault();
-                setBusy(true);
-                setError('');
-                try {
-                  if(authMode==='create'&&accountEmailError(otpEmail))throw Error(accountEmailError(otpEmail));
-                  await sendPhoneOtp(otpPhone, 'recaptcha-container');
-                  setOtpStep('code');
-                } catch (err: any) {
-                  setError(err.message || 'Could not send verification code.');
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {authMode === 'create' && (
-                <div className="field-group mb-3">
-                  <label htmlFor="auth-name" className="field-label text-xs font-semibold text-ink">Your full name</label>
-                  <input
-                    id="auth-name"
-                    autoComplete="name"
-                    type="text"
-                    placeholder="e.g. Subhankar Behera"
-                    value={otpUserName}
-                    onChange={e => setOtpUserName(e.target.value)}
-                    required
-                    className="field w-full mt-1"
-                  />
-                </div>
-              )}
-
-              {authMode==='create'&&<div className="field-group mb-3"><label htmlFor="auth-email" className="field-label text-xs font-semibold text-ink">Email address <span aria-hidden="true">*</span></label><input id="auth-email" type="email" autoComplete="email" inputMode="email" value={otpEmail} onChange={e=>setOtpEmail(e.target.value)} required maxLength={254} aria-describedby="auth-email-help" className="field w-full mt-1"/><p id="auth-email-help" className="text-sm text-muted mt-1.5">Required for account updates and confirmations. Your email stays private.</p></div>}
-
-              <div className="field-group mb-4">
-                <label htmlFor="auth-phone" className="field-label text-xs font-semibold text-ink">Mobile number</label>
-                <div className="phone-prefix-input mt-1">
-                  <span className="country-code">+91</span>
-                  <input
-                    type="tel"
-                    id="auth-phone"
-                    inputMode="tel"
-                    autoComplete="tel-national"
-                    aria-describedby="auth-phone-help"
-                    maxLength={10}
-                    placeholder="Enter 10-digit mobile number"
-                    required
-                    value={otpPhone}
-                    onChange={e => setOtpPhone(e.target.value.replace(/\D/g, ''))}
-                    className="phone-number-field"
-                    autoFocus
-                  />
-                </div>
-                <p id="auth-phone-help" className="text-sm text-muted mt-1.5">
-                  {authMode === 'create'
-                    ? 'We will send a 6-digit code to create your account.'
-                    : 'We will send a 6-digit sign-in code by SMS.'}
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                className="button-primary w-full"
-                disabled={busy || otpPhone.length < 10}
-              >
-                {busy ? 'Sending code…' : authMode === 'create' ? 'Send sign-up code' : 'Send sign-in code'}
-              </button>
-
-              <div className="text-center mt-4 text-xs text-muted">
-                {authMode === 'create' ? (
-                  <span>
-                    Already have an account?{' '}
-                    <button
-                      type="button"
-                      className="text-accent font-bold hover:underline"
-                      onClick={() => { setAuthMode('signin'); setError(''); }}
-                    >
-                      Sign in
-                    </button>
-                  </span>
-                ) : (
-                  <span>
-                    Don't have an account?{' '}
-                    <button
-                      type="button"
-                      className="text-accent font-bold hover:underline"
-                      onClick={() => { setAuthMode('create'); setError(''); }}
-                    >
-                      Create account
-                    </button>
-                  </span>
-                )}
-              </div>
-            </form>
-          ) : (
-            <form
-              onSubmit={async e => {
-                e.preventDefault();
-                setBusy(true);
-                setError('');
-                try {
-                  const res = await confirmPhoneOtp(otpCode, authMode==='create'?otpUserName:undefined, authMode==='create'?otpEmail:undefined);
-                  if(auth.currentUser?.uid!==res.user.id)throw Error('Your account changed. Sign in again to continue.');
-                  setToken(res.token);
-                  setUser(res.user);
-                  setSheet('');
-                  setOtpCode('');
-                  setOtpStep('phone');
-                  setOtpEmail('');setOtpUserName('');
-                  if(res.profileError){setError(res.profileError);setEmailProfileOpen(true);}else {setEmailProfileOpen(true);void accountProfile.refresh().catch(()=>{});}
-                } catch (err: any) {
-                  setError(err.message || 'Invalid verification code.');
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              <div className="bg-surface-subtle p-3 rounded-xl mb-4 text-xs text-ink flex justify-between items-center">
-                <span>Code sent to <strong>+91 {otpPhone}</strong></span>
-                <button
-                  type="button"
-                  onClick={() => { setOtpStep('phone'); setError(''); }}
-                  className="text-accent font-semibold underline"
-                >
-                  Change
-                </button>
-              </div>
-
-              <div className="field-group mb-4">
-                <label htmlFor="auth-otp" className="field-label text-xs font-semibold text-ink mb-1 block">Enter the 6-digit code</label>
-                <input
-                  id="auth-otp"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  type="text"
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  placeholder="• • • • • •"
-                  required
-                  value={otpCode}
-                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="otp-digit-input"
-                  autoFocus
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="button-primary w-full"
-                disabled={busy || otpCode.length !== 6}
-              >
-                {busy ? 'Verifying…' : authMode === 'create' ? 'Verify and create account' : 'Verify and sign in'}
-              </button>
-
-              <div className="flex justify-between items-center mt-3 text-xs text-muted">
-                <span>Didn't receive SMS?</span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setBusy(true);
-                    setError('');
-                    try {
-                      await sendPhoneOtp(otpPhone, 'recaptcha-container');
-                      setMessage('New code sent. Check your messages.');
-                    } catch (err: any) {
-                      setError(err.message || 'Could not resend OTP.');
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  className="text-accent font-semibold hover:underline"
-                  disabled={busy}
-                >
-                  Resend OTP
-                </button>
-              </div>
-            </form>
-          )}
-        </Modal>
-      )}
+      {sheet==='auth'&&<Suspense fallback={<Modal title="Opening your account" onClose={()=>setSheet('')}><p role="status">Preparing sign-in…</p></Modal>}><CustomerAuthJourney initialMode={authMode} editInterests={editInterests} city={place.city} onClose={()=>{setSheet('');setEditInterests(false);}} onComplete={result=>{
+        if(auth.currentUser?.uid!==result.user.id)return;
+        setUser(result.user);setSheet('');setEditInterests(false);hydration.refresh();customerSetup.retry();void accountProfile.refresh().catch(()=>{});
+        if(result.setup&&!editInterests&&(result.created||tab==='Explore')&&!selectedService)setAccountWelcome(result);
+      }}/></Suspense>}
+      {accountWelcome?.setup&&accountWelcome.user.id===user?.id&&<CustomerWelcome setup={accountWelcome.setup} created={accountWelcome.created} name={accountWelcome.user.name} services={servicesList} city={place.city} onClose={()=>setAccountWelcome(null)} onService={service=>{setAccountWelcome(null);setSelectedPromotion(undefined);setSelectedService(service);}} onOffer={offer=>{setAccountWelcome(null);openPromotion(offer);}} onDestination={destination=>{setAccountWelcome(null);setTab(destination==='transport'?'Go':destination==='market'?'ShopSpares':'Services');}}/>}
+      <HomeEntrance active={portal==='customer'&&tab==='Explore'&&!sheet&&!selectedService&&!accountWelcome} name={customerIdentity.name}/>
 
       {/* Support Ticket Modal */}
       {sheet === 'support_ticket' && <SupportDialog initialCaseId={supportCaseId} onClose={()=>setSheet('')} onSignIn={()=>setSheet('auth')}/>}

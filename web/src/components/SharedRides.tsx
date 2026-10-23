@@ -8,6 +8,10 @@ import {business,businessPublic,businessAmount,type BusinessLocation} from '../s
 import {currentPosition,money} from '../services/operations';
 import {MapPin,Plus,RefreshCw,ArrowRight,ArrowDown,ArrowDownUp,Clock3,Route,UserRound,Diversity3,EventSeat,Flag,Navigation,CheckCircle2,ChevronDown,TwoWheeler,LocalTaxi,ShieldCheck,Receipt,Car,Copy,Check} from '../icons';
 import './shared-ride-management.css';
+import {SharedRideActivity} from './SharedRideActivity';
+import {GoVehicleArt} from './GoVehicleArt';
+import {sharedRideActivity} from '../services/sharedRideActivity.mjs';
+import './shared-go-card.css';
 import {LocationPickerModal} from './LocationPickerModal';
 import {StageTrail} from './CompactExperience';
 import {ContractError,useCustomContractAction} from './customContractUI';
@@ -118,31 +122,35 @@ function SharedCustomerRideCard({row,mine,busy,pending,tracking,onRun,onPin,onTr
  const working=(command:string)=>!!pending&&pending.rowId===row.id&&pending.command===command&&pending.passengerId===mine.id;
  const live=row.state==='in_progress'&&mine.state==='boarded',closed=['completed','cancelled'].includes(row.state)||['completed','cancelled','declined','expired'].includes(mine.state);
  const stop=row.stop_status?.passengers?.[mine.id],arrival=live&&stop?.status==='inside'&&Number.isFinite(stop.valid_until)&&stop.valid_until>=clock;
- const state=row.state==='cancelled'?'Ride cancelled':mine.state==='declined'?'Request declined':mine.state==='expired'?'Request expired':mine.state==='cancelled'?'Request cancelled':mine.state==='completed'||row.state==='completed'?"You’ve arrived":arrival?'Your drop-off is close':live?'On your way':mine.state==='boarded'?"You’re on board":mine.state==='accepted'?'Seat confirmed':'Waiting for the owner';
+ const state=row.state==='cancelled'?'Ride cancelled':mine.state==='declined'?'Request declined':mine.state==='expired'?'Request expired':mine.state==='cancelled'?'Request cancelled':mine.state==='completed'?"You’ve arrived":row.state==='completed'?'Journey ended':arrival?'Your drop-off is close':live?'On your way':mine.state==='boarded'?"You’re on board":mine.state==='accepted'?'Seat confirmed':'Waiting for the owner';
  const canPins=['accepted','boarded','completed'].includes(mine.state)&&!!mine.match;
  const canTrack=['scheduled','in_progress'].includes(row.state)&&['accepted','boarded'].includes(mine.state);
  const canPay=row.state!=='cancelled'&&['accepted','boarded','completed'].includes(mine.state)&&!mine.payment_reported_at;
  const canCancel=row.state==='scheduled'&&['requested','accepted'].includes(mine.state);
  const paid=!!mine.payment_received_at,reported=!!mine.payment_reported_at,paymentRelevant=canPay||!!mine.payment_reported_at;
- const activity=arrival?'Wait for the vehicle to stop safely.':live?'Your journey is in progress.':mine.state==='requested'&&row.state==='scheduled'?'Your seat is confirmed after the owner accepts.':mine.state==='accepted'&&row.state==='in_progress'?'The journey has started. Your boarding is not recorded yet.':'';
+ const activity=arrival?'Wait for the vehicle to stop safely.':sharedRideActivity(row,mine).note;
+ const overdue=!closed&&row.state==='scheduled'&&row.starts_at<clock;
+ const tone=closed?mine.state==='completed'?'complete':'closed':arrival?'arrival':live?'live':mine.state==='accepted'?'confirmed':'waiting';
  const openDetails=()=>{if(details.current){details.current.open=true;details.current.querySelector('summary')?.focus();}};
  const Vehicle=row.vehicle_kind==='bike'?TwoWheeler:LocalTaxi;
- return <article id={'shared-ride-'+row.id} className={'business-record shared-booking-card shared-customer-card'+(live?' shared-live-card':'')+(arrival?' is-at-stop':'')} aria-label={state+' · '+row.vehicle_name}>{mine?.state==='requested'&&row.state==='scheduled'&&<RideSearchPulse compact kind={row.vehicle_kind==='bike'?'bike':'shared'} title="Waiting for the journey owner" description="Your seat request is awaiting acceptance. No payment is collected by this screen."/>}
-  <header className="shared-customer-hero"><div><span className="shared-customer-eyebrow"><Diversity3 size={17} aria-hidden="true"/>Shared {row.vehicle_kind==='bike'?'bike':'ride'}</span><h3>{state}</h3>{activity&&<p>{activity}</p>}</div><span className="shared-customer-art" aria-hidden="true">{arrival?<CheckCircle2 size={32}/>:live?<Navigation size={32}/>:<Vehicle size={34}/>}</span></header>
+ return <article id={'shared-ride-'+row.id} className={'business-record shared-booking-card shared-customer-card'+(live?' shared-live-card':'')+(arrival?' is-at-stop':'')} data-status={tone} aria-label={state+' · '+row.vehicle_name}>
+  <header className="shared-customer-hero"><div><span className="shared-customer-eyebrow">repaido <b>Go.</b><i/>Shared {row.vehicle_kind==='bike'?'bike':'ride'}</span><h3 key={state}>{state}</h3><p>{activity}</p></div><span className="shared-customer-art" aria-hidden="true"><GoVehicleArt kind={row.vehicle_kind==='bike'?'bike':'cab'} size={84}/><span>{arrival||mine.state==='completed'?<CheckCircle2 size={15}/>:<ShieldCheck size={15}/>}</span></span></header>
+  <SharedRideActivity row={row} mine={mine}/>
+  {overdue&&<p className="shared-departure-pending"><Clock3 size={15} aria-hidden="true"/>Departure time passed · waiting for a journey update</p>}
   {row.reschedule&&<details className="shared-customer-change"><summary><Clock3 size={17} aria-hidden="true"/><span>Departure updated · {date(row.starts_at)}</span><ChevronDown size={18} aria-hidden="true"/></summary><SharedDepartureNotice row={row} operate={false} boarded={mine.state==='boarded'} onReschedule={()=>{}}/></details>}
-  <div className="shared-customer-route" aria-label="Published shared route"><span className="shared-customer-route-node" aria-hidden="true"><MapPin size={18}/></span><span><small>Route start</small><strong>{row.origin_address}</strong></span><span className="shared-customer-route-node is-destination" aria-hidden="true"><Flag size={18}/></span><span><small>Route end</small><strong>{row.destination_address}</strong></span></div>
+  <div className="shared-customer-route" aria-label="Published shared route"><span className="shared-customer-route-node" aria-hidden="true"><MapPin size={18}/></span><span><small>Published route · from</small><strong>{row.origin_address}</strong></span><span className="shared-customer-route-node is-destination" aria-hidden="true"><Flag size={18}/></span><span><small>To</small><strong>{row.destination_address}</strong></span></div>
   <div className="shared-customer-meta"><span><Clock3 size={16} aria-hidden="true"/>{date(row.starts_at)}</span><span><EventSeat size={16} aria-hidden="true"/>{mine.seats} {mine.seats===1?'seat':'seats'}</span><strong><span className="sr-only">Agreed fare </span>{money(mine.price_paise)}</strong></div>
   {row.vehicle_kind==='bike'&&mine.state==='accepted'&&['scheduled','in_progress'].includes(row.state)&&/^\d{6}$/.test(mine.otp||'')&&<section className="shared-pickup-code" aria-label="Your pickup verification code"><span><ShieldCheck size={19} aria-hidden="true"/><strong>Pickup code</strong></span><output aria-label="Six-digit pickup code">{mine.otp}</output><p>Share this code only after meeting your rider at pickup and checking your helmet.</p></section>}
   {mine.refund_review_required&&<p className="shared-refund-notice" role="status">Review the fare or refund with the owner. No automatic refund has been confirmed.</p>}
   {live&&<div className="shared-customer-map"><JourneyTracking key={row.id} kind="shared" id={row.id} canShare passengerId={mine.id} compact mapDestination={mine.match?.dropoff||row.destination}/></div>}
   <div className="shared-customer-actions">
-   {!closed&&!live&&canPins&&<button className="ops-primary" aria-label="Pickup & drop-off pins" onClick={()=>onPin(mine.match)}><MapPin size={19} aria-hidden="true"/>Pickup & directions<ArrowRight size={18} aria-hidden="true"/></button>}
+   {!closed&&!live&&canPins&&<button className="ops-primary" aria-label="Pickup & drop-off pins" onClick={()=>onPin(mine.match)}><MapPin size={19} aria-hidden="true"/>Pickup directions<ArrowRight size={18} aria-hidden="true"/></button>}
    {closed&&canPay?<button className="ops-primary" disabled={busy} aria-busy={working('payment_reported')} onClick={()=>onRun('payment_reported',mine)}>{working('payment_reported')?'Reporting payment…':`I paid ${money(mine.price_paise)} to the owner`}</button>:!live&&!canPins&&<button onClick={openDetails}>Request details<ChevronDown size={18} aria-hidden="true"/></button>}
-   {canTrack&&!live&&<button className="shared-customer-track" aria-expanded={tracking} aria-controls={'shared-location-'+row.id} onClick={onTracking}><Navigation size={18} aria-hidden="true"/>Live location & safety</button>}
+   {canTrack&&!live&&<button className="shared-customer-track" aria-expanded={tracking} aria-controls={'shared-location-'+row.id} onClick={onTracking}><Navigation size={18} aria-hidden="true"/>Track & safety</button>}
   </div>
   {reported&&<p className={'shared-customer-payment'+(paid?' is-paid':'')}><Receipt size={17} aria-hidden="true"/>{paid?'Owner confirmed receipt':'Payment reported · owner receipt pending'}</p>}
   {tracking&&!live&&<div id={'shared-location-'+row.id} className="shared-customer-map"><JourneyTracking key={row.id} kind="shared" id={row.id} passengerId={mine.id} compact/></div>}
-  {mine.state==='accepted'&&row.state==='scheduled'&&<details className="shared-customer-arrival" onToggle={event=>setShowArrival(event.currentTarget.open)}><summary><ShieldCheck size={18} aria-hidden="true"/><span>Find your ride & check arrival</span><ChevronDown size={18} aria-hidden="true"/></summary>{showArrival&&<SharedPassengerArrival row={row}/>}</details>}
+  {mine.state==='accepted'&&row.state==='scheduled'&&<details className="shared-customer-arrival" onToggle={event=>setShowArrival(event.currentTarget.open)}><summary><ShieldCheck size={18} aria-hidden="true"/><span>Meet your driver</span><ChevronDown size={18} aria-hidden="true"/></summary>{showArrival&&<SharedPassengerArrival row={row}/>}</details>}
   <details ref={details} className="shared-customer-details"><summary><span>Ride details</span><span className="shared-customer-vehicle"><Vehicle size={17} aria-hidden="true"/>{row.vehicle_name}</span><ChevronDown size={18} aria-hidden="true"/></summary><div className="shared-customer-detail-body">
    <div className="shared-customer-seat"><span>{passengerLabels[mine.state]||mine.state}</span><strong>{money(mine.price_paise)}</strong></div>
    {canPins&&<button className="shared-customer-detail-pins" aria-label="Review pickup & drop-off pins" onClick={()=>onPin(mine.match)}><MapPin size={18} aria-hidden="true"/>Agreed pickup & drop-off</button>}
@@ -150,7 +158,7 @@ function SharedCustomerRideCard({row,mine,busy,pending,tracking,onRun,onPin,onTr
    {!closed&&canPay&&<button disabled={busy} aria-busy={working('payment_reported')} onClick={()=>onRun('payment_reported',mine)}>{working('payment_reported')?'Reporting payment…':`I paid ${money(mine.price_paise)} to the owner`}</button>}
    {paymentRelevant&&<p>{paid?'Owner confirmed fare receipt.':reported?'Payment report sent. The owner still needs to confirm receipt.':'Pay the agreed fare directly to the owner. Both parties record payment and receipt.'}</p>}
    {canPins&&<p>{mine.pickup_mode==='meeting_point'?'Meet the driver at the agreed pickup pin.':'Wait at the agreed pickup pin for collection.'}</p>}
-   <details className="shared-customer-terms" onToggle={event=>setShowTerms(event.currentTarget.open)}><summary>Journey terms & activity</summary>{showTerms&&row.state!=='cancelled'&&['requested','accepted','boarded','completed'].includes(mine.state)&&<ShareMilestone source="shared" id={row.id}/>}<p>{row.terms}</p><ol className="business-timeline">{(row.events||[]).map((event:any,index:number)=><li key={index}>{date(event.at)} · {event.action.replaceAll('_',' ')}</li>)}</ol></details>
+   <details className="shared-customer-terms" onToggle={event=>setShowTerms(event.currentTarget.open)}><summary>Journey terms & sharing</summary>{showTerms&&row.state!=='cancelled'&&['requested','accepted','boarded','completed'].includes(mine.state)&&<ShareMilestone source="shared" id={row.id}/>}<p>{row.terms}</p></details>
   </div></details>
  </article>;
 }

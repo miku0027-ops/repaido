@@ -1,5 +1,5 @@
-import {useEffect,useId,useState} from 'react';
-import {BriefcaseBusiness,Building2,ChevronDown,ClipboardList,Compass,FileClock,SlidersHorizontal,UserRound,Users,Store,Handshake,Dashboard,Handyman} from '../../icons';
+import {useEffect,useId,useRef} from 'react';
+import {BriefcaseBusiness,ChevronDown} from '../../icons';
 import type {CommunityMember,CommunityOpportunity,OpportunityReference,OpportunitySource} from '../../types/repaidians';
 import {CustomContractHub} from '../CustomContracts';
 import {PublicContractHistory} from '../PublicContractProgress';
@@ -39,23 +39,22 @@ export interface WorkAndMarketProps {
   onNotifications?:()=>void;
 }
 
-type Category='browse'|'work'|'tools';
 const destinations=[
-  {view:'market',category:'browse',label:'Market',Icon:Store},
-  {view:'jobs',category:'browse',label:'Matching jobs',Icon:BriefcaseBusiness},
-  {view:'companies',category:'browse',label:'Companies',Icon:Building2},
-  {view:'applications',category:'work',label:'Applications',Icon:ClipboardList},
-  {view:'contracts',category:'work',label:'Contracts',Icon:Handshake},
-  {view:'history',category:'work',label:'Shared work history',Icon:FileClock},
-  {view:'tools',category:'tools',label:'Overview',Icon:Dashboard},
-  {view:'network',category:'tools',label:'Network',Icon:Users},
-  {view:'background',category:'tools',label:'Background',Icon:UserRound},
-  {view:'preferences',category:'tools',label:'Preferences',Icon:SlidersHorizontal},
+  {view:'market',category:'browse',label:'Market'},
+  {view:'jobs',category:'browse',label:'Matching jobs'},
+  {view:'companies',category:'browse',label:'Companies'},
+  {view:'applications',category:'work',label:'Applications'},
+  {view:'contracts',category:'work',label:'Contracts'},
+  {view:'history',category:'work',label:'Shared work history'},
+  {view:'tools',category:'tools',label:'Overview'},
+  {view:'network',category:'tools',label:'Network'},
+  {view:'background',category:'tools',label:'Background'},
+  {view:'preferences',category:'tools',label:'Preferences'},
 ] as const;
 const categories=[
-  {id:'browse',label:'Browse',Icon:Compass},
-  {id:'work',label:'My work',Icon:BriefcaseBusiness},
-  {id:'tools',label:'Professional tools',Icon:Handyman},
+  {id:'browse',label:'Browse'},
+  {id:'work',label:'My work'},
+  {id:'tools',label:'Professional tools',shortLabel:'Tools'},
 ] as const;
 
 export function WorkAndMarket(props:WorkAndMarketProps){
@@ -63,9 +62,14 @@ export function WorkAndMarket(props:WorkAndMarketProps){
   const professionalAccess=authenticated&&professional;
   const view=professionalAccess||props.view==='market'||props.view==='contracts'?props.view:'market';
   const destination=destinations.find(item=>item.view===view)!;
-  const [expanded,setExpanded]=useState<Category|null>(destination.category);
-  const id=useId(),navigationId=id+'-destinations';
-  useEffect(()=>setExpanded(destination.category),[accountKey,destination.category,view]);
+  const id=useId(),navigationId=id+'-panel',navigation=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    const rail=navigation.current,active=rail?.querySelector<HTMLElement>('[data-active=true]');
+    if(!rail||!active)return;
+    const frame=rail.getBoundingClientRect(),item=active.getBoundingClientRect();
+    if(item.left<frame.left)rail.scrollLeft-=frame.left-item.left+4;
+    else if(item.right>frame.right)rail.scrollLeft+=item.right-frame.right+4;
+  },[accountKey,view]);
   const visibleDestinations=destinations.filter(item=>professionalAccess||item.view==='market'||item.view==='contracts');
   const visibleCategories=categories.filter(category=>visibleDestinations.some(item=>item.category===category.id));
   const navigate=(next:WorkMarketView)=>onView(next);
@@ -94,11 +98,15 @@ export function WorkAndMarket(props:WorkAndMarketProps){
   };
 
   return <section className="rp-work-market" aria-labelledby={id+'-title'}>
-    <header className="rp-work-market-heading"><div><h2 id={id+'-title'}>Work &amp; market</h2><p>{professionalAccess?'Browse opportunities, follow your work and manage your professional tools.':'Browse published opportunities and manage your custom contracts.'}</p></div><BriefcaseBusiness size={24} aria-hidden="true"/></header>
-    <nav className="rp-work-market-navigation" aria-label="Work and market sections">
-      <div className="rp-work-market-categories">{visibleCategories.map(category=><button key={category.id} type="button" className="rp-work-market-category" data-active={destination.category===category.id} aria-expanded={expanded===category.id} aria-controls={navigationId} onClick={()=>setExpanded(current=>current===category.id?null:category.id)}><category.Icon size={20} aria-hidden="true"/><span>{category.label}</span><ChevronDown size={16} aria-hidden="true"/></button>)}</div>
-      <div id={navigationId} className="rp-work-market-destinations" hidden={!expanded} role="group" aria-label={categories.find(category=>category.id===expanded)?.label||'Work destinations'}>{visibleDestinations.filter(item=>item.category===expanded).map(item=><button key={item.view} type="button" aria-current={view===item.view?'page':undefined} onClick={()=>navigate(item.view)}><item.Icon size={20} aria-hidden="true"/><span>{item.label}</span></button>)}</div>
+    <header className="rp-work-market-heading"><div><h2 id={id+'-title'}>Work &amp; market</h2><p>{professionalAccess?'Find work. Build your network.':'Opportunities and your contracts.'}</p></div><BriefcaseBusiness size={24} aria-hidden="true"/></header>
+    <nav ref={navigation} className="rp-work-market-navigation" aria-label="Work and market sections">
+      {visibleCategories.map(category=><div key={category.id} className="rp-work-market-category" data-active={destination.category===category.id}>
+        <select aria-label={category.label} aria-controls={navigationId} value={destination.category===category.id?view:''} onChange={event=>navigate(event.target.value as WorkMarketView)}>
+          <option value="" disabled>{'shortLabel' in category?category.shortLabel:category.label}</option>
+          {visibleDestinations.filter(item=>item.category===category.id).map(item=><option key={item.view} value={item.view}>{item.view==='jobs'?'Jobs':item.view==='history'?'Work history':item.label}</option>)}
+        </select><ChevronDown size={16} aria-hidden="true"/>
+      </div>)}
     </nav>
-    <div className="rp-work-market-content" key={accountKey+':'+view} aria-label={destination.label}>{panel()}</div>
+    <div id={navigationId} className="rp-work-market-content" key={accountKey+':'+view} aria-label={destination.label}>{panel()}</div>
   </section>;
 }

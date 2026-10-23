@@ -248,7 +248,10 @@ def install(core):
         for service in catalog['services']:
             if service.get('active',True): groups.setdefault(service['category'], []).append(service)
         now = time.time()
-        row = store.run(lambda u: u.get('discovery_preferences', user['id'])) if user else None
+        from customer_onboarding import interests
+        row, explicit = store.run(lambda u: (u.get('discovery_preferences', user['id']), interests(u, user['id']))) if user else (None, ([], ''))
+        selected_categories, main_category = explicit
+        selected_categories = [c for c in selected_categories if c in groups]
         enabled = settings(row)['enabled']
         row = row or {}
         scores = {k:v.get('score',0)*math.exp(-max(0,now-v.get('at',now))/(7*86400)) for k,v in row.get('signals',{}).items()
@@ -257,6 +260,8 @@ def install(core):
         seed = city.casefold()+str(int(now//86400))
         varied = sorted(groups,key=lambda c:hashlib.sha256((seed+c).encode()).hexdigest())
         interested = sorted((c for c in scores if scores[c]>=1),key=lambda c:(-scores[c],c))[:3]
+        preferred_categories = ([main_category] if main_category in selected_categories else []) + [c for c in selected_categories if c != main_category]
+        interested = (preferred_categories + [c for c in interested if c not in preferred_categories])[:3]
         remaining = [c for c in varied if c not in interested]
         selected = []
         for n in range(3):
@@ -268,7 +273,7 @@ def install(core):
             rows=sorted(groups[category],key=lambda s:s['id'])
             service=rows[int(hashlib.sha256((seed+category).encode()).hexdigest()[:8],16)%len(rows)]
             cards.append({'category':category,'category_name':names.get(category,category.replace('_',' ').title()),
-                          'reason':'Based on categories you explored' if category in interested else 'Explore another category',
+                          'reason':'One of your chosen services' if category in selected_categories else 'Based on categories you explored' if category in interested else 'Explore another category',
                           'personalised':category in interested,
                           'service':{k:service[k] for k in ('id','name','category','description','price_paise','duration_minutes','included','excluded')}})
         transport = row.get('signals', {}).get('transport', {})

@@ -1,0 +1,73 @@
+/* Shared tender brief: key facts first, full owner-authored text on demand. */
+.contract-dialog.tender-information-dialog{width:min(760px,calc(100% - 24px))!important;max-width:760px!important}
+.modal.tender-information-dialog>.app-modal-heading{margin-bottom:12px!important;padding-bottom:0!important;align-items:flex-start!important}
+.tender-information-dialog .app-modal-heading h2{font-size:1.125rem;line-height:1.4;overflow-wrap:anywhere}
+.contract-detail.tender-information-workspace{gap:12px}
+.tender-information-workspace>.contract-actions{margin:0}
+.tender-information-workspace>.contract-detail-summary{gap:0}
+.tender-information{display:grid;gap:12px;min-width:0;container-type:inline-size}
+.tender-information-overview{overflow:hidden;border:1px solid var(--ui-line);border-radius:18px;background:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--ui-link) 9%,transparent),transparent 70%),var(--ui-surface);box-shadow:0 4px 0 color-mix(in srgb,var(--ui-line) 40%,transparent),0 10px 24px #0b234009}
+.contract-detail .tender-information-metrics{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;margin:0;padding:16px}
+.tender-information-metrics>div{min-width:0;display:grid;align-content:start;gap:4px}
+.tender-information-metrics>div+div{border-inline-start:1px solid var(--ui-line);padding-inline-start:14px}
+.contract-detail .tender-information-metrics dt{display:flex;gap:5px;align-items:center;font-size:.75rem;line-height:1.5;color:var(--ui-muted)}
+.contract-detail .tender-information-metrics dd{font-size:1.25rem;font-weight:750;line-height:1.4;letter-spacing:-.025em;margin:0;color:var(--ui-ink);font-variant-numeric:tabular-nums}
+.tender-information-metrics dd>span{font-size:.8125rem;font-weight:500;letter-spacing:0}
+.contract-detail .tender-information .tender-information-metrics small{display:block;font-weight:400;letter-spacing:0;margin-top:4px;font-size:.6875rem;color:var(--ui-muted);line-height:1.5}
+.contract-detail .tender-information-facts{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;margin:0;padding:12px 16px;border-top:1px solid var(--ui-line);background:color-mix(in srgb,var(--ui-surface) 60%,transparent)}
+.tender-information-facts>div{display:grid;grid-template-columns:5rem minmax(0,1fr);align-items:baseline;gap:12px;min-width:0}
+.contract-detail .tender-information-facts dt{display:flex;align-items:center;gap:6px;font-size:.75rem;line-height:1.5}
+.tender-information-facts dt svg{flex-shrink:0;align-self:flex-start;margin-top:1px;color:var(--ui-link)}
+.contract-detail .tender-information-facts dd{font-size:.8125rem;line-height:1.55;margin:0;font-weight:550}
+.tender-information-sections{display:grid;gap:8px;min-width:0}
+.tender-information .tender-information-section{margin:0;padding:0;min-width:0;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-surface);box-shadow:0 2px 5px #0b234005;overflow:clip;transition:border-color 180ms ease,box-shadow 180ms ease}
+.tender-information .tender-information-section>summary{display:flex;align-items:center;gap:10px;padding:11px 12px;min-height:48px!important;list-style:none;cursor:pointer;box-shadow:none;border-radius:13px;line-height:1.45}
+.tender-information-section>summary::-webkit-details-marker{display:none}
+.contract-detail .tender-information .tender-information-section>summary::after{content:none}
+.tender-information-icon{display:grid;place-items:center;width:34px;height:34px;flex-shrink:0;border:1px solid color-mix(in srgb,var(--ui-link) 12%,var(--ui-line));border-radius:11px;color:var(--ui-link);background:color-mix(in srgb,var(--ui-link) 6%,var(--ui-surface))}
+.tender-information-label{flex:1;min-width:0;display:grid;gap:2px;overflow-wrap:anywhere}
+.tender-information-label strong{font-size:.875rem;line-height:1.4;color:var(--ui-ink);font-weight:700}
+.contract-detail .tender-information .tender-information-label small{font-size:.75rem;line-height:1.45;color:var(--ui-muted);font-weight:400}
+.tender-information-chevron{flex-shrink:0;color:var(--ui-muted);transition:transform 200ms ease}
+.tender-information-section[open]{border-color:color-mix(in srgb,var(--ui-link) 30%,var(--ui-line));box-shadow:0 5px 16px #0b234009}
+.tender-information-section[open]>summary{background:color-mix(in srgb,var(--ui-link) 4%,var(--ui-surface));border-radius:13px 13px 0 0}
+.tender-information-section[open] .tender-information-chevron{transform:rotate(180deg)}
+.tender-information-section>summary:focus-visible{outline:3px solid var(--ui-link);outline-offset:-3px}
+.tender-information-content{border-top:1px solid var(--ui-line);padding:14px 16px;min-width:0}
+.contract-detail .tender-information-content p{font-size:.875rem;line-height:1.7;margin:0;color:var(--ui-ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.contract-detail .tender-information-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;margin:0}
+.tender-information-dates>div{display:grid;gap:5px;padding-inline-start:10px;border-inline-start:2px solid var(--ui-line);min-width:0}
+.tender-information-dates>div:nth-child(2){border-color:var(--ui-warning-line)}
+.contract-detail .tender-information-dates dt{font-size:.75rem;line-height:1.5}
+.contract-detail .tender-information-dates dd{font-size:.8125rem;line-height:1.5;margin:0}
+.tender-information-dates time{display:grid;gap:2px}
+.tender-information-dates time strong{font-weight:650}
+.tender-information-dates time span{color:var(--ui-muted);font-size:.75rem}
+.tender-information-workspace>.tender-preparation{margin:0;padding:6px 12px}
+.tender-preparation>summary{font-size:.8125rem}
+.tender-preparation .contract-stage-track{margin:8px 0}
+.tender-information-workspace>.tender-bids{margin:0;padding:6px 12px}
+.tender-bids>summary{font-size:.875rem}
+.tender-information-workspace>.tender-bids>p{font-size:.8125rem;margin:8px 0}
+@media(hover:hover){.tender-information-section>summary:hover{background:color-mix(in srgb,var(--ui-link) 5%,var(--ui-surface))}}
+@container(max-width:20rem){
+ .contract-detail .tender-information-metrics{gap:10px;padding:12px}
+ .contract-detail .tender-information-metrics dd{font-size:1.0625rem}
+ .tender-information-metrics>div+div{padding-inline-start:10px}
+ .contract-detail .tender-information-facts{padding:12px;gap:8px}
+ .tender-information-facts>div{grid-template-columns:4.25rem minmax(0,1fr);gap:8px}
+ .tender-information-icon{width:30px;height:30px;border-radius:9px}
+ .tender-information .tender-information-section>summary{padding:10px;gap:8px}
+ .tender-information-content{padding:12px}
+ .contract-detail .tender-information-dates{grid-template-columns:minmax(0,1fr);gap:12px}
+}
+@container(max-width:13rem){
+ .contract-detail .tender-information-metrics{grid-template-columns:minmax(0,1fr)}
+ .tender-information-metrics>div+div{border-inline-start:0;border-top:1px solid var(--ui-line);padding:10px 0 0}
+ .tender-information-facts>div{grid-template-columns:minmax(0,1fr);gap:3px}
+ .tender-information-icon{display:none}
+}
+@media(prefers-reduced-motion:no-preference){.tender-information-section[open]>.tender-information-content{animation:tender-info-reveal 180ms ease-out}@keyframes tender-info-reveal{from{opacity:.5;transform:translateY(-3px)}to{opacity:1;transform:none}}}
+@media(prefers-reduced-motion:reduce){.tender-information .tender-information-section,.tender-information-chevron{transition:none}}
+.reduce-motion .tender-information-section,.reduce-motion .tender-information-chevron{transition:none}
+.reduce-motion .tender-information-content{animation:none!important}

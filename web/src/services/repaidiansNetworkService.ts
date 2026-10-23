@@ -14,7 +14,7 @@ let scope='',generation=0,ownUpdate=false;
 function currentIdentity(){return communityIdentityKey();}
 function syncIdentity(){const next=currentIdentity();if(next!==scope){scope=next;generation++;reads.invalidate();commandKeys.clear();}return next;}
 export function clearNetworkReads(){generation++;reads.invalidate();}
-function changed(){clearNetworkReads();ownUpdate=true;try{window.dispatchEvent(new Event(UPDATE));window.dispatchEvent(new CustomEvent('repaidians:update',{detail:{path:'/network',contentChanged:false}}));}finally{ownUpdate=false;}}
+function changed(saved?:{path:string;value:unknown}){clearNetworkReads();ownUpdate=true;try{window.dispatchEvent(new CustomEvent('repaidians:update',{detail:{path:'/network',contentChanged:false}}));if(saved)reads.remember(syncIdentity()+':'+saved.path,saved.value);window.dispatchEvent(new Event(UPDATE));}finally{ownUpdate=false;}}
 window.addEventListener('repaidians:update',event=>{const change=(event as CustomEvent<{contentChanged?:boolean;path?:string}>).detail;if(change?.contentChanged===false||change?.path&&!/^\/(profile|network|blocks|settings)/.test(change.path))return;if(!ownUpdate){clearNetworkReads();window.dispatchEvent(new Event(UPDATE));}});
 export function subscribeNetworkReads(listener:()=>void){window.addEventListener(UPDATE,listener);return()=>window.removeEventListener(UPDATE,listener);}
 async function capturedIdentity(){
@@ -55,7 +55,7 @@ export function peekNetworkRead<T>(path:string):T|null{return reads.peek(syncIde
 export async function networkMutation<T>(path:string,method:string,body?:object):Promise<T>{
   const owner=await capturedIdentity();
   if(!owner.token)throw new CommunityError('Sign in to build your professional network.',401,'AUTH_REQUIRED');
-  const result=await request<T>(path,{method,...(body?{body:JSON.stringify(body)}:{})},owner);changed();return result;
+  const result=await request<T>(path,{method,...(body?{body:JSON.stringify(body)}:{})},owner);changed(path==='/network/preferences'?{path,value:result}:undefined);return result;
 }
 export async function networkCommand<T>(path:string,body:Record<string,unknown>,method='POST'):Promise<T>{
   const owner=await capturedIdentity();

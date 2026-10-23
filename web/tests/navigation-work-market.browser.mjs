@@ -59,9 +59,8 @@ const nav=(page,label)=>shell(page).locator('.rp-bottom-nav').getByRole('button'
 async function hub(page,label){
   const navigation=shell(page).getByRole('navigation',{name:'Work and market sections',exact:true});
   const category=['Market','Matching jobs','Companies'].includes(label)?'Browse':['Applications','Contracts','Shared work history'].includes(label)?'My work':'Professional tools';
-  const toggle=navigation.getByRole('button',{name:category,exact:true});
-  if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
-  await navigation.getByRole('group',{name:category,exact:true}).getByRole('button',{name:label,exact:true}).click();
+  const view={'Market':'market','Matching jobs':'jobs','Companies':'companies','Applications':'applications','Contracts':'contracts','Shared work history':'history','Overview':'tools','Network':'network','Background':'background','Preferences':'preferences'}[label];
+  await navigation.getByRole('combobox',{name:category,exact:true}).selectOption(view);
 }
 async function assertNavigation(page,role){
   const navState=await shell(page).locator('.rp-bottom-nav').evaluate(nav=>{
