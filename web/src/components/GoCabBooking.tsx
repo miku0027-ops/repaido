@@ -37,7 +37,11 @@ export function GoCabBooking({pickupRequest=0,onPickup,mode,initialLocation,acti
  useEffect(()=>{if(active&&pickupRequest&&handledPickup.current!==pickupRequest&&!busy){handledPickup.current=pickupRequest;setPicking('pickup');}},[pickupRequest,active,busy]);
  const [phone,setPhone]=useState(auth.currentUser?.phoneNumber||''),[license,setLicense]=useState<File|null>(null),[now,setNow]=useState(Date.now()),[online,setOnline]=useState(navigator.onLine);
  const account=useRef(uid),generation=useRef(0),running=useRef(false),intent=useRef({body:'',key:crypto.randomUUID()}),uploadedLicense=useRef<{file:File;id:string}|null>(null);
- const publicCabs=usePublicCabAreas(pickup||undefined,active&&!rental,uid||'guest',0);
+ const [browsePoint,setBrowsePoint]=useState<{lat:number;lng:number}|null>(null),[nearbyRevision,setNearbyRevision]=useState(0);
+ const areaPoint=Number.isFinite(initialLocation?.lat)&&Number.isFinite(initialLocation?.lng)?{lat:initialLocation!.lat!,lng:initialLocation!.lng!}:undefined;
+ const discoveryPoint=browsePoint||pickup||areaPoint;
+ const publicCabs=usePublicCabAreas(discoveryPoint,active&&!rental&&!picking,uid||'guest',nearbyRevision);
+ const nearbyCount=publicCabs.areas.reduce((count,area)=>count+area.available_count,0);
  const stops=validateRideStops(pickup,dropoff,Infinity,true);
  const dates={starts_at:new Date(start).getTime()/1000,ends_at:new Date(end).getTime()/1000};
  const datesReady=!scheduled||cabWindowValid(dates,now);
@@ -47,10 +51,10 @@ export function GoCabBooking({pickupRequest=0,onPickup,mode,initialLocation,acti
  const reset=()=>{generation.current++;setPhase('planning');setVehicles([]);setQuote(null);setConsent(false);setError('');setBookingWindow(null);intent.current={body:'',key:crypto.randomUUID()};};
  useEffect(()=>onIdTokenChanged(auth,user=>{
   const next=user?.uid||'';
-  if(account.current!==next){account.current=next;reset();setPicking(null);setPickup(location(initialLocation));setDropoff(null);setStart('');setEnd('');setBusy(false);running.current=false;setPhone(user?.phoneNumber||'');setLicense(null);uploadedLicense.current=null;}setUid(next);
+  if(account.current!==next){account.current=next;reset();setBrowsePoint(null);setPicking(null);setPickup(location(initialLocation));setDropoff(null);setStart('');setEnd('');setBusy(false);running.current=false;setPhone(user?.phoneNumber||'');setLicense(null);uploadedLicense.current=null;}setUid(next);
  }),[]);
  const areaKey=JSON.stringify(initialLocation),appliedArea=useRef(areaKey);
- useEffect(()=>{if(appliedArea.current===areaKey||busy)return;appliedArea.current=areaKey;reset();setPickup(location(initialLocation));},[areaKey,busy]);
+ useEffect(()=>{if(appliedArea.current===areaKey||busy)return;appliedArea.current=areaKey;reset();setBrowsePoint(null);setPickup(location(initialLocation));},[areaKey,busy]);
  useEffect(()=>{
   const update=()=>{setNow(Date.now());setOnline(navigator.onLine);};
   const timer=active?setInterval(update,1000):undefined;
@@ -109,17 +113,18 @@ export function GoCabBooking({pickupRequest=0,onPickup,mode,initialLocation,acti
 
  return <section className="bike-rides go-vehicle-booking" aria-label={rental?'Self-drive booking':scheduled?'Cab rental booking':'Quick cab booking'}>
   <header className="bike-heading"><div><small>{rental?'Your dates · your keys':scheduled?'Your route · your driver':'With a driver · fare before you request'}</small></div></header>
-  {picking&&<GoLocationPicker key={uid+':'+picking} stop={picking} initial={picking==='pickup'?pickup:dropoff} near={pickup||initialLocation} onClose={()=>setPicking(null)} onConfirm={value=>{reset();if(picking==='pickup'){setPickup(value);onPickup?.({...value,confirmed:true});}else setDropoff(value);setPicking(null);}}/>}
+  {picking&&<GoLocationPicker key={uid+':'+picking} stop={picking} initial={picking==='pickup'?pickup:dropoff} near={pickup||initialLocation} onClose={()=>setPicking(null)} onConfirm={value=>{reset();setBrowsePoint(null);if(picking==='pickup'){setPickup(value);onPickup?.({...value,confirmed:true});}else setDropoff(value);setPicking(null);}}/>}
   <div className="bike-workspace" hidden={!!picking}>
    <div className="bike-map go-booking-map" data-phase={phase}>
-    <GoogleJourneyMap origin={pickup||undefined} destination={dropoff||undefined} nearby={publicCabs.areas.map(row=>row.position)} nearbyLabel="Driver-shared cab area · approximate location" vehicleKind={rental?'self_drive':'cab'} cameraPhase={phase} mapLabel="Repaido Go pickup map"/>
+    <GoogleJourneyMap key={uid} showLocate active={active&&!picking} initialCenter={areaPoint} onLocated={setBrowsePoint} origin={pickup||undefined} destination={dropoff||undefined} nearby={publicCabs.areas.map(row=>({...row.position,count:row.available_count}))} nearbyLabel="Driver-shared cab area · approximate location" vehicleKind={rental?'self_drive':'cab'} cameraPhase={phase} mapLabel="Repaido Go pickup map"/>
     <span className="bike-map-label"><GoVehicleArt kind={mode} size={35}/>{phase==='searching'?'Checking your route':phase==='found'?'Available options':phase==='empty'?'Try another route':pickup?.city||'Choose your pickup'}</span>
     {phase==='searching'&&<div className="go-map-searching" role="status"><span aria-hidden="true"/><strong>Checking available {rental?'cars':'cabs'}…</strong></div>}
    </div>
-   <form className="bike-route-sheet" onSubmit={event=>{event.preventDefault();void (quote?book():search());}}>
+   <form className={'bike-route-sheet'+(mode==='cab'?' go-cab-route-sheet':'')} onSubmit={event=>{event.preventDefault();void (quote?book():search());}}>
     <div className="bike-composer-heading"><h3>{scheduled?'Plan your rental':'Where to?'}</h3><span className="go-slot-tag"><Clock3 size={15} aria-hidden="true"/>{scheduled?'Choose dates':'Soonest pickup'}</span></div>
+    {!rental&&<div className="go-nearby-status" data-live={nearbyCount>0}><span role="status">{publicCabs.status==='loading'?'Finding online cabs nearby…':publicCabs.status==='error'?'Nearby cabs couldn’t refresh.':publicCabs.status==='paused'?!online?'Reconnect to see nearby cabs.':!discoveryPoint?'Use Locate me to see nearby cabs.':'Live availability paused.':nearbyCount?`${nearbyCount} ${nearbyCount===1?'cab':'cabs'} online nearby · approximate areas`:'No drivers are sharing nearby right now.'}</span><button type="button" aria-label="Refresh nearby cabs" disabled={!publicCabs.enabled||publicCabs.status==='loading'} onClick={()=>setNearbyRevision(value=>value+1)}><RefreshCw size={16} aria-hidden="true"/></button></div>}
     {scheduled&&<div className="go-booking-dates"><RideDateTimeField label={rental?'Pickup date & time':'Hire starts'} value={start} disabled={busy} onChange={value=>{reset();setStart(value);}}/><RideDateTimeField label={rental?'Return date & time':'Hire ends'} value={end} disabled={busy} min={start||undefined} onChange={value=>{reset();setEnd(value);}}/></div>}
-    <RideRouteFields pickup={pickup} dropoff={dropoff} kind="cab" disabled={busy} onPick={setPicking} onSwap={()=>{reset();setPickup(dropoff);setDropoff(pickup);}}/>
+    <RideRouteFields pickup={pickup} dropoff={dropoff} kind="cab" disabled={busy} onPick={setPicking} onSwap={()=>{reset();setBrowsePoint(null);setPickup(dropoff);setDropoff(pickup);}}/>
     <div className="bike-route-footer" hidden={!!quote}><SlideAction submit label={quote?'Send booking request':rental?'Find available cars':scheduled?'Find a rental cab':'Find a cab'} pendingLabel={quote?'Sending request…':'Checking availability…'} busy={busy} disabled={quote?!online||!freshQuote:!ready} describedBy={help} validationMessage={quote?freshQuote?'Review the fare and accept the terms below.':'Fare expired · search again for availability.':validation}/></div>
     <p id={help} className="bike-route-help">{bookingWindow?<><CalendarDays size={14} aria-hidden="true"/>Pickup from {shortTime(bookingWindow.starts_at)} · {scheduled?'Your selected dates':'2-hour booking window'}</>:scheduled?'Choose dates and stops together. Review the full quote next.':'The next available booking slot starts at least five minutes ahead.'}</p>
     {bookingWindow&&!scheduled&&<p className="go-booking-caption">Your owner confirms the pickup. This slot is not a live arrival estimate.</p>}

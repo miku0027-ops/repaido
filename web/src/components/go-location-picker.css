@@ -25,8 +25,6 @@
 .go-place-results small{font-size:.75rem;line-height:1.4;color:#565b61}
 .go-place-results em{font-size:.65rem;white-space:nowrap;font-style:normal;color:#565b61}
 .go-google-credit{display:block;text-align:right;font-size:.7rem;color:#565b61;padding:4px 0}
-.go-location-workspace .go-use-location{margin:4px 16px 8px;padding:8px 0;border:0;color:#34373b;background:transparent;font-size:.8125rem;font-weight:600;width:calc(100% - 32px);justify-content:flex-start}
-.go-use-location>svg:last-child{margin-left:auto}
 .go-location-map{position:relative;height:230px;margin:0 16px;border-radius:18px;overflow:hidden;border:1px solid #dadddf}
 .go-location-map .google-journey-map,.go-location-map .journey-leaflet{height:100%;min-height:0}
 .go-pin-hint{position:absolute;pointer-events:none;top:10px;left:50%;transform:translateX(-50%);max-width:calc(100% - 24px);padding:6px 12px;border-radius:20px;background:#202124eb;backdrop-filter:blur(12px);color:#fff;font-size:.7rem;line-height:1.5;white-space:nowrap;box-shadow:0 3px 10px #0002}
@@ -52,3 +50,29 @@
  /* The search shell owns the focus ring, as on the other customer search bars. */
  .go-location-workspace .go-place-search input:focus-visible{outline:none!important;box-shadow:none!important}
 }
+
+/* A compact coloured search sheet above the map; no extra address modal. */
+.go-location-workspace{--stop-accent:#ffc400;--stop-soft:#fff6d6;--stop-line:#e3d8b0;background:linear-gradient(150deg,#fffdf6,#f4f5f5 60%);border:1px solid #dadddf;box-shadow:0 12px 32px #1720220d}
+.go-location-workspace[data-stop=dropoff]{--stop-accent:#59d9c1;--stop-soft:#e7f8f3;--stop-line:#bdded5;background:linear-gradient(150deg,#f0fcf8,#f4f5f5 60%)}
+.go-location-workspace>header small{color:var(--stop-accent)}
+.go-search-sheet{position:relative;margin:12px;padding:10px;border:1px solid var(--stop-line);border-radius:20px;background:var(--stop-soft);box-shadow:inset 0 1px #fff,0 5px 14px #17202206}
+.go-search-sheet .go-place-search{margin:0;border-color:#8b9194;box-shadow:0 3px 9px #17202209}
+.go-search-sheet .go-place-results{padding:0;animation:go-place-enter .2s ease-out}
+.go-search-sheet .go-place-results ul{max-height:252px;overflow-y:auto;overscroll-behavior:contain;scroll-padding-block:8px}
+.go-search-sheet .go-place-results li{padding:10px 8px;border-color:var(--stop-line);gap:10px}
+.go-search-sheet .go-place-results li>svg{box-sizing:content-box;padding:8px;border-radius:12px;background:#fff;color:#313738}
+.go-search-sheet .go-place-results li:is(:hover,[aria-selected=true]){background:#fff;box-shadow:0 2px 8px #1720220d}
+.go-search-sheet .go-place-results strong,.go-search-sheet .go-place-results small{overflow-wrap:anywhere}
+.go-search-sheet .go-place-feedback{margin:8px 2px 0;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.go-search-sheet .go-place-feedback:empty{display:none}
+.go-search-sheet .go-place-feedback[data-error=true]{padding:8px 10px;background:#fffaf3;border:1px solid #ead9bb;border-radius:12px;color:#60451d}
+.go-place-feedback button{flex:none;padding:6px 9px;border:1px solid #a08148;background:#fff;color:#51390f;font-size:.75rem!important;font-weight:650!important}
+.go-location-workspace .go-location-map{height:270px;margin:0 12px;border-radius:20px}
+.go-location-workspace .go-selected-place>span{background:var(--stop-accent);color:#202124}
+.go-location-workspace .go-confirm-place{background:var(--stop-accent);border-color:#20212426;box-shadow:0 4px 12px #17202212}
+.go-location-workspace .go-confirm-place:disabled{background:#e6e8e9;color:#565b61;opacity:1;box-shadow:none}
+.go-location-workspace[data-stop=dropoff] :is(button,input):focus-visible{outline-color:#127564}
+.go-location-workspace[data-stop=dropoff] .go-place-search:focus-within{outline-color:#127564}
+@media(max-width:370px){.go-location-workspace .go-location-step{display:none}.go-search-sheet{margin:10px;padding:8px 8px 0}.go-location-workspace .go-location-map{margin:0 10px;height:240px}.go-place-feedback{flex-wrap:wrap}.go-pin-hint{white-space:normal;text-align:center;width:max-content}}
+@media(prefers-reduced-motion:reduce){.go-search-sheet .go-place-results{animation:none}}
+:is(.reduce-motion,[data-reduced-motion=true]) .go-search-sheet .go-place-results{animation:none}

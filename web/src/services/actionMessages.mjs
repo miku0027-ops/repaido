@@ -8,7 +8,7 @@ export function quietRequest(path, init = {}) {
  if (/\/(hiring\/recommendations|discovery\/events|coupons\/launch|auth\/session|community\/usage|community\/work\/behavior)$/.test(route)) return true;
  if (/\/shop-discovery\/(?:recommendations(?:\/personal)?|personal|events|presence)$/.test(route)) return true;
  let body = {}; try { if (typeof init.body === 'string') body = JSON.parse(init.body); } catch { /* Binary uploads. */ }
- return /\/worker\/availability$/.test(route) && body.heartbeat === true;
+ return /\/(?:worker|bike-rides\/driver)\/availability$/.test(route) && body.heartbeat === true;
 }
 export function changesAccountData(path, init = {}) {
  if (quietRequest(path, init) || /^\/market\/chats(?:\/|$)/.test(path.split('?')[0])) return false;

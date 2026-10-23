@@ -1,11 +1,11 @@
 // Development-only in-memory transport. Never calls real APIs or creates bookings.
 import {createRoot} from 'react-dom/client';
 import {BikeRiderWorkspace,type BikeRiderRide,type BikeDriverPayroll,type BikeCompanyCashSummary} from '../src/components/BikeRiderWorkspace';
-import type {operation,currentPosition} from '../src/services/operations';
+import {currentPosition,type operation} from '../src/services/operations';
 import '../src/styles.css';
 import '../src/design-system.css';
 const params=new URLSearchParams(location.search);
-let availability={vehicle_id:'qa-bike',online:params.has('stale')||params.has('resume'),updated_at:Date.now()/1000-600,position:{lat:21.49,lng:86.91,accuracy:10,captured_at:Date.now()/1000-600,received_at:Date.now()/1000-600}};
+let availability={version:1,vehicle_id:'qa-bike',online:params.has('stale')||params.has('resume'),updated_at:Date.now()/1000-600,position:{lat:21.49,lng:86.91,accuracy:10,captured_at:Date.now()/1000-600,received_at:Date.now()/1000-600}};
 const records:BikeRiderRide[]=[{id:'local-qa-lifecycle',state:'offered',version:1,vehicle_name:'LOCAL QA · Test bike',pickup:{lat:21.49,lng:86.91},dropoff:{lat:21.50,lng:86.92},pickup_address:'LOCAL QA · College Road pickup',dropoff_address:'LOCAL QA · Hospital Road drop',pricing:{customer_total_paise:0,free:true},created_at:Date.now()/1000,allowed_actions:['accept','decline']}];
 const commands:Record<string,unknown>[]=[];
 const reads={payroll:0,olderDetails:0,presenceWrites:0};
@@ -14,12 +14,22 @@ const payroll:BikeDriverPayroll={driver_id:'qa-rider',period:'2026-10',compensat
 if(params.has('cash')){payroll.salary_payment_method='office_cash';payroll.cash_collection_point='the company office';payroll.obligations[0].transfer!.payment_method='office_cash';payroll.obligations[0].transfer!.reference='LOCAL-QA-CASH-RECEIPT';}
 const deposits:object[]=[];
 let failReads=params.has('offline')?1:0,failDeparture=params.has('retry')?1:0;
+const control:{holdNextRead?:boolean;holdNextWrite?:boolean;failNextWrite?:boolean;releaseRead?:()=>void;releaseWrite?:()=>void}={};
 const response=<T,>(value:unknown)=>structuredClone(value) as T;
 const request:typeof operation=async<T,>(path:string,init:RequestInit={})=>{
  await new Promise(resolve=>setTimeout(resolve,35));
  if(path==='/bike-rides/driver/availability'){
-  if(init.method==='PUT'){const body=JSON.parse(String(init.body));if(body.position)reads.presenceWrites++;availability={...availability,...body,updated_at:Date.now()/1000};if(body.position)availability.position.received_at=Date.now()/1000;}
-  return response<T>({vehicles:[{id:'qa-bike',name:'LOCAL QA · Test bike',active:true,status:'approved',vehicle_kind:'bike'}],availability,server_time:Date.now()/1000,dispatch_ready:!params.has('paused'),service_ready:!params.has('paused'),availability_reason:params.has('paused')?'Bike requests are currently paused.':null});
+  if(init.method==='PUT'){
+   if(control.failNextWrite){control.failNextWrite=false;throw Error('LOCAL QA · write failed');}
+   const body=JSON.parse(String(init.body));
+   if(body.expected_version!==availability.version)throw Object.assign(Error('LOCAL QA · availability changed'),{code:'AVAILABILITY_CHANGED',status:409});
+   if(body.position)reads.presenceWrites++;
+   availability={...availability,...body,version:availability.version+1,updated_at:Date.now()/1000};if(body.position)availability.position.received_at=Date.now()/1000;
+  }
+  const snapshot=response<T>({vehicles:[{id:'qa-bike',name:'LOCAL QA · Test bike',active:true,status:'approved',vehicle_kind:'bike'}],availability,server_time:Date.now()/1000,dispatch_ready:!params.has('paused'),service_ready:!params.has('paused'),availability_reason:params.has('paused')?'Bike requests are currently paused.':null});
+  if(init.method==='PUT'&&control.holdNextWrite){control.holdNextWrite=false;await new Promise<void>(resolve=>control.releaseWrite=resolve);}
+  else if(init.method!=='PUT'&&control.holdNextRead){control.holdNextRead=false;await new Promise<void>(resolve=>control.releaseRead=resolve);}
+  return snapshot;
  }
  if(path==='/bike-rides/driver/rides?after=qa-older')return response<T>({rides:[{...records[0],id:'qa-older-complete',state:'completed',allowed_actions:[],dropoff_address:'LOCAL QA · Older completed ride',created_at:Date.now()/1000-3600},{...records[0],id:'qa-older-obligation',state:'payment_reported',version:1,allowed_actions:['cash_received','dispute'],dropoff_address:'LOCAL QA · Older payment record',created_at:Date.now()/1000-7200}],next_cursor:null,server_time:Date.now()/1000});
  if(path==='/bike-rides/bookings/qa-older-obligation'){reads.olderDetails++;return response<T>({...records[0],id:'qa-older-obligation',state:'completed',version:2,allowed_actions:[],dropoff_address:'LOCAL QA · Older payment record',created_at:Date.now()/1000-7200});}
@@ -54,5 +64,5 @@ const request:typeof operation=async<T,>(path:string,init:RequestInit={})=>{
  throw Error('Unexpected fixture path '+path);
 };
 const readPosition:typeof currentPosition=async()=>({lat:21.49,lng:86.91,accuracy:params.has('imprecise')?500:8,captured_at:Date.now()/1000});
-Object.assign(window,{bikeRiderFixture:{commands,records,availability,reads}});
-createRoot(document.getElementById('root')!).render(<main style={{maxWidth:520,padding:16,margin:'auto'}}><h1 style={{fontSize:14}}>Local-only rider lifecycle</h1><BikeRiderWorkspace request={request} readPosition={readPosition}/></main>);
+Object.assign(window,{bikeRiderFixture:{commands,records,get availability(){return availability;},reads,control}});
+createRoot(document.getElementById('root')!).render(<main style={{maxWidth:520,padding:16,margin:'auto'}}><h1 style={{fontSize:14}}>Local-only rider lifecycle</h1><BikeRiderWorkspace request={request} readPosition={params.has('nativeGps')?currentPosition:readPosition}/></main>);

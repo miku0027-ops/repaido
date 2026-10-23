@@ -90,6 +90,8 @@ class Booking(Input):
 
 
 class Availability(Input):
+    expected_version: int | None = Field(default=None, ge=0)
+    heartbeat: bool = False
     vehicle_id: str = Field(min_length=1, max_length=100)
     online: bool
     position: Position | None = None
@@ -274,7 +276,7 @@ def _provider_route(origin, destination):
 
 def fresh_position(position, now=None):
     now = time.time() if now is None else now
-    if not position or not all(math.isfinite(position.get(k, float('nan'))) for k in ('lat', 'lng', 'accuracy', 'captured_at')) or not -90 <= position['lat'] <= 90 or not -180 <= position['lng'] <= 180 or not 0 < position['accuracy'] <= 100 or abs(now-position['captured_at']) > 120:
+    if not position or not all(math.isfinite(position.get(k, float('nan'))) for k in ('lat', 'lng', 'accuracy', 'captured_at')) or not -90 <= position['lat'] <= 90 or not -180 <= position['lng'] <= 180 or not 0 < position['accuracy'] <= 100 or now-position['captured_at'] > 120 or position['captured_at']-now > 30:
         fail('PRECISE_LOCATION_REQUIRED', 'Send a fresh GPS reading with accuracy within 100 metres.', 422)
     return {**position, 'received_at': now}
 
@@ -694,12 +696,11 @@ def install(core):
         vehicles = {v['id']: v for v in u.find('mobility_vehicles', 'owner_id', uid)+u.find('mobility_vehicles', 'driver_id', uid)}
         vehicles = [v for v in vehicles.values() if v.get('vehicle_kind') == 'bike' and (v.get('driver_id') or v['owner_id']) == uid]
         presences = [u.get('bike_rider_presence', v['id']) for v in vehicles]
-        presence = max((p for p in presences if p), key=lambda p: p.get('updated_at', 0), default=None)
-        from bike_dispatch import engine_health
-        health = engine_health(u)
+        versions = {p['vehicle_id']: p['version'] for p in presences if p and p.get('driver_id') == uid}
+        presence = max((p for p in presences if p and p.get('driver_id') == uid), key=lambda p: p.get('updated_at', 0), default=None)
         runtime = public_policy(policy(u), u)
         from bike_earnings import compensated_driver
-        return {'dispatch_ready': health['ready'], 'service_ready': runtime['bookings_available'], 'availability_reason': None if runtime['bookings_available'] else 'Bike requests are currently paused.', 'vehicles': [{k: v.get(k) for k in ('id', 'name', 'status', 'active', 'vehicle_kind', 'valid_until')} for v in vehicles],
+        return {'dispatch_ready': runtime['dispatch_ready'], 'service_ready': runtime['bookings_available'], 'availability_reason': None if runtime['bookings_available'] else 'Bike requests are currently paused.', 'vehicles': [{**{k: v.get(k) for k in ('id', 'name', 'status', 'active', 'vehicle_kind', 'valid_until')}, 'presence_version': versions.get(v['id'], 0)} for v in vehicles],
                 'availability': presence, 'rider_approved': bool(compensated_driver(u, uid)), 'server_time': time.time()}
 
     @r.get('/driver/availability')
@@ -727,8 +728,16 @@ def install(core):
                 if body.online and active and active['state'] not in CLOSED and active['vehicle_id'] != v['id']:
                     fail('CURRENT_RIDE_ACTIVE', 'Finish or cancel existing bike reservations before switching vehicles.', 409)
             old = u.get('bike_rider_presence', v['id']) or {'version': 0}
+            same_operator = old.get('driver_id') == operator
+            # Fence delayed heartbeats and other browser tabs after an explicit
+            # offline action. Once upgraded, legacy unversioned writes must reload.
+            if body.heartbeat and (not body.online or not same_operator or not old.get('online')):
+                fail('AVAILABILITY_CHANGED', 'Your online session ended. Go online again to accept requests.', 409)
+            expected = old['version'] if same_operator else 0
+            if (body.expected_version is not None or same_operator and old.get('version_required')) and body.expected_version != expected:
+                fail('AVAILABILITY_CHANGED', 'Availability changed on another request. Refresh before changing your status.', 409)
             pos = fresh_position(body.position.model_dump() if body.position else None) if body.online else old.get('position')
-            if body.online and old.get('position') and pos['captured_at'] <= old['position']['captured_at']:
+            if body.online and same_operator and old.get('position') and pos['captured_at'] <= old['position']['captured_at']:
                 fail('STALE_POSITION', 'A newer rider location has already arrived.', 409)
             # One rider cannot advertise multiple bikes at the same time.
             for other in u.find('bike_rider_presence', 'driver_id', operator):
@@ -737,7 +746,7 @@ def install(core):
                     u.put('bike_rider_presence', other['vehicle_id'], other)
                     index_availability(u, other['vehicle_id'], other.get('position'), False, time.time(), time.time(), driver_id=operator, version=other['version'])
             value = dict(vehicle_id=v['id'], driver_id=operator, online=body.online, position=pos,
-                         version=old['version']+1, updated_at=time.time())
+                         version=old['version']+1, version_required=body.expected_version is not None or bool(same_operator and old.get('version_required')), updated_at=time.time())
             u.put('bike_rider_presence', v['id'], value)
             _refresh_index(u, v['id'])
             return availability_view(u, user['id'])

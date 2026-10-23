@@ -14,8 +14,8 @@ import {MotionPage} from './MotionPage';
 import {RideNotificationControl} from './RideNotificationControl';
 
 export interface BikeRiderPosition {lat:number;lng:number;accuracy:number;captured_at:number;received_at?:number}
-export interface BikeRiderVehicle {id:string;name:string;status:string;active:boolean;vehicle_kind:string;valid_until?:number}
-export interface BikeDriverAvailability {vehicle_id:string;online:boolean;position?:BikeRiderPosition;updated_at:number}
+export interface BikeRiderVehicle {id:string;name:string;status:string;active:boolean;vehicle_kind:string;valid_until?:number;presence_version?:number}
+export interface BikeDriverAvailability {vehicle_id:string;online:boolean;version?:number;position?:BikeRiderPosition;updated_at:number}
 export interface BikeRiderRide {
  early_dropoff?:{requested_at:number};id:string;state:string;version:number;vehicle_name?:string;passenger_name?:string;passenger_phone?:string;
  pickup?:{lat:number;lng:number};dropoff?:{lat:number;lng:number};pickup_address?:string;dropoff_address?:string;
@@ -97,14 +97,18 @@ export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehic
  const sections=bikeRiderSections(rides),presenceOnline=riderIsOnline(data.availability,now),serviceReady=data.dispatch_ready&&data.service_ready,[history,setHistory]=useState(()=>new URLSearchParams(location.search).get('ride-history')==='1');
  const offer=sections.offers.find((ride:BikeRiderRide)=>(ride.expires_at||0)>now),focusRide=offer||sections.current[0]||sections.next[0];
  const showRide=!!focusRide&&(!!offer||minimized!==focusRide.id);
- const approved=data.vehicles.filter(vehicle=>vehicle.vehicle_kind==='bike'&&vehicle.status==='approved'&&vehicle.active&&(!vehicle.valid_until||vehicle.valid_until>now));
+ const approved=data.vehicles.filter(vehicle=>vehicle.vehicle_kind==='bike'&&vehicle.status==='approved'&&vehicle.active&&(!vehicle.valid_until||vehicle.valid_until>now+1800));
  const riderApproved=data.rider_approved??(payroll?!!(payroll.rostered&&payroll.approved):undefined),canWork=riderApproved===true;
  const setupNeeded=!approved.length||!canWork,online=presenceOnline&&serviceReady&&!setupNeeded;
+ const bikeSetupReason=!data.vehicles.length?(vehicleRole==='driver'?'Accept your bike assignment in Vehicles.':'Add a bike and its documents in Fleet.'):
+  !data.vehicles.some(v=>v.status==='approved')?'Your bike is waiting for document approval.':
+  !data.vehicles.some(v=>v.status==='approved'&&v.active)?'Your approved bike is inactive. Ask the owner to activate it.':'Bike documents must remain valid for at least 30 more minutes. Ask the owner to renew them.';
+ const dutyReason=!approved.length?bikeSetupReason:!canWork?(riderApproved===false?'Your rider earning plan needs company approval.':'Refresh to check rider approval.'):!serviceReady?'Bike requests are currently paused.':'Works on laptop and phone. Allow precise browser location and keep this screen open while on duty.';
  const selected=data.availability?.vehicle_id||approved[0]?.id||'';
  const [financeOpen,setFinanceOpen]=useState(false);
  const staleSession=data.availability?.online&&!presenceOnline;
  const setup=setupNeeded&&<section className="bike-rider-setup" aria-label="Bike rider setup"><header><ShieldCheck size={21} aria-hidden="true"/><h4>Get ready to ride</h4></header>
-  {!approved.length&&<div className="bike-rider-setup-step"><span className="bike-rider-setup-icon"><TwoWheeler size={21} aria-hidden="true"/></span><div><h4>{data.vehicles.length?'Bike setup needs attention':vehicleRole==='driver'?'Connect a bike':'Add your bike'}</h4><p>{vehicleRole==='driver'?(data.vehicles.length?'Ask the owner to check bike documents, review and availability.':'Ask your owner to assign a bike, then accept the invitation in Vehicles.'):(data.vehicles.length?'Check document review, expiry and active status in Fleet.':'Add a bike and its documents in Fleet for company review.')}</p></div>{onManageVehicles&&<button type="button" onClick={onManageVehicles}>{vehicleRole==='driver'?'Vehicle invitations':'Open fleet'}<ArrowRight size={17} aria-hidden="true"/></button>}</div>}
+  {!approved.length&&<div className="bike-rider-setup-step"><span className="bike-rider-setup-icon"><TwoWheeler size={21} aria-hidden="true"/></span><div><h4>{data.vehicles.length?'Bike setup needs attention':vehicleRole==='driver'?'Connect a bike':'Add your bike'}</h4><p>{bikeSetupReason}</p></div>{onManageVehicles&&<button type="button" onClick={onManageVehicles}>{vehicleRole==='driver'?'Vehicle invitations':'Open fleet'}<ArrowRight size={17} aria-hidden="true"/></button>}</div>}
   {!canWork&&<div className="bike-rider-setup-step"><span className="bike-rider-setup-icon"><ShieldCheck size={21} aria-hidden="true"/></span><div><h4>{riderApproved===false?'Rider approval needed':'Check rider approval'}</h4><p>{riderApproved===false?'Your earning plan needs company approval before you can take requests.':'Rider status is unavailable. Refresh before going online.'}</p></div><button type="button" disabled={busy} onClick={riderApproved===false?()=>setFinanceOpen(true):onRefresh}>{riderApproved===false?'Earning plan':'Refresh status'}<ArrowRight size={17} aria-hidden="true"/></button></div>}
  </section>;
  const finances=<div className="bike-rider-workspace bike-rider-finance">
@@ -115,7 +119,7 @@ export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehic
   {cashPanel}
  </div>;
  return <>{focusRide&&!showRide&&<ResumeRide kind="bike" status={labels[focusRide.state]||'Ride update'} onOpen={()=>setMinimized('')}/>}<section hidden={background} data-duty={setupNeeded?'setup':online?'online':'offline'} className="bike-rider-workspace" aria-label="Bike rider workspace" aria-busy={busy}>
-  <header className="bike-rider-control"><div className="bike-rider-title"><span className="bike-rider-emblem"><TwoWheeler size={23} aria-hidden="true"/></span><div><h3>Bike rides</h3><span className={`bike-rider-presence${online?' is-online':''}`}><i aria-hidden="true"/>{sections.current.some((ride:BikeRiderRide)=>ride.state==='in_progress')?'On your trip':setupNeeded?'Setup needed':!serviceReady?'Requests paused':online?'Ready for requests':'Offline'}</span></div></div><div className="bike-rider-control-actions"><button type="button" className={`bike-rider-online-toggle${online?' is-online':''}`} role="switch" aria-label="Available for bike rides" aria-checked={online} disabled={busy||(!presenceOnline&&(!approved.length||!canWork||!serviceReady))} onClick={()=>onOnline(!presenceOnline)}><span aria-hidden="true"/>{presenceOnline?'Go offline':'Go online'}</button><button type="button" className="bike-rider-icon-button" aria-label="Refresh bike rides" disabled={busy} onClick={onRefresh}><RefreshCw size={20} aria-hidden="true"/></button></div></header>
+  <header className="bike-rider-control"><div className="bike-rider-title"><span className="bike-rider-emblem"><TwoWheeler size={23} aria-hidden="true"/></span><div><h3>Bike rides</h3><span className={`bike-rider-presence${online?' is-online':''}`}><i aria-hidden="true"/>{sections.current.some((ride:BikeRiderRide)=>ride.state==='in_progress')?'On your trip':setupNeeded?'Setup needed':!serviceReady?'Requests paused':online?'Ready for requests':'Offline'}</span></div></div><div className="bike-rider-control-actions"><button type="button" className={`bike-rider-online-toggle${online?' is-online':''}`} role="switch" aria-label="Available for bike rides" aria-description={dutyReason} aria-checked={online} disabled={busy||(!presenceOnline&&(!approved.length||!canWork||!serviceReady))} onClick={()=>onOnline(!presenceOnline)}><span aria-hidden="true"/>{presenceOnline?'Go offline':'Go online'}</button><button type="button" className="bike-rider-icon-button" aria-label="Refresh bike rides" disabled={busy} onClick={onRefresh}><RefreshCw size={20} aria-hidden="true"/></button></div></header>
   <button type="button" className="bike-rider-earnings-strip" onClick={()=>setFinanceOpen(true)}><Wallet size={19} aria-hidden="true"/><span>{payroll?.company_cash?'Company cash held':'Earnings & company cash'}</span>{payroll?.company_cash&&<strong>{money(payroll.company_cash.outstanding_held_paise)}</strong>}<ChevronDown size={18} aria-hidden="true"/></button>
   {!background&&!focusRide&&approved.length>0&&<div className="bike-rider-duty-map"><JourneyMap position={presenceOnline?data.availability?.position:null} mapLabel="Rider duty map" positionLabel="Your latest duty location"/><span className="bike-rider-map-state">{!serviceReady?'Requests paused':online?'On duty · waiting for requests':'Off duty · plan your next trip'}</span></div>}
   <div className="bike-rider-shift-panel">
@@ -125,7 +129,7 @@ export function BikeRiderDashboard({data,rides,vehicleRole='owner',onManageVehic
     {approved.length>0&&<div className="bike-rider-location"><LocateFixed size={20} aria-hidden="true"/><span>{sharing?'GPS updates while this screen is open':'Share precise GPS for pickup and arrival'}</span><button type="button" disabled={busy} onClick={onLocation}>{sharing?'Update GPS':'Share GPS'}</button></div>}
     {alertControl}
     <RideNotificationControl/>
-    <p className="bike-rider-driving-note">Set up before moving. Stop safely to use ride controls.</p>
+    <p className="bike-rider-driving-note">Laptop and phone supported. Allow precise browser location and keep this screen open. Set up before moving. Stop safely to use ride controls.</p>
    </div></details>
   </div>
   {!serviceReady&&<p className="bike-rider-info" role="status">{data.availability_reason||'Bike requests are currently paused.'}</p>}
@@ -177,7 +181,7 @@ export function BikeRiderWorkspace({request=operation,readPosition=currentPositi
  const gpsSession=useRef(createBikeLocationSession(navigator.geolocation)),lastSent=useRef(0),lastLocationSuccess=useRef(Date.now()),refreshBusy=useRef(false),readFailures=useRef(0);
  const historyStarted=useRef(false),historyBusy=useRef(false),olderActiveOffset=useRef(0),resumeChecked=useRef(false);
  const audio=useRef<AudioContext|null>(null),playedStops=useRef(new Set<string>());
- const mounted=useRef(true),generation=useRef(0),dataRef=useRef(data),ridesRef=useRef(rides),positionBusy=useRef(false),actionBusy=useRef(false),offset=useRef(0),commands=useRef(new Map<string,object>());
+ const mounted=useRef(true),generation=useRef(0),presenceIntent=useRef(0),presenceMutation=useRef(false),dataRef=useRef(data),ridesRef=useRef(rides),positionBusy=useRef(false),actionBusy=useRef(false),offset=useRef(0),commands=useRef(new Map<string,object>());
  dataRef.current=data;ridesRef.current=rides;
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;generation.current++;};},[]);
  useEffect(()=>()=>{void audio.current?.close().catch(()=>{});},[]);
@@ -200,8 +204,13 @@ export function BikeRiderWorkspace({request=operation,readPosition=currentPositi
   const pending=request<BikeDriverPayroll>('/bike-rides/driver/payroll',{}, {background:true,feedback:false}).then(value=>({value,error:''})).catch(cause=>({value:null,error:(cause as Error).message}));cache.pending=pending;
   void pending.then(result=>{if(cache.pending===pending){cache.result=result;cache.at=Date.now();cache.pending=undefined;}});return pending;
  },[request]);
+ const applyAvailability=useCallback((availability:AvailabilityResponse)=>{
+  const previous=dataRef.current?.availability,next=availability.availability;
+  if(previous&&next&&previous.vehicle_id===next.vehicle_id&&(previous.version||0)>(next.version||0))return;
+  dataRef.current=availability;setData(availability);offset.current=availability.server_time-Date.now()/1000;setNow(availability.server_time);
+ },[]);
  const refresh=useCallback(async(forcePayroll=false)=>{
-  if(refreshBusy.current)return true;refreshBusy.current=true;
+  if(refreshBusy.current||presenceMutation.current)return true;refreshBusy.current=true;
   const requestNumber=++generation.current;
   try{
    const [availability,records,salary]=await Promise.all([request<AvailabilityResponse>('/bike-rides/driver/availability',{}, {background:true,feedback:false}),request<BikeRiderRecords>('/bike-rides/driver/rides',{}, {background:true,feedback:false}),readPayroll(forcePayroll)]);
@@ -216,13 +225,13 @@ export function BikeRiderWorkspace({request=operation,readPosition=currentPositi
    if(!mounted.current||requestNumber!==generation.current)return;
    const updated=[...records.rides,...older.flatMap(result=>result.status==='fulfilled'?[result.value]:[])];
    if(older.length)setHistoryError(older.some(result=>result.status==='rejected')?'Some earlier records could not refresh. Use Refresh to retry.':'');
-   offset.current=availability.server_time-Date.now()/1000;setNow(availability.server_time);setData(availability);
+   applyAvailability(availability);
    setRides(previous=>mergeRiderRides(previous,updated));
    if(!historyStarted.current)setHistoryCursor(records.next_cursor||null);
    setPayroll(salary.value);setPayrollError(salary.error);setSalaryConfirm(current=>{if(!current||!salary.value)return null;const latest=salary.value.obligations.find(record=>record.id===current.id);return latest?.status==='transfer_reported'?latest:null;});setVehicle(previous=>previous||availability.availability?.vehicle_id||availability.vehicles.find(v=>v.status==='approved'&&v.active&&v.vehicle_kind==='bike')?.id||'');setConfirm(current=>{if(!current)return null;const previous=ridesRef.current.find(row=>row.id===current.ride.id),incoming=updated.find(row=>row.id===current.ride.id),ride=incoming?newerRide(previous,incoming):previous;return ride&&bikeAllowedActions(ride).includes(current.action)?{...current,ride}:null;});setError('');readFailures.current=0;return true;
   }catch(cause){readFailures.current++;if(mounted.current&&requestNumber===generation.current&&(!dataRef.current||readFailures.current>=3))setError('Connection interrupted. Your current ride is kept here while updates reconnect.');return false;}
   finally{refreshBusy.current=false;if(mounted.current&&requestNumber===generation.current)setLoading(false);}
- },[request,readPayroll]);
+ },[request,readPayroll,applyAvailability]);
  useEffect(()=>{let stopped=false,timer:ReturnType<typeof setTimeout>,failures=0;const poll=async()=>{if(stopped)return;if(!document.hidden&&navigator.onLine){const okay=await refresh();failures=okay?0:failures+1;}if(!stopped)timer=setTimeout(()=>void poll(),pollDelay(10000,failures));};void poll();const tick=setInterval(()=>setNow(Date.now()/1000+offset.current),1000);const focus=()=>{if(!document.hidden&&navigator.onLine)void refresh(true);};document.addEventListener('visibilitychange',focus);window.addEventListener('online',focus);return()=>{stopped=true;clearTimeout(timer);clearInterval(tick);document.removeEventListener('visibilitychange',focus);window.removeEventListener('online',focus);};},[refresh]);
  const moreHistory=async()=>{
   if(!historyCursor||historyBusy.current)return;historyBusy.current=true;setHistoryLoading(true);setHistoryError('');
@@ -239,19 +248,21 @@ export function BikeRiderWorkspace({request=operation,readPosition=currentPositi
  const sharePosition=useCallback(async()=>{
   if(positionBusy.current||actionBusy.current||document.hidden||!navigator.onLine)return;
   positionBusy.current=true;
+  const intent=presenceIntent.current;
   try{
    const position=await readGps(),availability=dataRef.current?.availability;
-   if(!mounted.current||document.hidden||position.captured_at<=lastSent.current)return;
+   if(!mounted.current||intent!==presenceIntent.current||actionBusy.current||document.hidden||position.captured_at<=lastSent.current)return;
    const currentRides=ridesRef.current.filter(r=>['on_the_way','arrived','in_progress'].includes(r.state)&&!r.queued);
    // Active trip telemetry also renews the rider's existing presence. Renewing
    // availability with the same measurement would be rejected as a stale fix.
    for(const ride of currentRides){const updated=await request<BikeRiderRide>(`/bike-rides/bookings/${encodeURIComponent(ride.id)}/position`,{method:'POST',body:JSON.stringify(position)},{background:true,feedback:false});if(mounted.current)setRides(rows=>mergeRiderRides(rows,[updated]));}
-   if(!currentRides.length&&availability?.online&&dataRef.current?.service_ready){const updated=await request<AvailabilityResponse>('/bike-rides/driver/availability',{method:'PUT',body:JSON.stringify({vehicle_id:availability.vehicle_id,online:true,position})},{background:true,feedback:false});if(mounted.current){setData(updated);offset.current=updated.server_time-Date.now()/1000;}}
+   if(!currentRides.length&&availability?.online&&dataRef.current?.service_ready){const updated=await request<AvailabilityResponse>('/bike-rides/driver/availability',{method:'PUT',body:JSON.stringify({vehicle_id:availability.vehicle_id,online:true,heartbeat:true,position,expected_version:availability.version??0})},{background:true,feedback:false});if(mounted.current&&intent===presenceIntent.current){generation.current++;applyAvailability(updated);}}
+   if(intent!==presenceIntent.current)return;
    lastSent.current=position.captured_at;lastLocationSuccess.current=Date.now();
    if(mounted.current)setLocationError('');
-  }catch(cause){if(mounted.current){const failed=cause as Error&{status?:number;code?:string};if(['STALE_POSITION','POSITION_RATE_LIMIT'].includes(failed.code||''))return;const permanent=[401,403].includes(failed.status||0)||/permission.*(denied|off)|not supported|secure connection/i.test(failed.message);if(permanent||Date.now()-lastLocationSuccess.current>45000)setLocationError(permanent?failed.message:'Live location is paused. Keep this screen open with precise GPS and a connection.');if(permanent)setSharing(false);}}
+  }catch(cause){if(mounted.current&&intent===presenceIntent.current){const failed=cause as Error&{status?:number;code?:string};if(failed.code==='AVAILABILITY_CHANGED'){await refresh();return;}if(['STALE_POSITION','POSITION_RATE_LIMIT'].includes(failed.code||''))return;const permanent=[401,403].includes(failed.status||0)||/permission.*(denied|off)|not supported|secure connection/i.test(failed.message);if(permanent||Date.now()-lastLocationSuccess.current>45000)setLocationError(permanent?failed.message:'Live location is paused. Keep this screen open with precise GPS and a connection.');if(permanent)setSharing(false);}}
   finally{positionBusy.current=false;}
- },[readGps,request]);
+ },[readGps,request,applyAvailability,refresh]);
  useEffect(()=>{if(!sharing)return;const timer=setInterval(()=>void sharePosition(),10000);const visible=()=>{if(!document.hidden)void sharePosition();};document.addEventListener('visibilitychange',visible);window.addEventListener('online',visible);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',visible);};},[sharing,sharePosition]);
  useEffect(()=>{
   if(sharing&&data&&!data.availability?.online&&!rides.some(ride=>['accepted','on_the_way','arrived','in_progress'].includes(ride.state)&&!ride.queued))setSharing(false);
@@ -270,10 +281,33 @@ export function BikeRiderWorkspace({request=operation,readPosition=currentPositi
   return()=>{cancelled=true;};
  },[data!==null,sharePosition]);
  const setOnline=async(online:boolean)=>{
-  if(actionBusy.current)return;actionBusy.current=true;setBusy(true);setError('');
-  try{const position=online?await readGps(true):undefined;if(!mounted.current||online&&document.hidden)return;await request('/bike-rides/driver/availability',{method:'PUT',body:JSON.stringify({vehicle_id:data?.availability?.online?data.availability.vehicle_id:vehicle,online,position})},{feedback:false});if(position){lastSent.current=position.captured_at;lastLocationSuccess.current=Date.now();}setSharing(online||ridesRef.current.some(ride=>['accepted','on_the_way','arrived','in_progress'].includes(ride.state)&&!ride.queued));setLocationError('');await refresh();}
-  catch(cause){setError((cause as Error).message);}
-  finally{actionBusy.current=false;if(mounted.current)setBusy(false);}
+  if(actionBusy.current)return;actionBusy.current=true;presenceMutation.current=true;presenceIntent.current++;generation.current++;setBusy(true);setError('');
+  let failure='';
+  try{
+   const position=online?await readGps(true):undefined;
+   if(!mounted.current||online&&document.hidden)return;
+   const vehicleId=dataRef.current?.availability?.online?dataRef.current.availability.vehicle_id:vehicle;
+   for(let attempt=0;attempt<3;attempt++){
+    const previous=dataRef.current?.availability;
+    try{
+     const updated=await request<AvailabilityResponse>('/bike-rides/driver/availability',{method:'PUT',body:JSON.stringify({vehicle_id:vehicleId,online,position,expected_version:previous?.vehicle_id===vehicleId?previous.version??0:dataRef.current?.vehicles.find(item=>item.id===vehicleId)?.presence_version??0})},{feedback:false});
+     if(!mounted.current)return;
+     generation.current++;applyAvailability(updated);
+     if(position){lastSent.current=position.captured_at;lastLocationSuccess.current=Date.now();}
+     setSharing(!!updated.availability?.online||ridesRef.current.some(ride=>['accepted','on_the_way','arrived','in_progress'].includes(ride.state)&&!ride.queued));setLocationError('');break;
+    }catch(cause){
+     // An in-flight trip update may have advanced presence. Retry only the
+     // explicit offline intent; never auto-resurrect an online session.
+     if(online||(cause as {code?:string}).code!=='AVAILABILITY_CHANGED'||attempt===2)throw cause;
+     const latest=await request<AvailabilityResponse>('/bike-rides/driver/availability',{}, {background:true,feedback:false,force:true});
+     if(!mounted.current)return;applyAvailability(latest);
+    }
+   }
+  }catch(cause){failure=(cause as Error).message;}
+  finally{
+   actionBusy.current=false;presenceMutation.current=false;
+   if(mounted.current){setBusy(false);await refresh();if(failure)setError(failure);}
+  }
  };
  const run=async(ride:BikeRiderRide,action:BikeAction,input:{note:string;otp:string}={note:'',otp:''})=>{
   if(actionBusy.current)return;actionBusy.current=true;setBusy(true);setError('');

@@ -20,3 +20,29 @@
 [data-theme=dark] .google-journey-map>.bike-map-loading{background:#273221;color:#e0ecd2}[data-theme=dark] .bike-map-loading>small{color:#c1d1b3}
 @media(prefers-reduced-motion:reduce){.ride-map-loading-pin{animation:none}}
 .reduce-motion .ride-map-loading-pin{animation:none}
+
+/* Pin tip is at (0, 0); only the head animates, never the chosen coordinate. */
+.go-map-pin{position:absolute;width:0;height:0;pointer-events:none;z-index:20;color:#ffc400}
+.go-map-pin--dropoff{color:#59d9c1}
+.go-map-pin-head{position:absolute;left:-28px;top:-72px;width:56px;height:76px;filter:drop-shadow(0 5px 4px #17202240);animation:go-pin-drop .55s cubic-bezier(.2,.8,.3,1) both}
+.go-map-pin-foot{position:absolute;left:-4px;top:-3px;width:8px;height:6px;border-radius:50%;background:#202124;box-shadow:0 0 0 3px #fff}
+.go-map-pin-ring{position:absolute;left:-18px;top:-7px;width:36px;height:14px;border:2px solid currentColor;border-radius:50%;background:#fff7;animation:go-pin-pulse 1.6s ease-out 3}
+.google-journey-map .go-map-centre{position:absolute;bottom:28px;left:10px;display:flex;align-items:center;gap:6px;min-height:44px;padding:8px 12px;border:1px solid #dadddf;border-radius:14px;background:#fff;color:#202124;box-shadow:0 3px 12px #20212426;font-size:.75rem;font-weight:650;cursor:pointer}
+@keyframes go-pin-drop{0%{opacity:0;transform:translateY(-28px)}65%{opacity:1;transform:translateY(3px)}100%{transform:translateY(0)}}
+@keyframes go-pin-pulse{0%{opacity:.85;transform:scale(.6)}100%{opacity:0;transform:scale(2.2)}}
+@media(prefers-reduced-motion:reduce){.go-map-pin-head,.go-map-pin-ring{animation:none}}
+:is(.reduce-motion,[data-reduced-motion=true]) :is(.go-map-pin-head,.go-map-pin-ring){animation:none}
+
+.google-journey-map .go-map-locate{position:absolute;right:12px;bottom:92px;z-index:2;display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;border:1px solid #dadce0;border-radius:50%;background:#fff;color:#3c4043;box-shadow:0 2px 6px #20212438;cursor:pointer;transition:background .15s,transform .15s}
+.google-journey-map .go-map-locate:hover{background:#f1f6ff;color:#1a73e8}
+.google-journey-map .go-map-locate:active{transform:scale(.95)}
+.google-journey-map .go-map-locate:focus-visible{outline:3px solid #1a73e8;outline-offset:3px}
+.google-journey-map .go-map-locate[aria-busy=true]{color:#1a73e8;opacity:.65;cursor:wait}
+.go-map-location-status{position:absolute;left:10px;right:64px;bottom:36px;z-index:2;padding:8px 10px;border:1px solid #dadce0;border-radius:12px;background:#fff;color:#3c4043;font-size:.75rem;line-height:1.4;box-shadow:0 2px 8px #20212426}
+@media(prefers-reduced-motion:reduce){.google-journey-map .go-map-locate{transition:none}}
+/* Shared feedback for the ride map and stop picker. */
+.google-journey-map .go-map-locate[aria-busy=true]>svg{animation:go-locate-wait 1.2s ease-in-out infinite}
+@keyframes go-locate-wait{50%{opacity:.4;transform:scale(.88)}}
+@media(prefers-reduced-motion:reduce){.google-journey-map .go-map-locate[aria-busy=true]>svg{animation:none}}
+:is(.reduce-motion,[data-reduced-motion=true]) .google-journey-map .go-map-locate{transition:none}
+:is(.reduce-motion,[data-reduced-motion=true]) .google-journey-map .go-map-locate[aria-busy=true]>svg{animation:none}

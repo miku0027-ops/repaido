@@ -19,3 +19,29 @@
 @media(max-width:360px){.go-booking-dates{grid-template-columns:1fr;gap:10px}}
 @media(prefers-reduced-motion:reduce){.go-map-searching>span{animation:none}.go-vehicle-option{transition:none}}
 :is(.reduce-motion,[data-reduced-motion=true]) .go-map-searching>span{animation:none}
+.go-nearby-status{display:flex;align-items:center;gap:10px;margin:8px 16px;color:var(--go-muted);font-size:.75rem;line-height:1.4}
+.go-nearby-status>span{flex:1;min-width:0}
+.go-nearby-status[data-live=true]>span::before{content:'';display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#128267;box-shadow:0 0 0 3px #12826715}
+.go-nearby-status>button{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:1px solid #dadddf;border-radius:50%;background:#fff;color:#202124;cursor:pointer}
+.go-nearby-status>button:disabled{opacity:.45;cursor:default}
+.go-nearby-status>button:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}
+
+/* Cab composer: golden shell, white route cards and a charcoal action. */
+#root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .bike-route-sheet.go-cab-route-sheet{
+ --go-ink:#25200f;--go-muted:#594516;--go-surface:#fff;--go-surface-variant:#fff8e6;--go-line:#c99b32;--go-focus:#202124;
+ background:linear-gradient(145deg,#ffc400 0%,#f3b300 48%,#ffda64 100%);color:#25200f;border-top:1px solid #e6a900;box-shadow:0 -7px 24px #6d4a001c,inset 0 1px #fff7;
+}
+.repaido-go .go-cab-route-sheet:before{background:#6b500d66}
+.repaido-go .go-cab-route-sheet .go-slot-tag{padding:7px 10px;border:1px solid #fff9;border-radius:24px;background:#fff8;color:#49370d}
+#root .repaido-go .go-cab-route-sheet .bike-route-fields{padding:6px;background:#fff5;border-color:#ffebac;box-shadow:0 4px 14px #78530012}
+#root .repaido-go .go-cab-route-sheet .bike-location{box-shadow:0 1px 3px #6b500d0a}
+#root .repaido-go .go-cab-route-sheet .bike-location small{color:#625c4e}
+#root .repaido-go .go-cab-route-sheet .bike-route-swap{background:#25200f;color:#fff;border-color:#25200f!important}
+.repaido-go .go-cab-route-sheet .go-nearby-status{padding:0 8px 0 12px;border:1px solid #fff8;border-radius:14px;background:#fff6;color:#49370d}
+.repaido-go .go-cab-route-sheet .go-nearby-status>button{background:transparent;border-color:transparent;color:#49370d}
+.repaido-go .go-cab-route-sheet .ride-slide{--slide-track:#202124;--slide-ink:#fff;--slide-thumb:#fff;--slide-thumb-ink:#202124}
+.repaido-go .go-cab-route-sheet .ride-slide-fill{background:#393a3c}
+.repaido-go .go-cab-route-sheet .ride-slide[data-state=blocked] button.ride-slide-control{background:#fff5d6!important;color:#645124!important;border-color:#b58a25!important;opacity:1}
+.repaido-go .go-cab-route-sheet .ride-slide[data-state=blocked] .ride-slide-knob{background:#efd18a;color:#645124}
+.repaido-go .go-cab-route-sheet .ride-slide-validation{color:#594516}
+.repaido-go .go-cab-route-sheet :is(button,input,select):focus-visible{outline-color:#202124}

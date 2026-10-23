@@ -20,3 +20,22 @@ test('permission denial prevents automatic repeated permission requests',async()
  const session=createBikeLocationSession({watchPosition(_,fn){error=fn;return 1;},clearWatch(){},getCurrentPosition(){reads++;}},()=>100);
  session.start();error({code:1});await assert.rejects(session.read(),/permission is off/);assert.equal(reads,0);session.stop();
 });
+test('stopped watches and pending callbacks cannot leak into the next shift',async()=>{
+ const watches=[],lookups=[];
+ const session=createBikeLocationSession({watchPosition(fn){watches.push(fn);return watches.length;},clearWatch(){},getCurrentPosition(fn){lookups.push(fn);}},()=>105);
+ session.start();const old=session.read();const cancelled=assert.rejects(old,/session ended/);
+ session.stop();await cancelled;session.start();
+ watches[0](point(104));lookups[0](point(104));
+ const fresh=session.read();assert.equal(lookups.length,2);
+ lookups[1](point(105));assert.equal((await fresh).captured_at,105);
+ session.stop();
+});
+test('a cancelled lookup cannot clear a newer pending lookup',async()=>{
+ const lookups=[];
+ const session=createBikeLocationSession({getCurrentPosition(fn){lookups.push(fn);}},()=>105);
+ const old=session.read();const cancelled=assert.rejects(old,/session ended/);
+ session.stop();const fresh=session.read();await cancelled;
+ const shared=session.read();assert.equal(lookups.length,2);
+ lookups[0](point(104));lookups[1](point(105));
+ assert.deepEqual(await fresh,await shared);
+});

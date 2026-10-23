@@ -74,7 +74,7 @@ async function performOperation<T>(path:string, init:RequestInit, options:{backg
     if (!response.ok) {
       if(response.status===401)operationCache.invalidate();
       else if([402,403,404].includes(response.status))operationCache.invalidate(scope+':'+path);
-      throw Object.assign(new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':response.status>=500?'Repaido could not load this data. Please retry shortly.':'Unable to connect. Check your connection and retry.')),{status:response.status});
+      throw Object.assign(new Error(body.detail?.message || (Array.isArray(body.detail)?body.detail.map((d:{loc?:string[];msg?:string})=>`${d.loc?.slice(1).join(' ')}: ${d.msg}`).join('. '):null) || (typeof body.detail==='string'?body.detail:null) || (response.status===401?'Your sign-in expired. Sign in again.':response.status>=500?'Repaido could not load this data. Please retry shortly.':'Unable to connect. Check your connection and retry.')),{status:response.status,code:typeof body.detail?.code==='string'?body.detail.code:undefined});
     }
     return body as T;
   };
