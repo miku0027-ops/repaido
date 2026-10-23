@@ -199,12 +199,12 @@ export default function Discovery({
           <button className="uc-compact-action" aria-label={`Choose service city: ${city}`} title={city} onClick={()=>setCityOpen(true)}><MapPin size={20}/></button>
           <button className="uc-compact-action" aria-label="Filters and sort" aria-description={activeFilters?`${activeFilters} active filters`:undefined} aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(true)}><Tune size={20} aria-hidden="true"/>{activeFilters>0&&<span className="catalogue-filter-count" aria-hidden="true">{activeFilters}</span>}</button>
         </div>
-
-
+        <div className="page-width catalogue-search-controls">
+          <ServiceStories compact sort={sort} onSort={setSort} services={services} selected={category} onSelect={c=>{setCategory(c);setLeadersExpanded(false);}} title="Find your service"/>
+        </div>
       </header>
 
       <section id="main-content" aria-label="Service catalogue" className="page-width uc-discovery-main catalog-discovery pb-56">
-        <ServiceStories compact sort={sort} onSort={setSort} services={services} selected={category} onSelect={c=>{setCategory(c);setLeadersExpanded(false);}} title="Find your service"/>
         {(maxPrice||roleFilter!=='all'||(nearbyAvailable&&radiusKm!=='6'))&&<div className="catalogue-active-filters" aria-label="Applied service filters">
           {maxPrice&&<button type="button" aria-label="Remove maximum budget" onClick={()=>setMaxPrice('')}>Up to ₹{Number(maxPrice).toLocaleString('en-IN')}<X size={14} aria-hidden="true"/></button>}
           {roleFilter!=='all'&&<button type="button" aria-label="Remove professional role filter" onClick={()=>setRoleFilter('all')}>{roleFilter==='specialist'?'Specialists':'Technicians'}<X size={14} aria-hidden="true"/></button>}

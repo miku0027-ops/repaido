@@ -1,0 +1,6 @@
+/* One warm accent identifies hiring without competing with service booking. */
+:root{--hire-accent:#fbbc04;--hire-on-accent:#302407;--hire-soft:#fff3c4;--hire-on-soft:#58420b;--hire-focus:#806000}
+[data-theme=dark]{--hire-accent:#fdd663;--hire-on-accent:#302407;--hire-soft:#3f3210;--hire-on-soft:#ffdf85;--hire-focus:#fdd663}
+#root button.hire-accent-action{background:var(--hire-accent)!important;color:var(--hire-on-accent)!important;border:0!important;box-shadow:0 3px 10px #30240718}
+#root button.hire-accent-action:disabled{background:var(--hire-soft)!important;color:var(--hire-on-soft)!important;box-shadow:none;cursor:wait}
+#root button.hire-accent-action:focus-visible{outline-color:var(--hire-focus)!important}

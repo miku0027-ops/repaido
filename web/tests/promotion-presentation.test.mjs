@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {pricedPromotion,bestCategoryOffer} from '../src/services/promotionPresentation.mjs';
+import {pricedPromotion,bestCategoryOffer,bestServiceOffer} from '../src/services/promotionPresentation.mjs';
 const card={id:'a',service:{id:'ac',category:'ac',price_paise:59900},price_paise:59900,discount_paise:14975,offer_price_paise:44925,ends_at:200};
 test('only actual, unexpired catalogue savings at or below 25% are displayed',()=>{
  assert(pricedPromotion(card,100));
@@ -11,6 +11,20 @@ test('best funded eligible category price stays on the exact matching service',(
  const expired={...card,id:'c',ends_at:1};
  assert.equal(bestCategoryOffer([lesser,expired,card],'ac',100).id,'a');
  assert.equal(bestCategoryOffer([card],'plumber',100),undefined);
+});
+test('search offers match the exact package and current price, with verified arithmetic and expiry',()=>{
+ const service={id:'ac',price_paise:59900};
+ const lesser={...card,id:'lesser',discount_paise:5000,offer_price_paise:54900};
+ assert.equal(bestServiceOffer([lesser,card],service,100).id,'a');
+ for(const invalid of [
+  {...card,service:{...card.service,id:'another-ac'}},
+  {...card,ends_at:100},
+  {...card,offer_price_paise:40000},
+  {...card,home_service:'quote-plan'},
+  {...card,price_paise:60000,offer_price_paise:45025,service:{...card.service,price_paise:60000}},
+ ])assert.equal(bestServiceOffer([invalid],service,100),undefined);
+ assert.equal(bestServiceOffer([card],{...service,price_paise:69900},100),undefined);
+ assert.equal(bestServiceOffer([card],service,201),undefined);
 });
 import {actionMessages,changesAccountData} from '../src/services/actionMessages.mjs';
 test('campaign impressions and repeat receipts neither announce saves nor invalidate account reads',()=>{

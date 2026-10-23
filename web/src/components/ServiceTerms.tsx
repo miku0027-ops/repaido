@@ -2,10 +2,11 @@ import {useEffect,useState} from 'react';
 import {apiFetch} from '../services/api';
 import {operation} from '../services/operations';
 export type TermsRecord={id:string;version:number;text:string};
-export function ServiceTerms({serviceId,onLoaded}:{serviceId:string;onLoaded?:(terms:TermsRecord|null)=>void}){
+export function ServiceTerms({serviceId,onLoaded,collapsible=false}:{serviceId:string;collapsible?:boolean;onLoaded?:(terms:TermsRecord|null)=>void}){
  const [terms,setTerms]=useState<TermsRecord|null>(null),[error,setError]=useState(''),[attempt,setAttempt]=useState(0);
  useEffect(()=>{let active=true;setTerms(null);setError('');onLoaded?.(null);void apiFetch(`/api/operations/service-terms/${encodeURIComponent(serviceId)}`).then(async r=>{if(!r.ok)throw Error('Service terms could not load. Retry before booking.');return r.json();}).then(d=>{if(active){setTerms(d);onLoaded?.(d);}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[serviceId,attempt]);
- return <section className="service-terms"><h3>Service terms & conditions</h3>{terms?<><p style={{whiteSpace:'pre-wrap'}}>{terms.text}</p>{terms.version>0&&<small>Company terms · version {terms.version}</small>}</>:error?<p role="alert">{error}<button type="button" onClick={()=>setAttempt(n=>n+1)}>Retry terms</button></p>:<p role="status">Loading service terms…</p>}</section>;
+ const content=terms?<><p style={{whiteSpace:'pre-wrap'}}>{terms.text}</p>{terms.version>0&&<small>Company terms · version {terms.version}</small>}</>:error?<p role="alert">{error}<button type="button" onClick={()=>setAttempt(n=>n+1)}>Retry terms</button></p>:<p role="status">Loading service terms…</p>;
+ return collapsible?<details className="service-terms service-terms-disclosure" open={error?true:undefined}><summary>Service terms & conditions</summary>{content}</details>:<section className="service-terms"><h3>Service terms & conditions</h3>{content}</section>;
 }
 export function ServiceTermsAdmin(){
  const [services,setServices]=useState<{id:string;name:string}[]>([]),[sid,setSid]=useState(''),[terms,setTerms]=useState<TermsRecord|null>(null),[text,setText]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');

@@ -1,8 +1,8 @@
 import {useEffect,useId,useRef,useState} from 'react';
-import {BriefcaseBusiness,FilePlus2,Plus,UsersRound} from '../icons';
+import {BriefcaseBusiness,FilePlus2,Plus,SupportAgent,UsersRound} from '../icons';
 import './compact-action-launcher.css';
 
-export function CompactActionLauncher({onCommunity,onCustomContract,onQuickHire}:{onCommunity:()=>void;onCustomContract:()=>void;onQuickHire:()=>void}){
+export function CompactActionLauncher({onCommunity,onCustomContract,onQuickHire,onSupport}:{onCommunity:()=>void;onCustomContract:()=>void;onQuickHire:()=>void;onSupport:()=>void}){
   const [open,setOpen]=useState(false),id=useId(),root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),actions=useRef<HTMLDivElement>(null);
   useEffect(()=>{
     if(!open)return;
@@ -23,6 +23,7 @@ export function CompactActionLauncher({onCommunity,onCustomContract,onQuickHire}
       <button type="button" onClick={()=>choose(onCommunity)}><span className="compact-action-symbol"><UsersRound size={20} aria-hidden="true"/></span><span>Repaidians</span></button>
       <button type="button" onClick={()=>choose(onCustomContract)}><span className="compact-action-symbol"><FilePlus2 size={20} aria-hidden="true"/></span><span>Custom contract query</span></button>
       <button type="button" onClick={()=>choose(onQuickHire)}><span className="compact-action-symbol"><BriefcaseBusiness size={20} aria-hidden="true"/></span><span>Quick Hire</span></button>
+      <button type="button" aria-haspopup="dialog" onClick={()=>choose(onSupport)}><span className="compact-action-symbol"><SupportAgent size={20} aria-hidden="true"/></span><span>Help &amp; support</span></button>
     </div>}
     <button ref={trigger} type="button" className="compact-action-trigger" aria-label={open?'Close quick actions':'Open quick actions'} aria-expanded={open} aria-controls={open?id:undefined} onClick={()=>setOpen(value=>!value)}><Plus size={24} strokeWidth={1.9} aria-hidden="true"/></button>
   </div>;

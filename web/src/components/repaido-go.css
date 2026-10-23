@@ -2,18 +2,17 @@
 /* Map-led Go, with neutral Material surfaces and one warm-yellow accent. */
 .repaido-go{min-width:0;color:var(--go-ink);background:var(--go-canvas);border-radius:28px;overflow:clip}
 .go-page-host[hidden]{display:none!important}
-.go-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--go-inverse);color:var(--go-on-inverse);border-bottom:0}
+.go-header{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--go-inverse);color:var(--go-on-inverse);border-bottom:0}
 .go-wordmark{flex:1;min-width:0}.go-wordmark h1{margin:0;font-size:1.45rem;line-height:1.2;letter-spacing:-.06em;font-weight:800;color:var(--go-on-inverse)}.go-wordmark h1>span{color:var(--go-primary)}.go-wordmark h1>i{font-style:normal;color:var(--go-primary)}.go-wordmark p{font-size:.6875rem;color:var(--go-inverse-muted);line-height:1.5;margin:4px 0 0}
 .go-header button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;min-width:44px;padding:8px 11px;border:1px solid var(--go-inverse-outline);border-radius:16px;background:var(--go-inverse-container);color:var(--go-on-inverse);font-size:.8125rem;font-weight:650;cursor:pointer;flex:none}.go-header .go-back{padding:9px}.go-header svg{flex:none}
-.go-wordmark{display:grid;gap:0}.go-header .go-header-area{justify-content:flex-start;min-height:36px;min-width:0;max-width:100%;padding:5px 0;border:0;border-radius:8px;background:transparent;color:var(--go-inverse-muted);font-size:.6875rem;gap:4px}.go-header-area>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.go-cab-panel[hidden]{display:none!important}
+.go-wordmark{display:flex;align-items:center;flex-wrap:wrap;gap:0 10px}.go-wordmark h1{font-size:1.25rem;flex:none}.go-header .go-header-area{justify-content:flex-start;min-height:44px;min-width:0;max-width:100%;padding:5px 0;border:0;border-radius:8px;background:transparent;color:var(--go-inverse-muted);font-size:.6875rem;gap:4px}.go-header-area>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.go-cab-panel[hidden]{display:none!important}
 .repaido-go .mobility-mode-icon>.go-vehicle-art{width:100%;height:auto}
 .repaido-go :is(button,a,summary,select):focus-visible{outline:3px solid var(--go-focus);outline-offset:3px}.go-header button:focus-visible{outline-color:var(--go-primary)}
 #root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility{margin:0;border:0;border-radius:0;background:transparent;color:var(--go-ink)}
 #root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .mobility-heading{display:flex;padding:6px 16px 2px;margin:0;gap:8px;min-height:44px;background:var(--go-canvas)}
 .repaido-go .mobility-heading h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.repaido-go .mobility-heading>div{width:100%;min-width:0}
 #root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .mobility-area-button{display:flex;align-items:center;gap:7px;max-width:100%;min-height:44px;padding:6px 0;border:0;background:transparent;color:var(--go-ink);font-size:.8125rem;text-align:left}.repaido-go .mobility-area-button>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.repaido-go .mobility-area-button>svg{flex:none}
-#root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .mobility-mode-switch{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(50px,.55fr);gap:9px;padding:0 16px 15px;margin:0;overflow:visible;background:transparent;border:0}
-#root .repaido-go .go-mobility>.mobility-mode-switch{padding-top:14px}
+#root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .mobility-mode-switch{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(50px,.55fr);gap:9px;padding:12px 16px;margin:0;overflow:visible;background:transparent;border:0}
 #root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .mobility-mode-switch>button{position:relative;min-width:0;min-height:70px!important;padding:10px;display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:auto auto;align-content:center;column-gap:8px;row-gap:1px;border:1px solid var(--go-line);border-radius:16px;color:var(--go-ink);background:var(--go-surface-variant);text-align:left;box-shadow:none;font-size:.875rem;line-height:1.35;transition:background-color 220ms ease,translate 360ms cubic-bezier(.2,.8,.2,1),box-shadow 220ms ease,border-color 220ms ease}
 #root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .mobility-mode-switch .mobility-mode-icon{grid-row:1;width:30px;height:30px;border-radius:10px;background:transparent;color:inherit;transition:rotate 360ms ease,scale 360ms ease}
 #root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .mobility-mode-switch .mobility-mode-label{font-size:.9375rem;font-weight:750;white-space:normal;text-wrap:balance}
@@ -97,10 +96,8 @@
 #root .repaido-go .bike-location>svg,#root .repaido-go .bike-passenger-select>svg{color:var(--go-ink)}
 .go-entry-symbol{color:var(--go-on-primary)}
 
-/* Two compact destinations inside Services keep the five-item navigation intact. */
-.services-destinations{display:flex;gap:6px;margin:12px 16px 6px;padding:4px;background:var(--ui-subtle);border-radius:14px;max-width:520px}
-#root .services-destinations>button{display:flex;align-items:center;justify-content:center;gap:7px;flex:1;min-width:0;min-height:44px;padding:8px 10px;border:0;border-radius:11px;background:transparent;color:var(--ui-muted);font-size:.75rem;font-weight:600;line-height:1.5;box-shadow:none;white-space:normal}
-#root .services-destinations>button[aria-current=page]{background:var(--ui-surface);color:var(--ui-ink);box-shadow:0 2px 8px #00000012}.services-destinations svg{flex:none}
-.services-destinations>button:focus-visible{outline:3px solid var(--ui-focus);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.go-entry-symbol>span{animation:none!important}}
 :is(.reduce-motion,[data-reduced-motion=true]) .go-entry-symbol>span{animation:none!important}
+/* Keep city selection beside the brand and reserve space above the ride rail. */
+@media(max-width:430px){.go-header .go-history{width:44px;padding:9px}.go-header .go-history>span{display:none}}
+@media(max-width:360px){.go-header{padding:8px 12px;gap:8px}.go-wordmark{gap:0 6px}.go-wordmark h1{font-size:1.125rem}}

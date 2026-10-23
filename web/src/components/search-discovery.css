@@ -1,7 +1,7 @@
 /* Search shares the home input geometry; its focus ring has room inside the dock. */
-.search-discovery.discovery-frameless.modal{background:var(--ui-surface,#fff);padding-top:0;scroll-padding-top:74px;isolation:isolate}
+.search-discovery.discovery-frameless.modal{background:transparent;padding-top:0;scroll-padding-top:74px;isolation:isolate}
 .search-discovery.discovery-frameless::backdrop{background:rgb(248 250 252 / .96);backdrop-filter:none;-webkit-backdrop-filter:none}
-.search-discovery.discovery-frameless .discovery-search-dock{display:block;position:sticky;top:0;padding:8px 0 10px;background:var(--ui-surface,#fff);border-radius:0;z-index:8;overflow:visible}
+.search-discovery.discovery-frameless .discovery-search-dock{display:block;position:sticky;top:0;padding:8px 0 10px;background:transparent;border-radius:0;z-index:8;overflow:visible}
 .search-discovery .discovery-search-row{display:flex;align-items:center;gap:6px;min-width:0}
 .search-discovery .discovery-search-row .customer-search-field{flex:1;min-width:0;width:auto;height:46px;min-height:46px;padding:0 8px 0 12px;gap:6px;border-radius:12px;background:var(--ui-surface,#fff)}
 .search-discovery .discovery-search-row input[type=search]{appearance:none;-webkit-appearance:none;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;min-width:0;font-size:14px;line-height:1.4;color:var(--ui-ink,#0b132b);caret-color:var(--ui-ink,#0b132b)}

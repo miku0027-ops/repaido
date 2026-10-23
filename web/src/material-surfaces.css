@@ -8,15 +8,24 @@
 #root .repaido-home-header {
   border: 0;
   border-radius: 0 0 20px 20px;
-  box-shadow: 0 2px 8px #2021240c, 0 8px 24px #20212408;
+  box-shadow: inset 0 -1px 0 #fff, 0 2px 2px #1428580a, 0 7px 14px #14285814, 0 18px 34px -10px #14285826;
+}
+[data-theme=dark] #root .repaido-home-header {
+  box-shadow: inset 0 -1px 0 #ffffff0a, 0 2px 2px #0003, 0 7px 16px #0004, 0 18px 34px -10px #0006;
 }
 #root .android-bottom-nav {
   background: var(--go-surface);
   color: var(--go-muted);
   border: 0;
   border-radius: 20px 20px 0 0;
-  box-shadow: 0 -2px 8px #2021240d, 0 -8px 28px #2021240a;
   padding: 5px 4px max(6px, env(safe-area-inset-bottom));
+}
+#root .android-bottom-nav,
+#root .android-bottom-nav[data-captain-gold=true] {
+  box-shadow: inset 0 1px 0 #ffffffcc, 0 -2px 3px #1428580e, 0 -8px 18px #1428581a, 0 -20px 38px -8px #14285829;
+}
+[data-theme=dark] #root .android-bottom-nav {
+  box-shadow: inset 0 1px 0 #ffffff0d, 0 -2px 3px #0003, 0 -8px 18px #0004, 0 -20px 38px -8px #0006;
 }
 #root .android-bottom-nav .android-nav-links { gap: 2px; padding: 2px; }
 #root .android-bottom-nav .android-nav-item {
@@ -61,7 +70,7 @@
 }
 #root .repaido-customer-shell .android-main-content { padding-bottom: 16px; }
 #root .repaido-customer-footer { padding-block: 24px; }
-#root .repaido-go .go-header { padding-block: 12px; }
+#root .repaido-go .go-header { padding-block: 8px; }
 #root .repaido-go .mobility-trip-sheet { padding-block: 16px; }
 #root .repaido-go :is(.bike-route-sheet,.mobility-trip-sheet) { box-shadow: 0 -3px 12px #20212410, 0 -10px 30px #20212408; border-top: 0; }
 #root .suite-driver :is(.suite-card,.driver-invitations,.driver-assignment-help,.bike-rider-empty) { border: 0; box-shadow: var(--go-elevation); }

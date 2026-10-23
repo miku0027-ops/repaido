@@ -5,7 +5,13 @@ import {auth} from '../src/firebase';
 import App from '../src/App';
 import '../src/styles.css';
 import '../src/design-system.css';
+import '../src/components/premium-discovery.css';
+import '../src/components/customer-bookings.css';
+import '../src/spacing.css';
+import '../src/strokes.css';
 import '../src/customer-layout.css';
+import '../src/components/compact-market.css';
+import '../src/components/market-controls.css';
 
 await auth.authStateReady();
 const callbacks=new Set<(user:any)=>void>();

@@ -77,7 +77,7 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
   },[requestKey,retry]);
   if(!category)return null;
   const count=current?.total||0;
-  const refreshButton=<button type="button" className="catalog-leaders-refresh" disabled={refreshing} aria-label="Refresh category leaders" onClick={()=>setRetry(v=>v+1)}><RefreshCw size={20} aria-hidden="true"/></button>;
+  const refreshButton=<button type="button" className="catalog-leaders-refresh" disabled={refreshing} aria-busy={refreshing} aria-label="Refresh category leaders" onClick={()=>setRetry(v=>v+1)}><RefreshCw size={20} aria-hidden="true"/></button>;
   if(overview){
     const allowed=new Set(categoryIds?.length?categoryIds:categories.map(c=>c.id));
     const leaders=(current?.categories||[]).filter(c=>allowed.has(c.id)&&c.count>0);
@@ -92,7 +92,7 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
       <p className="sr-only">{current?.updatedAt?`Updated ${new Date(current.updatedAt).toLocaleTimeString()}. `:''}Leaderboards refresh every 30 seconds while this page is visible. Rankings use verified completed-work reviews. Unreviewed profiles are not assigned a rank.</p>
     </section>;
   }
-  return <section className="catalog-professionals" aria-label={`${name} professionals`}>
+  return <section className="catalog-professionals catalog-professionals-crafted" data-expanded={open} aria-label={`${name} professionals`}>
     <div className="catalog-professionals-heading">
     <button type="button" className="catalog-professionals-toggle" aria-expanded={open} aria-controls={id} onClick={()=>setOpen(v=>!v)}>
       <span className="catalog-professionals-icon" aria-hidden="true"><Trophy size={20}/></span>

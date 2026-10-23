@@ -149,7 +149,12 @@ try{
   assert.equal(await customer.locator('.b2b-product-card').count(),20);
   await customer.getByRole('button',{name:'Load more listings',exact:true}).click();
   await customer.waitForFunction(()=>document.querySelectorAll('.b2b-product-card').length===22);
+  await customer.getByRole('tab',{name:'My requests',exact:true}).click();
+  await customer.getByRole('heading',{name:'Your first quote starts here',exact:true}).waitFor();
+  await mkdir(resolve(web,'test-results'),{recursive:true});await customer.screenshot({path:resolve(web,'test-results/b2b-empty-requests.png'),fullPage:true});
+  await customer.getByRole('button',{name:'Browse wholesale',exact:true}).click();
   const search=customer.getByRole('searchbox',{name:'Search wholesale listings',exact:true});
+  assert.equal(await search.evaluate(e=>e===document.activeElement),true,'The empty buying desk returns to the real catalogue search.');
   const supplierSearch=customer.waitForResponse(response=>new URL(response.url()).pathname==='/api/operations/b2b/listings'&&new URL(response.url()).searchParams.get('search')==='Actual Isolated Supply');
   await search.fill('Actual Isolated Supply');assert.equal((await(await supplierSearch).json()).listings.length,20);
   await customer.waitForFunction(()=>document.querySelectorAll('.b2b-product-card').length===20);
@@ -163,8 +168,23 @@ try{
   await customer.getByRole('button',{name:'View wholesale details for '+product.title,exact:true}).click();
   const detail=customer.getByRole('dialog',{name:product.title,exact:true});await detail.waitFor();
   assert.match(await detail.innerText(),/0.8 mm/);assert.match(await detail.innerText(),/₹1,320.50/);
+  const planner=detail.getByRole('spinbutton',{name:'Quantity to inquire (rolls)',exact:true});
+  await planner.fill('301');assert.equal(await detail.getByRole('button',{name:'Request quotation',exact:true}).isDisabled(),true,'Inquiry quantity cannot exceed the saved stock.');
+  await planner.fill('25');assert.match(await detail.locator('.wholesale-planner-total').innerText(),/₹33,012.50/);
+  assert.match(await detail.locator('.b2b-slab-list>li[data-current=true]').innerText(),/25\+ rolls.*₹1,320.50/s);
+  await customer.screenshot({path:resolve(web,'test-results/b2b-product-planner.png')});
   await layout(customer);await detail.getByRole('button',{name:'Request quotation',exact:true}).click();
+  assert.equal(await customer.getByRole('dialog',{name:'Request quotation',exact:true}).getByLabel('Quantity (rolls)',{exact:true}).inputValue(),'25','The chosen quantity carries into the private RFQ.');
   const request=await fillRequest(customer);
+  await audit(customer);
+  await request.locator('.wholesale-business-details>summary').click();
+  await request.getByLabel('Buyer GSTIN (optional)',{exact:true}).fill('invalid');
+  await request.locator('.wholesale-business-details>summary').click();
+  await request.getByRole('button',{name:'Send quotation request',exact:true}).click();
+  assert.equal(await request.locator('.wholesale-business-details').evaluate(e=>e.open),true,'Invalid optional business details reopen for correction.');
+  assert.equal((await api('/operations/b2b/rfq',buyer)).rfqs.length,0,'Invalid hidden fields cannot send an inquiry.');
+  await request.getByLabel('Buyer GSTIN (optional)',{exact:true}).fill('');
+  await request.locator('.wholesale-business-details>summary').click();
   await request.getByLabel('Target unit price (₹, optional)',{exact:true}).fill('1299.75');
   // Lose only the response after the server saves the RFQ. Retrying the form must
   // preserve its request ID and retrieve the same saved row instead of duplicating.
@@ -195,8 +215,8 @@ try{
   const supplier=await newPage(owner,{mode:'shop'});
   await supplier.getByRole('heading',{name:'Your wholesale desk',exact:true}).waitFor();
   await supplier.locator('.shop-b2b-listing').first().waitFor();
-  const titleSize=page=>page.locator('.business-page-header h1').first().evaluate(node=>getComputedStyle(node).fontSize);
-  assert.equal(await titleSize(supplier),await titleSize(customer),'Shared business header typography stays consistent inside the legacy partner workspace.');
+  await customer.getByRole('heading',{name:'Wholesale',exact:true}).waitFor({state:'attached'});
+  assert.equal(await customer.locator('.wholesale-utility').getByRole('button',{name:'Find supplies',exact:true}).isVisible(),true,'The buyer header provides a compact sourcing action.');
   await supplier.getByRole('button',{name:'Add wholesale listing',exact:true}).click();
   const add=supplier.getByRole('dialog',{name:'Add wholesale listing',exact:true});await add.waitFor();
   await add.getByLabel('Product title',{exact:true}).fill('Actual Warehouse Wiring Kit');
@@ -254,7 +274,7 @@ try{
   const quotation=supplierQuote.rfq.quotation;assert.equal(quotation.taxable_paise,3200625);assert.equal(quotation.gst_paise,576113);assert.equal(quotation.grand_total_paise,3841763);
   await supplier.screenshot({path:resolve(web,'test-results/b2b-quotation.png')});
   await supplier.getByRole('dialog',{name:'Supplier quotation',exact:true}).getByRole('button',{name:'Close dialog',exact:true}).click();
-  await customer.getByRole('button',{name:'Refresh',exact:true}).click();await customer.getByText('Quotation ready',{exact:true}).waitFor();
+  await customer.getByRole('button',{name:'Refresh',exact:true}).click();await customer.locator('.b2b-status').getByText('Quotation ready',{exact:true}).waitFor();
   await customer.getByRole('button',{name:'View quotation',exact:true}).click();
   let customerQuote=customer.getByRole('dialog',{name:/quotation/i});await customerQuote.waitFor();
   assert.match(await customerQuote.innerText(),/₹38,417.63/);assert.match(await customerQuote.innerText(),/Project Buyer/);
@@ -285,6 +305,12 @@ try{
   const declineModal=customer.getByRole('dialog',{name:'Supplier quotation',exact:true});await declineModal.waitFor();
   await declineModal.getByRole('button',{name:'Decline quotation',exact:true}).click();await declineModal.getByText('Quotation declined. Your decision was saved.',{exact:true}).waitFor();
   assert.equal((await api('/operations/b2b/rfq/'+declineRfq.id,buyer)).rfq.status,'declined');await declineModal.getByRole('button',{name:'Close dialog',exact:true}).click();
+  const requestStatus=customer.getByRole('combobox',{name:'Filter your loaded requests',exact:true});
+  await requestStatus.selectOption('accepted');assert.equal(await customer.locator('.b2b-request-card').count(),1);
+  await requestStatus.selectOption('declined');assert.equal(await customer.locator('.b2b-request-card').count(),1);
+  await customer.getByRole('searchbox',{name:'Search your loaded requests',exact:true}).fill('No matching inquiry');
+  await customer.getByRole('heading',{name:'No requests in this view',exact:true}).waitFor();
+  await customer.getByRole('button',{name:'Clear request filters',exact:true}).click();assert.equal(await customer.locator('.b2b-request-card').count(),2);
   await layout(customer);await audit(customer);
 
   const sameContact=await register(buyer.user.name,'.other');

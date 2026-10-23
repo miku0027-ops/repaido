@@ -11,6 +11,7 @@ import {ContractResourceVisibility,ContractError,ContractPerson,ContractQueryCar
 import {ContractOpportunities} from './ContractOpportunities';
 import {ContractRecordsPanel} from './ContractRecordsPanel';
 import './custom-contracts.css';
+import './contract-workspace.css';
 
 export interface CustomContractHubProps {accountKey:string;authenticated:boolean;mode:'customer'|'contractor'|'agent';focusContractId?:string;focusProjectId?:string;focusProposalId?:string;onSignIn?:()=>void;onOpenCommunityContract?:(id:string)=>void;onOpenProject?:(id:string)=>void;onOpenMember?:(id:string,queryId?:string)=>void;}
 export function CustomContractHub(props:CustomContractHubProps){return props.mode==='customer'?<CustomContracts {...props} mode="customer"/>:<ContractOpportunities {...props} mode={props.mode}/>;}
@@ -49,10 +50,11 @@ export function CustomContractDetail({id,accountKey,mode,onBack,focusProposalId,
   const manage=mode==='customer'||!!query?.permissions.can_manage_engagement,toggle=(name:string)=>setPanel(current=>current===name?'':name);
   const progress=project?.status==='completed'?3:project&&['active','paused'].includes(project.status)?2:project?1:0;
   const stateText=resource.error?'Updates need attention':({checking:'Checking for updates…',current:'Updates automatically',paused:'Updates paused',reconnecting:'Connection interrupted · retrying…',unavailable:'Updates unavailable'})[live];
+  const jumpToPanel=(name:string)=>{setPanel(name);requestAnimationFrame(()=>{const section=workspace.current?.querySelector<HTMLElement>(`[data-panel="${name}"]`);section?.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches||document.documentElement.classList.contains('reduce-motion')?'instant':'smooth'});section?.querySelector<HTMLButtonElement>('.cc-panel-toggle')?.focus({preventScroll:true});});};
   return <div ref={workspace} className="cc-detail cc-workspace">
     <nav className="cc-breadcrumbs" aria-label="Contract breadcrumbs">
       <button onClick={onBack}><ArrowLeft size={16} aria-hidden="true"/>{manage?'My requests':'Contract opportunities'}</button>
-      {query&&<><span aria-hidden="true">/</span><span aria-current="page">{query.title}</span></>}
+      {query&&<span className="sr-only" aria-current="page">{query.title}</span>}
     </nav>
     <ContractError error={resource.error} onRetry={()=>void resource.refresh()}/>
     <ContractError error={action.error}/>
@@ -60,19 +62,19 @@ export function CustomContractDetail({id,accountKey,mode,onBack,focusProposalId,
     {resource.busy&&!query&&<p role="status" className="cc-note">Opening this contract…</p>}
     {query&&<>
       <header className="cc-section cc-workspace-header">
-        <div className="cc-between"><span className="cc-status" data-status={query.status}>{contractStatus(query.status)}</span><ContractRefresh busy={resource.busy||action.busy} label="Refresh contract details" onRefresh={()=>void resource.refresh()}/></div>
-        {manage&&query.status==='awarded'&&<ShareMilestone source="contract" id={query.id}/>}<span className="cc-eyebrow">{query.sector}</span><h2>{query.title}</h2>
-        <div className="cc-facts"><span><MapPin size={16} aria-hidden="true"/>{query.area.trim().toLowerCase()===query.city.trim().toLowerCase()?query.city:query.area+', '+query.city}</span><span><CalendarDays size={16} aria-hidden="true"/>{contractDate(query.starts_at)} – {contractDate(query.ends_at)}</span></div>
-        <div className="cc-money"><strong>{contractMoney(project?.contract_value_paise??query.budget_paise)}</strong><small>{project?'Agreed contract price':'Planned budget'}</small></div>
-        <p className="cc-live-state" role="status" data-state={resource.error?'reconnecting':live}>{stateText}</p>
+        <div className="cc-summary-top"><span className="cc-status" data-status={query.status}>{contractStatus(query.status)}</span><span className="cc-summary-sector">{query.sector}</span></div>
+        {manage&&query.status==='awarded'&&<ShareMilestone source="contract" id={query.id}/>}<h2>{query.title}</h2>
+        <div className="cc-summary-budget"><small>{project?'Agreed contract price':'Planned budget'}</small><strong>{contractMoney(project?.contract_value_paise??query.budget_paise)}</strong></div>
+        <div className="cc-summary-details"><span><MapPin size={15} aria-hidden="true"/>{query.area.trim().toLowerCase()===query.city.trim().toLowerCase()?query.city:query.area+', '+query.city}</span><span><CalendarDays size={15} aria-hidden="true"/>{contractDate(query.starts_at)} – {contractDate(query.ends_at)}</span></div>
+        <div className="cc-summary-live"><p className="cc-live-state" role="status" data-state={resource.error?'reconnecting':live}>{stateText}</p><ContractRefresh busy={resource.busy||action.busy} label="Refresh contract details" onRefresh={()=>void resource.refresh()}/></div>
         {query.permissions.can_message&&query.controls.cta_enabled!==false&&<button className="cc-primary" onClick={()=>{if(panel==='messages')workspace.current?.querySelector<HTMLTextAreaElement>('[data-panel^=cc-messages] textarea')?.focus();else{focusMessage.current=true;setPanel('messages');}}}>{query.controls.cta_label||'Enquiry'}<MessageCircle size={16} aria-hidden="true"/></button>}
       </header>
-      <nav className="cc-contract-stages" aria-label="Contract progress"><ol>{['Requirement','Award','Work','Complete'].map((label,index)=><li key={label} aria-current={query.status!=='closed'&&progress===index?'step':undefined} data-complete={query.status!=='closed'&&index<progress}><span aria-hidden="true">{index<progress?'✓':index+1}</span>{label}</li>)}</ol></nav>
+      <nav className="cc-contract-stages" aria-label="Contract progress"><ol>{['Requirement','Award','Work','Complete'].map((label,index)=><li key={label} aria-current={query.status!=='closed'&&progress===index?'step':undefined} data-complete={query.status!=='closed'&&index<progress}><button type="button" disabled={index>1&&!project} onClick={()=>jumpToPanel(index===0?'requirement':index===1?'proposals':'project')} aria-label={index===0?'View requirement':index===1?'Review contract proposals':index===2?'View project work':'View project completion'}><span aria-hidden="true">{index<progress?'✓':index+1}</span>{label}</button></li>)}</ol></nav>
       {query.status==='closed'&&<p className="cc-note">This requirement is closed to new proposals.</p>}
       <div className="cc-panel-stack">
         <ContractPanel id="proposals" title={manage?'Private contractor proposals':'Your submitted proposals'} description={manage?'Review offers and choose your contractor':'Your saved proposals and their status'} count={query.bids.length} open={panel==='proposals'} onToggle={()=>toggle('proposals')} Icon={FileText}>
-          <p className="cc-note">{manage?'Only you can see every proposal. Work starts after you accept an agreed offer.':'Your proposal is private to you and the customer.'}</p>
-          {!query.bids.length&&<p className="cc-note">{manage?'No proposals yet. New offers will appear here automatically.':'You have not submitted a proposal for this requirement.'}</p>}
+          {query.bids.length>0&&<p className="cc-note">{manage?'Proposals are private. Work starts after you accept an agreed offer.':'Your proposal is private to you and the customer.'}</p>}
+          {!query.bids.length&&<div className="cc-proposals-empty"><span className="cc-proposals-art" aria-hidden="true"><FileText size={25}/><span><ShieldCheck size={13}/></span></span><div><h4>{manage?'Waiting for proposals':'No proposal submitted'}</h4><p>{manage?'New private offers will appear here.':'Send your proposal after reviewing the requirement.'}</p></div><button type="button" onClick={()=>jumpToPanel(manage&&query.matched_contractors?.length?'matches':'requirement')}>{manage&&query.matched_contractors?.length?'Explore matches':'Review requirement'}<ArrowRight size={15} aria-hidden="true"/></button></div>}
           <div className="cc-list">{query.bids.map(bid=><article className="cc-card" key={bid.id} id={'cc-proposal-'+bid.id} data-focused={focusProposalId===bid.id}>
             <ContractPerson member={resource.data?.members.find(member=>member.id===bid.contractor_id)} fallbackName={bid.contractor_name}/>
             <span className="cc-status" data-status={bid.status}>{contractStatus(bid.status)}</span>
@@ -119,7 +121,7 @@ function ContractPanel({id,title,description,count,open,onToggle,Icon,children}:
   useEffect(()=>{if(open)setVisited(true);},[open]);
   const contentId=useId();
   return <section className="cc-section cc-management-panel" data-panel={id} data-open={open}>
-    <h3 aria-label={title}><button className="cc-panel-toggle" aria-expanded={open} aria-controls={contentId} onClick={onToggle}><Icon size={20} aria-hidden="true"/><span><span>{title}{count!==undefined&&<span className="cc-panel-count">{count}</span>}</span><small>{description}</small></span><ChevronDown size={18} aria-hidden="true"/></button></h3>
+    <h3 aria-label={title}><button className="cc-panel-toggle" aria-expanded={open} aria-controls={contentId} onClick={onToggle}><Icon size={20} aria-hidden="true"/><span><span>{title}{count!==undefined&&<span className="cc-panel-count">{count}</span>}</span><small className="sr-only">{description}</small></span><ChevronDown size={18} aria-hidden="true"/></button></h3>
     <div id={contentId} className="cc-panel-content" hidden={!open}>{(visited||open)&&<ContractResourceVisibility.Provider value={open}>{children}</ContractResourceVisibility.Provider>}</div>
   </section>;
 }

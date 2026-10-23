@@ -1,4 +1,4 @@
-/* Public profiles share one compact, readable presentation at every entry point. */
+@import './hiring-accent.css';
 .hire-profile-modal.modal,.hire-professional-page.modal {
   width:min(100%,620px)!important;
   max-width:620px!important;

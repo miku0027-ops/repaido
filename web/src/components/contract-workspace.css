@@ -1,0 +1,50 @@
+/* A quiet summary and progressive controls for the private contract workspace. */
+.cc-workspace{gap:12px}
+.cc-workspace .cc-breadcrumbs{font-size:.75rem;min-height:44px}
+.cc-workspace .cc-breadcrumbs>button{border:0;background:transparent;padding:6px 0;color:var(--ui-link)}
+.cc-workspace .cc-workspace-header{position:relative;display:grid;gap:10px;margin:0;padding:16px;border:0;border-radius:20px;background:linear-gradient(135deg,var(--cc-soft),var(--ui-surface) 75%);box-shadow:0 2px 6px #17285c05,0 10px 28px #17285c0b}
+.cc-summary-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-width:0}
+.cc-summary-top .cc-status{border:0;font-size:.625rem;font-weight:500;padding:4px 8px;background:var(--ui-surface)}
+.cc-summary-sector{min-width:0;font-size:.625rem;line-height:1.6;color:var(--ui-muted);overflow-wrap:anywhere}
+.cc-workspace .cc-workspace-header>h2{font-size:1.125rem;line-height:1.4;font-weight:600;letter-spacing:-.035em;max-width:40ch}
+.cc-summary-budget{display:grid;gap:2px;padding:4px 0}
+.cc-summary-budget>small{font-size:.625rem;color:var(--ui-muted)}
+.cc-summary-budget>strong{font-size:1.5rem;font-weight:600;letter-spacing:-.035em;line-height:1.4;overflow-wrap:anywhere}
+.cc-summary-details{display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;min-width:0;color:var(--ui-muted);font-size:.6875rem;line-height:1.7}
+.cc-summary-details>span{display:flex;align-items:flex-start;gap:6px;min-width:0}.cc-summary-details svg{flex:none;margin-top:2px}
+.cc-summary-live{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--ui-line);margin-top:2px;padding-top:2px}
+.cc-summary-live .cc-live-state{font-size:.625rem!important;line-height:1.6}
+.cc-summary-live .cc-icon{min-width:44px!important;min-height:44px!important;width:44px;padding:10px;border:0;background:transparent}
+.cc-workspace .cc-contract-stages{padding:0;border:0;border-radius:0;background:transparent}
+.cc-workspace .cc-contract-stages ol{gap:4px}
+.cc-workspace .cc-contract-stages li{position:relative;display:block;min-width:0}
+.cc-workspace .cc-contract-stages li:not(:last-child)::after{content:'';position:absolute;top:16px;left:70%;width:60%;height:1px;background:var(--ui-line);pointer-events:none}
+.cc-workspace .cc-contract-stages li>button{position:relative;display:flex;flex-direction:column;gap:4px;width:100%;min-height:54px!important;padding:4px 0;border:0;background:transparent;color:var(--ui-muted);font-size:.625rem;font-weight:400;line-height:1.6;border-radius:10px}
+.cc-contract-stages li>button>span{position:relative;z-index:1;display:grid;place-items:center;min-width:24px;height:24px;border-radius:50%;background:var(--ui-subtle);border:1px solid var(--ui-line);font-size:.5625rem;font-weight:600}
+.cc-workspace .cc-contract-stages li[aria-current]>button{color:var(--ui-link);font-weight:600}
+.cc-contract-stages li[aria-current]>button>span{background:var(--ui-primary);color:#fff;border-color:var(--ui-primary)}
+.cc-contract-stages li[data-complete=true]>button>span{background:var(--ui-success-surface);color:var(--ui-success);border-color:var(--ui-success-line)}
+.cc-workspace .cc-contract-stages li>button:disabled{opacity:1;cursor:default}
+.cc-workspace .cc-management-panel{border:0;border-radius:17px;box-shadow:0 2px 6px #17285c05,0 8px 24px #17285c09;overflow:hidden}
+.cc-workspace .cc-panel-toggle>svg:first-child{box-sizing:content-box;padding:9px;background:var(--cc-soft);color:var(--ui-link);border-radius:11px;width:18px;height:18px}
+.cc-workspace .cc-panel-toggle>svg:last-child{transition:transform 220ms cubic-bezier(.2,.8,.2,1)}
+.cc-workspace .cc-panel-toggle>span>span{font-size:.8125rem;line-height:1.5;font-weight:600}
+.cc-workspace .cc-panel-count{border:0;min-width:22px;padding:2px 5px;font-size:.625rem;background:var(--cc-soft);color:var(--ui-link)}
+.cc-workspace .cc-panel-content:not([hidden]){padding:14px;animation:contract-panel-in 220ms cubic-bezier(.2,.8,.2,1)}
+.cc-proposals-empty{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:10px 12px;padding:8px 0}
+.cc-proposals-art{position:relative;display:grid;place-items:center;width:44px;height:48px;border-radius:12px;background:var(--cc-soft);color:var(--ui-link);transform:rotate(-5deg)}
+.cc-proposals-art>span{position:absolute;bottom:-3px;right:-3px;display:grid;place-items:center;width:21px;height:21px;border:3px solid var(--ui-surface);border-radius:50%;background:var(--ui-success-surface);color:var(--ui-success)}
+.cc-proposals-empty h4{font-size:.8125rem;font-weight:500}
+.cc-proposals-empty p{font-size:.6875rem;line-height:1.7;color:var(--ui-muted);margin-top:3px}
+.cc-proposals-empty>button{grid-column:2;justify-self:start;border:0;padding:8px 0;background:transparent;color:var(--ui-link);font-size:.6875rem;min-height:44px!important}
+@keyframes contract-panel-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@layer repaido-brand{
+ #root .cc-workspace .cc-panel-toggle{padding:12px!important;border-radius:17px!important;gap:10px!important}
+ #root .cc-workspace .cc-workspace-header{padding:16px!important;border:0!important;background:linear-gradient(135deg,var(--cc-soft),var(--ui-surface) 75%)!important;border-radius:20px!important}
+ #root .cc-workspace .cc-workspace-header>h2{font-size:1.125rem!important;line-height:1.4!important}
+ #root .cc-workspace .cc-contract-stages li>button{background:transparent!important;border:0!important;font-size:.625rem!important;min-height:54px!important;padding:4px 0!important}
+ #root .cc-workspace .cc-contract-stages li[aria-current]>button>span{color:#fff!important}
+}
+@media(prefers-reduced-motion:reduce){.cc-workspace *{animation:none!important;transition:none!important}}
+:is(.reduce-motion,[data-reduced-motion=true]) .cc-workspace *{animation:none!important;transition:none!important}
+@media(forced-colors:active){.cc-workspace :is(.cc-workspace-header,.cc-management-panel){border:1px solid CanvasText!important}.cc-contract-stages li[aria-current]>button>span{outline:2px solid Highlight}}

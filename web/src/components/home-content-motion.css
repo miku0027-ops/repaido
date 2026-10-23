@@ -1,0 +1,46 @@
+/* Reserve the original sign's space; content swaps never resize the greeting. */
+#root .home-welcome-poster { background: #f8fbff; transition: background-color 600ms ease, transform 350ms ease; }
+#root .home-welcome-poster[data-tone=mint] { background: #e8f6ef; }
+#root .home-welcome-poster[data-tone=peach] { background: #fff3d6; }
+.home-poster-measure { visibility: hidden; }
+.home-poster-frame { position: absolute; inset: 7px; overflow: hidden; border-radius: 3px 3px 9px 9px; }
+#root .home-poster-frame :is(.home-poster-current,.home-poster-previous) {
+ position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+ min-width: 0; min-height: 44px; margin: 0; padding: 0; border: 0; border-radius: inherit;
+ background: transparent; color: #102953; box-shadow: none; font: inherit; text-align: center;
+}
+.home-poster-current > span,.home-poster-previous > span { font-size: .5rem; font-weight: 600; letter-spacing: .05em; line-height: 1.4; }
+#root .home-poster-frame strong { font-size: .6875rem; line-height: 1.4; }
+.home-poster-frame small { display: flex; align-items: center; gap: 2px; color: #284266; font-size: .5625rem; line-height: 1.4; }
+.home-poster-frame svg { flex: none; }
+.home-poster-previous { pointer-events: none; opacity: 0; }
+#root .home-poster-frame button:focus-visible { outline: 2px solid #173c75; outline-offset: -2px; }
+#root .home-welcome-playback { position: relative; padding-inline-end: 44px; }
+#root .home-welcome-playback .home-poster-playback {
+ position: absolute; inset-inline-end: 0; top: calc(50% - 22px); display: grid; place-items: center;
+ width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%;
+ background: transparent; color: #284266; box-shadow: none;
+}
+#root .home-poster-playback:hover { background: #dbe6f3; }
+#root .home-poster-playback:focus-visible { outline: 2px solid #173c75; outline-offset: -3px; }
+
+/* Overlay equally sized lines so the service grid stays still while text slides. */
+.service-grid-toolbar > div { min-width: 0; flex: 1; }
+.service-grid-toolbar > button { flex: none; }
+.service-heading-frame { position: relative; display: grid; overflow: hidden; }
+.service-heading-sizer { grid-area: 1 / 1; visibility: hidden; }
+.service-heading-swap { position: absolute; inset: 0; }
+.service-heading-current,.service-heading-previous { display: block; position: absolute; inset: 0; }
+.service-heading-previous { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+ .home-welcome-poster[data-moving=true] .home-poster-current[data-entering=true],
+ .service-discovery-heading[data-moving=true] .service-heading-current[data-entering=true] { animation: home-copy-enter 550ms cubic-bezier(.22,1,.36,1) both; }
+ .home-welcome-poster[data-moving=true] .home-poster-previous,
+ .service-discovery-heading[data-moving=true] .service-heading-previous { animation: home-copy-leave 450ms cubic-bezier(.4,0,.2,1) both; }
+ @keyframes home-copy-enter { from { opacity: 0; transform: translateY(85%); } to { opacity: 1; transform: none; } }
+ @keyframes home-copy-leave { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-85%); } }
+}
+@media (prefers-reduced-motion: reduce) { .home-welcome-poster,.home-poster-frame *,.service-heading-frame * { animation: none !important; transition: none !important; } }
+.reduce-motion :is(.home-welcome-poster,.home-poster-frame *,.service-heading-frame *),
+[data-reduced-motion=true] :is(.home-welcome-poster,.home-poster-frame *,.service-heading-frame *) { animation: none !important; transition: none !important; }
+@media (forced-colors: active) { #root .home-welcome-poster { background: Canvas; color: CanvasText; } #root .home-poster-frame :is(.home-poster-current,.home-poster-previous),#root .home-poster-frame small,#root .home-poster-playback { color: CanvasText; } }

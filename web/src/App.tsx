@@ -6,6 +6,7 @@ import {publicProfessionalDetails} from './services/hireProfileCache';
 import {useCaptain,useCaptainPhoto} from './components/CaptainClub';
 import {HomeDiscoveryLayout} from './components/HomeDiscoveryLayout';
 import {RepaidoGo,RepaidoGoEntry} from './components/RepaidoGo';
+import {ServicesNavigation} from './components/ServicesNavigation';
 import {MotionPage} from './components/MotionPage';
 import type {TravelMode} from './components/MobilityExperience';
 import {HomeDiscoveryPreferences} from './components/HomeDiscoveryPreferences';
@@ -48,7 +49,7 @@ import SearchDiscovery from './components/SearchDiscovery';
 import {stopNativeSession,nativeCall} from './services/native';
 import {useNativeApp} from './hooks/useNativeApp';
 import {SupportCenter,NotificationInbox} from './components/Lifecycle';
-import {SupportDialog,SupportQuickButton} from './components/SupportWorkspace';
+import {SupportDialog} from './components/SupportWorkspace';
 import {ContributeBookings,CustomerBookingNavigation} from './components/ContributeBookings';
 import { CategoryPicks } from './components/ServiceShowcase';
 import ReferenceArt from './components/ReferenceArt';
@@ -892,7 +893,6 @@ export default function App() {
                 )}
               </button>
 
-              <SupportQuickButton onOpen={()=>{setSupportCaseId('');setSheet('support_ticket');}}/>
 
               {/* User / Profile Button */}
               {user ? (
@@ -1189,7 +1189,7 @@ export default function App() {
               </div>
             )}
 
-            {(tab==='Services'||tab==='Hire')&&<nav className="services-destinations" aria-label="Services and hiring"><button type="button" aria-current={tab==='Services'?'page':undefined} onClick={()=>navigate('Services')}><HomeRepair size={18} aria-hidden="true"/>Services</button><button type="button" aria-current={tab==='Hire'?'page':undefined} onClick={()=>{setFocusedHire(undefined);navigate('Hire');}}><PersonSearch size={18} aria-hidden="true"/>Hire a professional</button></nav>}
+            {(tab==='Services'||tab==='Hire')&&<ServicesNavigation value={tab} onChange={navigate}/>}
             {/* 2. SERVICES TAB: Urban Company Style Layout */}
             {tab === 'Services' && (
               <div className="catalogue-container">
@@ -1388,11 +1388,11 @@ export default function App() {
       {communityRouteBusy&&<p className="community-route-status" role="status">Checking this listing’s latest details…</p>}
       {communityRouteError&&<Modal title="Listing unavailable" onClose={()=>setCommunityRouteError('')}><p role="alert">{communityRouteError}</p><button className="btn-outline" onClick={()=>setCommunityRouteError('')}>Back to opportunities</button></Modal>}
       {communityNative&&<Modal title={communityNative.kind==='career'?'Project opportunity':communityNative.kind==='applications'?'My applications':'Business workspace'} className="work-network-sheet" onClose={backToCommunity}>{communityNative.kind==='career'?<ProjectDetail project={communityNative.card.details!} uid={user?.id} onApplied={()=>setCommunityNative({kind:'applications'})}/>:communityNative.kind==='applications'?<Applications uid={user?.id}/>:<ContractorPortal initialTab={communityNative.tab} initialTenderId={communityNative.tenderId} initialProjectId={communityNative.projectId} agent={communityNative.agent} onBackToCustomer={backToCommunity} onPartnerProfile={()=>{setCommunityNative(null);setTab('You');}}/>}</Modal>}
-      {tab==='Explore'&&<CompactActionLauncher onCommunity={()=>setRepaidiansOpen(true)} onCustomContract={()=>openCustomContract()} onQuickHire={()=>setQuickHireOpen(true)}/>}
+      {tab==='Explore'&&<CompactActionLauncher onCommunity={()=>setRepaidiansOpen(true)} onCustomContract={()=>openCustomContract()} onQuickHire={()=>setQuickHireOpen(true)} onSupport={()=>{setSupportCaseId('');setSheet('support_ticket');}}/>}
       {quickHireOpen&&<Modal title="Quick Hire" className="quick-hire-modal" onClose={()=>setQuickHireOpen(false)}><Hiring location={place} onLocation={res=>setPlace(prev=>({...prev,...res,city:res.city||prev.city,confirmed:true}))} services={servicesList} city={place.city} onSignIn={()=>{setQuickHireOpen(false);setSheet('auth');}} onService={openPublishedService} onRequests={()=>{setQuickHireOpen(false);setRideBookings(false);setContractBookings(false);setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setQuickHireOpen(false);setHomePreferred(professional);setHomeHub(service);}} onBooking={id=>{setQuickHireOpen(false);setNotificationJob(id);setRideBookings(false);setContractBookings(false);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/></Modal>}
       {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={closeCommunity}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal transportLocation={place} onTransportLocation={()=>{setRepaidiansOpen(false);setCustomerMapModalOpen(true);}} onTransportSearch={()=>hydration.event({kind:'search',category:'transport'})} account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} initialTab={communityStart} initialProfileId={communityProfileId} initialReference={communityReference} initialJobId={communityJobId} onDestination={card=>void openCommunityListing(card)} onManage={manageCommunity} onProject={id=>{setCommunityRouteError('');setCommunityReturn(true);setRepaidiansOpen(false);setCommunityNative({kind:'workspace',tab:'Hiring',projectId:id,agent:true});}} initialPublicationId={communityStart==='feed'?new URLSearchParams(location.search).get('repaidians')||undefined:undefined} onSignIn={()=>{setRepaidiansOpen(false);setCommunityJobId(undefined);setCommunityContractReturn(false);setCommunityProfileId(undefined);setAuthMode('signin');setSheet('auth');setError('');}} onClose={closeCommunity} onBook={trade=>{setRepaidiansOpen(false);setCommunityJobId(undefined);setCommunityContractReturn(false);setCommunityProfileId(undefined);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
       {myRentalsOpen&&<Modal title="My rentals" className="rental-modal" onClose={()=>setMyRentalsOpen(false)}><RentalManager onSignIn={()=>setSheet('auth')}/></Modal>}
-      {discoveryOpen && <SearchDiscovery onHomeService={id=>{setDiscoveryOpen(false);setQuery('');setHomeHub(id);}} onEvent={hydration.event} onPreferencesChange={hydration.refresh} query={query} onQuery={setQuery} place={place} signedIn={hydration.signedIn} onClose={()=>{setDiscoveryOpen(false);setQuery('');}} onLocation={()=>{setDiscoveryOpen(false);setCityModalOpen(true);}} onSignIn={()=>{setDiscoveryOpen(false);setSheet('auth');}} onBook={service=>{setDiscoveryOpen(false);setQuery('');setSelectedService(service);}}/>}
+      {discoveryOpen && <SearchDiscovery onHomeService={id=>{setDiscoveryOpen(false);setQuery('');setHomeHub(id);}} onEvent={hydration.event} onPreferencesChange={hydration.refresh} query={query} onQuery={setQuery} place={place} signedIn={hydration.signedIn} onClose={()=>{setDiscoveryOpen(false);setQuery('');}} onLocation={()=>{setDiscoveryOpen(false);setCityModalOpen(true);}} onSignIn={()=>{setDiscoveryOpen(false);setSheet('auth');}} onBook={(service,promotion)=>{setPreferredProfessional(undefined);setSelectedPromotion(promotion?.id);setDiscoveryOpen(false);setQuery('');setSelectedService(service);}}/>}
       {homeDetail&&<HomeServiceDetails service={homeDetail} onClose={()=>setHomeDetail(null)} onBook={()=>{setSelectedService(homeDetail);setHomeDetail(null);}}/>}
       {marketProfile&&<Modal title={marketProfile==='exchange'?'Let’s exchange':'My used items'} className="market-manager-modal" onClose={()=>setMarketProfile(null)}><Marketplace mode={marketProfile} manage onShare={shareNative} onSignIn={()=>setSheet('auth')}/></Modal>}
       {homeHub!==null&&<HomeHub services={servicesList} onService={openPublishedService} preferredWorker={homePreferred} onEvent={hydration.event} city={place.city} initialService={homeHub||undefined} onClose={()=>{setHomeHub(null);setHomePreferred(undefined);}} onSignIn={()=>setSheet('auth')} onPlans={()=>{setHomeHub(null);setHomePreferred(undefined);setRideBookings(false);setContractBookings(false);setHomePlans(true);setTab('Bookings');}}/>}

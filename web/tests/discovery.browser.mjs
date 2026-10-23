@@ -39,6 +39,8 @@ try{
  const cat=name=>page.getByRole('combobox',{name:'Service category',exact:true}).selectOption({label:name});
  const settled=async()=>{await page.locator('.catalog-professionals-copy > span').filter({hasText:/reviewed profiles?/}).waitFor();};
  const layout=async()=>{
+  // Finish finite entrance motion before measuring the settled touch targets.
+  await page.locator('.catalog-discovery').evaluate(root=>root.getAnimations({subtree:true}).filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).forEach(animation=>animation.finish()));
   const issues=await page.locator('.catalog-discovery').evaluate(root=>{
    const bad=[];if(document.documentElement.scrollWidth>innerWidth+1)bad.push('page overflow');
    for(const e of root.querySelectorAll('.story-label,.catalog-professionals-copy,.catalog-professional-info'))if(e.scrollWidth>e.clientWidth+1)bad.push('clipped '+e.className);
@@ -51,7 +53,7 @@ try{
    const rect=root.getBoundingClientRect(),canvas=document.createElement('canvas'),context=canvas.getContext('2d'),controls=Array.from(root.querySelectorAll('select')).map(control=>{const r=control.getBoundingClientRect(),style=getComputedStyle(control);context.font=style.font;return {x:r.x,y:r.y,right:r.right,width:r.width,height:r.height,textWidth:context.measureText(control.selectedOptions[0].textContent).width,textSpace:control.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)};});
    return {x:rect.x,right:rect.right,height:rect.height,controls,pageWidth:document.documentElement.scrollWidth,viewport:innerWidth};
   });
-  assert.equal(dimensions.controls.length,2,'Category and sort share a single compact control panel');
+  assert.equal(dimensions.controls.length,2,'Category and sort share a compact control row');
   assert(dimensions.pageWidth<=dimensions.viewport+1,'Compact catalogue controls must not overflow the viewport');
   assert(dimensions.controls.every(control=>control.height>=43.9&&control.x>=dimensions.x-1&&control.right<=dimensions.right+1),'Dropdowns keep fully contained 44px touch targets');
   assert(dimensions.controls.every(control=>control.textWidth<=control.textSpace+1),'The selected category and sort labels remain fully visible, including at 200% text');
@@ -77,7 +79,7 @@ try{
   assert.equal(await page.locator('.uc-service-card').count(),1);
   assert.equal(await page.locator('.uc-service-title').textContent(),'Electrical inspection');
   await summary.click();assert.equal(await page.locator('.catalog-professional').count(),2);
-  assert.equal(await page.getByText('Category rank #1',{exact:true}).count(),1);
+  assert.equal(await page.getByText('Rank #1',{exact:true}).count(),1);
   assert.equal(await page.getByText('No category reviews yet',{exact:true}).count(),1);
   await layout();
   await page.getByRole('button',{name:'View Second electrical professional’s profile'}).click();

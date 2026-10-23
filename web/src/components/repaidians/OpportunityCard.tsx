@@ -1,4 +1,5 @@
 import {Card} from '../Card';
+import '../work-opportunity-cards.css';
 import {useEffect,useState} from 'react';
 import {ArrowUpRight,Bookmark,BriefcaseBusiness,Check,Crown,MapPin,Package,Share2,Handshake,Gavel} from '../../icons';
 import {apiAssetUrl} from '../../services/api';
@@ -28,7 +29,7 @@ export function OpportunityCard({card,onDestination,onShare,onSaved,compact=fals
     if(busy)return;const next=!saved;setBusy(true);setError('');
     try{await saveOpportunity({source:card.source,id:card.id},next);setSaved(next);onSaved?.(card,next);}catch(error){setError((error as Error).message);}finally{setBusy(false);}
   };
-  return <Card className={'rp-opportunity-card '+(compact?'rp-opportunity-card-compact':'')} data-kind={card.kind}>
+  return <Card className={'rp-opportunity-card '+(card.kind!=='product'?'work-opportunity-card ':'')+(compact?'rp-opportunity-card-compact':'')} data-kind={card.kind} data-work-tone={!available?'slate':customerContract?'amber':'blue'}>
     {!!card.imageUrl&&!imageFailed&&<div className="rp-opportunity-image"><img src={apiAssetUrl(card.imageUrl)} alt={card.title} loading="lazy" onError={()=>setImageFailed(true)}/></div>}
     <div className="rp-opportunity-body"><div className="rp-opportunity-badges"><span className="rp-opportunity-kind"><Icon size={16}/>{customerContract?'Customer contract':card.kind==='tender'?'Tender':card.kind==='job'?'Job':'Product'}</span>{card.condition&&<span className="rp-opportunity-condition" data-condition={card.condition}>{conditions[card.condition]||titleCase(card.condition)}</span>}{card.prime?.active&&<span className="rp-opportunity-prime"><Crown size={16}/>Prime shop</span>}{card.prime?.active&&card.prime.paid_placement&&<span className="rp-opportunity-placement">Paid placement</span>}</div>
       <h3>{card.title}</h3>{card.description&&<p className="rp-opportunity-description">{card.description}</p>}

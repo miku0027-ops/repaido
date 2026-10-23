@@ -1,0 +1,101 @@
+/* Shared opportunity surfaces. Colour supports the recorded state, never urgency. */
+#root .work-opportunity-card{
+ --work-ink:#172f4f;--work-muted:#354b65;--work-surface:#eef4ff;--work-wash:#fff;--work-edge:#d2dfef;
+ --work-accent:#1b4573;--work-soft:#dceaff;--work-price:#183858;--work-price-ink:#fff;
+ --work-price-muted:#d1e1f4;--work-art-paper:#f1f6ff;--work-art-accent:#efbd52;
+ --work-shadow:0 2px 4px #142b4908,0 5px 0 -2px #cedced,0 14px 30px -12px #18385835;
+ --card-padding:18px;--card-radius:24px;--card-shadow:var(--work-shadow);
+ position:relative;isolation:isolate;min-width:0;color:var(--work-ink);overflow:clip;
+}
+#root .work-opportunity-card[data-work-tone=amber]{--work-surface:#fff5df;--work-edge:#eadab9;--work-soft:#f7e5b9;--work-accent:#60410d;--work-shadow:0 2px 4px #533d1408,0 5px 0 -2px #e8d9b8,0 14px 30px -12px #533d142c}
+#root .work-opportunity-card[data-work-tone=sage]{--work-surface:#eaf4ef;--work-edge:#c9dfd3;--work-soft:#d5e9dd;--work-accent:#1d4935;--work-shadow:0 2px 4px #1d483408,0 5px 0 -2px #c9dfd3,0 14px 30px -12px #1d483430}
+#root .work-opportunity-card[data-work-tone=slate]{--work-surface:#eef1f5;--work-edge:#d1dae4;--work-soft:#dfe6ef;--work-accent:#30445f;--work-shadow:0 2px 4px #142b4908,0 5px 0 -2px #d1dae4,0 14px 30px -12px #18385828}
+/* These properties intentionally replace the older module-specific card shells. */
+@layer repaido-brand{
+ #root .work-opportunity-card{background:var(--work-surface)!important;border:0!important;border-radius:24px!important;padding:18px!important;box-shadow:var(--work-shadow)!important}
+ #root .work-opportunity-card.rp-opportunity-card{padding:0!important}
+ #root .work-opportunity-card :is(h2,h3){font-size:1rem!important;line-height:1.5!important;letter-spacing:-.015em!important;color:var(--work-ink)!important}
+ #root .work-opportunity-card :is(.contract-chip,.cc-status,.contract-discovery-kind,.rp-opportunity-kind){background:var(--work-soft)!important;color:var(--work-accent)!important}
+ #root .work-opportunity-card .rp-opportunity-price strong{color:var(--work-price-ink)!important}
+ #root .work-opportunity-card .tender-card-action,#root .work-opportunity-card>.cc-actions>button,#root .work-opportunity-card>.work-card-action{min-height:48px!important;padding:10px 14px!important;font-size:.8125rem!important}
+ #root .work-opportunity-card :is(.tender-card-sector,.tender-location){font-size:.75rem!important}
+}
+#root .work-opportunity-card::before{content:"";position:absolute;inset:0 24px auto;height:3px;border-radius:0 0 4px 4px;background:var(--work-accent);opacity:.55;pointer-events:none}
+#root .work-opportunity-card :is(h2,h3){color:var(--work-ink);overflow-wrap:anywhere;margin:4px 0}
+#root .work-opportunity-card :is(.cc-facts,.cc-query-summary,.cc-query-stats,.contract-facts,.rp-opportunity-facts>span,.rp-opportunity-description){color:var(--work-muted)}
+#root .work-opportunity-card :is(.contract-chip,.cc-status,.contract-discovery-kind){display:inline-flex;align-items:center;gap:6px;width:fit-content;max-width:100%;border:0;border-radius:9px;background:var(--work-soft);color:var(--work-accent);font-size:.6875rem;font-weight:600;line-height:1.5;padding:6px 8px;white-space:normal}
+#root .work-opportunity-card :is(.contract-chip,.cc-status)::before{content:"";width:6px;height:6px;flex:none;border-radius:50%;background:currentColor}
+#root .work-opportunity-card .tender-card-heading{gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:2px}
+.tender-card-category{display:flex;align-items:center;gap:9px;min-width:0;flex:1 1 9rem}
+#root .tender-market .work-opportunity-card.tender-opportunity .tender-category-icon{width:36px;height:36px;border-radius:12px;background:var(--work-wash);color:var(--work-accent);box-shadow:0 2px 4px #142b4908}
+#root .tender-market .work-opportunity-card.tender-opportunity .tender-card-sector{margin:0;color:var(--work-muted);line-height:1.5}
+#root .tender-market .work-opportunity-card.tender-opportunity{gap:10px}
+#root .work-opportunity-card .tender-location{display:flex;align-items:flex-start;gap:6px;color:var(--work-muted);line-height:1.6}
+#root .work-opportunity-card .tender-location>svg{flex:none;margin-top:2px}
+#root .tender-market .work-opportunity-card.tender-opportunity .tender-budget{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:3px 0;padding:16px;border:0;border-radius:18px;background:var(--work-price);color:var(--work-price-ink);min-width:0;overflow:hidden}
+.work-card-budget>div{display:grid;gap:3px;min-width:0}
+#root .tender-market .work-opportunity-card.tender-opportunity .tender-budget small{font-size:.6875rem;color:var(--work-price-muted);line-height:1.5}
+#root .tender-market .work-opportunity-card.tender-opportunity .tender-budget strong{font-size:1.375rem;line-height:1.4;letter-spacing:-.02em;color:var(--work-price-ink);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.work-card-budget>div>span{font-size:.625rem;color:var(--work-price-muted);line-height:1.6}
+.work-card-visual{display:block;flex:0 1 70px;min-width:44px;max-width:70px;color:#9fc2eb}.work-card-visual>svg{display:block;width:100%;height:auto}
+#root .work-opportunity-card .tender-card-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:12px;margin:4px 0 6px;padding:0;border:0}
+#root .work-opportunity-card .tender-card-facts>div{padding:0;min-width:0}
+#root .work-opportunity-card .tender-card-facts dt{font-size:.6875rem;line-height:1.6;gap:6px;align-items:flex-start;color:var(--work-muted)}
+#root .work-opportunity-card .tender-card-facts dt>svg{margin-top:2px}
+#root .work-opportunity-card .tender-card-facts dd{font-size:.8125rem;line-height:1.5;margin:4px 0 0;color:var(--work-ink);overflow-wrap:anywhere}
+#root .work-opportunity-card :is(.tender-card-action,.cc-primary,.rp-opportunity-actions>.rp-primary),#root .work-opportunity-card.contract-card>button:last-child,#root .contract-discovery-rail>.work-opportunity-card>button,#root .contract-private-cards>.work-opportunity-card>button{
+ display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;margin-top:auto;border:0;border-radius:14px;background:var(--work-price);color:var(--work-price-ink);box-shadow:0 3px 8px #18385816;white-space:normal;font-size:.8125rem;text-align:left
+}
+.work-card-action-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#ffffff1c;flex:none}
+#root .work-opportunity-card :is(button,summary):focus-visible{outline:3px solid var(--work-accent);outline-offset:4px}
+#root .work-opportunity-card :is(.cc-query-budget,.rp-opportunity-price),#root .work-opportunity-card.contract-card>strong,#root .contract-discovery-rail>.work-opportunity-card>strong,#root .contract-private-cards>.work-opportunity-card>strong{padding:12px 14px;border:0;border-radius:15px;background:var(--work-price);color:var(--work-price-ink);font-size:1.0625rem;line-height:1.5;overflow-wrap:anywhere}
+#root .work-opportunity-card :is(.cc-query-budget>span,.rp-opportunity-price small),#root .contract-discovery-rail>.work-opportunity-card>strong small,#root .contract-private-cards>.work-opportunity-card>strong small{color:var(--work-price-muted);font-size:.6875rem;line-height:1.6}
+#root .work-opportunity-card :is(.cc-query-budget strong,.rp-opportunity-price strong){color:var(--work-price-ink);font-size:1.1875rem;line-height:1.4;font-variant-numeric:tabular-nums}
+#root .work-opportunity-card .cc-query-heading{gap:8px;margin-bottom:12px}
+#root .work-opportunity-card .cc-query-heading>small{font-size:.6875rem;color:var(--work-muted)}
+#root .work-opportunity-card .cc-query-details{border-color:var(--work-edge)}
+#root .work-opportunity-card .cc-query-details>summary{color:var(--work-accent)}
+#root .work-opportunity-card .cc-query-stats{gap:8px 14px;margin:12px 0;font-size:.6875rem}
+#root .work-opportunity-card .cc-actions{border-color:var(--work-edge)}
+#root .work-opportunity-card .rp-opportunity-body{padding:18px}
+#root .work-opportunity-card .rp-opportunity-badges>span{background:var(--work-soft);color:var(--work-accent);border:0;border-radius:8px;padding:5px 7px}
+#root .work-opportunity-card .rp-opportunity-actions :is(.rp-opportunity-save,.rp-opportunity-share){background:var(--work-wash);color:var(--work-accent);border:1px solid var(--work-edge);border-radius:13px;box-shadow:none}
+#root .work-opportunity-card .rp-opportunity-save[aria-pressed=true]{background:var(--work-soft);box-shadow:inset 0 0 0 1.5px var(--work-accent)}
+#root .work-opportunity-card :is(.rp-primary,.cc-primary,button):disabled{box-shadow:none;cursor:default}
+#root .work-opportunity-card .rp-primary:disabled{background:var(--work-soft);color:var(--work-muted);opacity:1}
+#root .contract-discovery-rail>.work-opportunity-card{gap:10px;flex-basis:min(100%,17rem)}
+#root .contract-discovery-rail>.work-opportunity-card>strong{margin-top:auto}
+#root .contract-private-cards>.work-opportunity-card p{color:var(--work-muted);font-size:.75rem;line-height:1.6}
+#root .contract-private-cards>.work-opportunity-card>button{min-height:48px!important;padding:10px 14px}
+#root .work-opportunity-card.contract-card{gap:10px}
+#root .work-opportunity-card.contract-card>p,#root .work-opportunity-card.contract-card>small{color:var(--work-muted);font-size:.75rem;line-height:1.6}
+#root .work-opportunity-card progress{accent-color:var(--work-accent);width:100%;height:7px;overflow:hidden;border-radius:20px}
+#root :is(.tender-cards,.cc-grid,.contract-grid,.contract-private-cards):has(>.work-opportunity-card){gap:18px;padding-bottom:8px}
+[data-theme=dark] #root .work-opportunity-card{--work-ink:#f1f6ff;--work-muted:#c5d5e9;--work-surface:#1c304b;--work-wash:#293f5c;--work-edge:#476280;--work-accent:#bfdbff;--work-soft:#263e5e;--work-price:#0e2037;--work-shadow:0 2px 4px #0003,0 5px 0 -2px #102239,0 14px 30px -12px #0008}
+[data-theme=dark] #root .work-opportunity-card[data-work-tone=amber]{--work-surface:#3a301e;--work-soft:#44351c;--work-edge:#715e34;--work-accent:#ffe4a3;--work-shadow:0 2px 4px #0003,0 5px 0 -2px #241f16,0 14px 30px -12px #0008}
+[data-theme=dark] #root .work-opportunity-card[data-work-tone=sage]{--work-surface:#20392e;--work-soft:#253f32;--work-edge:#4c705d;--work-accent:#b8e5c9;--work-shadow:0 2px 4px #0003,0 5px 0 -2px #13261d,0 14px 30px -12px #0008}
+[data-theme=dark] #root .work-opportunity-card[data-work-tone=slate]{--work-surface:#263242;--work-soft:#2c3c50;--work-edge:#52647b;--work-accent:#d1e0f5;--work-shadow:0 2px 4px #0003,0 5px 0 -2px #17202d,0 14px 30px -12px #0008}
+@media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+ #root .work-opportunity-card:hover{transform:translateY(-3px)}
+ #root .work-opportunity-card:hover .work-card-action-icon{transform:translateX(3px);background:#ffffff30}
+ #root .work-opportunity-card:hover .work-card-pencil{transform:translate(1px,-2px) rotate(3deg);transform-origin:60px 45px}
+ #root .work-opportunity-card .rp-opportunity-save[aria-pressed=true]>svg{animation:work-card-save 300ms cubic-bezier(.16,1,.3,1)}
+}
+@media(prefers-reduced-motion:no-preference){
+ #root .work-opportunity-card{animation:work-card-enter 380ms cubic-bezier(.16,1,.3,1) backwards;transition:transform 220ms cubic-bezier(.16,1,.3,1),box-shadow 220ms ease}
+ #root .work-opportunity-card :is(button,.work-card-action-icon,.work-card-pencil){transition:transform 220ms cubic-bezier(.16,1,.3,1),background-color 200ms ease,box-shadow 200ms ease}
+ #root .work-opportunity-card button:not(:disabled):active{transform:scale(.98)}
+ .work-card-blueprint{stroke-dasharray:160;animation:work-blueprint-draw 900ms cubic-bezier(.16,1,.3,1) backwards}
+}
+@keyframes work-card-enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes work-blueprint-draw{from{stroke-dashoffset:160}to{stroke-dashoffset:0}}
+@keyframes work-card-save{50%{transform:scale(1.18)}to{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){#root .work-opportunity-card,#root .work-opportunity-card *{animation:none!important;transition:none!important;transform:none!important}}
+html.reduce-motion #root .work-opportunity-card,html.reduce-motion #root .work-opportunity-card *,.reduce-motion #root .work-opportunity-card,[data-reduced-motion=true] #root .work-opportunity-card{animation:none!important;transition:none!important;transform:none!important}
+html[data-reduced-motion=true] #root .work-opportunity-card *,html[data-reduced-motion=true] #root .work-opportunity-card{animation:none!important;transition:none!important;transform:none!important}
+#root :is(.reduce-motion,[data-reduced-motion=true]) .work-opportunity-card,#root :is(.reduce-motion,[data-reduced-motion=true]) .work-opportunity-card *{animation:none!important;transition:none!important;transform:none!important}
+@media(forced-colors:active){#root .work-opportunity-card{outline:1px solid CanvasText}#root .work-opportunity-card:focus-within{outline:2px solid Highlight}.work-card-visual{display:none}#root .work-opportunity-card :is(.tender-budget,.cc-query-budget,.rp-opportunity-price){outline:1px solid CanvasText}}
+
+#root .work-opportunity-card .customer-contract-card-icon{background:var(--work-wash);color:var(--work-accent);border:0;box-shadow:0 2px 5px #142b4910}
+#root .work-opportunity-card .customer-contract-card-copy :is(p,small){color:var(--work-muted)}
+#root .work-opportunity-card .customer-contract-card-copy>button{background:var(--work-price);color:var(--work-price-ink);border-radius:12px;padding:10px 12px;min-height:44px}

@@ -1,0 +1,12 @@
+@import './hiring-accent.css';
+/* Services owns hiring on mobile; this single compact row makes it discoverable. */
+.services-destinations{display:flex;gap:7px;margin:12px 16px 8px;padding:4px;max-width:560px;min-width:0;border-radius:16px;background:var(--ui-subtle)}
+#root .services-destinations>button{display:flex;align-items:center;justify-content:center;gap:7px;flex:1;min-width:0;min-height:44px;padding:10px 12px;border:0;border-radius:12px;background:transparent;color:var(--ui-muted);font-size:.75rem;font-weight:600;line-height:1.5;box-shadow:none;white-space:normal;transition:background-color 180ms ease,color 180ms ease,box-shadow 180ms ease}
+.services-destinations button>span{min-width:0;overflow-wrap:anywhere}.services-destinations svg{flex:none}
+#root .services-destinations>button[aria-current=page]{background:var(--ui-ink);color:var(--ui-surface);box-shadow:0 2px 7px #00000012}
+#root .services-destinations>.services-hire-destination{flex:1.6;background:var(--hire-soft);color:var(--hire-on-soft)}
+#root .services-destinations>.services-hire-destination[aria-current=page]{background:var(--hire-accent);color:var(--hire-on-accent);box-shadow:0 3px 10px #30240718}
+.services-hire-destination>span{flex:1;text-align:left}.services-destinations>button:focus-visible{outline:3px solid var(--ui-focus);outline-offset:3px}
+@media(max-width:359px){#root .services-destinations>button{padding-inline:8px;gap:6px}.services-destinations{margin-inline:12px}}
+@media(prefers-reduced-motion:reduce){#root .services-destinations>button{transition:none}}
+:is(.reduce-motion,[data-reduced-motion=true]) .services-destinations>button{transition:none!important}

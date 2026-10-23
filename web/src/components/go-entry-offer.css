@@ -1,0 +1,36 @@
+/* The offer is one live policy message. Its visual repeat is hidden from AT. */
+#root .go-entry-card{position:relative;min-width:0;max-width:100%;width:calc(100% - 32px);margin:10px 16px 20px}
+#root .go-entry-card>.repaido-go-entry{width:100%;margin:0}
+#root .go-entry-card[data-has-offer=true]>.repaido-go-entry{min-height:116px;padding-block:16px}
+.go-entry-card[data-has-offer=true] .go-entry-arrow{align-self:flex-start;width:44px;height:38px}
+.go-entry-card .go-entry-copy .go-entry-offer{min-width:0;max-width:100%;overflow:hidden;font-size:.6875rem;line-height:1.6;white-space:nowrap;text-wrap:nowrap}
+.go-entry-offer-track{display:flex;width:max-content;animation:go-offer-scroll 20s linear infinite;animation-play-state:paused}
+.go-entry-offer-track>span{display:block;flex:none;padding-inline-end:40px}
+.go-entry-card[data-running=true] .go-entry-offer-track{animation-play-state:running}
+.go-entry-card:has(:focus-visible) .go-entry-offer-track{animation-play-state:paused}
+#root .go-entry-playback{position:absolute;right:16px;bottom:8px;display:grid;place-items:center;width:44px;min-width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:14px;background:transparent;color:var(--go-primary);cursor:pointer}
+.go-entry-playback::before{content:"";position:absolute;inset:9px;border:1px solid #fbbc044d;border-radius:50%;background:#fbbc040d;transition:background-color 180ms ease}
+.go-entry-playback>svg{position:relative}
+.go-entry-playback:focus-visible{outline:3px solid var(--go-focus);outline-offset:-3px}
+@media(hover:hover) and (pointer:fine){.go-entry-card:hover .go-entry-offer-track{animation-play-state:paused}.go-entry-playback:hover::before{background:#fbbc0424}}
+.go-entry-card[data-offer-paused=true] .go-entry-copy .go-entry-offer{white-space:normal;text-wrap:pretty}
+.go-entry-card[data-offer-paused=true] .go-entry-offer-track{display:block;width:auto;animation:none}
+.go-entry-card[data-offer-paused=true] .go-entry-offer-track>span{padding:0}
+.go-entry-card[data-offer-paused=true] .go-entry-offer-track>span+span{display:none}
+@keyframes go-offer-scroll{from{transform:translate3d(0,0,0)}to{transform:translate3d(var(--go-offer-distance,-50%),0,0)}}
+@media(min-width:1024px){#root .go-entry-card{width:100%;margin-inline:0}}
+@media(max-width:360px){#root .go-entry-playback{right:12px}}
+@media(prefers-reduced-motion:reduce){
+ .go-entry-card .go-entry-copy .go-entry-offer{white-space:normal;text-wrap:pretty}
+ .go-entry-card .go-entry-offer-track{display:block;width:auto;animation:none}
+ .go-entry-card .go-entry-offer-track>span{padding:0}
+ .go-entry-card .go-entry-offer-track>span+span,#root .go-entry-card .go-entry-playback{display:none}
+ .go-entry-card .go-entry-playback::before{transition:none}
+}
+:is(.reduce-motion,[data-reduced-motion=true]) .go-entry-card .go-entry-copy .go-entry-offer{white-space:normal;text-wrap:pretty}
+:is(.reduce-motion,[data-reduced-motion=true]) .go-entry-card .go-entry-offer-track{display:block;width:auto;animation:none}
+:is(.reduce-motion,[data-reduced-motion=true]) .go-entry-card .go-entry-offer-track>span{padding:0}
+:is(.reduce-motion,[data-reduced-motion=true]) .go-entry-card .go-entry-offer-track>span+span,
+:is(.reduce-motion,[data-reduced-motion=true]) .go-entry-card .go-entry-playback{display:none!important}
+@layer repaido-brand{#root .go-entry-card .go-entry-playback:focus-visible{outline-color:var(--go-primary)!important;outline-offset:-3px!important}}
+@media(forced-colors:active){#root .go-entry-playback{color:ButtonText}.go-entry-playback::before{border-color:ButtonText;background:Canvas}}

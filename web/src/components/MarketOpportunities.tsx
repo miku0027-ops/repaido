@@ -24,7 +24,6 @@ export default function MarketOpportunities({onChoose,onSignIn}:{onChoose:(id:De
 
  return <>
   <section className="market-highlights market-discovery-hub" aria-label="Market highlights">
-   <header className="market-highlight-heading"><span><ShoppingBag size={14} aria-hidden="true"/>REPAIDO MARKET</span><small>Local finds. Useful choices.</small></header>
    <OpportunityCarousel variant="market-compact" onOpen={setDetail} footerAction={<button type="button" className="market-benefits-trigger" aria-haspopup="dialog" aria-expanded={perks!==null} onClick={()=>setPerks('shortcuts')}><Ticket size={16} aria-hidden="true"/><span>Benefits</span><ChevronDown size={14} aria-hidden="true"/></button>}/>
   </section>
   {detail&&<Modal title={detail.title} className="market-highlight-detail" onClose={()=>setDetail(null)}><img src={`/images/banners/${detail.image}.jpg`} alt={detail.alt}/><p>{detail.body}</p><details open><summary>How it works & terms</summary><p>{detail.terms}</p></details><button className="ops-primary" onClick={()=>{onChoose(detail.id as Destination);setDetail(null);}}>{detail.cta}<ArrowRight size={16} aria-hidden="true"/></button></Modal>}

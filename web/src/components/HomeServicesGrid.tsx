@@ -8,6 +8,7 @@ import {bestCategoryOffer,offerExpiry} from '../services/promotionPresentation.m
 import {ArrowUpRight,LocalOffer,Pause,Play,Clock3,ShieldCheck,Leaf,type MaterialIcon} from '../icons';
 import './home-discovery-refresh.css';
 import './home-discovery-polish.css';
+import {ServiceDiscoveryHeading} from './ServiceDiscoveryHeading';
 const tileName=(name:string)=>({'Vehicle Road Assistance':'Vehicle help','Appliance Repair':'AC & appliances','Gardening Help':'Gardening','Home Cleaning':'Home cleaning'}[name]||name);
 
 export interface ServiceSlide {
@@ -1070,7 +1071,7 @@ export function HomeServicesGrid({
       data-hydrated={shouldHydrate}
       data-city={city}
     >
-      <div className="service-grid-toolbar"><div><span className="service-grid-kicker">REPAIDO SPECIALS</span><h2>{city?`A little help in ${city}`:'A little help, nearby'}</h2></div><button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?<Play size={16} aria-hidden="true"/>:<Pause size={16} aria-hidden="true"/>}<span>{paused?'Play':'Pause'}</span></button></div>
+      <div className="service-grid-toolbar"><div><span className="service-grid-kicker">REPAIDO SPECIALS</span><ServiceDiscoveryHeading city={city} paused={motionPaused}/></div><button type="button" onClick={()=>setPaused(v=>!v)} aria-label={paused?'Play service cards':'Pause service cards'}>{paused?<Play size={16} aria-hidden="true"/>:<Pause size={16} aria-hidden="true"/>}<span>{paused?'Play':'Pause'}</span></button></div>
       <div className={`repaido-services-3col-grid ${motionPaused?'service-grid-paused':''}`}>
         {regionServices.map((service,index)=>{
           const matchingOffers=offers.filter(card=>service.id==='gardening'?/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''):service.id!=='cleaning'||!/\b(garden|gardening|lawn|pruning)\b/i.test(card.service?.name||''));

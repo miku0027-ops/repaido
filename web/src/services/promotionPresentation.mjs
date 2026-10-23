@@ -12,6 +12,12 @@ export function bestCategoryOffer(cards,category,now=Date.now()/1000){
  return cards.filter(c=>c.service?.category===category&&pricedPromotion(c,now))
   .sort((a,b)=>b.discount_paise/b.price_paise-a.discount_paise/a.price_paise||b.discount_paise-a.discount_paise)[0];
 }
+export function bestServiceOffer(cards,service,now=Date.now()/1000){
+ // A category match alone must never discount a different package. Feed prices
+ // must still match the current search catalogue before showing savings.
+ return cards.filter(c=>c.service?.id===service.id&&c.price_paise===service.price_paise&&pricedPromotion(c,now))
+  .sort((a,b)=>b.discount_paise-a.discount_paise)[0];
+}
 export function offerExpiry(at){
  return new Date(at*1000).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short'});
 }

@@ -1,11 +1,12 @@
-/* Catalogue controls share one row instead of a second photographic carousel. */
-#root .catalog-discovery>.service-stories.service-controls-compact{padding:0;margin:0 0 10px;min-width:0}
-.catalogue-dropdown-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7.5rem),1fr));gap:8px;padding:8px;border:1px solid var(--ui-line);border-radius:15px;background:linear-gradient(125deg,var(--ui-surface),var(--ui-subtle));box-shadow:0 2px 5px #132a5505,0 5px 14px #132a5507;min-width:0}
-.catalogue-dropdown-strip>label{position:relative;display:grid;gap:4px;min-width:0;margin:0;color:var(--ui-ink)}
-.catalogue-dropdown-strip>label>span{font-size:.625rem;line-height:1.5;font-weight:500;padding-left:3px;color:var(--ui-muted)}
-#root .catalogue-dropdown-strip select{display:block;width:100%;min-width:0;min-height:44px;appearance:none;padding:9px 27px 9px 10px;border:1px solid var(--ui-control);border-radius:10px;background:color-mix(in srgb,var(--ui-link) 4%,var(--ui-surface));color:var(--ui-ink);font-family:var(--ui-font,Poppins,sans-serif);font-size:.75rem;line-height:1.5;font-weight:500;cursor:pointer;box-shadow:inset 0 1px 0 #ffffff15;transition:border-color 160ms ease,box-shadow 160ms ease}
-.catalogue-dropdown-strip>label>svg{position:absolute;right:9px;bottom:15px;pointer-events:none;color:var(--ui-muted)}
-#root .catalogue-dropdown-strip select:focus-visible{outline:3px solid var(--ui-link);outline-offset:2px;border-color:var(--ui-link)}
+/* Small visible pills, full native touch targets, and no enclosing filter card. */
+#root .catalogue-search-controls{padding:0 var(--app-gutter,16px) 3px}
+#root .service-stories.service-controls-compact{padding:0;margin:0;min-width:0}
+.catalogue-dropdown-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:0 6px;max-width:28rem;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;min-width:0}
+.catalogue-dropdown-strip>label{position:relative;display:block;min-width:0;margin:0;color:var(--ui-ink)}
+#root .catalogue-dropdown-strip select{display:block;width:100%;min-width:0;min-height:44px;appearance:none;padding:6px 26px 6px 10px;border:5px solid transparent;border-inline-width:0;border-radius:16px;background:var(--ui-subtle);background-clip:padding-box;color:var(--ui-muted);font-family:var(--ui-font,Poppins,sans-serif);font-size:.75rem;line-height:1.5;font-weight:500;cursor:pointer;box-shadow:none;transition:color 160ms ease,background-color 160ms ease}
+.catalogue-dropdown-strip>label>svg{position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--ui-muted)}
+#root .catalogue-dropdown-strip select:focus-visible{outline:3px solid var(--ui-link);outline-offset:2px;border-color:transparent}
+#root .catalogue-dropdown-strip>label[data-active=true]>select.ui-compact-select{background-color:color-mix(in srgb,var(--ui-link) 9%,var(--ui-surface));color:var(--ui-link);border-color:transparent}
 .catalogue-active-filters{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 10px;color:var(--ui-ink);min-width:0}
 #root .catalogue-active-filters button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:44px;max-width:100%;padding:6px 9px;font-family:var(--ui-font,Poppins,sans-serif);font-size:.6875rem;line-height:1.5;font-weight:500;border:1px solid var(--ui-line);border-radius:10px;background:var(--ui-subtle);color:var(--ui-ink)}
 .catalogue-active-filters button>svg{flex:none}
@@ -13,7 +14,11 @@
 #root .uc-header-sticky .uc-compact-action{position:relative}
 .catalogue-filter-count{position:absolute;top:-4px;right:-4px;display:grid;place-items:center;min-width:17px;height:17px;padding:0 3px;border:2px solid var(--ui-surface);border-radius:6px;background:#fff;color:#17285c;font-size:.5625rem;font-weight:700;line-height:1;pointer-events:none}
 html.large-text .catalogue-dropdown-strip{grid-template-columns:minmax(0,1fr)}
-@media(hover:hover){#root .catalogue-dropdown-strip select:hover{border-color:var(--ui-link);box-shadow:0 2px 8px #132a5510}}
+@media(hover:hover){#root .catalogue-dropdown-strip select:hover{background-color:color-mix(in srgb,var(--ui-link) 9%,var(--ui-surface));color:var(--ui-ink)}}
 @media(prefers-reduced-motion:reduce){#root .catalogue-dropdown-strip select{transition:none}}
 html.reduce-motion #root .catalogue-dropdown-strip select,[data-reduced-motion=true] .catalogue-dropdown-strip select{transition:none}
-@layer repaido-brand{#root .catalogue-dropdown-strip select{font-size:.75rem!important;}}
+@layer repaido-brand{
+ #root .service-stories.service-controls-compact{background:transparent!important}
+ #root .catalogue-dropdown-strip select{font-size:.75rem!important;padding-block:6px!important}
+}
+@media(forced-colors:active){#root .catalogue-dropdown-strip select{border:1px solid ButtonText;background:Canvas;color:CanvasText}}

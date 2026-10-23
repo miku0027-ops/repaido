@@ -247,11 +247,6 @@
   .hire-discovery-page .hire-category-cards>button { flex-basis: max(142px,9rem) !important; max-width: 100% !important; }
   .hire-category-copy { width: 100% !important; max-width: 100% !important; }
   .hire-category-copy :is(strong,small) { overflow-wrap: anywhere !important; }
-  .b2b-product-open { flex-direction: column !important; }
-  .b2b-product-open .b2b-product-image { flex: none !important; width: 100% !important; height: 160px !important; margin: 0 !important; border-radius: 0 !important; }
-  .b2b-product-open .b2b-product-image:not(:has(img)) { height: 88px !important; }
-  .b2b-product-image small { max-width: none !important; }
-  .b2b-product-copy { width: 100% !important; padding: var(--card-padding) !important; }
   .b2b-rate strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
   .shop-b2b-metrics { display: flex !important; flex-wrap: wrap !important; }
   .shop-b2b-metrics>div { flex: 1 1 90px; min-width: min-content; max-width: 100%; }
