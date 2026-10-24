@@ -199,7 +199,7 @@ function ShopFlow({ onBack, onDone }: { onBack:()=>void; onDone:()=>void }) {
         {step<3?<button className="partner-cta-btn shop-btn" onClick={()=>setStep(p=>p+1)} disabled={(step===0&&!f.profileImage)||(step===1&&(!f.locationConfirmed||f.categories.length===0))}>Continue <ArrowRight size={16}/></button>
           :<button className="partner-cta-btn shop-btn" onClick={submit} disabled={!f.agree}><Store size={16}/> Send shop application</button>}
       </div>
-          {mapOpen&&<LocationPickerModal isOpen={mapOpen} initialLat={f.lat} initialLng={f.lng} onConfirmLocation={({lat,lng})=>{s('lat',lat);s('lng',lng);s('locationConfirmed',true);setMapOpen(false);}} onClose={()=>setMapOpen(false)}/>} 
+          {mapOpen&&<LocationPickerModal isOpen={mapOpen} addressRequired initialAddress={f.address} initialCity={f.city} initialLat={f.lat} initialLng={f.lng} onConfirmLocation={({lat,lng,address,city})=>{s('lat',lat);s('lng',lng);s('address',address);s('city',city);s('locationConfirmed',true);setMapOpen(false);}} onClose={()=>setMapOpen(false)}/>}
     </div>
   );
 }
@@ -360,7 +360,7 @@ function WorkerFlow({ mode, onBack, onDone }: { mode:'technician'|'specialist'; 
         {step===1&&(!f.locationConfirmed||f.categories.length===0)&&<p className="text-sm text-red-500 text-center">Please set your exact map pin and select at least one service category</p>}
       </div>}
 
-      {mapOpen&&<LocationPickerModal isOpen={mapOpen} initialLat={f.lat} initialLng={f.lng} onConfirmLocation={({lat,lng})=>{s('lat',lat);s('lng',lng);s('locationConfirmed',true);setMapOpen(false);}} onClose={()=>setMapOpen(false)} />}
+      {mapOpen&&<LocationPickerModal isOpen={mapOpen} addressRequired initialAddress={f.homeAddress} initialCity={f.city} initialLat={f.lat} initialLng={f.lng} onConfirmLocation={({lat,lng,address,city})=>{s('lat',lat);s('lng',lng);s('homeAddress',address);s('city',city);s('locationConfirmed',true);setMapOpen(false);}} onClose={()=>setMapOpen(false)} />}
     </div>
   );
 }

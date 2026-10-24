@@ -2551,11 +2551,13 @@ export default function App() {
       {/* Customer Location Picker Modal (Leaflet Google Map) */}
       <LocationPickerModal
         isOpen={customerMapModalOpen}
+        initialAddress={place.address}
+        initialCity={place.city}
         onClose={() => setCustomerMapModalOpen(false)}
-        initialLat={21.4934}
-        initialLng={86.9135}
+        initialLat={place.lat??21.4934}
+        initialLng={place.lng??86.9135}
         title="Set Your Current Service Location"
-        subtitle="Move the pin, use GPS, or enter coordinates to choose your service entrance."
+        subtitle="Search for your address, then check the pin at your service entrance."
         onConfirmLocation={res => {
           setPlace(prev => ({ ...prev, city: res.city || prev.city || 'Balasore', address: res.address || prev.address, lat: res.lat, lng: res.lng, confirmed: true }));
         }}
@@ -2564,17 +2566,19 @@ export default function App() {
       {/* Technician / Worker Location Picker Modal (Leaflet Google Map) */}
       <LocationPickerModal
         isOpen={workerMapModalOpen}
+        initialAddress={partnerForm.homeAddress}
+        initialCity={partnerForm.serviceCity}
         onClose={() => setWorkerMapModalOpen(false)}
         initialLat={partnerForm.lat || 21.4934}
         initialLng={partnerForm.lng || 86.9135}
         title="Set Technician Base GPS Location"
-        subtitle="Choose your service workshop or home base using the map or coordinates."
+        subtitle="Search for your workshop or home base, then confirm its map pin."
         onConfirmLocation={res => {
           setPartnerForm(prev => ({
             ...prev,
             lat: res.lat,
             lng: res.lng,
-            homeAddress: prev.homeAddress || res.address,
+            homeAddress: res.address || prev.homeAddress,
             serviceCity: res.city || prev.serviceCity
           }));
         }}

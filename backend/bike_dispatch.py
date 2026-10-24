@@ -15,6 +15,7 @@ import threading
 import time
 import urllib.request
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 
 import h3
 
@@ -345,6 +346,17 @@ class PubSubAdapter:
         self.config = config or configuration()
         if self.config['mode'] != 'pubsub':
             raise RuntimeError('A Pub/Sub adapter requires Pub/Sub mode')
+        # One private callback pool per subscriber. Broker flow control bounds
+        # queued + executing callbacks; the database still owns event ordering
+        # and idempotency. Invalid capacity must not silently expand throughput.
+        try:
+            self.callback_workers = int(os.getenv('REPAIDO_BIKE_DISPATCH_CALLBACK_WORKERS', '10'))
+            self.max_messages = int(os.getenv('REPAIDO_BIKE_DISPATCH_MAX_MESSAGES', '32'))
+        except ValueError:
+            raise RuntimeError('Dispatch capacity must use whole numbers') from None
+        if not 1 <= self.callback_workers <= 32 or not self.callback_workers <= self.max_messages <= 128:
+            raise RuntimeError('Dispatch needs 1–32 workers and workers–128 outstanding messages')
+        self.callback_pool = None
         from google.cloud import pubsub_v1
         endpoint = {'api_endpoint': self.config['region'] + '-pubsub.googleapis.com:443'}
         self.publisher = publisher or pubsub_v1.PublisherClient(
@@ -377,13 +389,24 @@ class PubSubAdapter:
 
     def subscribe(self, callback):
         from google.cloud import pubsub_v1
+        from google.cloud.pubsub_v1.subscriber.scheduler import ThreadScheduler
+        if self.callback_pool is not None:
+            raise RuntimeError('A dispatch adapter may only start one subscriber')
+        self.callback_pool = ThreadPoolExecutor(max_workers=self.callback_workers, thread_name_prefix='bike-dispatch')
         return self.subscriber.subscribe(self.config['subscription'], callback=callback,
-                 flow_control=pubsub_v1.types.FlowControl(max_messages=32, max_bytes=1024 * 1024, max_lease_duration=120),
+                 scheduler=ThreadScheduler(self.callback_pool),
+                 flow_control=pubsub_v1.types.FlowControl(max_messages=self.max_messages, max_bytes=1024 * 1024, max_lease_duration=120),
                  await_callbacks_on_shutdown=True)
 
     def close(self):
-        self.subscriber.close()
-        self.publisher.stop()
+        try:
+            self.subscriber.close()
+        finally:
+            try:
+                self.publisher.stop()
+            finally:
+                if self.callback_pool is not None:
+                    self.callback_pool.shutdown(wait=True, cancel_futures=True)
 
 
 class KafkaAdapter:

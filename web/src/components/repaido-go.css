@@ -101,3 +101,8 @@
 /* Keep city selection beside the brand and reserve space above the ride rail. */
 @media(max-width:430px){.go-header .go-history{width:44px;padding:9px}.go-header .go-history>span{display:none}}
 @media(max-width:360px){.go-header{padding:8px 12px;gap:8px}.go-wordmark{gap:0 6px}.go-wordmark h1{font-size:1.125rem}}
+
+/* Route entry is a form; the map mounts only when editing a stop. */
+#root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .bike-workspace.bike-workspace--form{display:block;border-radius:20px}
+#root .repaido-go .local-business-hub.mobility-experience.rides-workspace.go-mobility .bike-workspace--form .bike-route-sheet{margin:0;border:0;border-radius:20px;padding:20px 16px;box-shadow:none}
+.repaido-go .bike-workspace--form .bike-route-sheet:before{content:none}

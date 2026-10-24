@@ -3535,6 +3535,8 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
       {/* Leaflet Google Maps Location Picker Modal */}
       <LocationPickerModal
         isOpen={isMapPickerOpen}
+        initialAddress={newAddress}
+        initialCity={newCity}
         onClose={() => setIsMapPickerOpen(false)}
         initialLat={shopLat}
         initialLng={shopLng}
@@ -3544,7 +3546,7 @@ export const ShopAdminPortal: React.FC<ShopAdminPortalProps> = ({ onBackToMain, 
           setShopLat(result.lat);
           setShopLng(result.lng);
           if (result.city) setNewCity(result.city);
-          if (result.address && !newAddress) setNewAddress(result.address);
+          if (result.address) setNewAddress(result.address);
         }}
       />
     </div>

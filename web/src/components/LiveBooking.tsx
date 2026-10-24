@@ -76,6 +76,6 @@ export default function LiveBooking({service,city,onClose,onSignIn,onBooked,prom
       <button className="ops-primary booking-submit" disabled={busy||!selected||!pin||!serviceTerms||bookingOffer.pending||!!offerError||!!appliedPromotion&&!offer}>{busy?'Sending request…':`Request visit${selected?' · '+money(offer?.price_paise??(selected.price_paise-couponSavings(selected.price_paise,coupon))):''}`}</button>
       {onPromotion&&<details><summary>Other services & offers (optional)</summary><p>Viewing another offer keeps this address and time saved. Your selected offer follows this service into booking.</p><PromotionRail city={bookingCity} placement="checkout" serviceId={serviceId} onOpen={onPromotion}/></details>}
     </form>}
-    {map&&<LocationPickerModal isOpen onClose={()=>setMap(false)} initialLat={pin?.lat} initialLng={pin?.lng} onConfirmLocation={p=>{setPin({lat:p.lat,lng:p.lng});setMap(false);}}/>}
+    {map&&<LocationPickerModal isOpen onClose={()=>setMap(false)} initialLat={pin?.lat} initialLng={pin?.lng} initialAddress={address} initialCity={bookingCity} addressRequired onConfirmLocation={p=>{setPin({lat:p.lat,lng:p.lng});setAddress(p.address);setBookingCity(p.city);setMap(false);}}/>}
   </div></Modal>;
 }

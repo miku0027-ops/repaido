@@ -21,13 +21,14 @@ export function GoLocationPicker({stop,initial,near,onConfirm,onClose}:Props){
  useEffect(()=>{
   const generation=++searchRevision.current;setSuggestions([]);setIndex(-1);setSearched(false);setSearchFailed(false);setError('');
   if(query.trim().length<2)return;
+  const controller=new AbortController();
   const timer=setTimeout(async()=>{
    setBusy('search');setError('');
-   try{session.current??=createRidePlaceSession();const result=await suggestRidePlaces(await session.current,query.trim(),bias.current);if(generation===searchRevision.current){setSuggestions(result);setSearched(true);}}
+   try{session.current??=createRidePlaceSession();const result=await suggestRidePlaces(await session.current,query.trim(),bias.current,controller.signal);if(generation===searchRevision.current){setSuggestions(result);setSearched(true);}}
    catch{if(generation===searchRevision.current){session.current=null;setSearchFailed(true);setError('Search couldn’t connect. Try again or choose your pin below.');}}
    finally{if(generation===searchRevision.current)setBusy('');}
   },300);
-  return()=>{clearTimeout(timer);searchRevision.current++;};
+  return()=>{clearTimeout(timer);controller.abort();searchRevision.current++;};
  },[query,retry]);
  useEffect(()=>{if(index>=0)document.getElementById(id+'-place-'+index)?.scrollIntoView({block:'nearest'});},[index,id]);
  const clearSearch=()=>{searchRevision.current++;setQuery('');setSuggestions([]);setSearched(false);setSearchFailed(false);setIndex(-1);};

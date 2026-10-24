@@ -405,6 +405,7 @@ def test_actual_pubsub_client_ordering_options_region_iam_and_replay_resume(monk
             messages.append((topic, data, kwargs))
             return future
         def resume_publish(self, topic, key): resumes.append((topic, key))
+        def stop(self): pass
     class Subscriber:
         ordered = True
         def __init__(self, **kwargs): options.append(('subscriber', kwargs))
@@ -412,6 +413,7 @@ def test_actual_pubsub_client_ordering_options_region_iam_and_replay_resume(monk
             return SimpleNamespace(topic=dispatch.configuration()['topic'], enable_message_ordering=self.ordered)
         def test_iam_permissions(self, request, timeout): return SimpleNamespace(permissions=request['permissions'])
         def subscribe(self, name, **kwargs): subscriptions.append((name, kwargs)); return 'streaming-future'
+        def close(self): pass
     monkeypatch.setattr(pubsub_v1, 'PublisherClient', Publisher)
     monkeypatch.setattr(pubsub_v1, 'SubscriberClient', Subscriber)
     adapter = dispatch.PubSubAdapter()
@@ -428,8 +430,61 @@ def test_actual_pubsub_client_ordering_options_region_iam_and_replay_resume(monk
     assert adapter.subscribe(lambda *_: None) == 'streaming-future'
     assert subscriptions[0][1]['flow_control'].max_messages == 32
     assert subscriptions[0][1]['await_callbacks_on_shutdown']
+    assert subscriptions[0][1]['scheduler'] is not None
+    with pytest.raises(RuntimeError, match='one subscriber'):
+        adapter.subscribe(lambda *_: None)
     adapter.subscriber.ordered = False
     assert not adapter.ready()
+    adapter.close()
+
+
+@pytest.mark.parametrize('workers,messages', [('0', '32'), ('33', '32'), ('2', '1'), ('4', '129'), ('many', '32')])
+def test_pubsub_rejects_unbounded_or_invalid_callback_capacity(monkeypatch, workers, messages):
+    pubsub_env(monkeypatch)
+    monkeypatch.setenv('REPAIDO_BIKE_DISPATCH_CALLBACK_WORKERS', workers)
+    monkeypatch.setenv('REPAIDO_BIKE_DISPATCH_MAX_MESSAGES', messages)
+    with pytest.raises(RuntimeError, match='capacity|workers'):
+        dispatch.PubSubAdapter()
+
+
+def test_pubsub_private_callback_pool_obeys_capacity_and_drains(monkeypatch):
+    import threading
+    from types import SimpleNamespace
+    pubsub_env(monkeypatch)
+    monkeypatch.setenv('REPAIDO_BIKE_DISPATCH_CALLBACK_WORKERS', '2')
+    monkeypatch.setenv('REPAIDO_BIKE_DISPATCH_MAX_MESSAGES', '4')
+    captured, finished = {}, []
+    class Subscriber:
+        def subscribe(self, name, **kwargs): captured.update(kwargs); return 'stream'
+        def close(self): pass
+    adapter = dispatch.PubSubAdapter(publisher=SimpleNamespace(stop=lambda: None), subscriber=Subscriber())
+    adapter.subscribe(lambda *_: None)
+    assert captured['flow_control'].max_messages == 4
+    barrier, release, lock = threading.Barrier(3), threading.Event(), threading.Lock()
+    active, maximum = 0, 0
+    def work(number):
+        nonlocal active, maximum
+        with lock:
+            active += 1
+            maximum = max(maximum, active)
+        if number < 2: barrier.wait(timeout=3)
+        release.wait(timeout=3)
+        with lock:
+            active -= 1
+            finished.append(number)
+    try:
+        for number in range(4): captured['scheduler'].schedule(work, number)
+        barrier.wait(timeout=3)
+        assert maximum == 2
+        release.set()
+        pending = captured['scheduler'].shutdown(await_msg_callbacks=True)
+        # The SDK drains executing callbacks and returns unstarted messages to
+        # its streaming manager for nack/redelivery rather than dropping them.
+        assert sorted(finished + pending) == [0, 1, 2, 3]
+        assert maximum == 2
+    finally:
+        release.set()
+        adapter.close()
 
 
 def test_pubsub_cannot_reuse_recent_kafka_or_other_resource_heartbeat(store, monkeypatch):

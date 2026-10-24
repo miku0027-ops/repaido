@@ -37,6 +37,14 @@ frontend configuration or rotate it during the campaign without migrating the
 existing mobile quota identities. See [the launch contract](BIKE_RIDES.md).
 
 Set `REPAIDO_BIKE_DISPATCH_WORKER_ENABLED=true` on the dedicated worker only.
+Each subscriber owns its callback pool. Optional worker-only settings are
+`REPAIDO_BIKE_DISPATCH_CALLBACK_WORKERS` (default 10, range 1–32) and
+`REPAIDO_BIKE_DISPATCH_MAX_MESSAGES` (default 32, range worker count–128).
+Messages in execution and queued callbacks share that flow-control bound, plus
+a 1 MiB byte bound. Invalid values fail startup. Tune only after measuring
+database contention and backlog; adding threads is not a capacity guarantee.
+Executing callbacks drain on shutdown; unstarted messages remain available for
+broker redelivery. Per-rider ordering and transactional deduplication still apply.
 Use the runtime service account's Application Default Credentials; do not put
 access tokens or private keys in these variables. The worker needs continuous
 CPU and graceful shutdown support. A Cloud Run worker pool, a supervised process

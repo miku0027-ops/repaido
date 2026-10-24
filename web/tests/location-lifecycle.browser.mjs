@@ -20,7 +20,7 @@ try{
  });
  await page.goto(origin+'/tests/location-lifecycle-preview.html');
  const dialog=page.getByRole('dialog',{name:'Confirm test location',exact:true}),confirm=dialog.getByRole('button',{name:'Confirm this location',exact:true}),checkbox=dialog.getByRole('checkbox');
- const open=async(name)=>{await page.getByRole('button',{name,exact:true}).click();await dialog.waitFor();};
+ const open=async(name)=>{await page.getByRole('button',{name,exact:true}).click();await dialog.waitFor();await dialog.getByText('Coordinates · advanced',{exact:true}).click();};
  const close=async()=>{await dialog.getByRole('button',{name:'Close dialog',exact:true}).click();await dialog.waitFor({state:'detached'});};
  await open('Open first address');await dialog.getByLabel('Latitude',{exact:true}).fill('22.1');await dialog.getByLabel('Longitude',{exact:true}).fill('87.2');await dialog.getByLabel('House, street and landmark',{exact:true}).fill('Unsaved draft at a different house');assert.equal(await checkbox.isChecked(),true);await close();
  await open('Open second address');

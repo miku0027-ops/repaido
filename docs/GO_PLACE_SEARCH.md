@@ -3,7 +3,8 @@
 The inline Go editor uses the existing referrer-restricted Google Maps JavaScript
 browser key from `/api/operations/bike-rides/map-config`. No server routing key or
 new secret is sent to the browser. Bike, cab, self-drive and rental use the same
-editor. The general service-address picker remains separate.
+editor. The shared service-address picker and address-only forms use the same
+Google search service; see [app-wide location search](APP_PLACE_SEARCH.md).
 
 ## Google Cloud configuration
 
@@ -29,6 +30,16 @@ restrictions have not yet been changed or verified.
 After configuration, verify autocomplete, a selected place's coordinates/address,
 and reverse geocoding from `https://repaido.com/go?ride=bike` and the cab route.
 Local SDK fixtures verify the integration but do not prove cloud authorization.
+
+## Verified configuration fix · 24 October 2026
+
+The existing `repaido-web-maps` key now allows Maps JavaScript, Places API
+(New), and Geocoding. Its four production website referrer restrictions were
+preserved. API enablement and active billing were verified. Production-origin
+Places autocomplete and selected-place details returned HTTP 200 with actual
+Balasore results and coordinates. This configuration change needed no website
+release. The earlier SERVICE_DISABLED/API_KEY_SERVICE_BLOCKED findings above
+are historical, not the current configuration state.
 
 ## Search and pin behavior
 
@@ -76,27 +87,22 @@ SDK and map tiles with the local UI: the large pin projected correctly, with no
 JavaScript errors. Search remained blocked by the browser key's API allowlist.
 Evidence is saved in `/workspace/artifacts/go-place-search-2026-10-23/`.
 
-## Cab browsing map and Locate me
+## Route entry and Locate me
 
-The Go cab map requests the existing public availability feed for its current
-area before pickup confirmation. Locating the customer changes the discovery
-centre without editing or confirming ride stops. Approved cabs appear only when
-the operator has enabled public availability and is sending fresh positions.
-Markers retain the server's approximate grouped areas and counts; private trip
-GPS is not used for public discovery. The existing 20-second foreground poll,
-75-second position expiry, offline clearing and account isolation are preserved.
-Empty, loading and failed reads have distinct messages and an explicit refresh.
+The Go bike, cab, self-drive and rental booking forms open without a planning
+map. Selecting pickup or drop-off mounts the inline location editor with its
+search, map, pin and circular Locate me control. Returning to the form removes
+that editor map. Live journey tracking maps are retained.
 
-The circular Locate me control requests a fresh device reading only when tapped,
-recentres the camera, and displays a blue dot. It handles denied permission and
-ignores late GPS callbacks after leaving the screen. Availability refreshes do
-not move the camera after manual panning. `go-cab-nearby.browser.mjs` verifies
-these behaviors, expiry, failure recovery and 320/465 px layouts;
-`map-motion.browser.mjs` verifies the existing lifecycle camera behavior.
+Cab availability counts still come from the existing public feed for the pickup
+or current area, with foreground polling, expiry, account isolation and retry.
+The form no longer fetches a map just to display those counts. Bike nearby-marker
+polling is disabled when its planning map is not used. Route validation, quote
+calculation and booking remain unchanged.
 
-The stop picker reuses the same circular Locate me control as the browsing map,
-replacing the separate location text row. Its action is delegated to the picker
-so GPS accuracy, reverse-geocoding, revision cancellation and explicit stop
-confirmation remain intact. Browse-map location continues to recenter only.
-Both placements share hover/focus styling, a 44 px touch target and reduced-motion
-aware loading feedback. Map attribution remains outside the controls.
+The editor's Locate me control requests fresh device GPS only when tapped,
+resolves its address, displays accuracy, and keeps explicit stop confirmation.
+`go-location.browser.mjs` verifies that no map mounts before editing a stop;
+`go-cab-nearby.browser.mjs` verifies map removal on return, availability refresh,
+and full-width forms at 320/465/1100px. Desktop layouts no longer reserve an
+empty map column. These source changes await deployment.
