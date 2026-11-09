@@ -92,7 +92,7 @@
 #root .market-experience .tender-market>.business-page-header .business-header-copy{flex:1 1 180px;min-width:0}
 #root .market-experience .tender-market>.business-page-header .business-eyebrow{font-size:.6875rem;line-height:1.35;letter-spacing:.065em;color:var(--ui-link);gap:5px}
 #root .market-experience .tender-market>.business-page-header h1{font-size:1rem;line-height:1.35;letter-spacing:-.015em;margin:3px 0 0}
-#root .market-experience .tender-market>.business-page-header .business-header-actions{margin:0;flex:0 1 auto;align-self:center}
+#root .market-experience .tender-market>.business-page-header .business-header-actions{width:auto;margin:0;flex:0 1 auto;align-self:center}
 #root .market-experience .tender-market>.business-page-header button{font-size:.75rem!important;padding:5px 10px!important;min-height:36px!important;gap:5px}
 #root .market-experience .tender-market .tender-quick-actions{margin:0;gap:6px}
 #root .market-experience .tender-market .tender-quick-actions button{font-size:.75rem;flex:0 1 auto;min-height:36px!important;padding:5px 8px;gap:5px}

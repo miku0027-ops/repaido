@@ -23,7 +23,7 @@ test('a caller signal keeps the deadline, reports uncertainty and clears loading
  assert.equal(deadlines[0].ms,20000);assert.equal(loadingState.getSnapshot().length,1);assert.equal(actionFeedback.getSnapshot()[0].tone,'pending');
  deadlines[0].controller.abort(new DOMException('Timed out','TimeoutError'));
  await assert.rejects(request,{name:'TimeoutError'});assert.equal(caller.signal.aborted,false);assert.deepEqual(loadingState.getSnapshot(),[]);
- assert.equal(actionFeedback.getSnapshot()[0].tone,'error');assert.match(actionFeedback.getSnapshot()[0].message,/Check your saved records before retrying/);
+ assert.equal(actionFeedback.getSnapshot()[0].tone,'error');assert.match(actionFeedback.getSnapshot()[0].message,/Check your saved records before trying again/);
 });
 test('navigation cancellation still stops a request before its deadline',async()=>{
  const deadlines=pendingTransport(),caller=new AbortController();

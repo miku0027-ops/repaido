@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdtemp,writeFile} from 'node:fs/promises';
-const require=createRequire(import.meta.url),{chromium}=require('/opt/codex/runtimes/cua/lib/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const origin=process.env.REPAIDO_PREVIEW_ORIGIN||'http://127.0.0.1:5187';
+assert(['127.0.0.1','localhost'].includes(new URL(origin).hostname));
 const work=await mkdtemp('/tmp/repaido-service-places-'),checks=[],errors=[];
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
@@ -14,7 +16,7 @@ try{
  await context.addInitScript(()=>localStorage.setItem('repaido.token','isolated-test-token'));
  await context.route('**/*',async route=>{const url=new URL(route.request().url());if(url.hostname!=='127.0.0.1')return route.abort();if(url.pathname.startsWith('/api/'))return route.fulfill({json:url.pathname.endsWith('/shop/me')?{shop:null}:{}});return route.continue();});
  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
- await page.goto('http://127.0.0.1:5187/tests/location-lifecycle-preview.html');
+ await page.goto(origin+'/tests/location-lifecycle-preview.html');
  const open=()=>page.getByRole('button',{name:'Open first address',exact:true}).click();
  const dialog=page.getByRole('dialog'),search=dialog.getByRole('combobox'),confirm=dialog.getByRole('button',{name:'Confirm this location',exact:true});
  await open();await search.fill('ITI');await page.getByRole('option',{name:/ITI Square/}).waitFor();
@@ -39,7 +41,7 @@ try{
  await search.fill('nothing');await page.getByText('No places found. Try a nearby street or landmark.',{exact:true}).waitFor();assert.equal(await confirm.isDisabled(),true);
  checks.push('Provider failures recover on retry; empty results never fabricate or confirm a location.');
  await search.fill('ITI');await page.getByRole('option',{name:/ITI Square/}).waitFor();
- await page.addScriptTag({path:process.cwd()+'/web/node_modules/axe-core/axe.min.js'});
+ await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
  for(const width of [320,490])for(const scale of [100,200]){
   await page.setViewportSize({width,height:850});await page.evaluate(scale=>document.documentElement.style.fontSize=scale+'%',scale);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
@@ -52,13 +54,13 @@ try{
  assert.equal(await dialog.getByLabel('House, street and landmark',{exact:true}).inputValue(),'Second house, Market Road');assert.equal(await page.getByRole('option').count(),0);
  checks.push('Closing and reopening in another city cancels the old session and keeps the supplied address.');
 
- await page.goto('http://127.0.0.1:5187/tests/location-lifecycle-preview.html?view=shop');
+ await page.goto(origin+'/tests/location-lifecycle-preview.html?view=shop');
  const shopSearch=page.getByRole('combobox',{name:'Find shop address'});await shopSearch.fill('ITI');await page.getByRole('option',{name:/ITI Square/}).click();
  await page.waitForFunction(()=>document.querySelector('textarea[name="address"]')?.value==='ITI Square, Balasore, Odisha, India');
  assert.equal(await page.getByLabel('City',{exact:true}).inputValue(),'Balasore');assert.equal(await page.getByLabel('Postal code',{exact:true}).inputValue(),'756001');
  assert.equal(await page.getByLabel('Latitude',{exact:true}).inputValue(),'21.491');assert.equal(await page.getByLabel('Longitude',{exact:true}).inputValue(),'86.914');
  checks.push('The actual shop registration form receives address, city, postal code and coordinates from one selection.');
- await page.goto('http://127.0.0.1:5187/tests/location-lifecycle-preview.html?view=private');
+ await page.goto(origin+'/tests/location-lifecycle-preview.html?view=private');
  await page.getByRole('combobox',{name:'Find private work address'}).fill('ITI');await page.getByRole('option',{name:/ITI Square/}).click();
  await page.waitForFunction(()=>document.querySelector('input[name="site"]')?.value==='ITI Square, Balasore, Odisha, India');
  checks.push('The private project form stores the selected site in its existing private address field.');

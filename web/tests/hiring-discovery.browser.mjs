@@ -227,8 +227,8 @@ try{
   await compare.getByText('Work evidence is a limited sample, rather than a complete history.',{exact:true}).waitFor();
   await compare.getByRole('button',{name:'Remove '+profiles[2].name+' from comparison'}).click();assert.equal(await compare.locator('.hire-comparison-card').count(),2);
   await compare.getByRole('button',{name:'Close dialog',exact:true}).click();
-  await result(page).getByRole('button',{name:'Scope & budget guide',exact:true}).click();
-  const scope=page.getByRole('dialog',{name:'Scope & budget guide',exact:true});
+  await result(page).getByRole('button',{name:"Work and price guide",exact:true}).click();
+  const scope=page.getByRole('dialog',{name:"Work and price guide",exact:true});
   await scope.locator('.hire-catalogue-references').getByText(packages[0].name,{exact:true}).click();
   await scope.getByText('Excluded: Parts, Travel, Additional work.',{exact:true}).waitFor();
   await scope.getByRole('button',{name:'Review this service booking'}).click();

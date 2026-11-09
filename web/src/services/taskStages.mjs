@@ -22,10 +22,10 @@ export function taskStage(job) {
 export function taskNextAction(job) {
   const can = action => job.allowed_actions.includes(action);
   if (can('accept')) return {action:'accept', label:'Accept task'};
-  if (can('ack_reminder')) return {action:'ack_reminder', label:'Acknowledge visit'};
+  if (can('ack_reminder')) return {action:'ack_reminder', label:"Confirm visit"};
   if (can('depart')) return {action:'depart', label:'Start travel'};
   if (can('start')) {
-    if (job.procurement_version >= 2 && job.arrival_verified_visit !== job.visit_id) return {tool:'otp',label:'Verify customer OTP'};
+    if (job.procurement_version >= 2 && job.arrival_verified_visit !== job.visit_id) return {tool:'otp',label:"Check customer's code"};
     if (job.home_log_required&&!job.home_arrival_log?.hygiene) return {tool:'daily',label:'Arrival & hygiene checks'};
     if (!job.home_log_required&&!job.evidence_summary?.has_before) return {tool:'photos',label:'Take before photo'};
     return {action:'start',label:'Start work'};

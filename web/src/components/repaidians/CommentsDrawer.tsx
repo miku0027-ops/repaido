@@ -14,21 +14,22 @@ function useDrawerScope(key:string) {
 }
 
 export function CommentsDrawer({account,targetId,memberFor,onClose,onMembers}:{account:string;targetId:string;memberFor:(id:string)=>CommunityMember;onClose:()=>void;onMembers:(members:CommunityMember[])=>void}) {
-  const [comments,setComments]=useState<CommunityComment[]>([]),[text,setText]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[moreBusy,setMoreBusy]=useState(false),[cursor,setCursor]=useState<string|null>(null);
-  const captureScope=useDrawerScope(JSON.stringify([account,targetId])),readGeneration=useRef(0);
+  const [comments,setComments]=useState<CommunityComment[]>([]),[text,setText]=useState(''),[error,setError]=useState(''),[readError,setReadError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[moreBusy,setMoreBusy]=useState(false),[cursor,setCursor]=useState<string|null>(null);
+  const captureScope=useDrawerScope(JSON.stringify([account,targetId])),readGeneration=useRef(0),failedMore=useRef(false);
   const load=async(more=false)=>{
     const active=captureScope();if(!active())return;const generation=++readGeneration.current,current=()=>active()&&generation===readGeneration.current;
-    if(more)setMoreBusy(true);
-    try{const data=await commentsPage(targetId,more?cursor||'':'');if(!current())return;setComments(old=>more?[...new Map([...old,...data.comments].map(item=>[item.id,item])).values()]:data.comments);setCursor(data.nextCursor);setError('');onMembers(data.members);}
-    catch(error){if(current())setError((error as Error).message);}
+    if(more)setMoreBusy(true);else setLoading(true);
+    try{const data=await commentsPage(targetId,more?cursor||'':'');if(!current())return;setComments(old=>more?[...new Map([...old,...data.comments].map(item=>[item.id,item])).values()]:data.comments);setCursor(data.nextCursor);setReadError('');onMembers(data.members);}
+    catch(error){if(current()){failedMore.current=more;setReadError((error as Error).message);}}
     finally{if(current()){setLoading(false);setMoreBusy(false);}}
   };
-  useEffect(()=>{setComments([]);setText('');setError('');setBusy(false);setLoading(true);setMoreBusy(false);setCursor(null);void load();},[account,targetId]);
+  useEffect(()=>{setComments([]);setText('');setError('');setReadError('');setBusy(false);setLoading(true);setMoreBusy(false);setCursor(null);void load();},[account,targetId]);
   return <Modal title="Comments" className="rp-dialog rp-drawer" onClose={onClose}>
-    <div className="rp-comments">{loading&&<p role="status">Opening the conversation…</p>}{comments.map(c=><article key={c.id}><Avatar member={memberFor(c.authorId)}/><div><strong>{memberFor(c.authorId).name}</strong><p>{c.text}</p><small>{timeAgo(c.createdAt)}</small></div></article>)}
-      {!loading&&!comments.length&&!error&&<p className="rp-muted">Start the conversation. Ask about the work or share a useful tip.</p>}
+    <div className="rp-comments">{loading&&<p role="status">Loading comments…</p>}{comments.map(c=><article key={c.id}><Avatar member={memberFor(c.authorId)}/><div><strong>{memberFor(c.authorId).name}</strong><p>{c.text}</p><small>{timeAgo(c.createdAt)}</small></div></article>)}
+      {!loading&&!comments.length&&!readError&&<p className="rp-muted">Start the conversation. Ask about the work or share a useful tip.</p>}
       {cursor&&<button disabled={moreBusy} onClick={()=>void load(true)}>{moreBusy?'Loading comments…':'Earlier comments'}</button>}</div>
-    <form className="rp-compose" onSubmit={async e=>{e.preventDefault();const active=captureScope();if(busy||!active())return;setBusy(true);setError('');try{await comment(account,targetId,text);if(!active())return;setText('');await load();}catch(e){if(active())setError((e as Error).message);}finally{if(active())setBusy(false);}}}><label htmlFor="rp-comment">Your comment</label><div><textarea id="rp-comment" rows={2} required maxLength={500} value={text} onChange={e=>setText(e.target.value)}/><button className="rp-primary" aria-label="Post comment" disabled={busy||!text.trim()}><Send size={20}/></button></div>{error&&<p role="alert" className="rp-error">{error}</p>}</form>
+    {readError&&<div role="alert" className="rp-error"><p>{readError}</p><button type="button" className="rp-secondary" disabled={loading||moreBusy} onClick={()=>void load(failedMore.current)}>Retry comments</button></div>}
+    <form className="rp-compose" onSubmit={async e=>{e.preventDefault();const active=captureScope();if(busy||!active())return;setBusy(true);setError('');try{await comment(account,targetId,text);if(!active())return;setText('');await load();}catch(e){if(active())setError((e as Error).message);}finally{if(active())setBusy(false);}}}><label htmlFor="rp-comment">Your comment</label><div><textarea id="rp-comment" rows={2} required maxLength={500} value={text} onChange={e=>setText(e.target.value)}/><button className="rp-primary" aria-label={busy?'Posting comment…':'Post comment'} aria-busy={busy} disabled={busy||!text.trim()}><Send size={20}/></button></div>{error&&<p role="alert" className="rp-error">{error}</p>}</form>
   </Modal>;
 }
 export function MessageDrawer({account,selfId,recipient,canSend,onUpgrade,onClose,onMembers}:{account:string;selfId:string;recipient:CommunityMember;canSend:boolean;onUpgrade:()=>void;onClose:()=>void;onMembers:(members:CommunityMember[])=>void}) {

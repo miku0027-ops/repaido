@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtemp,mkdir,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -24,7 +24,7 @@ async function register(name){const account=await api('/auth/register',null,'POS
 async function newPage(account,mode='discovery',width=390){
  const context=await browser.newContext({viewport:{width,height:850},reducedMotion:'reduce'});
  await context.addInitScript(token=>{if(token)localStorage.setItem('repaido.token',token);},account?.token||'');
- await context.route('**/api/**',async route=>{const url=new URL(route.request().url());const response=await route.fetch({url:apiOrigin+url.pathname+url.search});await route.fulfill({response});});
+ await context.route('**/api/**',async route=>{const url=new URL(route.request().url());try{const response=await route.fetch({url:apiOrigin+url.pathname+url.search});await route.fulfill({response});}catch(error){if(!page.isClosed())throw error;}});
  const page=await context.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin+'/tests/contracts-preview.html?mode='+mode);return page;
 }
@@ -46,6 +46,7 @@ async function layout(page){
  });if(result.length){await mkdir(resolve(web,'test-results'),{recursive:true});await page.screenshot({path:resolve(web,'test-results/contracts-layout-failure.png')});console.log(await page.locator('dialog[open]').evaluateAll(nodes=>nodes.map(node=>({width:node.clientWidth,scroll:node.scrollWidth,children:[...node.querySelectorAll('*')].filter(child=>child.getBoundingClientRect().right>node.getBoundingClientRect().right+1).map(child=>({tag:child.tagName,class:child.className,width:child.getBoundingClientRect().width,scroll:child.scrollWidth})).slice(0,12)}))));}assert.deepEqual(result,[]);
 }
 async function audit(page){
+ await page.waitForTimeout(180);
  await page.addScriptTag({path:require.resolve('axe-core')});
  const result=await page.evaluate(()=>window.axe.run(document.querySelector('main'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']}}));
  assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[]);
@@ -63,10 +64,10 @@ try{
  for(const [account,isContractor] of [[contractor,true],[agent,false]])fixture('workers',account.user.id,{id:account.user.id,name:account.user.name,status:'approved',contractor_verified:isContractor,role:'technician',city:'Balasore',skills:['Electrical inspection'],categories:['electrician'],experience_years:4,completed_tasks:0,rating_count:0,rating_sum:0});
  const publisher=await newPage(owner,'workspace');await publisher.getByRole('button',{name:'New',exact:true}).click();await publisher.getByRole('dialog',{name:'Create',exact:true}).getByRole('button',{name:/Publish tender/}).click();
  const form=publisher.getByRole('dialog',{name:'Publish a tender',exact:true});await form.waitFor();
- const now=Date.now();await form.getByLabel('Project title',{exact:true}).fill('Actual electrical maintenance contract');await form.getByLabel('Scope & deliverables',{exact:true}).fill('Inspect circuits and replace the agreed damaged fixtures with documented safety checks.');
+ const now=Date.now();await form.getByLabel('Project title',{exact:true}).fill('Actual electrical maintenance contract');await form.getByLabel("Work and expected result",{exact:true}).fill('Inspect circuits and replace the agreed damaged fixtures with documented safety checks.');
  await form.getByLabel('Site address',{exact:true}).fill('PRIVATE Workshop entrance Balasore');await form.getByLabel('Work starts (your local time)',{exact:true}).fill(local(now+3600000));await form.getByLabel('Work ends (your local time)',{exact:true}).fill(local(now+10800000));await form.getByLabel('Planned budget (₹)',{exact:true}).fill('25000');
- await form.getByLabel('City',{exact:true}).fill('Balasore');await form.getByLabel('Business sector',{exact:true}).selectOption('Electrical');await form.getByLabel('Bidding opens (your local time)',{exact:true}).fill(local(now-600000));await form.getByLabel('Bidding closes (your local time)',{exact:true}).fill(local(now+1800000));await form.getByLabel('Required agents',{exact:true}).fill('1');await form.getByLabel('Tender terms, eligibility & evaluation criteria',{exact:true}).fill('CONFIDENTIAL Evaluation requires a safe inspection plan and an accepted project crew.');
- await form.getByRole('checkbox').check();await form.getByRole('button',{name:'Save & continue',exact:true}).click();await form.waitFor({state:'hidden'});
+ await form.getByLabel('City',{exact:true}).fill('Balasore');await form.getByLabel('Business sector',{exact:true}).selectOption('Electrical');await form.getByLabel('Bidding opens (your local time)',{exact:true}).fill(local(now-600000));await form.getByLabel('Bidding closes (your local time)',{exact:true}).fill(local(now+1800000));await form.getByLabel('Required agents',{exact:true}).fill('1');await form.getByLabel("Project terms, who can bid and how you will choose",{exact:true}).fill('CONFIDENTIAL Evaluation requires a safe inspection plan and an accepted project crew.');
+ await form.getByRole('checkbox').check();await form.getByRole('button',{name:"Save and continue",exact:true}).click();await form.waitFor({state:'hidden'});
  const tenders=(await api('/operations/contractor/published')).tenders;assert.equal(tenders.length,1);const tender=tenders[0];assert.equal(tender.budget_paise,2500000);
  await publisher.getByRole('dialog',{name:tender.title,exact:true}).waitFor();await layout(publisher);
  // The brief remains useful before expansion; native disclosures keep all exact terms reachable.
@@ -87,7 +88,7 @@ try{
  await publisher.setViewportSize({width:390,height:850});await publisher.evaluate(()=>{document.documentElement.style.fontSize='100%';document.documentElement.dataset.theme='light';});
  console.log('PASS: compact tender facts, keyboard disclosures, exact terms/dates, mobile/desktop, dark/light and 200% text.');
  await guest.getByRole('button',{name:'Refresh opportunities',exact:true}).click();await guest.locator('.tender-opportunity').waitFor();await guest.getByRole('button',{name:'View opportunity',exact:true}).click();const summary=guest.getByRole('dialog',{name:tender.title,exact:true});await summary.waitFor();
- assert(!String(await summary.innerText()).includes('PRIVATE'));assert(!String(await summary.innerText()).includes('CONFIDENTIAL'));await summary.getByText('Full scope is available to approved contractors',{exact:true}).waitFor();await layout(guest);await guest.keyboard.press('Escape');
+ assert(!String(await summary.innerText()).includes('PRIVATE'));assert(!String(await summary.innerText()).includes('CONFIDENTIAL'));await summary.getByText("Approved contractors can view all work details",{exact:true}).waitFor();await layout(guest);await guest.keyboard.press('Escape');
  const lead=await newPage(contractor);await lead.locator('.tender-opportunity').waitFor();await lead.getByRole('button',{name:'View opportunity',exact:true}).click();const full=lead.getByRole('dialog',{name:tender.title,exact:true});await full.getByText('PRIVATE Workshop entrance Balasore',{exact:true}).waitFor();await full.getByRole('button',{name:'Prepare team & bid',exact:true}).click();
  const workspaceTender=lead.getByRole('dialog',{name:tender.title,exact:true});await workspaceTender.getByRole('button',{name:'Prepare team',exact:true}).click();const plan=lead.getByRole('dialog',{name:'Prepare tender team',exact:true});await plan.getByRole('button',{name:'Save & continue',exact:true}).click();await plan.waitFor({state:'hidden'});
  const projectDetail=lead.getByRole('dialog',{name:tender.title,exact:true});await projectSection(projectDetail,'Team & reporting lines');await projectDetail.getByRole('button',{name:'Invite agent',exact:true}).click();const invitation=lead.getByRole('dialog',{name:'Invite a Repaido agent',exact:true});await invitation.getByLabel('Registered agent',{exact:true}).selectOption(agent.user.id);await invitation.getByLabel('Project role',{exact:true}).selectOption('member');await invitation.getByLabel('Agreed daily rate (₹)',{exact:true}).fill('1000');await invitation.getByLabel('Duties, hours, compensation & joining terms',{exact:true}).fill('Eight agreed work hours with safe equipment and the recorded daily compensation.');await invitation.getByRole('checkbox').check();await invitation.getByRole('button',{name:'Save & continue',exact:true}).click();await invitation.waitFor({state:'hidden'});
@@ -145,7 +146,7 @@ try{
  await projectSection(privacy.getByRole('dialog',{name:watchedTender.title,exact:true}),'Scope of work');
  await privacy.getByText(protectedText,{exact:true}).waitFor();
  const switchActor=async(page,token)=>page.evaluate(token=>{const oldValue=localStorage.getItem('repaido.token');if(token)localStorage.setItem('repaido.token',token);else localStorage.removeItem('repaido.token');window.dispatchEvent(new StorageEvent('storage',{key:'repaido.token',oldValue,newValue:token||null}));},token);
- await switchActor(privacy,owner.token);await privacy.getByText('Full scope is available to approved contractors',{exact:true}).waitFor();assert.equal(await privacy.getByText(protectedText,{exact:true}).count(),0);
+ await switchActor(privacy,owner.token);await privacy.getByText("Approved contractors can view all work details",{exact:true}).waitFor();assert.equal(await privacy.getByText(protectedText,{exact:true}).count(),0);
  let release,seen;const held=new Promise(resolve=>release=resolve),started=new Promise(resolve=>seen=resolve);let delay=true;
  const late=async route=>{if(route.request().headers().authorization!=='Bearer '+contractor.token)return route.fallback();const url=new URL(route.request().url()),response=await route.fetch({url:apiOrigin+url.pathname+url.search});if(delay){delay=false;seen();await held;}await route.fulfill({response}).catch(()=>{});};
  await privacy.context().route('**/api/operations/contractor/opportunities',late);

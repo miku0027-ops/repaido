@@ -185,7 +185,7 @@ try{
   assert.equal(await shell(page).getByLabel('Headline',{exact:true}).inputValue(),'','Another account does not inherit an unsaved profile draft.');
   await shell(page).getByRole('button',{name:'Notifications',exact:true}).click();
   await shell(page).locator('.rp-notification-row').filter({hasText:announcement.title}).click();
-  const milestone=page.getByRole('dialog',{name:'A new work milestone',exact:true});await milestone.waitFor();await milestone.getByText('Actual electrical team opening',{exact:true}).waitFor();
+  const milestone=page.getByRole('dialog',{name:"A project update",exact:true});await milestone.waitFor();await milestone.getByText('Actual electrical team opening',{exact:true}).waitFor();
   assert.equal(await milestone.getByText('Shared daily rate',{exact:true}).count(),0);assert.equal((await milestone.innerText()).includes('1,234'),false);
   await milestone.getByRole('button',{name:'Congratulations',exact:true}).click();await milestone.getByText('Your congratulations have been sent.',{exact:true}).waitFor();
   assert.equal((await api('/repaidians/placements/'+announcement.targetId,bob)).congratulated,true);

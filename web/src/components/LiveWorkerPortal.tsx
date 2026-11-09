@@ -136,7 +136,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
         <section className="worker-signin-story" aria-labelledby="worker-signin-title">
           <span className="worker-signin-kicker">REPAIDO FOR PROFESSIONALS</span>
           <h1 id="worker-signin-title">Your business.<br/><span>Your workday.</span></h1>
-          <p className="worker-signin-intro">Open the tools for your work. Keep every booking, journey and collection in its own workspace.</p>
+          <p className="worker-signin-intro">Manage your visits, rides and collections from your work account.</p>
           <WorkerSignInIllustration/>
           <ul className="worker-signin-benefits">
             <li><CalendarDays size={20} aria-hidden="true"/><span>Requests & visits</span></li>
@@ -148,7 +148,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
         <div className="worker-signin-panel-wrap">
           <section className="worker-signin-panel" id="worker-signin-form" tabIndex={-1} aria-labelledby="worker-signin-form-title" aria-busy={busy}>
             <div className="worker-signin-lock"><LockKeyhole size={20} aria-hidden="true"/></div>
-            <span className="worker-signin-form-kicker">YOUR BUSINESS WORKSPACE</span>
+            <span className="worker-signin-form-kicker">Your business account</span>
             <h2 id="worker-signin-form-title">{codeSent?'Check your messages':loginRole==='cab_owner'?'Cab owner sign-in':loginRole==='driver'?'Driver sign-in':loginRole==='scrap_owner'?'Scrap collector sign-in':'Welcome to your workday'}</h2>
             <p className="worker-signin-form-intro">{codeSent?'Enter the 6-digit code sent to your mobile number.': 'Sign in with your mobile number to continue.'}</p>
             <div className="worker-signin-roles" role="group" aria-label="Choose your work desk">
@@ -174,7 +174,7 @@ export default function LiveWorkerPortal({onBack,onOpenB2BMarket}:{onBack:()=>vo
             <div className="worker-signin-join"><UserRound size={20} aria-hidden="true"/><p><strong>New to Repaido?</strong> Sign in to create a professional profile for review. Approval is required before receiving work.</p></div>
             {auth.currentUser&&<button className="worker-signin-resend" disabled={busy} onClick={()=>void submit(()=>logoutUser())}>Sign out to use a different account</button>}
           </section>
-          {!nativeAvailable()&&<aside className="worker-signin-download" aria-labelledby="worker-signin-download-title"><span className="worker-signin-app-icon"><Smartphone size={24} aria-hidden="true"/></span><div><h3 id="worker-signin-download-title">Take your workday with you</h3><p>The Repaido Android app opens your business workspace with alerts, location and photo tools.</p><a href="/downloads/repaido-agent.apk" download><Download size={16} aria-hidden="true"/>Download business app</a></div></aside>}
+          {!nativeAvailable()&&<aside className="worker-signin-download" aria-labelledby="worker-signin-download-title"><span className="worker-signin-app-icon"><Smartphone size={24} aria-hidden="true"/></span><div><h3 id="worker-signin-download-title">Take your workday with you</h3><p>Use the Repaido Android app for work alerts, location sharing and photos.</p><a href="/downloads/repaido-agent.apk" download><Download size={16} aria-hidden="true"/>Download business app</a></div></aside>}
           <p className="worker-signin-footnote"><LockKeyhole size={16} aria-hidden="true"/><span>SMS sign-in. Professional approval is reviewed separately.</span></p>
         </div>
       </div>
@@ -312,7 +312,7 @@ function WorkerOnboarding({busy,onSubmit,onLogin,initial,onCancel}:{busy:boolean
     <label>Maximum travel distance (km)<input name="radius" type="number" min={1} max={6} defaultValue={initial?.radius_km||6} required/></label>
     <PartnerAgreement onChange={(version,sections)=>setPartner({version,sections})}/>
     <VerificationState/>
-    <details><summary>Response and attendance rules</summary><p>Accept or decline offers within 15 minutes. A reminder is due 2 hours before the visit; acknowledge within 10 minutes. Depart at least 30 minutes before the appointment.</p><p>A missed reminder creates an assessment of 10% of this task’s eligible earnings and 20% of the next task’s eligible earnings. Late departure creates a 20% assessment. Assessments require settlement review; no bank deduction occurs here. GPS sharing is optional, but automated arrival and start require an accurate reading within 100 m. Manual review is needed if GPS fails.</p></details>
+    <details><summary>Response and attendance rules</summary><p>Accept or decline within 15 minutes. Confirm the reminder within 10 minutes when it arrives, 2 hours before the visit. Leave at least 30 minutes before the visit.</p><p>A missed reminder creates an assessment of 10% of this task’s eligible earnings and 20% of the next task’s eligible earnings. Late departure creates a 20% assessment. Assessments require settlement review; no bank deduction occurs here. GPS sharing is optional, but automated arrival and start require an accurate reading within 100 m. Manual review is needed if GPS fails.</p></details>
     <label className="ops-check"><input type="checkbox" required/>I agree to the field-service-v1 terms and consent to storing this profile for registration.</label>
     {error&&<p role="alert" className="ops-error">{error}</p>}<button className="ops-primary" disabled={busy||citiesLoading||!!citiesError||partner.sections.length!==4}>{busy?'Saving…':'Save & continue to documents'}</button>
   </form><LocationPickerModal isOpen={mapOpen} title="Where do you travel from?" subtitle="Choose your home or work base. Confirm the pin before saving." onClose={()=>setMapOpen(false)} onConfirmLocation={p=>{setPin(p);setError('');}}/></section>;

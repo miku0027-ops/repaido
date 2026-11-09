@@ -62,7 +62,7 @@ function Workspace({onBack,shop}:{onBack:()=>void;shop:boolean}){
   <aside className="portal-sidebar" data-menu-open={navigationOpen}>
    <div className="portal-sidebar-heading"><RepaidoBrand size="md"/><button className="portal-menu-toggle" aria-label="Workspace menu" aria-expanded={navigationOpen} aria-controls="portal-navigation" onClick={()=>setNavigationOpen(value=>!value)}>{navigationOpen?<X size={20} aria-hidden="true"/>:<Menu size={20} aria-hidden="true"/>}<span>{navigationOpen?'Close':tab}</span></button></div>
    <p className="ops-eyebrow">{shop?'Shop partner':'Company workspace'}</p>
-   <nav id="portal-navigation" aria-label={shop?'Shop workspace':'Company workspace'}>
+   <nav id="portal-navigation" aria-label={shop?"Shop account":'Company workspace'}>
     {workspaceQuery&&!links.some(item=>item.name.toLowerCase().includes(workspaceQuery.toLowerCase()))&&<p role="status" className="crm-no-workspace">No workspace matches.</p>}
     {groups.map(group=>{const visible=links.filter(item=>group.names.includes(item.name)&&item.name.toLowerCase().includes(workspaceQuery.toLowerCase()));return visible.length?<div className="crm-nav-group" key={group.name}>{!shop&&<span className="crm-nav-label">{group.name}</span>}{visible.map(({name,Icon})=><button key={name} aria-current={tab===name?'page':undefined} onClick={()=>changeTab(name)}><Icon size={20} aria-hidden="true"/>{name}</button>)}</div>:null;})}
    </nav>

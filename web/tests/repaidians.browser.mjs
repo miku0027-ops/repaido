@@ -172,6 +172,8 @@ async function layout(page){
   });assert.deepEqual(issues,[]);
 }
 async function audit(page){
+  // Theme changes finish their 140ms state transition before contrast is measured.
+  await page.waitForTimeout(180);
   await page.addScriptTag({path:require.resolve('axe-core')});
   const result=await page.evaluate(async()=>window.axe.run(document.querySelector('.rp-shell'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));
   assert.deepEqual(result.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)})),[]);
@@ -199,10 +201,10 @@ try{
   const env={...process.env,REPAIDO_DB:db,REPAIDO_STORAGE:'sqlite',REPAIDO_COMMUNITY_MEDIA_DIR:resolve(work,'media'),REPAIDO_COMMUNITY_BUCKET:'',REPAIDO_KYC_BUCKET:'',RAZORPAY_KEY_ID:'',RAZORPAY_KEY_SECRET:'',RAZORPAY_WEBHOOK_SECRET:''};
   server=spawn(python,['-m','uvicorn','main:app','--host','127.0.0.1','--port',String(port)],{cwd:backend,env,stdio:['ignore','pipe','pipe']});
   for(const stream of [server.stdout,server.stderr])stream.on('data',chunk=>serverLog+=chunk.toString());
-  for(let attempt=0;attempt<100;attempt++){
+  for(let attempt=0;attempt<600;attempt++){
     if(server.exitCode!==null)throw new Error('Isolated backend could not start: '+serverLog);
     try{if((await fetch(apiOrigin+'/health')).ok)break;}catch{}
-    if(attempt===99)throw new Error('Isolated backend was not ready: '+serverLog);
+    if(attempt===599)throw new Error('Isolated backend was not ready: '+serverLog);
     await pause(200);
   }
   const alice=await register('Alice Electrician'),bob=await register('Bob Cleaning'),carol=await register('Carol Plumbing');
@@ -676,7 +678,7 @@ try{
   assert.equal(unavailableShare.referenceCard,null);assert.equal(unavailableShare.referenceUnavailable,true,'A sold-out native product cannot remain an actionable live offer on its shared post.');
   await api('/repaidians/opportunities/inventory/'+nativeProduct.id,alice,'GET',undefined,404);
   await opportunityPage.evaluate(()=>window.dispatchEvent(new Event('repaidians:update')));
-  await refreshedPurchase.getByText('This listing is no longer available. Your publication stays in your portfolio.',{exact:true}).waitFor();
+  await refreshedPurchase.getByText("This listing is no longer available. Your post stays on your profile.",{exact:true}).waitFor();
   assert.equal(await refreshedPurchase.getByRole('button',{name:'View product',exact:true}).count(),0,'A source withdrawn after initial hydration cannot keep an actionable stale offer in the loaded feed.');
   await nav(opportunityPage,'My profile');
   const listingUpdates=shell(opportunityPage).getByRole('region',{name:'Listing updates',exact:true});await listingUpdates.waitFor();
@@ -686,7 +688,7 @@ try{
   await profileListing.getByText(nativeSecondHand.name,{exact:true}).waitFor();
   await profileListing.getByRole('button',{name:'Close dialog',exact:true}).click();
   await listingUpdates.getByRole('button',{name:'Open listing update: Listing unavailable',exact:true}).first().click();
-  await profileListing.getByText('This listing is no longer available. Your publication stays in your portfolio.',{exact:true}).waitFor();
+  await profileListing.getByText("This listing is no longer available. Your post stays on your profile.",{exact:true}).waitFor();
   assert.equal(await profileListing.getByRole('button',{name:'View product',exact:true}).count(),0,'A profile retains an honest portfolio update after its original listing is withdrawn.');
   await profileListing.getByRole('button',{name:'Close dialog',exact:true}).click();
 
@@ -774,7 +776,7 @@ try{
   await openWork(paginationPage);
   await shell(paginationPage).getByRole('button',{name:'Professional tools',exact:true}).click();
   await shell(paginationPage).getByRole('button',{name:'Overview',exact:true}).click();
-  const workspace=shell(paginationPage).getByRole('region',{name:'Professional workspace',exact:true});
+  const workspace=shell(paginationPage).getByRole('region',{name:"Work account",exact:true});
   await workspace.locator('.rp-workspace-identity').waitFor();
   const beforeReady=(await api('/repaidians/professional/workspace',carol)).member.workStatus;
   const ready=beforeReady==='available'||beforeReady==='open_to_work';

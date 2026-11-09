@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH,headless:true,args:['--disable-dev-shm-usage']});
+try{
+  const page=await browser.newPage({viewport:{width:390,height:844}});
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.goto((process.env.TEST_ORIGIN||'http://127.0.0.1:5186')+'/tests/home-quick-actions-preview.html?finder');
+  const count=page.locator('.finder-count strong');
+  await count.filter({hasText:'5'}).waitFor();
+  const budget=async(value,expected)=>{
+    await page.getByRole('button',{name:'Budget & sort',exact:true}).click();
+    await page.getByRole('spinbutton',{name:'Maximum service price · ₹',exact:true}).fill(value);
+    await page.getByRole('button',{name:`Show ${expected} services`,exact:true}).click();
+    assert.equal(await count.textContent(),String(expected));
+  };
+  await budget('500',4);
+  assert.equal(await page.locator('.finder-shortlist').getByRole('button').count(),3);
+  await page.getByRole('button',{name:'Compare',exact:true}).click();
+  const compare=page.getByRole('dialog',{name:'Compare service packages',exact:true});
+  const options=compare.getByRole('combobox').first().getByRole('option');
+  assert.equal(await options.filter({hasText:'Fixture service 50000'}).count(),1,'₹500 must include a service priced at exactly 50000 paise');
+  assert.equal(await options.filter({hasText:'Fixture service 50001'}).count(),0,'₹500 must exclude a service priced at 50001 paise');
+  await compare.getByRole('button',{name:'Close dialog',exact:true}).click();
+  await budget('499.99',3);
+  await budget('500.01',5);
+  await budget('0',1);
+  assert.equal(await page.locator('.finder-shortlist').getByRole('button').count(),1,'An explicit ₹0 budget must include only free services');
+  await budget('',5);
+  assert.equal(await page.locator('.finder-shortlist').count(),0,'Clearing the budget restores every service and removes the shortlist');
+  await budget('199',2);
+  await page.locator('.finder-shortlist').getByRole('button',{name:/Fixture service 19900/}).click();
+  assert.equal(await page.getByLabel('Last action').textContent(),'fixture-19900');
+  await page.getByRole('button',{name:'Reset',exact:true}).click();
+  assert.equal(await count.textContent(),'5');
+  assert.deepEqual(errors,[]);
+  console.log('PASS home service budget: rupees to paise, exact and fractional boundaries, zero, clear, reset and service handoff');
+}finally{await browser.close();}

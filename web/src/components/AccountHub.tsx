@@ -58,7 +58,7 @@ export function AccountHub(props: AccountHubProps) {
         <AccountAction icon={SwapHoriz} label="Let’s exchange" onClick={props.onExchange}/>
         <AccountAction icon={Sell} label="Sell a used item" onClick={props.onSellUsed}/>
         <AccountAction icon={EventAvailable} label="My rentals" onClick={props.onRentals}/>
-        <AccountAction icon={ManageAccounts} label="Shop workspace" description="Manage your shop or switch accounts" onClick={props.onShopAccount}/>
+        <AccountAction icon={ManageAccounts} label="Shop account" description="Manage your shop or switch accounts" onClick={props.onShopAccount}/>
       </AccountCategory>
       <AccountCategory icon={ShieldCheck} title="Account & privacy" description="Your details, alerts and reading choices">
         {props.identity && props.onCompleteEmail && <AccountAction icon={ManageAccounts} label="Account details & email" onClick={props.onCompleteEmail}/>}
@@ -66,7 +66,7 @@ export function AccountHub(props: AccountHubProps) {
         <AccountAction icon={MapPin} label="Service location" description={props.city} onClick={props.onLocation}/>
         {props.onInterests&&<AccountAction icon={Sparkles} label="Your service interests" description="Choose your most-needed services" onClick={props.onInterests}/>}
         <AccountAction icon={Bell} label="Notifications & offers" description="Choose your offer preferences" onClick={props.onOffers}/>
-        <AccountAction icon={WorkOutline} label="Professional account" description="Register or switch to your professional workspace" onClick={props.onAgentAccount}/>
+        <AccountAction icon={WorkOutline} label="Professional account" description="Sign up or open your work account" onClick={props.onAgentAccount}/>
         <AccountAction icon={ShieldCheck} label="Privacy policy" onClick={() => setPolicy('privacy')}/>
         <fieldset className="account-reading-preferences"><legend>Reading & motion</legend><label><input type="checkbox" checked={props.largerText} onChange={event => props.onLargerText(event.target.checked)}/><span>Larger text</span></label><label><input type="checkbox" checked={props.reducedMotion} onChange={event => props.onReducedMotion(event.target.checked)}/><span>Reduce animations</span></label><p>Saved on this device. Your device’s reduced-motion setting is always respected.</p></fieldset>
       </AccountCategory>

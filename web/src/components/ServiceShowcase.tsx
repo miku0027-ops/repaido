@@ -68,53 +68,15 @@ const slides = [
 ];
 
 export function ServiceSlideshow({onSelect, reduceMotion=false}:{reduceMotion?:boolean; onSelect:(category:string, q?:string)=>void}){
-  const [paused, setPaused] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [visible, setVisible] = useState(!document.hidden);
-  const [inView, setInView] = useState(true);
-  const [osReduced, setOsReduced] = useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const root = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const media = matchMedia('(prefers-reduced-motion: reduce)');
-    const motion = () => setOsReduced(media.matches);
-    const visibility = () => setVisible(!document.hidden);
-    media.addEventListener('change', motion);
-    document.addEventListener('visibilitychange', visibility);
-    const observer = new IntersectionObserver(entries => setInView(entries[0].isIntersecting), {threshold: 0.25});
-    if (root.current) observer.observe(root.current);
-    return () => {
-      media.removeEventListener('change', motion);
-      document.removeEventListener('visibilitychange', visibility);
-      observer.disconnect();
-    };
-  }, []);
-
-  const reduced = reduceMotion || osReduced;
-  const playing = !paused && !reduced;
-  const advancing = playing && !hovered && visible && inView;
-
-  useEffect(() => {
-    if (!advancing) return;
-    const timer = window.setInterval(() => setIndex(i => (i + 1) % slides.length), 6000);
-    return () => window.clearInterval(timer);
-  }, [advancing]);
-
   const touch = useRef<number|null>(null);
   const [index, setIndex] = useState(0);
   const slide = slides[index];
 
   return (
     <section
-      ref={root}
       className="service-slideshow"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocusCapture={e => {
-        if (!(e.target as HTMLElement).closest('[data-playback]')) setPaused(true);
-      }}
       onTouchStart={e => {
-        setPaused(true);
+
         touch.current = e.touches[0].clientX;
       }}
       onTouchEnd={e => {
@@ -150,10 +112,10 @@ export function ServiceSlideshow({onSelect, reduceMotion=false}:{reduceMotion?:b
       </div>
 
       <div className="slideshow-controls">
-        <span aria-live={playing ? "off" : "polite"} aria-atomic="true">
+        <span aria-live="polite" aria-atomic="true">
           {String(index + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')} · {slide.label}
         </span>
-        
+
         <div className="slide-dots">
           {slides.map((s, i) => (
             <button
@@ -161,7 +123,7 @@ export function ServiceSlideshow({onSelect, reduceMotion=false}:{reduceMotion?:b
               aria-label={`Show slide ${i + 1}: ${s.title}`}
               aria-pressed={index === i}
               onClick={() => {
-                setPaused(true);
+
                 setIndex(i);
               }}
             >
@@ -169,10 +131,10 @@ export function ServiceSlideshow({onSelect, reduceMotion=false}:{reduceMotion?:b
             </button>
           ))}
         </div>
-        <button aria-label="Previous service slide" onClick={() => { setPaused(true); setIndex((index + slides.length - 1) % slides.length); }}>
+        <button aria-label="Previous service slide" onClick={() => { setIndex((index + slides.length - 1) % slides.length); }}>
           <ArrowLeft size={16} />
         </button>
-        <button aria-label="Next service slide" onClick={() => { setPaused(true); setIndex((index + 1) % slides.length); }}>
+        <button aria-label="Next service slide" onClick={() => { setIndex((index + 1) % slides.length); }}>
           <ArrowRight size={16} />
         </button>
       </div>

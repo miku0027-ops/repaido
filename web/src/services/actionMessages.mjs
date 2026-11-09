@@ -28,7 +28,7 @@ export function actionMessages(path, init = {}) {
   data = data || {};
   const status = data.status || data.state || data.listing?.status || data.rfq?.status;
   const note = (title, message, tone = 'success') => ({title, message, tone});
-  if (data.ok === false || data.success === false) return note('Action needs attention', data.message || 'The server did not confirm this action. Review the details before trying again.', 'error');
+  if (data.ok === false || data.success === false) return note("Check this action", data.message || "We could not confirm this change. Check your saved records before trying again.", 'error');
   if (/\/local-business\/scrap(?:$|\/[^/]+\/(?:evaluation|commands)$)/.test(route)) {
    if (!data.id || !status) return note('Collection not confirmed','Check your collection records before retrying.','error');
    if (/\/evaluation$/.test(route)) return note('Weighing quote sent',status==='evaluated'?'The customer can now review the net weights and prices.':'The saved quote is available in this collection.');
@@ -45,7 +45,7 @@ export function actionMessages(path, init = {}) {
    return note(...(messages[action] || ['Report updated','Open the report for its current status.']));
   }
   if (/payment|checkout|refund|payout|razorpay|subscription\/(order|check)|\/prime\/(order|check)/.test(route)) return note('Payment status updated', 'Check the payment status below. Payment is complete only when confirmed.', 'info');
-  if (upload) return data.id || data.image_url || data.url || data.media?.id || data.document_id || data.photo_id ? note('Upload complete', 'Your file is ready. Save the form to attach it.') : note('Upload response received','Check the file preview or saved attachment before submitting the form.','info');
+  if (upload) return data.id || data.image_url || data.url || data.media?.id || data.document_id || data.photo_id ? note('Upload complete', 'Your file is ready. Save the form to attach it.') : note("Check your upload",'Check the file preview or saved attachment before submitting the form.','info');
   if (/\/market\/listings$/.test(route) && (!data.id || !status)) return note('Listing not confirmed','Check My listings before submitting again.','error');
   if (/\/market\/listings$/.test(route)) return note(status === 'published' ? 'Listing published' : 'Listing saved', status === 'published' ? 'Your item is now listed. You can manage it in My listings.' : status === 'awaiting_fee' ? 'Your draft is saved. Review and pay the listing fee to publish it.' : 'Check My listings for its current publication status.');
   if (/\/publish-free$/.test(route)) return note('Listing published', 'Your free listing is now available in My listings.');
@@ -61,8 +61,8 @@ export function actionMessages(path, init = {}) {
   if (/\/b2b\/rfq\/[^/]+\/decision$/.test(route)) return note(action === 'accept' ? 'Quotation accepted' : 'Quotation declined','Your decision is saved. No payment was collected and stock was not reserved.');
   if (/\/b2b\/quotation$/.test(route)) return note('Quotation sent','The buyer can review the saved quotation.');
   if (/\/b2b\/listings/.test(route)) return note(method === 'DELETE' ? 'Listing removed' : 'Wholesale listing saved','Your catalogue has been updated.');
-  if (/\/custom-contracts\/queries$/.test(route)) return note('Requirement published','Review proposals in My contract requests. Choose a contractor before work begins.');
-  if (/\/(bids|apply|interest)$/.test(route)) return note('Submission sent','Your submission is ready for review. You’ll be notified of the response.');
+  if (/\/custom-contracts\/queries$/.test(route)) return note("Project request posted",'Review proposals in My contract requests. Choose a contractor before work begins.');
+  if (/\/(bids|apply|interest)$/.test(route)) return note(/\/bids$/.test(route)?'Bid sent':/\/apply$/.test(route)?'Application sent':'Interest sent','We will let you know when there is a reply.');
   if (/\/hiring$/.test(route)) return note('Hiring notice saved','Your project’s hiring details have been updated.');
   if (/\/(report|reports)$/.test(route)) return note('Report submitted','Your report was sent for review.');
   if (/\/(messages|comments|enquiries|agent-messages)$/.test(route)) return note('Message sent','Your message has been saved.');
@@ -71,8 +71,8 @@ export function actionMessages(path, init = {}) {
   if (/\/quotes?$/.test(route)) return note('Quote ready','Review the estimate and terms before confirming.', 'info');
   if (/\/coupons\/check$/.test(route)) return note('Offer checked','The eligible offer is shown in your price summary.', 'info');
   if (/\/bookings$/.test(route)) return data.id ? note('Booking request sent','Follow the professional’s response in Bookings.') : note('Request not confirmed','Check Bookings before trying again.','error');
-  if (/\/validate$/.test(route)) return note('Details checked','Review the validation result shown in this view.', 'info');
-  if (status === 'pending' || status === 'pending_review' || status === 'submitted') return note('Submitted for review','Your submission was received. Approval is still pending.');
-  return note('Update saved', 'Your changes are saved.');
+  if (/\/validate$/.test(route)) return note('Details checked',"Check the result shown on this page.", 'info');
+  if (status === 'pending' || status === 'pending_review' || status === 'submitted') return note('Submitted for review',"Your request was received and is waiting for approval.");
+  return note('Update saved', "Changes saved.");
  }};
 }

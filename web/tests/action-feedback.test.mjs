@@ -38,7 +38,7 @@ test('failed and uncertain submissions preserve the rejection and never announce
  const failure=Error('Your quote changed. Review the latest price.');await assert.rejects(withActionFeedback('/hiring/requests/a/decision',{method:'POST'},async()=>{throw failure;}),e=>e===failure);
  assert.equal(actionFeedback.getSnapshot()[0].tone,'error');assert.equal(actionFeedback.getSnapshot()[0].message,failure.message);
  await assert.rejects(withActionFeedback('/market/listings',{method:'POST'},async()=>{throw new DOMException('Timed out','TimeoutError');}));
- assert.match(actionFeedback.getSnapshot().at(-1).message,/Check your saved records before retrying/);
+ assert.match(actionFeedback.getSnapshot().at(-1).message,/Check your saved records before trying again/);
 });
 test('an old response cannot overwrite a newer attempt or restore feedback cleared on account change',async()=>{
  let release;const first=withActionFeedback('/market/listings',{method:'POST'},()=>new Promise(resolve=>{release=resolve;}));

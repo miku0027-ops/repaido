@@ -14,7 +14,7 @@ try{
   await page.goto(base+'/tests/brand-system-preview.html?mode='+mode);await page.evaluate(()=>document.fonts.ready);
   await page.addScriptTag({path:fileURLToPath(new URL('../node_modules/axe-core/axe.min.js',import.meta.url))});
   for(const theme of ['light','dark'])for(const width of [320,465,1280]){
-   await page.setViewportSize({width,height:900});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+   await page.setViewportSize({width,height:900});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.waitForTimeout(180);
    const checked=await page.evaluate(async()=>{
     const fonts=[...document.querySelectorAll('h1,h2,h3,p,button,input,label,small,strong')].filter(el=>el.getClientRects().length).filter(el=>!getComputedStyle(el).fontFamily.includes('Poppins')).map(el=>({tag:el.tagName,class:el.className,font:getComputedStyle(el).fontFamily}));
     const audit=await window.axe.run('main',{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag2aaa']},rules:{'color-contrast-enhanced':{enabled:true}}});

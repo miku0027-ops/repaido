@@ -413,7 +413,7 @@ export default function PartnerRegistration({ onClose }: { onClose:()=>void }) {
             Become a Lifetime Partner
           </h1>
           <p style={{fontSize: '1.25rem', color: '#334155', fontWeight: 500, lineHeight: 1.6, maxWidth: 600, margin: '0 auto'}}>
-            Unlock endless opportunities for work and business. Join Repaido's premium network of verified shops, skilled technicians, and elite specialists.
+            Join Repaido to find work or manage your shop. Add your skills and details to apply.
           </p>
         </div>
         <div className="partner-options-grid">

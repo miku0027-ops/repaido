@@ -6,7 +6,6 @@ import {ArrowRight,ChevronLeft,ChevronRight,FileCheck2,RefreshCw,Pause,Play} fro
 import {CustomContractError,customContractQueries,subscribeCustomContracts} from '../services/customContractsService';
 import type {CustomContractQuery} from '../types/customContracts';
 import {RepaidianBadge} from './RepaidianBadge';
-import type {AnimationItem} from 'lottie-web';
 import './opportunity-carousel.css';
 import './work-opportunity-cards.css';
 export type Opportunity={id:string;tag:string;title:string;body:string;cta:string;image:string;alt:string;legacy?:boolean;terms?:string};
@@ -52,25 +51,23 @@ function ContractRequestIllustration(){
   <path d="m72 22 1.5-4 1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5Z" fill="#fbbc04"/>
  </svg></span>;
 }
-function MotionAccent({playing}:{playing:boolean}){const ref=useRef<HTMLSpanElement>(null),animation=useRef<AnimationItem|undefined>(undefined),playingRef=useRef(playing);playingRef.current=playing;useEffect(()=>{let alive=true;void import('lottie-web').then(({default:lottie})=>{if(!alive||!ref.current)return;animation.current=lottie.loadAnimation({container:ref.current,renderer:'svg',loop:true,autoplay:false,path:'/animations/opportunity-orbit.json'});if(playingRef.current)animation.current.play();});return()=>{alive=false;animation.current?.destroy();};},[]);useEffect(()=>{playing?animation.current?.play():animation.current?.pause();},[playing]);return <span ref={ref} className="opportunity-motion" aria-hidden="true"/>;}
 export default function OpportunityCarousel({slides=opportunities,variant='market',onOpen,footerAction}:{slides?:Opportunity[];variant?:'home'|'market'|'market-compact';onOpen:(slide:Opportunity)=>void;footerAction?:ReactNode}){
  const [ranking,setRanking]=useState<string[]>([]);
  const ordered=[...slides.filter(s=>s.legacy||s.id==='services'),...slides.filter(s=>!s.legacy&&s.id!=='services').sort((a,b)=>{const ai=ranking.indexOf(a.id),bi=ranking.indexOf(b.id);return (ai<0?99:ai)-(bi<0?99:bi);})];
  useEffect(()=>{let generation=0;const read=()=>{const g=++generation;setRanking([]);if(auth.currentUser)void operation<{ids:string[]}>('/opportunities/order',{}, {background:true}).then(d=>{if(g===generation)setRanking(d.ids);}).catch(()=>{});};const off=onIdTokenChanged(auth,read);window.addEventListener('repaido:interests',read);return()=>{generation++;off();window.removeEventListener('repaido:interests',read);};},[]);
  const [paused,setPaused]=useState(false);
- const [index,setIndex]=useState(0),[shape]=useState(bannerShape),[engaged,setEngaged]=useState(false),[visible,setVisible]=useState(false),[reduced,setReduced]=useState(false),[hidden,setHidden]=useState(document.hidden);const ref=useRef<HTMLElement>(null),touch=useRef<{x:number;y:number}|null>(null);const slide=ordered[index%ordered.length];
+ const [index,setIndex]=useState(0),[shape]=useState('panorama'),[engaged,setEngaged]=useState(false),[visible,setVisible]=useState(false),[reduced,setReduced]=useState(false),[hidden,setHidden]=useState(document.hidden);const ref=useRef<HTMLElement>(null),touch=useRef<{x:number;y:number}|null>(null);const slide=ordered[index%ordered.length];
  useEffect(()=>{const q=matchMedia('(prefers-reduced-motion: reduce)'),read=()=>setReduced(q.matches||document.documentElement.classList.contains('reduce-motion')),visibility=()=>setHidden(document.hidden);read();q.addEventListener('change',read);document.addEventListener('visibilitychange',visibility);const mo=new MutationObserver(read);mo.observe(document.documentElement,{attributes:true,attributeFilter:['class']});const io=new IntersectionObserver(e=>setVisible(!!e[0]?.isIntersecting),{threshold:.3});if(ref.current)io.observe(ref.current);return()=>{q.removeEventListener('change',read);document.removeEventListener('visibilitychange',visibility);mo.disconnect();io.disconnect();};},[]);
- const playing=visible&&!hidden&&!reduced&&!engaged&&!paused;
- useEffect(()=>{if(!playing||slides.length<2)return;const timer=setInterval(()=>setIndex(i=>(i+1)%slides.length),6500);return()=>clearInterval(timer);},[playing,slides.length]);
+ const playing=false;
  const move=(n:number)=>setIndex(i=>(i+n+slides.length)%slides.length);
  return <section ref={ref} className={`opportunity-carousel opportunity-${variant} opportunity-shape-${shape} ${playing?'is-playing':''} ${slide.legacy?'is-legacy':''}`} aria-label={variant==='home'?'Repaido highlights':'Marketplace opportunities'} aria-roledescription="carousel" onPointerEnter={()=>setEngaged(true)} onPointerLeave={()=>setEngaged(false)} onFocusCapture={()=>setEngaged(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setEngaged(false);}} onTouchStart={e=>{touch.current={x:e.touches[0].clientX,y:e.touches[0].clientY};setEngaged(true);}} onTouchEnd={e=>{const p=touch.current;touch.current=null;if(p){const dx=e.changedTouches[0].clientX-p.x,dy=e.changedTouches[0].clientY-p.y;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)*1.5)move(dx<0?1:-1);}setEngaged(false);}}>
  <button type="button" className="opportunity-slide" key={slide.id} onClick={()=>{if(!slide.legacy&&slide.id!=='services'&&auth.currentUser)void operation('/opportunities/open',{method:'POST',body:JSON.stringify({category:slide.id})},{background:true,feedback:false}).catch(()=>{});onOpen(slide);}} aria-label={slide.legacy?'Book a home service — browse services':slide.cta}>
  <img className="opportunity-photo" src={slide.image.startsWith('/')?slide.image:`/images/banners/${slide.image}.jpg`} alt={slide.alt} width={1536} height={1024} decoding="async"/>
  {!slide.legacy&&<><span className="opportunity-scrim"/><span className="opportunity-copy"><small>{slide.tag}</small><strong>{slide.title}</strong><span>{slide.body}</span><b>{slide.cta}<ArrowRight size={14}/></b></span></>}
- </button>{variant!=='market-compact'&&!slide.legacy&&visible&&!hidden&&!reduced&&<MotionAccent playing={playing}/>}
+ </button>
  {variant==='market-compact'?<div className="opportunity-footer">{footerAction}<PlaybackControls index={index} count={slides.length} reduced={reduced} paused={paused} onPause={()=>setPaused(value=>!value)} onMove={move}/></div>:<PlaybackControls index={index} count={slides.length} reduced={reduced} paused={paused} onPause={()=>setPaused(value=>!value)} onMove={move}/>}
  </section>;
 }
 function PlaybackControls({index,count,reduced,paused,onPause,onMove}:{index:number;count:number;reduced:boolean;paused:boolean;onPause:()=>void;onMove:(direction:number)=>void}){
- return <div className="opportunity-controls"><button type="button" aria-label={reduced?'Automatic banners paused for reduced motion':paused?'Resume automatic banners':'Pause automatic banners'} disabled={reduced} aria-pressed={paused||reduced} onClick={onPause}>{paused||reduced?<Play size={14} aria-hidden="true"/>:<Pause size={14} aria-hidden="true"/>}</button><button type="button" aria-label="Previous banner" onClick={()=>onMove(-1)}><ChevronLeft size={14}/></button><span aria-label={`Slide ${index+1} of ${count}`}>{index+1}/{count}</span><button type="button" aria-label="Next banner" onClick={()=>onMove(1)}><ChevronRight size={14}/></button></div>;
+ return <div className="opportunity-controls"><button type="button" aria-label="Previous banner" onClick={()=>onMove(-1)}><ChevronLeft size={14}/></button><span aria-label={`Slide ${index+1} of ${count}`}>{index+1}/{count}</span><button type="button" aria-label="Next banner" onClick={()=>onMove(1)}><ChevronRight size={14}/></button></div>;
 }

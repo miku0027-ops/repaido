@@ -26,17 +26,6 @@ type Leaderboard={professionals:Professional[];total:number;categories:LeaderCat
 /** Category-specific, approved public profiles. Browsing never creates a booking. */
 export default function ServiceLeaders({city,category,initialLocation,role='all',radiusKm=6,categoryIds,initiallyExpanded=false,onSelectCategory}:Props){
   const overview=category==='all';
-  const ambient=useRef<HTMLElement>(null);
-  const [motionPaused,setMotionPaused]=useState(false),[motionVisible,setMotionVisible]=useState(false),[reducedMotion,setReducedMotion]=useState(false);
-  useEffect(()=>{
-    const media=matchMedia('(prefers-reduced-motion: reduce)');
-    const sync=()=>setReducedMotion(media.matches||document.documentElement.classList.contains('reduce-motion'));
-    const visibility=()=>{if(document.hidden)setMotionVisible(false);else if(ambient.current){const r=ambient.current.getBoundingClientRect();setMotionVisible(r.bottom>0&&r.top<innerHeight);}};
-    sync();media.addEventListener('change',sync);document.addEventListener('visibilitychange',visibility);
-    const mutation=new MutationObserver(sync);mutation.observe(document.documentElement,{attributes:true,attributeFilter:['class']});
-    const observer=new IntersectionObserver(rows=>setMotionVisible(!document.hidden&&!!rows[0]?.isIntersecting));if(ambient.current)observer.observe(ambient.current);
-    return()=>{media.removeEventListener('change',sync);document.removeEventListener('visibilitychange',visibility);mutation.disconnect();observer.disconnect();};
-  },[overview]);
   const [open,setOpen]=useState(initiallyExpanded),[selected,setSelected]=useState<Professional|null>(null);
   const [result,setResult]=useState<{key:string;rows:Professional[];total:number;categories:LeaderCategory[];updatedAt:number|null}|null>(null);
   const [error,setError]=useState(''),[retry,setRetry]=useState(0);
@@ -81,8 +70,8 @@ export default function ServiceLeaders({city,category,initialLocation,role='all'
   if(overview){
     const allowed=new Set(categoryIds?.length?categoryIds:categories.map(c=>c.id));
     const leaders=(current?.categories||[]).filter(c=>allowed.has(c.id)&&c.count>0);
-    return <section ref={ambient} data-animated={motionVisible&&!motionPaused&&!reducedMotion} className="catalog-professionals catalog-leaders-overview" aria-label="Category leaders" aria-busy={loading}>
-      <header className="catalog-leaders-heading"><span className="catalog-professionals-icon" aria-hidden="true"><Trophy size={20}/></span><div className="catalog-professionals-copy"><h2>Category leaders</h2><p>{city} · Verified reviews</p></div><button type="button" className="catalog-leaders-motion" aria-label={motionPaused?'Play leader effects':'Pause leader effects'} onClick={()=>setMotionPaused(v=>!v)}>{motionPaused?<Play size={20}/>:<Pause size={20}/>}</button>{refreshButton}</header>
+    return <section  className="catalog-professionals catalog-leaders-overview" aria-label="Category leaders" aria-busy={loading}>
+      <header className="catalog-leaders-heading"><span className="catalog-professionals-icon" aria-hidden="true"><Trophy size={20}/></span><div className="catalog-professionals-copy"><h2>Category leaders</h2><p>{city} · Verified reviews</p></div>{refreshButton}</header>
       {error&&<p className="catalog-leaders-status" role="alert">{leaders.length?'Showing last received results. ':''}Leaders could not refresh. <button className="catalog-professionals-retry" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>}
       {loading?<p className="catalog-leaders-status" role="status">Checking category leaders…</p>:!error&&!leaders.length?<p className="catalog-leaders-status">No matching professionals are listed here yet.</p>:null}
       {!!leaders.length&&<nav className="catalog-leaders-rail" aria-label="Category leaderboards">{leaders.map(c=><button type="button" className="catalog-leader-preview" key={c.id} onClick={()=>onSelectCategory?.(c.id)} aria-label={`View ${c.name} leaderboard`}>

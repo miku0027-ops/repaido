@@ -1,5 +1,5 @@
-import { useEffect, useRef, type InputHTMLAttributes, type ReactNode } from 'react';
-import { X, ArrowUpRight, Search, CheckCircle2, AlertCircle, Info } from '../icons';
+import { useEffect, useRef, type ButtonHTMLAttributes, type SelectHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { X, ArrowUpRight, Search, CheckCircle2, AlertCircle, Info, LoaderCircle } from '../icons';
 import './app-experience.css';
 import './motion-system.css';
 import RepaidoBrand from './RepaidoBrand';
@@ -11,9 +11,17 @@ export function Brand({compact=false}:{compact?:boolean}) {
 export function CustomerSearchField({label,placeholder,value,onChange}:{label:string;placeholder:string;value:string;onChange:(value:string)=>void}) {
   return <div className="customer-search-field"><Search size={18} aria-hidden="true"/><input type="search" aria-label={label} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)}/>{value&&<button type="button" aria-label={`Clear ${label.toLowerCase()}`} onClick={()=>onChange('')}><X size={18} aria-hidden="true"/></button>}</div>;
 }
-export function Field({label,error,id,className='',...props}:InputHTMLAttributes<HTMLInputElement>&{label:string;error?:string;id:string}) {
-  const describedBy = [props['aria-describedby'], error ? `${id}-error` : null].filter(Boolean).join(' ') || undefined;
-  return <div className="space-y-2"><label htmlFor={id} className="block text-sm font-medium">{label}</label><input {...props} id={id} aria-invalid={!!error} aria-describedby={describedBy} className={`field ${error?'border-danger':''} ${className}`}/>{error&&<p id={`${id}-error`} className="text-sm text-danger" role="alert">{error}</p>}</div>;
+export function Button({variant='secondary',loading=false,loadingLabel='Please wait…',iconOnly=false,type='button',className='',disabled,children,...props}:ButtonHTMLAttributes<HTMLButtonElement>&{variant?:'primary'|'secondary'|'danger'|'ghost';loading?:boolean;loadingLabel?:string;iconOnly?:boolean}) {
+  return <button {...props} type={type} className={`ui-button ${className}`.trim()} data-variant={variant} data-icon-only={iconOnly||undefined} disabled={disabled||loading} aria-busy={loading||undefined}>{loading&&<LoaderCircle size={18} className="ui-pending" aria-hidden="true"/>}{loading?loadingLabel:children}</button>;
+}
+type FieldCopy={label:string;error?:string;hint?:string;id:string};
+export function Field({label,error,hint,id,className='',...props}:InputHTMLAttributes<HTMLInputElement>&FieldCopy) {
+  const describedBy = [props['aria-describedby'], hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(' ') || undefined;
+  return <div className="ui-field"><label htmlFor={id}>{label}</label><input {...props} id={id} aria-invalid={error?true:props['aria-invalid']} aria-describedby={describedBy} className={`field ${className}`.trim()}/>{hint&&<p id={`${id}-hint`} className="ui-field-note">{hint}</p>}{error&&<p id={`${id}-error`} className="ui-field-error" role="alert">{error}</p>}</div>;
+}
+export function SelectField({label,error,hint,id,children,...props}:SelectHTMLAttributes<HTMLSelectElement>&FieldCopy) {
+  const describedBy=[props['aria-describedby'],hint?`${id}-hint`:null,error?`${id}-error`:null].filter(Boolean).join(' ')||undefined;
+  return <div className="ui-field"><label htmlFor={id}>{label}</label><select {...props} id={id} aria-invalid={error?true:props['aria-invalid']} aria-describedby={describedBy}>{children}</select>{hint&&<p id={`${id}-hint`} className="ui-field-note">{hint}</p>}{error&&<p id={`${id}-error`} className="ui-field-error" role="alert">{error}</p>}</div>;
 }
 export function Modal({title,children,onClose,className='',frameless=false,dismissible=true,suspended=false}:{title:string;children:ReactNode;onClose:()=>void;className?:string;frameless?:boolean;dismissible?:boolean;suspended?:boolean}) {
   const ref=useRef<HTMLDialogElement>(null);
@@ -59,7 +67,7 @@ export function Modal({title,children,onClose,className='',frameless=false,dismi
     dialog?.addEventListener('keydown',containFocus);
     return()=>dialog?.removeEventListener('keydown',containFocus);
   },[]);
-  return <dialog ref={ref} className={`modal motion-dialog w-[calc(100%-32px)] max-w-lg rounded-2xl border bg-white p-6 text-ink md:p-8 ${className}`} aria-label={title} onCancel={e=>{e.preventDefault();e.stopPropagation();if(dismissible)onClose();}} onPointerDown={e=>{backdropPress.current=e.button===0&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY);}} onPointerCancel={()=>{backdropPress.current=false;}} onClick={e=>{const beganOutside=backdropPress.current;backdropPress.current=false;if(dismissible&&beganOutside&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY))onClose();}}>{!frameless&&<div className="app-modal-heading mb-6 flex items-start justify-between gap-4"><h2 className="text-2xl font-semibold tracking-tight">{title}</h2>{dismissible&&<button type="button" onClick={onClose} className="app-modal-close button-secondary shrink-0" aria-label="Close dialog"><X size={20}/></button>}</div>}{children}</dialog>;
+  return <dialog ref={ref} className={`modal motion-dialog w-[calc(100%-32px)] max-w-lg rounded-2xl border bg-white p-6 text-ink md:p-8 ${className}`} aria-label={title} onCancel={e=>{e.preventDefault();e.stopPropagation();if(dismissible)onClose();}} onPointerDown={e=>{backdropPress.current=e.button===0&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY);}} onPointerCancel={()=>{backdropPress.current=false;}} onClick={e=>{const beganOutside=backdropPress.current;backdropPress.current=false;if(dismissible&&beganOutside&&e.target===e.currentTarget&&outside(e.currentTarget,e.clientX,e.clientY))onClose();}}>{!frameless&&<div className="app-modal-heading mb-6 flex items-start justify-between gap-4"><h2 className="text-2xl font-semibold tracking-tight">{title}</h2>{dismissible&&<Button iconOnly onClick={onClose} className="app-modal-close shrink-0" aria-label="Close dialog"><X size={20} aria-hidden="true"/></Button>}</div>}{children}</dialog>;
 }
 export function Empty({title,description,action}:{title:string;description:string;action?:ReactNode}) {return <div className="app-empty-state rounded-2xl border px-6 py-16 text-center"><h2 className="text-xl font-semibold">{title}</h2><p className="mx-auto mt-2 max-w-md text-muted">{description}</p>{action&&<div className="mt-6">{action}</div>}</div>;}
 export function ArrowLink(){return <ArrowUpRight size={18} strokeWidth={1.8} aria-hidden="true"/>;}

@@ -40,9 +40,8 @@ import {Hiring,HireRequests,type Professional} from './components/Hiring';
 import {listenProfessionalActions} from './services/professionalNavigation';
 import {Marketplace} from './components/Marketplace';
 import {HomeServiceDetails} from './components/HomeServiceDetails';
-import ServiceStories from './components/ServiceStories';
 import {LocalLeaderboard} from './components/LocalLeaderboard';
-import {useServiceHydration,ServiceHydration,HydrationControls} from './components/ServiceHydration';
+import {useServiceHydration,HydrationControls} from './components/ServiceHydration';
 import {RentalManager} from './components/Rentals';
 import { apiFetch } from './services/api';
 import SearchDiscovery from './components/SearchDiscovery';
@@ -550,6 +549,7 @@ export default function App() {
   const [workerMapModalOpen, setWorkerMapModalOpen] = useState(false);
   const [partnerApplicationId, setPartnerApplicationId] = useState('');
   const [servicesList, setServicesList] = useState<Service[]>([]);
+  const [catalogueLoading,setCatalogueLoading]=useState(true),[catalogueError,setCatalogueError]=useState(''),[catalogueAttempt,setCatalogueAttempt]=useState(0);
   useEffect(()=>listenProfessionalActions({services:servicesList,
     onService:(service,professional)=>{setHomeHub(null);setHomePreferred(undefined);setHomeDetail(null);setSelectedPromotion(undefined);setPreferredProfessional(professional);setSelectedService(service);hydration.event({kind:'service_view',service_id:service.id});},
     onHome:(service,professional)=>{setHomeDetail(null);setSelectedService(null);setSelectedPromotion(undefined);setPreferredProfessional(undefined);setHomePreferred(professional);setHomeHub(service);},
@@ -590,9 +590,20 @@ export default function App() {
 
   // Display server-confirmed scopes and prices, including an actually empty catalogue.
   useEffect(() => {
-    fetchLiveServices().then(svcs => {
-      setServicesList(svcs);
-    }).catch(() => setError('Live service prices are unavailable. Reopen the app to retry; booking requires the live catalogue.'));
+    let alive = true;
+    setCatalogueLoading(true);
+    setCatalogueError('');
+    void fetchLiveServices().then(svcs => {
+      if (alive) setServicesList(svcs);
+    }).catch(() => {
+      if (alive) setCatalogueError('Service prices could not load. Please check your connection and retry.');
+    }).finally(() => {
+      if (alive) setCatalogueLoading(false);
+    });
+    return () => { alive = false; };
+  }, [catalogueAttempt]);
+
+  useEffect(() => {
     fetchLiveTechnicians().then(techs => {
       setTechniciansList(techs);
     }).catch(() => { setTechniciansList([]); setError('Nearby professionals could not be loaded. Reopen the app to retry.'); });
@@ -749,6 +760,18 @@ export default function App() {
     }
     return true;
   });
+
+  const catalogueNotice = catalogueLoading ? (
+    <div className="ui-card catalogue-state" role="status"><p>Loading live services…</p></div>
+  ) : catalogueError ? (
+    <div className="ui-card catalogue-state" role="alert">
+      <p>{catalogueError}</p>
+      {servicesList.length > 0 && <p>Previously loaded services are shown below.</p>}
+      <button type="button" className="button-secondary" onClick={() => setCatalogueAttempt(attempt => attempt + 1)}>Retry loading services</button>
+    </div>
+  ) : !servicesList.length ? (
+    <div className="ui-card catalogue-state" role="status"><p>No services are currently listed.</p><button type="button" className="button-secondary" onClick={() => setCatalogueAttempt(attempt => attempt + 1)}>Refresh services</button></div>
+  ) : null;
 
   const filteredBookings = records.filter(b => {
     if (bookingFilter === 'active') return ['requested', 'confirmed', 'on_the_way', 'in_progress'].includes(b.status);
@@ -927,7 +950,7 @@ export default function App() {
             {/* User greeting + location */}
             <div className="px-2 mb-3">
               <p className="text-sm font-bold text-[#17285c] leading-tight">
-                {user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:'Hello there!'}
+                {user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:"Welcome"}
               </p>
               <button
                 className="flex items-center gap-1 text-sm text-slate-500 hover:text-[#17285c] mt-0.5 transition-colors"
@@ -1011,7 +1034,7 @@ export default function App() {
           {/* 1. EXPLORE TAB */}
           {tab === 'Explore' && (
                 <div className="android-explore-screen">
-                  <HomeGreeting offers={homeCampaigns.cards} onOffer={openPromotion} greeting={user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:'Hello there!'} location={place.address||place.city} onLocation={()=>setCityModalOpen(true)}/>
+                  <HomeGreeting offers={homeCampaigns.cards} onOffer={openPromotion} greeting={user&&customerIdentity.name?`Hello, ${customerIdentity.name.split(' ')[0]}!`:"Welcome"} location={place.address||place.city} onLocation={()=>setCityModalOpen(true)}/>
               <h1 className="sr-only">Home services</h1>
               {/* Search Field */}
               <div className="repaido-search-container">
@@ -1074,20 +1097,20 @@ export default function App() {
                   <div className="marketplace-sliding-notifier-container">
                     <div className="marketplace-sliding-header">
                       <div className="flex items-center gap-2">
-                        <span className="live-pulse-dot" aria-hidden="true" />
-                        <span className="marketplace-sliding-badge">STORES & MARKETPLACE HUB</span>
+
+                        <span className="marketplace-sliding-badge">Shop and rent</span>
                       </div>
                       <button
                         type="button"
                         className="marketplace-explore-all-btn"
                         onClick={() => openStoreSection('spares')}
                       >
-                        <span>Explore All</span>
+                        <span>View all</span>
                         <ArrowRight size={14} />
                       </button>
                     </div>
 
-                    <div className="marketplace-sliding-track" role="region" aria-label="Marketplace live categories">
+                    <div className="marketplace-sliding-track" role="region" aria-label="Shop and rent categories">
                       <button
                         type="button"
                         className="marketplace-slide-card"
@@ -1097,7 +1120,7 @@ export default function App() {
                           <Inventory2 size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
-                          <strong className="slide-card-title">Buy Spares</strong>
+                          <strong className="slide-card-title">Buy parts</strong>
                           <span className="slide-card-desc">Parts from local stores</span>
                         </div>
                         <ArrowRight size={16} className="slide-card-arrow text-blue-600" />
@@ -1112,7 +1135,7 @@ export default function App() {
                           <Construction size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
-                          <strong className="slide-card-title">Rent Tools</strong>
+                          <strong className="slide-card-title">Rent tools</strong>
                           <span className="slide-card-desc">Deposit refund after return check</span>
                         </div>
                         <ArrowRight size={16} className="slide-card-arrow text-emerald-600" />
@@ -1127,8 +1150,8 @@ export default function App() {
                           <SwapHoriz size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
-                          <strong className="slide-card-title">Direct Swap</strong>
-                          <span className="slide-card-desc">1-to-1 Gadget exchange</span>
+                          <strong className="slide-card-title">Exchange items</strong>
+                          <span className="slide-card-desc">Swap with another owner</span>
                         </div>
                         <ArrowRight size={16} className="slide-card-arrow text-purple-600" />
                       </button>
@@ -1142,7 +1165,7 @@ export default function App() {
                           <Sell size={20} aria-hidden="true" />
                         </div>
                         <div className="slide-card-info">
-                          <strong className="slide-card-title">Sell Pre-Owned</strong>
+                          <strong className="slide-card-title">Sell used items</strong>
                           <span className="slide-card-desc">New sellers · 90 days free</span>
                         </div>
                         <ArrowRight size={16} className="slide-card-arrow text-amber-600" />
@@ -1150,7 +1173,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <PromotionRail city={place.city} placement="explore" onOpen={openPromotion}/><ServiceStories services={servicesList} selected={activeCategory} onSelect={category=>{hydration.event({kind:'category_view',category});setActiveCategory(category);setTab('Services');}}/>
+
                 </>
               )}
 
@@ -1158,7 +1181,7 @@ export default function App() {
                 <section className="android-services-section">
                   <div className="home-essentials-heading">
                     <h2 className="android-section-title" aria-label={!query&&activeCategory==='all'?'Repaido Assured Home Essentials':undefined}>
-                      {query ? 'Search results' : activeCategory === 'all' ? <><span className="repaido-assured-tag"><VerifiedUser size={14} aria-hidden="true"/>Repaido Assured</span><span>Home Essentials</span></> : androidCategories.find(c => c.id === activeCategory)?.name}
+                      {query ? 'Search results' : activeCategory === 'all' ? <><span className="repaido-assured-tag"><VerifiedUser size={14} aria-hidden="true"/>Repaido Assured</span><span>Home services</span></> : androidCategories.find(c => c.id === activeCategory)?.name}
                     </h2>
                     {activeCategory !== 'all' && (
                       <button className="android-show-all-btn" onClick={() => setActiveCategory('all')}>
@@ -1167,17 +1190,17 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="android-services-list">
+                  {catalogueNotice}
+                  <div className="android-services-list" aria-busy={catalogueLoading}>
                     {filteredServices.slice(0,query?filteredServices.length:6).map((service,index) => (
                       <Fragment key={service.id}>{!query&&activeCategory==='all'&&index===finderSlot&&<HomeServiceFinder services={servicesList} onPreview={handleOpenBooking}/>}<ServiceAccordion service={service} city={place.city} onPreview={()=>handleOpenBooking(service)} onOffer={openPromotion}/>
-                      {!query&&activeCategory==='all'&&(index===3||index===9)&&hydration.feed?.covered&&<ServiceHydration cards={hydration.feed.cards.slice(index===3?0:3,index===3?3:6)} slot={index===3?0:1} onOpen={s=>{hydration.event({kind:'banner_open',service_id:s.id});setHomeDetail(s);}}/>}
                       </Fragment>
                     ))}
                   </div>
                   {!query&&filteredServices.length>6&&<button className="browse-all-services" onClick={()=>setTab('Services')}>See all {filteredServices.length} services <ArrowRight size={16} aria-hidden="true"/></button>}
                   <HydrationControls enabled={hydration.enabled} marketEnabled={hydration.marketEnabled} signedIn={hydration.signedIn} error={hydration.error} pending={hydration.pending} onChange={hydration.refresh} onSignIn={()=>setSheet('auth')}/>
 
-                  <details className="operations" style={{margin:"16px 0"}}><summary>Local leaderboards · verified reviews</summary><LocalLeaderboard/></details><section className="home-discovery-entry"><div><PersonSearch size={20}/><h2>Find the right help nearby</h2><p>Compare services, check what’s included, and explore professionals within 8 km.</p></div><button onClick={() => setDiscoveryOpen(true)}>Explore & compare <ArrowRight size={16}/></button></section>
+                  <details className="operations" style={{margin:"16px 0"}}><summary>Local leaderboards · verified reviews</summary><LocalLeaderboard/></details>
                   <div className="android-footer-slogan">
                     <h3>A little help makes a home.</h3>
                     <p>Pilot catalogue · Appointments require confirmation within 6 km</p>
@@ -1194,7 +1217,7 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'Bookings' && <div className="customer-bookings-page">{(user||auth.currentUser)&&!rideBookings&&!contractBookings&&!homePlans&&!hireBookings&&!contributeBookings&&<BookingPaymentRecovery key={user?.id||auth.currentUser?.uid}/>}{(user||auth.currentUser)&&<div className="customer-booking-quick-actions" role="group" aria-label="Booking shortcuts"><CustomerActivityHub key={user?.id||auth.currentUser?.uid} launch={activityLaunch}/><button type="button" className="customer-business-access" aria-haspopup="dialog" onClick={()=>setBusinessAccountsOpen(true)}>Business accounts</button></div>}{(user||auth.currentUser)&&businessAccountsOpen&&<Modal title="Business & apartment accounts" className="customer-business-dialog" onClose={()=>setBusinessAccountsOpen(false)}><Suspense fallback={<p role="status">Opening business accounts…</p>}><BusinessAccounts key={user?.id||auth.currentUser?.uid} onSignIn={()=>setSheet('auth')}/></Suspense></Modal>}<CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings key={activityRecord?.kind+':'+activityRecord?.token} onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialRideId={cabRideId} initialSharedRideId={sharedRideId} initialBikeRideId={bikeRideId} key={(user?.id||'guest')+sharedRideId+bikeRideId+cabRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Opening your contract workspace…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests initialRequestId={activityRecord?.kind==='hires'?activityRecord.id:undefined} onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans key={activityRecord?.kind==='home_plans'?activityRecord.token:undefined} onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
+            {tab === 'Bookings' && <div className="customer-bookings-page">{(user||auth.currentUser)&&!rideBookings&&!contractBookings&&!homePlans&&!hireBookings&&!contributeBookings&&<BookingPaymentRecovery key={user?.id||auth.currentUser?.uid}/>}{(user||auth.currentUser)&&<div className="customer-booking-quick-actions" role="group" aria-label="Booking shortcuts"><CustomerActivityHub key={user?.id||auth.currentUser?.uid} launch={activityLaunch}/><button type="button" className="customer-business-access" aria-haspopup="dialog" onClick={()=>setBusinessAccountsOpen(true)}>Business accounts</button></div>}{(user||auth.currentUser)&&businessAccountsOpen&&<Modal title="Business & apartment accounts" className="customer-business-dialog" onClose={()=>setBusinessAccountsOpen(false)}><Suspense fallback={<p role="status">Opening business accounts…</p>}><BusinessAccounts key={user?.id||auth.currentUser?.uid} onSignIn={()=>setSheet('auth')}/></Suspense></Modal>}<CustomerBookingNavigation value={contributeBookings?'contribute':rideBookings?'rides':contractBookings?'contracts':homePlans?'home':hireBookings?'hiring':'visits'} onChange={value=>{updateRideBookings(value==='rides');updateContractBookings(value==='contracts');updateHomePlans(value==='home');updateHireBookings(value==='hiring');setContributeBookings(value==='contribute');if(value==='contracts'){setCustomProjectId(undefined);setCustomContractId(undefined);setCustomProposalId(undefined);}}}/>{!user&&!auth.currentUser?<BookingSignIn title={contributeBookings?'Sign in to manage contributions':rideBookings?'Sign in to manage rides':contractBookings?'Sign in to manage your contracts':homePlans?'Sign in to see your plans':hireBookings?'Sign in to see your hiring requests':'Sign in to view your bookings'} description={contributeBookings?'Your pickups, cleanup reports, payment receipts and points stay together.':rideBookings?'Your ride requests, pickups and journey updates appear here.':contractBookings?'Review private proposals and follow your contracts.':homePlans?'Your scheduled visits and home calendar appear here.':hireBookings?'Review replies and follow your hired professional’s work.':'Your visits, progress and service history appear here.'} actionLabel={rideBookings?'Sign in to manage rides':'Sign in'} onSignIn={()=>setSheet('auth')}/>:contributeBookings?<ContributeBookings key={activityRecord?.kind+':'+activityRecord?.token} onSignIn={()=>setSheet('auth')} onArrangePickup={()=>{setMarketSubTab('scrap');setTab('ShopSpares');}}/>:rideBookings?<TransportBookings initialRideId={cabRideId} initialSharedRideId={sharedRideId} initialBikeRideId={bikeRideId} key={(user?.id||'guest')+sharedRideId+bikeRideId+cabRideId} onSignIn={()=>setSheet('auth')}/>:contractBookings?<Suspense fallback={<p role="status">Loading your projects…</p>}><CustomContractHub key={user?.id||'guest'} accountKey={user?.id||'guest'} authenticated={!!user} mode="customer" focusContractId={customContractId} focusProjectId={customProjectId} focusProposalId={customProposalId} onOpenMember={openContractMember} onSignIn={()=>setSheet('auth')}/></Suspense>:hireBookings&&!homePlans?<><HireRequests initialRequestId={activityRecord?.kind==='hires'?activityRecord.id:undefined} onSignIn={()=>setSheet('auth')} onBooking={id=>setNotificationJob(id)}/><OperationalJobs kind="hiring" key={`${user?.id||'guest'}:${notificationJob||'hiring'}`} initialJobId={notificationJob} onSignIn={()=>setSheet('auth')}/></>:homePlans?<HomePlans key={activityRecord?.kind==='home_plans'?activityRecord.token:undefined} onSignIn={()=>setSheet('auth')} onJob={id=>{setNotificationJob(id);setHomePlans(false);setHireBookings(false);}}/>:<OperationalJobs kind="visits" key={`${user?.id||'guest'}:${notificationJob||'bookings'}`} initialJobId={notificationJob} onSignIn={() => setSheet('auth')} onRebook={draft=>{const service=servicesList.find(s=>s.id===draft.service_id);if(service)setSelectedService(service);else setError('This package is no longer listed. Please choose an available service.');}} />}</div>}
 
             {/* 4. MARKET: SPARE PARTS & CONTRACT TENDERS */}
             {tab === 'ShopSpares' && (
@@ -1358,7 +1381,7 @@ export default function App() {
               ['Professional verification','Professionals complete a platform review before assignments.'],
               ['Pay after service','Review completed work and approved charges before payment.'],
               ['Review the work','Confirm completion or report a concern from your booking.'],
-              ['Clear service prices','Review service scope and extras in your itemized bill.']
+              ['Clear service prices',"Check the work and extra charges on your bill."]
             ]).map(([title,copy],index)=>{const Icon=(tab==='Hire'?[VerifiedUser,PersonSearch,EventAvailable,ShieldCheck]:tab==='ShopSpares'?[SwapHoriz,FactCheck,EventAvailable,Payments]:tab==='Bookings'?[CalendarCheck,FactCheck,CheckCircle2,SupportAgent]:[VerifiedUser,Payments,FactCheck,ReceiptLong])[index];return <div className="trust-pillar-card" key={title}><Icon size={20} aria-hidden="true"/><h2>{title}</h2><p>{copy}</p></div>;})}
           </div>
 
@@ -1385,7 +1408,7 @@ export default function App() {
       {communityReturn&&!repaidiansOpen&&<div className="community-return-bar"><button className="btn-outline" onClick={backToCommunity}><ArrowLeft size={18}/>Back to Repaidians</button></div>}
       {communityRouteBusy&&<p className="community-route-status" role="status">Checking this listing’s latest details…</p>}
       {communityRouteError&&<Modal title="Listing unavailable" onClose={()=>setCommunityRouteError('')}><p role="alert">{communityRouteError}</p><button className="btn-outline" onClick={()=>setCommunityRouteError('')}>Back to opportunities</button></Modal>}
-      {communityNative&&<Modal title={communityNative.kind==='career'?'Project opportunity':communityNative.kind==='applications'?'My applications':'Business workspace'} className="work-network-sheet" onClose={backToCommunity}>{communityNative.kind==='career'?<ProjectDetail project={communityNative.card.details!} uid={user?.id} onApplied={()=>setCommunityNative({kind:'applications'})}/>:communityNative.kind==='applications'?<Applications uid={user?.id}/>:<ContractorPortal initialTab={communityNative.tab} initialTenderId={communityNative.tenderId} initialProjectId={communityNative.projectId} agent={communityNative.agent} onBackToCustomer={backToCommunity} onPartnerProfile={()=>{setCommunityNative(null);setTab('You');}}/>}</Modal>}
+      {communityNative&&<Modal title={communityNative.kind==='career'?'Project opportunity':communityNative.kind==='applications'?'My applications':"Business account"} className="work-network-sheet" onClose={backToCommunity}>{communityNative.kind==='career'?<ProjectDetail project={communityNative.card.details!} uid={user?.id} onApplied={()=>setCommunityNative({kind:'applications'})}/>:communityNative.kind==='applications'?<Applications uid={user?.id}/>:<ContractorPortal initialTab={communityNative.tab} initialTenderId={communityNative.tenderId} initialProjectId={communityNative.projectId} agent={communityNative.agent} onBackToCustomer={backToCommunity} onPartnerProfile={()=>{setCommunityNative(null);setTab('You');}}/>}</Modal>}
       {tab==='Explore'&&<CompactActionLauncher onCommunity={()=>setRepaidiansOpen(true)} onCustomContract={()=>openCustomContract()} onQuickHire={()=>setQuickHireOpen(true)} onSupport={()=>{setSupportCaseId('');setSheet('support_ticket');}}/>}
       {quickHireOpen&&<Modal title="Quick Hire" className="quick-hire-modal" onClose={()=>setQuickHireOpen(false)}><Hiring location={place} onLocation={res=>setPlace(prev=>({...prev,...res,city:res.city||prev.city,confirmed:true}))} services={servicesList} city={place.city} onSignIn={()=>{setQuickHireOpen(false);setSheet('auth');}} onService={openPublishedService} onRequests={()=>{setQuickHireOpen(false);setRideBookings(false);setContractBookings(false);setHomePlans(false);setHireBookings(true);setTab('Bookings');}} onHome={(service,professional)=>{setQuickHireOpen(false);setHomePreferred(professional);setHomeHub(service);}} onBooking={id=>{setQuickHireOpen(false);setNotificationJob(id);setRideBookings(false);setContractBookings(false);setHireBookings(true);setHomePlans(false);setTab('Bookings');}}/></Modal>}
       {repaidiansOpen&&<Suspense fallback={<Modal title="Repaidians" onClose={closeCommunity}><p role="status">Opening your community…</p></Modal>}><RepaidiansModal transportLocation={place} onTransportLocation={()=>{setRepaidiansOpen(false);setCustomerMapModalOpen(true);}} onTransportSearch={()=>hydration.event({kind:'search',category:'transport'})} account={user?.id||'guest'} name={customerIdentity.name||'You'} city={place.city} initialTab={communityStart} initialProfileId={communityProfileId} initialReference={communityReference} initialJobId={communityJobId} onDestination={card=>void openCommunityListing(card)} onManage={manageCommunity} onProject={id=>{setCommunityRouteError('');setCommunityReturn(true);setRepaidiansOpen(false);setCommunityNative({kind:'workspace',tab:'Hiring',projectId:id,agent:true});}} initialPublicationId={communityStart==='feed'?new URLSearchParams(location.search).get('repaidians')||undefined:undefined} onSignIn={()=>{setRepaidiansOpen(false);setCommunityJobId(undefined);setCommunityContractReturn(false);setCommunityProfileId(undefined);setAuthMode('signin');setSheet('auth');setError('');}} onClose={closeCommunity} onBook={trade=>{setRepaidiansOpen(false);setCommunityJobId(undefined);setCommunityContractReturn(false);setCommunityProfileId(undefined);if(trade==='spares'){openStoreSection('spares');return;}if(trade==='civil'){setHomeHub('contractor');return;}const service=servicesList.find(s=>s.category===trade);if(service)setSelectedService(service);else setTab('Hire');}}/></Suspense>}
@@ -2157,7 +2180,7 @@ export default function App() {
 
                   {activeInvoiceBooking.pricingModel === 'fixed' ? (
                     <div className="table-row text-xs">
-                      <span>Scope Mode: Fixed Project Fare</span>
+                      <span>Fixed project price</span>
                       <span className="font-semibold text-slate-700">Flat ₹{activeInvoiceBooking.fixedPrice || serviceValue}</span>
                     </div>
                   ) : (
@@ -2211,7 +2234,7 @@ export default function App() {
                 </div>
                 <div className="payout-row">
                   <span>Pricing Structure</span>
-                  <span>{activeInvoiceBooking.pricingModel === 'fixed' ? 'Fixed Scope' : `Base ₹${activeInvoiceBooking.baseFare || 150} + ₹${activeInvoiceBooking.workerHourlyRate || 299}/hr`}</span>
+                  <span>{activeInvoiceBooking.pricingModel === 'fixed' ? "Agreed work" : `Base ₹${activeInvoiceBooking.baseFare || 150} + ₹${activeInvoiceBooking.workerHourlyRate || 299}/hr`}</span>
                 </div>
               </div>
             )}

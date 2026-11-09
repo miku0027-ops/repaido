@@ -1,0 +1,151 @@
+/* One contract for shared controls. Page styles own layout, not control states.
+   This priority layer also applies to legacy class names during migration. */
+@layer repaido-controls, repaido-brand;
+@layer repaido-controls {
+  :root {
+    --control-font: 'Poppins', sans-serif;
+    --control-radius: 8px;
+    --control-padding: 10px 16px;
+    --control-font-size: .875rem;
+    --control-height: 44px;
+    --control-primary: #17285c;
+    --control-on-primary: #fff;
+    --control-border: var(--ui-control);
+    --control-focus: var(--ui-focus);
+    --control-surface: var(--ui-surface);
+    --control-ink: var(--ui-ink);
+    --control-muted: var(--ui-muted);
+    --control-subtle: var(--ui-subtle);
+    --state-duration: 140ms;
+  }
+  html,body,button,input,select,textarea,code,pre,kbd,samp,h1,h2,h3,h4,p,label,small,strong { font-family: var(--control-font) !important; }
+  body,.repaido-customer-shell,.android-main-content { background-color: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  .b2b-hub-container { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  .account-menu-copy strong,.account-category-copy strong,.account-category summary,.booking-card-more summary { color: var(--ui-ink) !important; }
+  .account-menu-copy>span,.account-category-copy>span { color: var(--ui-muted) !important; }
+  .home-discovery-entry h2 { color: var(--ui-ink) !important; }
+  .home-discovery-entry p { color: var(--ui-muted) !important; }
+  .home-entry { background: var(--ui-surface) !important; color: var(--ui-ink) !important; border: 1px solid var(--ui-line) !important; box-shadow: none !important; }
+  .home-entry strong { color: var(--ui-ink) !important; }
+  .home-entry-copy>span { color: var(--ui-muted) !important; }
+  .home-welcome-banner :is(.repaido-greeting-text,.home-location-summary) { color: var(--ui-ink) !important; }
+  .home-welcome-banner .home-location-line { color: var(--ui-muted) !important; }
+  :is(.ui-button,.button-primary,.button-secondary,.navy-button,.ops-primary,.ops-secondary,
+    .cc-primary,.cc-secondary,.rp-primary,.rp-secondary,.contract-primary,.wn-primary,
+    .market-submit-btn,.market-contact-btn,.hire-primary,.b2b-button,.business-header-actions>button,
+    .contract-actions>button,.cc-actions>button,.ops-actions>button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ui-space-2) !important;
+    min-height: var(--control-height) !important;
+    height: auto !important;
+    padding: var(--control-padding) !important;
+    border: 1px solid var(--control-border) !important;
+    border-radius: var(--control-radius) !important;
+    background: var(--control-surface) !important;
+    color: var(--control-ink) !important;
+    font-size: var(--control-font-size) !important;
+    font-weight: 600 !important;
+    line-height: 1.5 !important;
+    white-space: normal !important;
+    text-align: center;
+    box-shadow: none !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+  }
+  :is(.ui-button[data-variant=primary],.button-primary,.navy-button,.ops-primary,
+    .cc-primary,.rp-primary,.contract-primary,.wn-primary,.market-submit-btn,.hire-primary,.b2b-primary) {
+    background: var(--control-primary) !important;
+    border-color: var(--control-primary) !important;
+    color: var(--control-on-primary) !important;
+  }
+  .ui-button[data-variant=danger] { background: var(--ui-danger-surface) !important; border-color: var(--ui-danger) !important; color: var(--ui-danger) !important; }
+  .ui-button[data-variant=ghost] { background: transparent !important; border-color: transparent !important; }
+  .ui-button[data-icon-only=true] { width: 44px !important; min-width: 44px !important; padding: 10px !important; }
+  :is(input:not([type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=hidden]),select,textarea) {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    min-height: var(--control-height) !important;
+    padding: 10px 12px !important;
+    border: 1px solid var(--control-border) !important;
+    border-radius: var(--control-radius) !important;
+    background-color: var(--control-surface) !important;
+    color: var(--control-ink) !important;
+    font-size: 1rem !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important;
+    box-shadow: none !important;
+  }
+  textarea { resize: vertical; min-height: 96px !important; }
+  :is(input,select,textarea)[aria-invalid=true], :is(input,select,textarea):user-invalid {
+    border-color: var(--ui-danger) !important;
+    box-shadow: inset 0 0 0 1px var(--ui-danger) !important;
+  }
+  :is(input,select,textarea):disabled { background-color: var(--control-subtle) !important; color: var(--control-muted) !important; cursor: not-allowed; }
+  .ui-field { display: grid; gap: var(--ui-space-2); min-width: 0; }
+  .ui-field>label { font-size: .875rem; font-weight: 600; }
+  .ui-field>input,.ui-field>select { width: 100%; }
+  .ui-field-note { margin: 0; color: var(--ui-muted); font-size: .875rem; }
+  .ui-field-error { margin: 0; color: var(--ui-danger); font-size: .875rem; }
+  :is(.business-page-header,.account-hub-heading,.home-discovery-hub,.home-greeting,
+    .marketplace-sliding-notifier-container,.home-discovery-entry,.service-hydration) {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  :is(.business-page-header,.account-hub-heading) { padding: 0 0 var(--ui-space-4) !important; margin-bottom: var(--ui-space-4) !important; }
+  :is(.business-page-header h1,.account-hub-heading h1,.cc-heading h2) { font-size: 1.5rem !important; font-weight: 600 !important; line-height: 1.3 !important; letter-spacing: normal !important; }
+  :is(.home-discovery-heading h2,.service-categories h2,.android-section-title,.rp-section-heading h2) { font-size: 1.125rem !important; font-weight: 600 !important; line-height: 1.4 !important; letter-spacing: normal !important; }
+  :is(.business-eyebrow,.cc-eyebrow,.discovery-eyebrow,.marketplace-sliding-badge,.home-welcome-kicker) { text-transform: none !important; letter-spacing: normal !important; color: var(--ui-muted) !important; }
+  :is(.home-discovery-hub,.marketplace-sliding-notifier-container,.service-categories,.android-services-section) { margin-block: var(--ui-space-5) !important; padding-inline: 0 !important; }
+  :is(.home-discovery-hub,.home-greeting,.marketplace-sliding-notifier-container,.home-discovery-entry)::before,
+  :is(.home-discovery-hub,.home-greeting,.marketplace-sliding-notifier-container,.home-discovery-entry)::after { content: none !important; }
+  :is(.ui-card,.ops-card,.cc-card) > :is(.cc-section,.ops-card,.ui-card) { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding-inline: 0 !important; }
+  .service-categories h2 { margin: 0 0 var(--ui-space-4) !important; }
+  .service-category-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--ui-space-3) !important; }
+  .service-category-card {
+    position: relative; display: grid; align-content: start; justify-items: start; gap: var(--ui-space-2);
+    min-width: 0; padding: var(--ui-space-4) !important; border: 1px solid var(--ui-line) !important; border-radius: var(--card-radius) !important;
+    background: var(--ui-surface) !important; color: var(--ui-ink) !important; text-align: start;
+  }
+  .service-category-card[aria-pressed=true] { border-color: var(--ui-link); }
+  .service-category-card strong { font-size: .875rem; font-weight: 600; }
+  .service-category-card>span { color: var(--ui-muted); font-size: .8125rem; }
+  .service-category-card>svg { position: absolute; top: 16px; right: 12px; }
+  .service-category-card img { object-fit: contain; }
+  :is(.home-offerings button,.service-category-card,.home-entry,.marketplace-slide-card,.discovery-card):hover { transform: none !important; }
+  .service-category-offer { display: block; }
+  .service-category-offer small { display: block; }
+  @media(min-width:640px) { .service-category-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+  .interaction-motion { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; color: var(--ui-link) !important; width: 24px !important; height: 24px !important; }
+  .interaction-motion[data-kind=success] { color: var(--ui-success) !important; }
+  /* Search is one control, with its icon and clear action inside the border. */
+  :is(.customer-search-field,.repaido-search-bar) { border: 1px solid var(--ui-control) !important; border-radius: var(--control-radius) !important; background: var(--ui-surface) !important; box-shadow: none !important; }
+  :is(.customer-search-field,.repaido-search-bar)>input { border: 0 !important; background: transparent !important; }
+  :is(button,[role=button],summary,input,select,textarea) {
+    transition: background-color var(--state-duration) ease, color var(--state-duration) ease, border-color var(--state-duration) ease !important;
+  }
+  @media(hover:hover) {
+    :is(button,[role=button],summary):not(:disabled):hover { box-shadow: inset 0 0 0 1px var(--control-border) !important; filter: brightness(.96) !important; }
+  }
+  :is(button,[role=button]):not(:disabled):active { filter: brightness(.9) !important; }
+  :is(button,input,select,textarea,summary,a[href]):focus-visible { outline: 3px solid var(--control-focus) !important; outline-offset: 3px !important; }
+  button:disabled { opacity: 1 !important; cursor: not-allowed; filter: none !important; box-shadow: none !important; }
+  button:disabled:not([aria-busy=true]) { background: var(--control-subtle) !important; border-color: var(--control-border) !important; color: var(--control-muted) !important; }
+  button[aria-busy=true] { cursor: progress; }
+  /* Layout and promotion motion is off. Only a real pending state may animate. */
+  *,*::before,*::after { animation: none !important; }
+  .ui-pending,.app-feedback-spinner { animation: ui-pending 900ms linear infinite !important; }
+  @keyframes ui-pending { to { transform: rotate(360deg); } }
+  @media(prefers-reduced-motion:reduce) {
+    *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    .ui-pending,.app-feedback-spinner { animation: none !important; }
+  }
+  .reduce-motion *,.reduce-motion *::before,.reduce-motion *::after,
+  [data-reduced-motion=true] *,[data-reduced-motion=true] *::before,[data-reduced-motion=true] *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}

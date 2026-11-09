@@ -24,7 +24,7 @@ const tiles=[
   {id:'refurbished' as const,label:'Refurbished',Icon:BuildCircle,note:'Current shop inventory'},
   {id:'hire' as const,label:'Quick hire',Icon:PersonSearch,note:'Compare listed professionals'},
   {id:'repair' as const,label:'Quick repair',Icon:HomeRepair,note:'Browse services and prices'},
-  {id:'home' as const,label:'Home premium',Icon:House,note:'Explore Home services'}
+  {id:'home' as const,label:"Home services",Icon:House,note:'Explore Home services'}
 ];
 
 export default function HomeQuickActions(props:HomeQuickActionsProps){

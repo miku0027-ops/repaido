@@ -75,7 +75,7 @@ try{
  assert(!(await customDetail.innerText()).includes('PRIVATE exact gate'));
  await layout(tenderDesk);await audit(tenderDesk);
  await customDetail.getByLabel('Proposed total contract price (₹)').fill('8500');
- await customDetail.getByLabel('Scope, work plan and proposed terms').fill('Replace the agreed lights and perform the required safety inspections.');
+ await customDetail.getByLabel("Work plan and proposed terms").fill('Replace the agreed lights and perform the required safety inspections.');
  await customDetail.getByRole('checkbox').check();
  await customDetail.getByRole('button',{name:'Submit private proposal',exact:true}).click();
  await customDetail.getByRole('heading',{name:'Your submitted proposals',exact:true}).waitFor();

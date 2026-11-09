@@ -54,6 +54,11 @@ export function TaskSlideshowRail({
     }
   }, [jobs.map(job=>job.id).join('|')]);
 
+  const cardScrollTarget = (rail: HTMLDivElement, card: HTMLElement) => {
+    const centered = card.offsetLeft - rail.offsetLeft - (rail.clientWidth - card.clientWidth) / 2;
+    return Math.max(0, Math.min(rail.scrollWidth - rail.clientWidth, centered));
+  };
+
   const scrollToCard = (index: number) => {
     if (!railRef.current) return;
     const rail = railRef.current;
@@ -61,9 +66,8 @@ export function TaskSlideshowRail({
     const targetIdx = Math.max(0, Math.min(jobs.length - 1, index));
     if (cards[targetIdx]) {
       const card = cards[targetIdx] as HTMLElement;
-      const targetScroll = card.offsetLeft - rail.offsetLeft - (rail.clientWidth - card.clientWidth) / 2;
       rail.scrollTo({
-        left: Math.max(0, targetScroll),
+        left: cardScrollTarget(rail, card),
         behavior: 'smooth'
       });
       setCurrentIndex(targetIdx);
@@ -76,12 +80,15 @@ export function TaskSlideshowRail({
     const cards = rail.children;
     if (!cards.length) return;
     const scrollLeft = rail.scrollLeft;
-    let closestIndex = 0;
-    let minDistance = Infinity;
+    // Use the same centered, clamped positions as the navigation buttons.
+    // Several cards can share an edge position when the rail is wide; keep the
+    // selected card in that case instead of jumping back to an earlier card.
+    let closestIndex = Math.min(currentIndex, cards.length - 1);
+    let minDistance = Math.abs(cardScrollTarget(rail, cards[closestIndex] as HTMLElement) - scrollLeft);
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i] as HTMLElement;
-      const distance = Math.abs((card.offsetLeft - rail.offsetLeft) - scrollLeft);
-      if (distance < minDistance) {
+      const distance = Math.abs(cardScrollTarget(rail, card) - scrollLeft);
+      if (distance < minDistance - 0.5) {
         minDistance = distance;
         closestIndex = i;
       }

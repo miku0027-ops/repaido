@@ -100,7 +100,7 @@ try{
  assert.equal(await professional.getByText('PRIVATE customer office gate 401',{exact:true}).count(),0);
  // Server-confirmed proposals appear while the customer keeps Activity open.
  await professional.getByLabel('Proposed total contract price (₹)').fill('8500');
- await professional.getByLabel('Scope, work plan and proposed terms').fill('Install the office lights and document the agreed electrical safety inspections.');
+ await professional.getByLabel("Work plan and proposed terms").fill('Install the office lights and document the agreed electrical safety inspections.');
  await professional.getByRole('checkbox').check();
  await professional.getByRole('button',{name:'Submit private proposal',exact:true}).click();
  await eventually(async()=>await customer.getByText('1 private proposal',{exact:true}).count()>0,'Saved proposals must arrive without refresh.');

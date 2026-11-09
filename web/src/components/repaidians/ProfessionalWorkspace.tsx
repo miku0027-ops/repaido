@@ -45,10 +45,10 @@ export function ProfessionalWorkspace(props:Props){
     {view:'background' as const,label:'Professional background',detail:'Experience and featured work',Icon:UserRound},
     {view:'companies' as const,label:'Companies',detail:'Explore local businesses',Icon:Building2},
   ];
-  return <section className="rp-professional-workspace" aria-label="Professional workspace">
-    <header className="rp-workspace-heading"><div><span>Your professional workspace</span><h3>Your next step, in view.</h3></div><button type="button" aria-label="Refresh professional workspace" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={20} aria-hidden="true"/></button></header>
+  return <section className="rp-professional-workspace" aria-label="Work account">
+    <header className="rp-workspace-heading"><div><span>Your work account</span><h3>Your next step, in view.</h3></div><button type="button" aria-label="Refresh work account" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={20} aria-hidden="true"/></button></header>
     {error&&<div className="rp-work-error" role="alert"><p>{error}</p><button type="button" onClick={()=>void refresh()}>Retry</button></div>}{notice&&<p className="rp-workspace-notice" role="status">{notice}</p>}
-    {busy&&!data&&<p role="status">Opening your workspace…</p>}
+    {busy&&!data&&<p role="status">Loading your work…</p>}
     {data&&<>
       <section className="rp-workspace-identity"><Avatar member={data.member} size="large"/><div><strong>{data.member.name}</strong><span>{data.member.headline||'@'+data.member.handle}</span><button type="button" aria-pressed={ready} disabled={!!action} onClick={()=>void availability()}>{action==='availability'?'Updating availability…':ready?'Ready for work':'Set availability'}</button></div><button type="button" aria-label="Share professional profile" disabled={!!action} onClick={()=>void shareProfile()}><Share2 size={20} aria-hidden="true"/></button></section>
       <div className="rp-workspace-stats" aria-label="Professional activity"><div><strong>{data.stats.publications}</strong><span>Publications</span></div><div><strong>{data.stats.connections}</strong><span>Connections</span></div><div><strong>{data.stats.followers}</strong><span>Followers</span></div></div>

@@ -17,5 +17,5 @@ export async function withActionFeedback<T>(path:string,init:RequestInit,task:()
  const key=path.split('?')[0],id=notifyFeedback({title:messages.pending,message:'',tone:'pending'},key);
  const finish=(value:Pick<Feedback,'title'|'message'|'tone'>)=>{snapshot=snapshot.map(item=>item.id===id?{...item,...value,at:Date.now()}:item);publish();};
  try{const result=await task();finish(messages.result(result as any) as Pick<Feedback,'title'|'message'|'tone'>);return result;}
- catch(error){const e=error as Error;finish({tone:'error',title:e.name==='TimeoutError'||e.name==='AbortError'||e instanceof TypeError?'Confirmation unavailable':'Action needs attention',message:e.name==='TimeoutError'||e.name==='AbortError'||e instanceof TypeError?'We could not confirm completion. Check your saved records before retrying.':e.message||'This action was not confirmed. Please try again.'});throw error;}
+ catch(error){const e=error as Error;finish({tone:'error',title:e.name==='TimeoutError'||e.name==='AbortError'||e instanceof TypeError?"Could not confirm this change":"Check this action",message:e.name==='TimeoutError'||e.name==='AbortError'||e instanceof TypeError?"We could not confirm this change. Check your saved records before trying again.":e.message||'This action was not confirmed. Please try again.'});throw error;}
 }

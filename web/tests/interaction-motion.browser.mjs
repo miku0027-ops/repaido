@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:5190';
+assert(['localhost','127.0.0.1'].includes(new URL(origin).hostname));
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{
  const page=await browser.newPage({viewport:{width:390,height:850}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -21,11 +23,8 @@ try{
  await page.getByRole('button',{name:'Replay',exact:true}).click();
  await page.waitForFunction(()=>document.querySelectorAll('[data-motion=reduced]').length===6);
  assert.equal(await page.getByRole('region',{name:'Action updates'}).isVisible(),false);
- await page.getByRole('button',{name:'Confirm action'}).click();
- await page.getByRole('status').filter({hasText:'Request sent'}).waitFor();
- await page.waitForFunction(()=>document.querySelector('.app-feedback-card [data-motion=reduced]'));
- assert.equal(await page.locator('.app-feedback-card').count(),1);
+ await page.getByRole('button',{name:'Confirm action'}).click();await page.getByRole('status').filter({hasText:'Request sent'}).waitFor();
+ assert.equal(await page.locator('.app-feedback-card').count(),1);assert.equal(await page.locator('.app-feedback-card .interaction-motion svg').count(),1);
  await page.getByRole('button',{name:'Dismiss notification'}).click();assert.equal(await page.locator('.app-feedback-card').count(),0);
- assert.deepEqual(errors,[]);
- console.log('PASS: real Lottie renders, finite playback, hidden pause, OS/app reduced motion, explicit success feedback, no unsolicited notifications or runtime errors');
+ assert.deepEqual(errors,[]);console.log('PASS: static state icons, no decorative playback, explicit success feedback and dismissal');
 }finally{await browser.close();}

@@ -1,0 +1,35 @@
+import {createRoot} from 'react-dom/client';
+import {useState} from 'react';
+import {auth} from '../src/firebase';
+import {WorkerNavigation} from '../src/components/WorkerNavigation';
+import {ContractorPortal,WorkForm} from '../src/components/ContractorPortal';
+import {CommentsDrawer} from '../src/components/repaidians/CommentsDrawer';
+import {WorkHub} from '../src/components/repaidians/WorkHub';
+import LiveBooking from '../src/components/LiveBooking';
+import {AgentTaskWorkspace} from '../src/components/AgentTaskWorkspace';
+import {seededServices} from '../src/data';
+import type {Job} from '../src/services/operations';
+import '../src/styles.css';
+import '../src/design-system.css';
+import '../src/reference.css';
+import '../src/components/operations.css';
+import '../src/components/repaidians/repaidians.css';
+await auth.authStateReady();
+(auth as any).currentUser={uid:'ux-fixture',getIdToken:async()=>'ux-fixture'};
+const mode=new URLSearchParams(location.search).get('mode');
+const counts={saves:0,refreshes:0};
+(window as any).__uxCounts=counts;
+const member={id:'ux-fixture',name:'Test professional',handle:'fixture',avatarUrl:'',trade:'electrician'} as any;
+const job={id:'ux-task',visit_id:'ux-visit',version:1,state:'in_progress',service_name:'Test repair',category:'electrician',city:'Balasore',starts_at:new Date().toISOString(),total_paise:49900,allowed_actions:[],home_plan_id:'ux-plan',home_brief_rows:[],payment_status:'pay_after_service',payout_status:'held',events:[],blockers:[],penalties:[],evidence_summary:{has_before:true,has_after:false},service_terms:{text:'Test agreed scope'}} as unknown as Job;
+function Preview(){
+ const [open,setOpen]=useState(true);
+ if(!open)return <main><h1>Closed</h1></main>;
+ if(mode==='navigation')return <main className="operations ops-worker"><h1>Agent navigation</h1><WorkerNavigation tab="Home" onChange={()=>{}}/></main>;
+ if(mode==='contractor-navigation')return <main className="operations ops-worker contractor-app"><ContractorPortal/></main>;
+ if(mode==='contractor')return <WorkForm form={{title:'Create project',fields:[{name:'title',label:'Project title',min:3}],submit:async()=>{counts.saves++;}}} onClose={()=>setOpen(false)} onSaved={async()=>{counts.refreshes++;if(counts.refreshes===1)throw Error('Connection interrupted');}}/>;
+ if(mode==='comments')return <CommentsDrawer account="ux-fixture" targetId="ux-post" memberFor={()=>member} onMembers={()=>{}} onClose={()=>setOpen(false)}/>;
+ if(mode==='jobs')return <main className="rp-dialog"><WorkHub accountKey="ux-fixture" view="jobs"/></main>;
+ if(mode==='agent')return <AgentTaskWorkspace job={job} busy={false} error="" onClose={()=>setOpen(false)} onRefresh={async()=>{throw Error('Task refresh interrupted. Try again.');}} onRun={async()=>undefined} onShare={async()=>{}} onStop={async()=>{}}/>;
+ return <LiveBooking service={seededServices[0]} city="Balasore" onClose={()=>setOpen(false)} onBooked={()=>setOpen(false)} onSignIn={()=>{}}/>;
+}
+createRoot(document.getElementById('root')!).render(<Preview/>);

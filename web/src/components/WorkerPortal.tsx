@@ -589,8 +589,7 @@ export const WorkerPortal: React.FC<WorkerPortalProps> = ({ initialWorkerId, onB
                 </div>
 
                 <p className="text-xs text-amber-900/90 mb-3 leading-relaxed">
-                  <strong>Notice:</strong> You have strictly 15 minutes to acknowledge this assignment. If not confirmed before 00:00,
-                  the Discovery Engine will automatically reassign this request to the next ranked technician.
+                  <strong>Notice:</strong> Accept within 15 minutes. If time runs out, we will offer this job to another technician.
                 </p>
 
                 {reminderState === 'alert' && reminderDeadline && (
@@ -743,7 +742,7 @@ export const WorkerPortal: React.FC<WorkerPortalProps> = ({ initialWorkerId, onB
                     <div>
                       <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                         <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
-                        <span>In-Task Spare Part Procurement</span>
+                        <span>Buy parts for this job</span>
                       </h4>
                       <p className="text-sm text-slate-500 font-medium">
                         Billed to customer invoice • ₹10/km 2-way travel charge included
@@ -1119,7 +1118,7 @@ export const WorkerPortal: React.FC<WorkerPortalProps> = ({ initialWorkerId, onB
               </div>
 
               <div>
-                <label className="block font-bold text-slate-800 mb-1">Gig Scope & Highlights</label>
+                <label className="block font-bold text-slate-800 mb-1">Job details</label>
                 <textarea
                   rows={2}
                   placeholder="Detailed description of the diagnostic and repair procedure..."

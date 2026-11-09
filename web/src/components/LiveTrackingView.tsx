@@ -393,7 +393,7 @@ export function LiveTrackingView({
                       <span key={idx} className="rt-pin-digit">{digit}</span>
                     ))}
                   </div>
-                  <span className="rt-pin-pill">● Verified OTP for this visit</span>
+                  <span className="rt-pin-pill">Visit code checked</span>
                 </div>
               ) : (
                 <button
@@ -624,7 +624,7 @@ export function LiveTrackingView({
           >
             <div className="flex items-center gap-1.5">
               <CheckCircle2 size={14} color="#059669" />
-              <span>{pastMilestones.length} Verified Milestones Completed</span>
+              <span>{pastMilestones.length} Confirmed project steps</span>
             </div>
             {showPastMilestones ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
@@ -689,7 +689,7 @@ export function LiveTrackingView({
             <div className="rt-drawer-header">
               <div className="flex items-center gap-2">
                 <Receipt size={18} color="#0f306e" />
-                <h3>Service Invoice & Scope</h3>
+                <h3>Bill and work details</h3>
               </div>
               <button
                 type="button"

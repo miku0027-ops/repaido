@@ -9,7 +9,7 @@ import {loadingLabel} from '../services/loadingMessages.mjs';
 import {actionFeedback,clearFeedback,dismissFeedback,notifyFeedback,type Feedback} from '../services/actionFeedback';
 import './app-experience.css';
 
-function InteractionMotionOrIcon({tone,Icon}:{tone:Feedback['tone'];Icon:typeof Info}){return tone==='success'||tone==='pending'?<InteractionMotion kind={tone==='success'?'success':'search'}/>:<Icon size={22} aria-hidden="true"/>;}
+function InteractionMotionOrIcon({tone,Icon}:{tone:Feedback['tone'];Icon:typeof Info}){return tone==='success'?<InteractionMotion kind="success"/>:<Icon size={22} className={tone==='pending'?'app-feedback-spinner':undefined} aria-hidden="true"/>;}
 
 function FeedbackCard({item}:{item:Feedback}){
  const [paused,setPaused]=useState(false),[slow,setSlow]=useState(false);
@@ -18,7 +18,7 @@ function FeedbackCard({item}:{item:Feedback}){
  const Icon=item.tone==='pending'?LoaderCircle:item.tone==='success'?CheckCircle2:item.tone==='error'?AlertCircle:Info;
  return <div className="app-feedback-card" data-tone={item.tone} onMouseEnter={()=>setPaused(true)} onMouseLeave={()=>setPaused(false)} onFocus={()=>setPaused(true)} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setPaused(false);}}>
   <InteractionMotionOrIcon tone={item.tone} Icon={Icon}/>
-  <div role={item.tone==='error'?'alert':'status'} aria-atomic="true"><strong>{item.title}</strong>{(item.message||slow)&&<p>{item.message||'Still waiting for confirmation…'}</p>}</div>
+  <div role={item.tone==='error'?'alert':'status'} aria-atomic="true"><strong>{item.title}</strong>{(item.message||slow)&&<p>{item.message||"This is taking longer than usual…"}</p>}</div>
   {item.tone!=='pending'&&<button type="button" aria-label="Dismiss notification" onClick={()=>dismissFeedback(item.id)}><X size={18}/></button>}
  </div>;
 }
@@ -59,5 +59,5 @@ export function AppExperience(){
   document.addEventListener('invalid',invalid,true);document.addEventListener('input',changed,true);document.addEventListener('change',changed,true);document.addEventListener('submit',submitted,true);
   return()=>{document.removeEventListener('invalid',invalid,true);document.removeEventListener('input',changed,true);document.removeEventListener('change',changed,true);document.removeEventListener('submit',submitted,true);};
  },[]);
- return createPortal(<div ref={host} popover="manual" className="app-feedback-stack" role="region" aria-label="Action updates">{items.map(item=><FeedbackCard key={item.id} item={item}/>)}{legacy&&<div className="app-feedback-card" data-tone="pending" role="status"><LoaderCircle size={20} className="app-feedback-spinner" aria-hidden="true"/><div><strong>{loadingLabel(legacy.path)}</strong>{now-legacy.started>10000&&<p>Still waiting for confirmation…</p>}</div></div>}</div>,portalTarget);
+ return createPortal(<div ref={host} popover="manual" className="app-feedback-stack" role="region" aria-label="Action updates">{items.map(item=><FeedbackCard key={item.id} item={item}/>)}{legacy&&<div className="app-feedback-card" data-tone="pending" role="status"><LoaderCircle size={20} className="app-feedback-spinner" aria-hidden="true"/><div><strong>{loadingLabel(legacy.path)}</strong>{now-legacy.started>10000&&<p>This is taking longer than usual…</p>}</div></div>}</div>,portalTarget);
 }

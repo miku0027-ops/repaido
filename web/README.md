@@ -28,13 +28,13 @@ wording and async-state rules.
 | Main / secondary text | `#0B132B` / `#3E4C63` |
 | Primary action | White on `#17285C` |
 | Border / control outline | `#DCE1E8` / `#68768A` |
-| Card radius | 16px |
-| Card padding | 16px phone / 20px desktop |
+| Card radius | 12px |
+| Card padding | 16px |
 | Spacing | 4, 8, 12, 16, 24, 32px |
 | Controls | 44px minimum height; 16px input text |
 | Typeface | Locally bundled Poppins 400, 500, 600, 700 |
 
-Text colours target AAA contrast in both themes. Cards use a restrained shadow;
+Text colours target AAA contrast in both themes. Cards use a flat border;
 fonts and standard product imagery are served locally.
 
 ## Reusable components
@@ -43,7 +43,7 @@ fonts and standard product imagery are served locally.
 - `ServiceCard`, `QuantityControl`, `BookingDrawer`: independently exported for reuse.
 - `Checkout`: mobile Address → Schedule → Review; desktop `md:grid-cols-3` with the form spanning two columns and a sticky invoice spanning one.
 - `Invoice`: live integer-paise calculations; configurable `taxBasisPoints`, default 1800 for the illustrative 18% tax estimate.
-- `Field`, `Modal`, `Brand`, `Empty`: shared accessible primitives.
+- `Button`, `Field`, `SelectField`, `Modal`, `Brand`, `Empty`: shared accessible primitives.
 
 The time grid uses 2 columns on small phones, 4 on intermediate widths, and 8 on large desktops, preserving usable touch targets and the specified padding. The day picker scrolls horizontally. Past times and times within two hours are disabled using India Standard Time.
 
@@ -64,3 +64,17 @@ Draft address and cart data stay in React memory and are cleared on reload. No l
 See `ASSETS.md` for placeholder image sources.
 
 Validated on 2026-09-17: TypeScript passed, production build passed, three logic tests passed, browser flows passed at 390px and 1440px, and discovery/image/overflow checks passed at 320px, 390px, 768px and 1440px. No JavaScript runtime errors were observed.
+
+## Interface rules
+
+`src/ui-system.css` owns shared control sizing and states; `brand-system.css` owns colours, typography and card tokens. The priority layers keep lazy-loaded page styles from changing those contracts. Use the existing legacy action aliases or `Button` from `components/ui`; use `Field` and `SelectField` for labelled controls. `Button` defaults to `type="button"`; set `type="submit"` for forms. Give pending actions a literal `loadingLabel`, and retain disabled, invalid and focus states. A custom page style should change layout, not redefine these controls.
+
+Keep `ui-system.css` as the first style import in the app entry. Its layer order must be established before component styles load. Preview entries should use the same order.
+
+Use the 4/8/12/16/24/32px spacing scale. Keep one page heading, then section headings and flat cards for separate records. Avoid cards inside cards, repeated service entry points and decorative badges.
+
+Write short sentences and name the next action: “Open project”, “Send a new code”, “Save details”. Explain a failed action and how to recover. Keep prices, service terms and payment status precise. Never rewrite customer posts, service terms returned by the API, or internal status identifiers just to simplify a label.
+
+Content stays still until the user changes it. Do not add automatic carousels, random page transitions, moving decorations or promotional video playback. State feedback uses short colour changes and a pending indicator. OS and app reduced-motion preferences disable motion.
+
+Run `tests/ui-consistency.browser.mjs` against the local Vite origin in `TEST_ORIGIN`, with Playwright available through `PLAYWRIGHT_MODULE`. It checks shared styles, form semantics, focus restoration, manual navigation, responsive accessibility and reduced motion.

@@ -297,7 +297,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             >
               <Inventory2 size={20} className="stores-pill-icon" aria-hidden="true" />
               <div className="stores-pill-text">
-                <span className="stores-pill-label">Buy Spares</span>
+                <span className="stores-pill-label">Buy parts</span>
                 <span className="stores-pill-tag">New parts</span>
               </div>
             </button>
@@ -334,7 +334,7 @@ export const SparePartsShop: React.FC<SparePartsShopProps> = ({ onContracts,onBa
             >
               <SwapHoriz size={18} className="stores-pill-icon" aria-hidden="true" />
               <div className="stores-pill-text">
-                <span className="stores-pill-label">Direct Swap</span>
+                <span className="stores-pill-label">Exchange items</span>
                 <span className="stores-pill-tag">1-to-1 Exchange</span>
               </div>
             </button>

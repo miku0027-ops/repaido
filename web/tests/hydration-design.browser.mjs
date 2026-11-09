@@ -7,12 +7,12 @@ import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const web=resolve(dirname(fileURLToPath(import.meta.url)),'..'),work=await mkdtemp(resolve(tmpdir(),'repaido-hydration-'));
-const api='http://127.0.0.1:8059',origin='http://127.0.0.1:5187',requests=[],errors=[],checks=[];
+const api='http://127.0.0.1:8059',origin=process.env.HYDRATION_ORIGIN||'http://127.0.0.1:5187',requests=[],errors=[],checks=[];
 const server=spawn(resolve(web,'../backend/.venv/bin/python'),[web+'/tests/modern_discovery_api.py',work+'/test.db','8059'],{cwd:resolve(web,'../backend'),stdio:['ignore','pipe','pipe']});
 let log='',browser,page;for(const stream of [server.stdout,server.stderr])stream.on('data',chunk=>log+=chunk);
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try{
- for(let i=0;i<120;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}
+ for(let i=0;i<600;i++){try{if((await fetch(api+'/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(log);await pause(100);}
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  const context=await browser.newContext({viewport:{width:390,height:850},reducedMotion:'no-preference'});
  // Fix only the discovery clock outside peaks; request/cache clocks keep real time.
@@ -34,7 +34,7 @@ try{
  await page.unroute('**/api/operations/discovery/preferences');
  checks.push('a late preferences read cannot undo a confirmed consent change');
  await page.getByRole('button',{name:'Record repair search',exact:true}).click();
- await page.getByRole('heading',{name:'What needs fixing?',exact:true}).waitFor();
+ await page.getByRole('heading',{name:"Find a repair service",exact:true}).waitFor();
  assert(requests.some(row=>row.path.endsWith('/discovery/events')&&JSON.parse(row.body).query==='AC'));
  checks.push('real recorded activity updates the Home panel through the production hydration hook');
  const query=page.getByRole('searchbox',{name:'Describe the work'});await query.fill('AC not cooling');
@@ -50,7 +50,7 @@ try{
  assert.equal(await page.getByRole('heading',{name:'Drive your own way.',exact:true}).count(),1);
  checks.push('draft, chip order and manual ride mode survive switching and background preference updates');
  await page.getByRole('button',{name:'Cab rental',exact:true}).click();
- assert(await page.locator('.mobility-mode-intro').evaluate(element=>getComputedStyle(element).animationName!=='none'));
+ assert.equal(await page.locator('.mobility-mode-intro').evaluate(element=>getComputedStyle(element).animationName),'none');
  await pause(1000);assert.equal(await page.locator('.home-discovery-hub').evaluate(element=>element.getAnimations({subtree:true}).filter(animation=>animation.playState==='running').length),0);
  await page.getByRole('button',{name:'Cab',exact:true}).click();
  await page.emulateMedia({reducedMotion:'reduce'});
@@ -59,7 +59,7 @@ try{
  await page.getByRole('button',{name:'Shared ride',exact:true}).click();
  assert.equal(await page.locator('.home-discovery-hub').evaluate(element=>element.getAnimations({subtree:true}).filter(animation=>animation.playState==='running').length),0);
  await page.evaluate(()=>document.documentElement.classList.remove('reduce-motion'));
- checks.push('finite geometric transitions end; OS and app reduced-motion settings disable them');
+ checks.push('mode changes are static and respect OS and app reduced-motion settings');
  await pause(1100);
  const rentalReceipt=page.waitForResponse(response=>response.url().endsWith('/discovery/events')&&response.request().postData()?.includes('transport_rental'));
  const refreshedFeed=page.waitForResponse(response=>response.url().includes('/discovery/feed/personal')).catch(()=>null);

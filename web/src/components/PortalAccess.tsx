@@ -20,12 +20,12 @@ export default function PortalAccess({shop=false,children}:{shop?:boolean;childr
       <main className={"operations portal-login relative z-10"+(!shop?" crm-login":"")}>
         <section className="portal-intro">
           <RepaidoBrand size="lg"/>
-          <span className="ops-eyebrow" style={{color: 'var(--op-blue)', fontSize: '0.9rem', marginBottom: 8}}>{shop?'Shop Workspace':'Company Workspace'}</span>
+          <span className="ops-eyebrow" style={{color: 'var(--op-blue)', fontSize: '0.9rem', marginBottom: 8}}>{shop?"Shop account":"Company account"}</span>
           <h1 style={{fontSize: '3rem', fontWeight: 900, background: 'linear-gradient(to right, #0f306e, #2563eb)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.1, marginBottom: 24}}>
             {shop?'Partner for Lifetime':'Manage Repaido'}
           </h1>
           <p style={{fontSize: '1.25rem', color: '#334155', fontWeight: 500, lineHeight: 1.6}}>
-            {shop?'Unlock endless opportunities for your business. Manage parts orders, scale your shop, and grow together as a lifetime partner of Repaido.':'Review applications, manage bookings and resolve issues with powerful administrative tools.'}
+            {shop?"Manage parts orders and your shop account on Repaido.":'Review applications, manage bookings and resolve issues with powerful administrative tools.'}
           </p>
           <ol style={{marginTop: 32, gap: 20, fontSize: '1.1rem', color: '#475569'}}>
             <li><strong>1.</strong> {shop?'Verify your secure mobile identity':'Sign in with your company account'}</li>

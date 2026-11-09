@@ -286,7 +286,7 @@ export default function Discovery({
               <FactCheck size={20} className="text-emerald" />
               <div>
                 <strong>Review before you book</strong>
-                <p>Parts and additional work need your approval. Review the scope and final bill.</p>
+                <p>Approve parts and extra work before they are added. Check the work details and final bill.</p>
               </div>
             </div>
 
