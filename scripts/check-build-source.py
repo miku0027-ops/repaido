@@ -32,7 +32,7 @@ def validate(names):
         raise ValueError('Cloud Build source is missing required files: ' + ', '.join(missing))
     for name in files:
         path = PurePosixPath(name)
-        if any(part in ('node_modules', '.venv', '.git') for part in path.parts) or path.name.startswith('.env'):
+        if any(part in ('node_modules', '.venv', '.git') for part in path.parts) or path.name.startswith(('.env', 'gha-creds-')):
             raise ValueError('Do not upload local dependencies or environment files: ' + name)
     return len(files)
 

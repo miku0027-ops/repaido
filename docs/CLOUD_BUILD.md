@@ -1,18 +1,14 @@
 # Cloud Build deployment
 
-Release only when the user explicitly requests deployment. Keep development
-changes local or on a non-deploying branch and batch them into one or two
-requested releases per day. Disable the existing production GitHub push trigger
-for `miku0027-ops/repaido`; do not automatically deploy on `main` pushes or on a
-timer. See [cost controls](CLOUD_COST_CONTROLS.md) for the read-only audit and
-trigger-disable instructions.
+Production pushes to `main` use the [GitHub deployment workflow](GITHUB_DEPLOYMENT.md),
+authorized by the user on 10 November 2026. Google Workload Identity Federation
+replaces manually copied access tokens. Keep the legacy Cloud Build GitHub push
+triggers disabled so only one controller submits releases.
 
-The first step fails before dependency installation, tests, image builds, or
-deployment unless the manual batch supplies `_RELEASE_APPROVED=true` and its full
-Git commit SHA. Keep this substitution false on automatic triggers. This guard
-is a fallback, not a substitute for disabling the trigger: a triggered guard
-failure still starts a small Cloud Build run. Repository edits alone do not
-disable an existing cloud trigger.
+The workflow supplies `_RELEASE_APPROVED=true` with the exact commit to the
+selected API/Rules build. The default remains false for unrequested submissions.
+The manual helpers below remain available for recovery. Their approval guard
+is not a requirement to ask again for an already authorized push to `main`.
 
 The Python test step also installs Node.js: the camera metadata integration test
 executes the frontend's actual JavaScript encoder through a Node subprocess.
@@ -143,7 +139,8 @@ The full batch remains `cloudbuild.yaml`. The checked-in `cloudbuild-web.yaml`,
 `cloudbuild-api.yaml`, and `cloudbuild-rules.yaml` are generated from its reviewed
 steps by `scripts/generate-selective-builds.py`. Run that generator after changing
 the canonical pipeline, and run it with `--check` before release. All four
-pipelines retain the explicit release gate; none is an automatic trigger.
+pipelines retain the explicit release gate. The GitHub workflow submits the API
+and Rules configurations as needed; the legacy Cloud Build push triggers stay disabled.
 
 | Changed component | Release work | Work skipped |
 | --- | --- | --- |

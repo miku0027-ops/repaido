@@ -1,20 +1,25 @@
 # Development and releases
 
-- Continue implementation and local verification without deploying.
-- Deploy only when the user explicitly requests a release. A feature request,
-  successful test run, or completed commit does not authorize deployment.
-- Do not push to `main` or another branch that triggers a production build unless
-  that release is explicitly requested. Keep unreleased changes in development.
-- Batch completed changes into one or two releases per day when requested;
-  this is a release limit, not an automatic deployment schedule.
-- Do not enable automatic production push triggers or set their
-  `_RELEASE_APPROVED` substitution to `true`.
-- Prefer local checks while developing. Run the full cloud release pipeline once
-  for the requested batch, and diagnose failures before resubmitting it.
-- Review Cloud Build and Cloud Run costs using actual configuration and usage.
-  Preserve booking, location, and notification delivery when adjusting capacity.
-  Cloud Run runtime updates can create revisions and must wait for a requested
-  release. Disabling an automatic build trigger does not deploy application code.
+- The user authorized automatic production releases from `main` on 10 November
+  2026. A push or merge to `main` is the release signal. Use development branches
+  for unfinished changes; review and test before updating `main`.
+- `.github/workflows/production.yml` is the single production deploy controller.
+  It uses GitHub OIDC and Google Workload Identity Federation. Do not ask for a
+  fresh GCP access token for routine releases or create service-account keys.
+- One-time project-owner setup is documented in `docs/GITHUB_DEPLOYMENT.md`.
+  A committed workflow alone does not prove that live Google IAM is configured.
+- Keep legacy Cloud Build GitHub push triggers disabled to avoid duplicate
+  builds. The workflow supplies `_RELEASE_APPROVED=true` only to its pinned
+  component builds; the default Cloud Build substitution stays false.
+- Compare against actual deployed website and API commits. Reuse an unchanged
+  API for website changes. Keep deployments serialized and never cancel a
+  running promotion to make room for another commit.
+- Preserve booking, location, and notification delivery. Keep candidate health,
+  durable storage, API identity, backup and post-publication checks. Do not
+  bypass a failed check to make a deployment appear successful.
+- The customer website remains on cPanel at `repaido.com`; the APIs and private
+  worker remain on GCP. Do not migrate hosting or DNS as part of routine releases.
 
-See [release instructions](docs/CLOUD_BUILD.md) and
+See [automatic deployment](docs/GITHUB_DEPLOYMENT.md),
+[Cloud Build](docs/CLOUD_BUILD.md), [cPanel](docs/CPANEL_RELEASE.md), and
 [cost controls](docs/CLOUD_COST_CONTROLS.md).

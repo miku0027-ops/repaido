@@ -12,6 +12,14 @@ Read **cPanel → Domains → repaido.com → Document Root**, or run
 `CPANEL_API_TOKEN`. This uses read-only domain metadata. Do not reuse a browser
 session URL as a deployment credential or put a token in source, chat or scripts.
 
+## Automatic production releases
+
+The [GitHub workflow](GITHUB_DEPLOYMENT.md) now performs this sequence for pushes
+to `main`, using OIDC for GCP and one cPanel token stored in Secret Manager. It
+publishes only changed public resources, current hashed assets, entry and metadata;
+retains prior assets; preserves `.htaccess`; and verifies both APIs before publishing.
+The manual sequence below remains available for recovery.
+
 ## Release sequence
 
 1. Commit and review the complete release; run the relevant backend/frontend

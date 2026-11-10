@@ -1,0 +1,99 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_api:
+        description: Redeploy the API through candidate checks for outage recovery
+        type: boolean
+        default: false
+
+# OIDC permission belongs only to the deployment job. No repository write token.
+permissions:
+  contents: read
+
+concurrency:
+  group: repaido-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository_id == '1404280702' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CLOUDSDK_CORE_PROJECT: repaido
+      CLOUDSDK_RUN_REGION: us-central1
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set release evidence directory
+        run: echo "RELEASE_EVIDENCE=$RUNNER_TEMP/repaido-release" >> "$GITHUB_ENV"
+      - name: Check deployment guards
+        run: python3 scripts/test-production-release.py -v
+      - name: Authenticate without a stored Google key
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: projects/133610574058/locations/global/workloadIdentityPools/repaido-github-production/providers/github
+          service_account: github-production@repaido.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+      - name: Plan against the actual production versions
+        id: plan
+        env:
+          FORCE_API: ${{ inputs.force_api || false }}
+        run: |
+          args=()
+          if [[ "$FORCE_API" == true ]]; then args+=(--force-api); fi
+          python3 scripts/production-release.py --phase plan --evidence "$RELEASE_EVIDENCE" "${args[@]}"
+      - name: Refresh credentials for Rules
+        if: steps.plan.outputs.rules == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: projects/133610574058/locations/global/workloadIdentityPools/repaido-github-production/providers/github
+          service_account: github-production@repaido.iam.gserviceaccount.com
+      - name: Test and deploy changed Firestore Rules
+        if: steps.plan.outputs.rules == 'true'
+        run: python3 scripts/production-release.py --phase rules --evidence "$RELEASE_EVIDENCE"
+      - name: Refresh credentials for API deployment
+        if: steps.plan.outputs.api == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: projects/133610574058/locations/global/workloadIdentityPools/repaido-github-production/providers/github
+          service_account: github-production@repaido.iam.gserviceaccount.com
+      - name: Test, build and promote healthy Cloud Run candidates
+        if: steps.plan.outputs.api == 'true'
+        run: python3 scripts/production-release.py --phase api --evidence "$RELEASE_EVIDENCE"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.plan.outputs.web == 'true'
+        with:
+          node-version: '24'
+      - name: Install pinned website dependencies
+        if: steps.plan.outputs.web == 'true'
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm --dir web install --frozen-lockfile --ignore-scripts
+      - name: Refresh credentials for website publication
+        if: steps.plan.outputs.web == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: projects/133610574058/locations/global/workloadIdentityPools/repaido-github-production/providers/github
+          service_account: github-production@repaido.iam.gserviceaccount.com
+      - name: Back up, publish and verify repaido.com
+        if: steps.plan.outputs.web == 'true'
+        run: python3 scripts/production-release.py --phase web --evidence "$RELEASE_EVIDENCE"
+      - name: Save release evidence and recovery paths
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-release-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/repaido-release/
+          if-no-files-found: ignore
+          retention-days: 7

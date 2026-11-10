@@ -1,10 +1,11 @@
-# Cloud costs and manual releases
+# Cloud costs and production releases
 
-Application work stays in development until the user asks for a release. Batch
-changes into one or two requested releases per day. Do not schedule automatic
-daily releases or push development commits to a production deployment branch.
+The user authorized automatic deployment from `main` on 10 November 2026.
+The [GitHub workflow](GITHUB_DEPLOYMENT.md) deploys finished changes and selects
+components from actual production baselines. Keep development on other branches.
+There is no scheduled release or former daily release limit in this workflow.
 
-## Stop automatic builds
+## Stop duplicate legacy builds
 
 Disable the existing production push trigger in
 [Cloud Build Triggers](https://console.cloud.google.com/cloud-build/triggers?project=repaido).
@@ -50,13 +51,13 @@ charges over the same period. Fewer releases reduce build work; Cloud Run also
 charges for application usage between releases. No savings amount is established
 without billing data.
 
-Use the component-scoped manual release in [Cloud Build deployment](CLOUD_BUILD.md#component-scoped-releases)
+Use component-scoped releases in [Cloud Build deployment](CLOUD_BUILD.md#component-scoped-releases)
 when a reviewed change affects only Hosting, API, or Firestore Rules. This skips
 unrelated test/build/deploy steps and, for a web or Rules change, avoids new
 Cloud Run revisions. Cloud Build still runs and uploads the current root source
 inventory; measure the next selective build before estimating savings. The
-engineering console already has a separate release workflow. Do not add
-automatic per-commit production triggers.
+engineering console already has a separate release workflow. Keep the GitHub workflow as the single deployment controller; do not add
+a second production push trigger.
 
 The deployment source sets zero minimum instances for `repaido-work-api` and
 `repaido-work-worker`, with maximums of 20 and 2. The main API preserves its existing
