@@ -15,6 +15,11 @@ ACCOUNT = 'github-production@repaido.iam.gserviceaccount.com'
 BUILD_ACCOUNT = 'firebase-adminsdk-fbsvc@repaido.iam.gserviceaccount.com'
 SECRET = 'repaido-cpanel-api-token'
 BUCKET = 'gs://repaido-github-build-source'
+REQUIRED_SERVICES = (
+    'iam.googleapis.com', 'iamcredentials.googleapis.com', 'sts.googleapis.com',
+    'cloudbuild.googleapis.com', 'secretmanager.googleapis.com',
+    'run.googleapis.com', 'storage.googleapis.com',
+)
 PROVIDER_CONDITION = (
     "assertion.repository_id == '1404280702' && "
     "assertion.repository_owner_id == '332603370' && "
@@ -55,15 +60,37 @@ def matches_legacy_trigger(trigger):
             and trigger.get('filename') in ('cloudbuild.yaml', 'cloudbuild-api.yaml', 'cloudbuild-web.yaml', 'cloudbuild-rules.yaml'))
 
 
+def check_billing():
+    # billingEnabled is true only for a project linked to an open billing
+    # account. Read the project link without requiring account-wide admin access.
+    billing = gcloud('billing', 'projects', 'describe', PROJECT)
+    if billing.get('billingEnabled') is not True or not billing.get('billingAccountName'):
+        raise ValueError(
+            'Billing is not active for project repaido. Setup stopped before changing cloud resources.\n'
+            'Open https://console.cloud.google.com/billing?project=repaido to resolve the billing account status.\n'
+            'Check the current link: gcloud billing projects describe repaido\n'
+            'List available open accounts: gcloud billing accounts list --filter="open=true"\n'
+            'Reactivate the linked account or choose an active billing account for this project.\n'
+            'Run setup again after the project reports billingEnabled: true. No new Google token is needed.'
+        )
+
+
+def enable_missing_services():
+    enabled = gcloud('services', 'list', '--enabled')
+    names = {service.get('config', {}).get('name') for service in enabled}
+    missing = [name for name in REQUIRED_SERVICES if name not in names]
+    if missing:
+        gcloud('services', 'enable', *missing)
+
+
 def setup(replace_token=False):
     info = gcloud('projects', 'describe', PROJECT)
     if str(info['projectNumber']) != PROJECT_NUMBER:
         raise ValueError('The project number does not match the reviewed Repaido project.')
+    check_billing()
     # Reuse the existing, provisioned build identity and runtime permissions.
     gcloud('iam', 'service-accounts', 'describe', BUILD_ACCOUNT)
-    gcloud('services', 'enable', 'iam.googleapis.com', 'iamcredentials.googleapis.com',
-           'sts.googleapis.com', 'cloudbuild.googleapis.com', 'secretmanager.googleapis.com',
-           'run.googleapis.com', 'storage.googleapis.com')
+    enable_missing_services()
     if absent('iam', 'service-accounts', 'describe', ACCOUNT):
         gcloud('iam', 'service-accounts', 'create', 'github-production', '--display-name=GitHub production release')
     if absent('iam', 'workload-identity-pools', 'describe', POOL, '--location=global'):
@@ -137,4 +164,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--replace-cpanel-token', action='store_true')
     args = parser.parse_args()
-    setup(args.replace_cpanel_token)
+    try:
+        setup(args.replace_cpanel_token)
+    except (OSError, RuntimeError, ValueError) as error:
+        parser.exit(1, 'Setup stopped: ' + str(error) + '\n')

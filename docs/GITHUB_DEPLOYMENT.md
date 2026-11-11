@@ -23,7 +23,8 @@ git clone --depth 1 --branch main https://github.com/miku0027-ops/repaido.git "$
 python3 "$REPAIDO_SETUP_DIR/scripts/bootstrap-github-production.py"
 ```
 
-The script confirms project `repaido` / `133610574058`, creates the dedicated
+The script confirms project `repaido` / `133610574058` and active project billing
+before making changes. It enables only missing APIs, creates the dedicated
 GitHub identity and OIDC provider, grants scoped permissions to submit builds and
 read serving revisions, and creates a private build-source bucket. It reuses the
 existing build account and its existing runtime permissions. It disables matching
@@ -45,6 +46,41 @@ through candidate checks for outage recovery** for this first manual run.
 The GitHub `production` environment is used by the workflow. Any existing GitHub
 review/branch protection rules remain in effect. Repository contents cannot
 configure Google IAM by themselves; setup must succeed before deployment works.
+
+## Billing blocks setup
+
+`UREQ_PROJECT_BILLING_NOT_OPEN` means Google has blocked the project because its
+linked billing account is not open. A new access token will not resolve this.
+Open [project billing](https://console.cloud.google.com/billing?project=repaido)
+and resolve the account status, payment issue, or trial/paid-account activation
+shown there. An account administrator may be needed.
+
+These commands only read the current link and accounts you can access:
+
+```bash
+gcloud billing projects describe repaido
+gcloud billing accounts list --filter="open=true"
+```
+
+If you choose a different active account to pay for this project, replace
+`YOUR_BILLING_ACCOUNT_ID` below with that account's ID:
+
+```bash
+gcloud billing projects link repaido --billing-account=YOUR_BILLING_ACCOUNT_ID
+gcloud billing projects describe repaido
+```
+
+Once `billingEnabled: true` is reported, update your setup checkout and retry:
+
+```bash
+git -C "$REPAIDO_SETUP_DIR" pull --ff-only origin main
+python3 "$REPAIDO_SETUP_DIR/scripts/bootstrap-github-production.py"
+```
+
+If the temporary checkout was removed or you opened a new Cloud Shell session,
+use the fresh-checkout commands in One-time setup. The script never selects a
+billing account or changes billing links automatically. Suspended billing can
+also interrupt the running APIs; verify their health after billing is restored.
 
 ## What a release checks
 

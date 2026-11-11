@@ -25,6 +25,42 @@ publisher = load('publish-cpanel-release')
 bootstrap = load('bootstrap-github-production')
 
 
+class BootstrapBillingTests(unittest.TestCase):
+    def test_inactive_or_unknown_billing_stops_before_any_mutation(self):
+        for billing in ({}, {'billingEnabled': False, 'billingAccountName': 'billingAccounts/closed'},
+                        {'billingEnabled': True}, {'billingEnabled': 'true', 'billingAccountName': 'billingAccounts/test'}):
+            with self.subTest(billing=billing), patch.object(bootstrap, 'gcloud', side_effect=[
+                {'projectNumber': bootstrap.PROJECT_NUMBER}, billing,
+            ]) as cloud:
+                with self.assertRaisesRegex(ValueError, 'Billing is not active'):
+                    bootstrap.setup()
+                self.assertEqual(cloud.call_args_list, [
+                    unittest.mock.call('projects', 'describe', 'repaido'),
+                    unittest.mock.call('billing', 'projects', 'describe', 'repaido'),
+                ])
+
+    def test_active_project_billing_does_not_require_account_admin_permissions(self):
+        with patch.object(bootstrap, 'gcloud', return_value={
+            'billingEnabled': True, 'billingAccountName': 'billingAccounts/active',
+        }) as cloud:
+            bootstrap.check_billing()
+            cloud.assert_called_once_with('billing', 'projects', 'describe', 'repaido')
+
+    def test_enabled_services_are_not_reactivated(self):
+        enabled = [{'config': {'name': name}} for name in bootstrap.REQUIRED_SERVICES]
+        with patch.object(bootstrap, 'gcloud', return_value=enabled) as cloud:
+            bootstrap.enable_missing_services()
+            cloud.assert_called_once_with('services', 'list', '--enabled')
+
+    def test_only_missing_services_are_enabled(self):
+        enabled = [{'config': {'name': name}} for name in bootstrap.REQUIRED_SERVICES
+                   if name != 'secretmanager.googleapis.com']
+        with patch.object(bootstrap, 'gcloud', side_effect=[enabled, None]) as cloud:
+            bootstrap.enable_missing_services()
+            self.assertEqual(cloud.call_args_list[-1],
+                             unittest.mock.call('services', 'enable', 'secretmanager.googleapis.com'))
+
+
 class ReleaseBoundaryTests(unittest.TestCase):
     def test_only_main_from_the_expected_repository_can_deploy(self):
         valid = dict(GITHUB_REPOSITORY_ID='1404280702', GITHUB_REPOSITORY_OWNER_ID='332603370',
